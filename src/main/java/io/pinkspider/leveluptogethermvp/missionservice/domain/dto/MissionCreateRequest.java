@@ -1,7 +1,10 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -38,4 +41,19 @@ public class MissionCreateRequest {
     private LocalDateTime startDate;
 
     private LocalDateTime endDate;
+
+    @Builder.Default
+    private MissionInterval missionInterval = MissionInterval.DAILY;
+
+    @Min(value = 1, message = "미션 기간은 최소 1일 이상이어야 합니다.")
+    @Max(value = 365, message = "미션 기간은 최대 365일까지 가능합니다.")
+    private Integer durationDays;
+
+    @Min(value = 1, message = "경험치는 최소 1 이상이어야 합니다.")
+    @Builder.Default
+    private Integer expPerCompletion = 10;
+
+    @Min(value = 0, message = "보너스 경험치는 0 이상이어야 합니다.")
+    @Builder.Default
+    private Integer bonusExpOnFullCompletion = 50;
 }

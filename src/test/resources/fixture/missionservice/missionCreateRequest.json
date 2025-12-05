@@ -1,0 +1,10 @@
+{
+  "title": "30일 운동 챌린지",
+  "description": "매일 30분 이상 운동하기",
+  "visibility": "PUBLIC",
+  "type": "PERSONAL",
+  "guild_id": null,
+  "max_participants": 50,
+  "start_date": "2025-01-01 00:00:00",
+  "end_date": "2025-01-31 23:59:59"
+}

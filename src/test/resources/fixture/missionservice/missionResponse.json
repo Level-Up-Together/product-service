@@ -1,0 +1,20 @@
+{
+  "id": 1,
+  "title": "30일 운동 챌린지",
+  "description": "매일 30분 이상 운동하기",
+  "status": "DRAFT",
+  "visibility": "PUBLIC",
+  "type": "PERSONAL",
+  "creator_id": "test-user-123",
+  "guild_id": null,
+  "max_participants": 50,
+  "current_participants": 0,
+  "start_date": "2025-01-01 00:00:00",
+  "end_date": "2025-01-31 23:59:59",
+  "mission_interval": "DAILY",
+  "duration_days": 30,
+  "exp_per_completion": 10,
+  "bonus_exp_on_full_completion": 50,
+  "created_at": "2024-12-05 10:00:00",
+  "modified_at": "2024-12-05 10:00:00"
+}

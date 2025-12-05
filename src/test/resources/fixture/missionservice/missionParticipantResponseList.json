@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "mission_id": 1,
+    "mission_title": "30일 운동 챌린지",
+    "user_id": "user-001",
+    "status": "IN_PROGRESS",
+    "progress": 50,
+    "note": null,
+    "joined_at": "2024-12-06 10:00:00",
+    "completed_at": null,
+    "created_at": "2024-12-06 10:00:00"
+  },
+  {
+    "id": 2,
+    "mission_id": 1,
+    "mission_title": "30일 운동 챌린지",
+    "user_id": "user-002",
+    "status": "COMPLETED",
+    "progress": 100,
+    "note": "완료했습니다!",
+    "joined_at": "2024-12-07 09:00:00",
+    "completed_at": "2024-12-31 18:00:00",
+    "created_at": "2024-12-07 09:00:00"
+  }
+]

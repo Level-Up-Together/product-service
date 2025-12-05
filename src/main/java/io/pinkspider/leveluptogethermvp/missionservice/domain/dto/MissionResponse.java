@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -36,6 +37,11 @@ public class MissionResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endDate;
 
+    private MissionInterval missionInterval;
+    private Integer durationDays;
+    private Integer expPerCompletion;
+    private Integer bonusExpOnFullCompletion;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -55,6 +61,10 @@ public class MissionResponse {
             .maxParticipants(mission.getMaxParticipants())
             .startDate(mission.getStartDate())
             .endDate(mission.getEndDate())
+            .missionInterval(mission.getMissionInterval())
+            .durationDays(mission.getDurationDays())
+            .expPerCompletion(mission.getExpPerCompletion())
+            .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
             .createdAt(mission.getCreatedAt())
             .modifiedAt(mission.getModifiedAt())
             .build();

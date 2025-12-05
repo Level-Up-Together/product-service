@@ -1,0 +1,49 @@
+package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
+
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface MissionExecutionRepository extends JpaRepository<MissionExecution, Long> {
+
+    Optional<MissionExecution> findByParticipantIdAndExecutionDate(Long participantId, LocalDate executionDate);
+
+    List<MissionExecution> findByParticipantId(Long participantId);
+
+    List<MissionExecution> findByParticipantIdAndStatus(Long participantId, ExecutionStatus status);
+
+    @Query("SELECT me FROM MissionExecution me WHERE me.participant.id = :participantId " +
+           "AND me.executionDate BETWEEN :startDate AND :endDate ORDER BY me.executionDate")
+    List<MissionExecution> findByParticipantIdAndDateRange(
+        @Param("participantId") Long participantId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    List<MissionExecution> findByParticipantIdAndExecutionDateBetween(
+        Long participantId, LocalDate startDate, LocalDate endDate);
+
+    @Query("SELECT COUNT(me) FROM MissionExecution me WHERE me.participant.id = :participantId AND me.status = :status")
+    long countByParticipantIdAndStatus(@Param("participantId") Long participantId, @Param("status") ExecutionStatus status);
+
+    @Modifying
+    @Query("UPDATE MissionExecution me SET me.status = 'MISSED' " +
+           "WHERE me.status = 'PENDING' AND me.executionDate < :date")
+    int markMissedExecutions(@Param("date") LocalDate date);
+
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "WHERE p.userId = :userId AND me.executionDate = :date")
+    List<MissionExecution> findByUserIdAndExecutionDate(
+        @Param("userId") String userId,
+        @Param("date") LocalDate date
+    );
+}
