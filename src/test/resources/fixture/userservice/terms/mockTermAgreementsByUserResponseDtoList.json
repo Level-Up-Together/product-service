@@ -1,0 +1,11 @@
+[
+  {
+    "term_id": "term_id",
+    "term_title": "term_title",
+    "is_required":  true,
+    "latest_version_id": "latest_version_id",
+    "version":  "version",
+    "is_agreed": true,
+    "agreed_at":  "agreed_at"
+  }
+]

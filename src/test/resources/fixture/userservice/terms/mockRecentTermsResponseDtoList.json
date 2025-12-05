@@ -1,0 +1,35 @@
+[
+  {
+    "type": "개인정보보호",
+    "content": "제1조(목적) 본 약관은 최신 개인정보 처리 방침을 포함합니다.",
+    "version": "2.0",
+    "version_id": "2",
+    "code": "PRIVACY",
+    "created_at": null,
+    "is_required": true,
+    "term_id": "1",
+    "term_title": "개인정보처리방침"
+  },
+  {
+    "type": "제3자제공",
+    "content": "귀하의 정보는 제3자에게 제공될 수 있습니다.",
+    "version": "1.0",
+    "version_id": "3",
+    "code": "THIRD_PARTY",
+    "created_at": null,
+    "is_required": false,
+    "term_id": "2",
+    "term_title": "제3자 정보제공 동의"
+  },
+  {
+    "type": "서비스이용",
+    "content": "업데이트된 서비스 이용약관입니다.",
+    "version": "2.0",
+    "version_id": "5",
+    "code": "SERVICE",
+    "created_at": null,
+    "is_required": true,
+    "term_id": "3",
+    "term_title": "서비스 이용약관"
+  }
+]

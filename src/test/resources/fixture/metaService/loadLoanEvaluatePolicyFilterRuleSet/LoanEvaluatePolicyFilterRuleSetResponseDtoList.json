@@ -1,0 +1,16 @@
+[
+  {
+    "cb_type": "",
+    "id": 1,
+    "is_success": 0,
+    "created_at": "2022-08-18T17:11:05",
+    "modified_at": null,
+    "criteria_code": "D-1",
+    "cb_code": "B12000200",
+    "context": "1",
+    "filter_type": "pre_filter",
+    "max_value": "999",
+    "min_value": "1",
+    "description": "(신용관리대상\/공공정보)미해제등록총건수"
+  }
+]

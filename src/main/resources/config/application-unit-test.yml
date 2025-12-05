@@ -1,0 +1,39 @@
+server:
+  port: 61234
+
+eureka:
+  client:
+    enabled: false
+
+entity:
+  catalog: USER_DB
+
+spring:
+  application:
+    name: backend-global
+  cloud:
+    config:
+      enabled: false
+  data:
+    mongodb:
+      host: ${dev-server-ip}
+      user: "moneymovemsa"
+      password: "ajslanqm"
+      port: 27017
+      database: logger_service
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:unit;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS USER_DB;
+  jpa:
+    properties:
+      hibernate:
+        default_schema: USER_DB
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+
+kms-secret: "{cipher}be46ba96c212c5637586ccb268c4023cc6f01da24d4d257c2166f7db9487c734b1073b4d307363c5206f2a87af3f0c7f9dccff3292bea0e5b3c2745a9629a538"
+
+encrypt:
+  key: key-brian

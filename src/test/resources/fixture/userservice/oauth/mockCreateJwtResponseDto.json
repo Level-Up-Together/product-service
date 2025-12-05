@@ -1,0 +1,9 @@
+{
+  "access_token": "accessToken",
+  "refresh_token": "refreshToken",
+  "token_type":  "tokenType",
+  "expired_time": "expiredTime",
+  "expires_in":  1234,
+  "user_id": "userId",
+  "device_id":  "deviceId"
+}

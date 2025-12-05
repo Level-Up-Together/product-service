@@ -1,0 +1,10 @@
+{
+  "refresh_token_remaining": 123456,
+  "access_token_valid": true,
+  "login_time": 123456,
+  "access_token_remaining": 123456,
+  "can_renew_refresh_token": true,
+  "last_refresh_time": "last_refresh_time",
+  "should_renew_refresh_token": true,
+  "refresh_token_valid": true
+}
