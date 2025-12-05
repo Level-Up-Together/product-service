@@ -1,0 +1,17 @@
+{
+  "session_list": [
+    {
+      "device_type": "device_type",
+      "refresh_token_remaining": 1234578,
+      "access_token_valid": true,
+      "login_time": "login_time",
+      "access_token_remaining": 1234567,
+      "should_renew": true,
+      "access_token": "access_token",
+      "device_id": "device_id",
+      "refresh_token_valid": true,
+      "member_id": "member_id",
+      "refresh_token": "refresh_token"
+    }
+  ]
+}

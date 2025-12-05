@@ -1,0 +1,277 @@
+buildscript {
+    ext {
+        restdocsApiSpecVersion = '0.17.1' // restdocsApiSpecVersion 버전 변수 설정
+        queryDslVersion = '5.0.0'
+    }
+    dependencies {
+        classpath 'com.netflix.graphql.dgs.codegen:graphql-dgs-codegen-gradle:6.1.4'
+        classpath 'au.com.dius.pact.provider:gradle:4.6.5'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.5'
+    id 'io.spring.dependency-management' version '1.1.7'
+
+    // swagger json
+    id 'com.epages.restdocs-api-spec' version "${restdocsApiSpecVersion}"
+    id 'org.hidetake.swagger.generator' version '2.18.2'
+
+    // Netflix DGS
+    id "com.netflix.dgs.codegen" version "6.1.4"
+}
+group = 'io.pinkspider'
+version = '0.0.1-SNAPSHOT'
+description = 'level-up-together-mvp'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudVersion', "2024.0.0")
+    set('kotlin.version', '1.9.20')
+}
+
+bootJar {
+    archiveBaseName = getRootProject().name
+    archiveFileName = getRootProject().name + '-' + version + '-exec.jar'
+}
+
+jar { enabled = false }
+
+dependencies {
+    // Backend-core 시작
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-ribbon:2.2.10.RELEASE'
+
+    implementation(platform('com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:8.0.0'))
+    implementation "com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter"
+    implementation "com.netflix.graphql.dgs:graphql-dgs-extended-scalars"
+
+    implementation 'com.github.mwiede:jsch:0.2.17'
+
+    implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+    annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation "io.github.openfeign:feign-httpclient"
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'io.micrometer:micrometer-core'
+    implementation 'io.github.openfeign:feign-micrometer'
+    implementation 'io.micrometer:micrometer-observation'
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    implementation 'io.zipkin.reporter2:zipkin-reporter-brave'
+
+    implementation 'org.modelmapper:modelmapper:3.2.0'
+    implementation 'com.fasterxml.jackson.module:jackson-module-mrbean:2.17.1'
+
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
+    implementation 'io.github.resilience4j:resilience4j-reactor'
+
+    implementation 'io.projectreactor:reactor-core:3.4.19'
+
+    implementation 'org.apache.commons:commons-lang3:3.13.0'
+
+    implementation 'com.google.code.gson:gson'
+    implementation 'com.google.guava:guava:32.0.1-jre'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+    implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.3'
+
+    implementation 'com.slack.api:slack-api-client:1.39.0'
+    implementation 'com.nimbusds:nimbus-jose-jwt:9.31'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+
+    runtimeOnly 'com.h2database:h2'
+    testRuntimeOnly 'com.h2database:h2'
+
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock:4.0.3'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+    testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-stub-runner'
+    testImplementation "com.epages:restdocs-api-spec-mockmvc:${restdocsApiSpecVersion}"
+    testImplementation "com.netflix.graphql.dgs:graphql-dgs-client:8.2.5"
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation group: 'io.jsonwebtoken', name: 'jjwt-api', version: '0.12.3'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.12.3'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-jackson', version: '0.12.3'
+    testImplementation 'org.springframework.security:spring-security-test'
+
+    // auth service
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+    // pact
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.6.5'
+    testImplementation 'au.com.dius.pact.provider:junit5:4.6.5'
+}
+
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        mavenBom "com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:8.0.0"
+    }
+}
+
+openapi3 {
+    def serverIp = System.getenv('LUT_IP') ?: 'localhost'
+    def serverPort = System.getenv('USER_SERVICE_PORT') ?: '18080'
+    server = "http://${serverIp}:${serverPort}"
+    title = getRootProject().name + " API 문서"
+    description = getRootProject().name + "API 문서 입니다. 작성된 테스트 코드 기반으로 생성됩니다. 삭제와 생성이 자동화 되었습니다."
+    version = getVersion()
+    outputDirectory = "build/resources/main/restdocs"
+    outputFileNamePrefix = getRootProject().name + "-api"
+    format = 'json'
+}
+
+clean {
+    project.delete(
+            files("src/main/resources/restdocs/" + getRootProject().name + "-api.json"),
+            files("src/main/resources/restdocs/" + getRootProject().name + "-api-sorted.json")
+    )
+}
+
+tasks.named('test') {
+    systemProperty 'file.encoding', 'UTF-8'
+
+    useJUnitPlatform {
+        exclude("io/pinkspider/global/**/*.class")
+        excludeTags 'excluded'
+    }
+}
+
+tasks.named('test').configure {
+    finalizedBy(sortOpenApiJson)
+}
+
+// Swagger JSON 정렬 작업
+tasks.register('sortOpenApiJson') {
+    def openApiFile = file("build/resources/main/restdocs/${rootProject.name}-api.json")
+    def sortedFile = file("build/resources/main/restdocs/${rootProject.name}-api-sorted.json")
+
+    doLast {
+        if (openApiFile.exists()) {
+            println "Sorting OpenAPI JSON file: $openApiFile"
+
+            // UTF-8로 파일 읽기
+            def jsonText = openApiFile.getText('UTF-8')
+            def json = new groovy.json.JsonSlurper().parseText(jsonText)
+
+            // `description` 필드의 앞부분 숫자 기준으로 정렬
+            def sortedPaths = new LinkedHashMap()
+            json.paths.entrySet().sort { a, b ->
+                def descA = a.value?.post?.description ?: a.value?.get?.description ?: ""
+                def descB = b.value?.post?.description ?: b.value?.get?.description ?: ""
+
+                // 정규식으로 숫자 추출
+                def matchA = (descA =~ /^\d+/)
+                def matchB = (descB =~ /^\d+/)
+
+                // 숫자를 추출하고 없으면 Integer.MAX_VALUE로 설정
+                def numA = matchA.find() ? matchA[0].toInteger() : Integer.MAX_VALUE
+                def numB = matchB.find() ? matchB[0].toInteger() : Integer.MAX_VALUE
+
+                // 숫자를 기준으로 정렬
+                numA <=> numB
+            }.each { entry ->
+                sortedPaths.put(entry.key, entry.value)
+            }
+
+            // 정렬된 paths를 JSON에 다시 할당
+            json.paths = sortedPaths
+
+            // Unicode escaping 비활성화하여 UTF-8로 저장
+            def generator = new groovy.json.JsonGenerator.Options()
+                    .disableUnicodeEscaping() // Unicode escaping 비활성화
+                    .build()
+
+            sortedFile.withWriter('UTF-8') { writer ->
+                writer.write(generator.toJson(json))
+            }
+            println "Sorted file saved to: $sortedFile"
+        } else {
+            println "OpenAPI JSON file not found: $openApiFile"
+        }
+    }
+
+    dependsOn('openapi3')
+}
+
+tasks.register('copySortedOpenApiJson') {
+    doFirst {
+        project.file('src/main/resources/restdocs').mkdirs()
+    }
+    doLast {
+        copy {
+            from "build/resources/main/restdocs/" + getRootProject().name + "-api-sorted.json"
+            into "src/main/resources/restdocs"
+        }
+        def sortedFile = file("src/main/resources/restdocs/${rootProject.name}-api-sorted.json")
+        def targetFile = file("src/main/resources/restdocs/${rootProject.name}-api.json")
+        sortedFile.renameTo(targetFile)
+    }
+}
+
+sortOpenApiJson.finalizedBy(copySortedOpenApiJson)
+
+// Quertdsl 설정부
+def querydslDir = 'src/main/generated/querydsl'
+
+// java source set에 querydsl QClass 위치 추가
+sourceSets {
+    main.java.srcDirs += [querydslDir]
+}
+
+// querydsl QClass 파일 생성 위치 지정
+tasks.withType(JavaCompile).configureEach {
+    options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+}
+
+clean.doLast {
+    file(querydslDir).deleteDir()
+}
+
+// Netflix DGS
+apply plugin: 'com.netflix.dgs.codegen'
+generateJava {
+    schemaPaths = ["${projectDir}/src/main/resources/schema"]
+    packageName = 'io.pinkspider'
+    generateClient = true
+}

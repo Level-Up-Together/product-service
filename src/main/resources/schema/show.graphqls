@@ -1,0 +1,19 @@
+extend type QueryResolver {
+    shows(titleFilter: String): [Show]
+}
+
+extend type MutationResolver {
+    addShow(show: InputShow): [Show]
+}
+
+input InputShow {
+    id: Int
+    title: String
+    releaseYear: Int
+}
+
+type Show {
+    id: Int
+    title: String
+    releaseYear: Int
+}

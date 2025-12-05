@@ -1,0 +1,88 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. SSH 호스트 키 추가
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+      # 2. 리포지토리 체크아웃 (서브모듈 포함)
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          ssh-key: ${{ secrets.PRIVATE_KEY_FOR_SUBMODULE }}
+          fetch-depth: 0
+
+      # 3. 서브모듈 최신화
+      - name: Update submodules to the latest
+        run: |
+          git submodule update --init --recursive
+          git submodule foreach git pull origin $(git rev-parse --abbrev-ref HEAD)
+
+      # 4. JDK 설정
+      - name: Set up JDK 23
+        uses: actions/setup-java@v3
+        with:
+          java-version: '23'
+          distribution: 'temurin'
+
+      # 5. Gradle 빌드
+      - name: Build with Gradle
+        run: ./gradlew clean build -x test
+
+      # 6. 서버로 파일 전송
+      - name: Deploy to Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
+          DEPLOY_SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
+        run: |
+          echo "DEPLOY_SERVER_IP: $DEPLOY_SERVER_IP"
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github_action
+          chmod 600 ~/.ssh/github_action
+          ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts
+          
+          # 빌드 파일 전송
+          scp -i ~/.ssh/github_action build/libs/*.jar $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/backend/
+          
+          # swagger rest doc json
+          scp -i ~/.ssh/github_action build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
+
+      # 7. 서버에서 애플리케이션 실행
+      - name: Start Application
+        env:
+          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
+          SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
+          REPOSITORY_NAME: ${{ github.repository }}
+        run: |
+          PROJECT_NAME=$(echo $REPOSITORY_NAME | cut -d'/' -f2)
+          ssh -i ~/.ssh/github_action $SERVER_USER@$DEPLOY_SERVER_IP << EOF
+          cd /home/$SERVER_USER/levelUpTogether/backend
+          chmod 700 /home/$SERVER_USER/levelUpTogether/backend/${PROJECT_NAME}*-exec.jar
+          sh /home/$SERVER_USER/levelUpTogether/bin/deploy.sh $PROJECT_NAME dev /home/$SERVER_USER 512m
+          sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart ${PROJECT}-api.json
+          EOF
+
+      - name: action-slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          author_name: Level Up Together Backend - dev
+          fields: repo,commit,message,author # action,eventName,ref,workflow,job,took 추가할 수 있음
+          mention: here
+          if_mention: failure,cancelled
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.DEV_SLACK_WEBHOOK_URL }} # required
+        if: always() # Pick up events even if the job fails or is canceled.

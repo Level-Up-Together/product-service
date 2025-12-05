@@ -1,0 +1,241 @@
+server:
+  port: 18080
+
+eureka:
+  client:
+    enabled: false
+
+encrypt:
+  key: key-brian
+
+spring:
+  application:
+    name: level-up-together-mvp
+  cloud:
+    config:
+      enabled: false
+
+# Test용 H2 database
+#  sql:
+#    init:
+#      mode: always
+#      schema-locations: classpath:sql/schema.sql
+#      data-locations: classpath:sql/data.sql
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  datasource:
+    user:
+      jdbc-url: jdbc:h2:mem:user_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS user_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    mission:
+      jdbc-url: jdbc:h2:mem:mission_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS mission_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    guild:
+      jdbc-url: jdbc:h2:mem:guild_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS guild_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    meta:
+      jdbc-url: jdbc:h2:mem:meta_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS meta_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+  jpa:
+    database: h2
+    generate-ddl: true
+    hibernate:
+      ddl-auto: create-drop
+      naming:
+        physical-strategy: io.pinkspider.global.handler.CustomMySpringPhysicalNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        show_sql: true
+        use_sql_comments: true
+        default_catalog: user_db
+        # default_catalog는 제거 (H2에서는 불필요)
+    defer-datasource-initialization: true
+  security:
+    oauth2:
+      client:
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+          apple:
+            authorization-uri: https://appleid.apple.com/auth/authorize
+            token-uri: https://appleid.apple.com/auth/token
+            user-info-uri: https://appleid.apple.com/auth/userinfo
+            user-name-attribute: sub
+        registration:
+          google:
+            client-id: "{cipher}b983703804cfb67bba9d6a830ca1b77da2892915a73d57ff8a8522bfc62d82ccfd2534b84f0f8a9aa449452d7e134249c4c6c3ea83129c1cf6aaa076f1de1831371a86c7da3dacacd250be7f915fdaaabb2db9be9a3b031914959e88ae975301"
+            client-secret: "{cipher}2e06d73fa3920fb313a6f0f5fb1812e88fc93078d9c2404fb20b9419eb8b421c53e48706b0391808907e8670b4cd845bbd363ce105a01d58f46b81c8e3655137"
+            scope: profile,email
+            redirect-uri: ${app.redirect-url}/oauth/callback/google
+          kakao:
+            client-id: "{cipher}6f4691eb2511483979905c9f2de292e0f013f31f6acd6ad08cb6e9fdcfaec42b8b0cf979d2ae1381dc6fcebea40f1c7397e2a409f14d96d3c01293ce17bf1dc0"
+            client-secret: "{cipher}79af218836f2b7ad87f82db626cf5d8f625719473a9b7d9b7e86c43b7d93ceb775a3f4e59fa412a0e016fee4b3871130091674b50feab33efc88ddb11ce13e44"
+            scope: profile_image, profile_nickname, account_email
+            redirect-uri: ${app.redirect-url}/oauth/callback/kakao
+            client-authentication-method: POST
+            authorization-grant-type: authorization_code
+            client-name: Kakao
+          apple:
+            client-id: "{cipher}997e7afbbdb379733a6ed1d726c0fc4b1f94b22061bd24dec9bc068b9782b39177b50e37ae7dd902b38803c7c0cf68fe" # service id 등록 시에 입력했던 Identifier를 적어주면 됩니다.
+            client-name: Apple
+            authorization-grant-type: authorization_code
+            scope: name, email
+            redirect-uri: ${app.redirect-url}/oauth/callback/apple
+  data:
+    redis:
+      host: ${app.dev-db-server-ip}
+      port: 6379
+      password: levelup!@#
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 10
+          min-idle: 2
+    mongodb:
+      host: ${dev-db-server-ip}
+      user: "moneymovemsa"
+      password: "ajslanqm"
+      port: 27017
+      database: logger_service
+  kafka:
+    bootstrap-servers: 121.136.108.44:9092 # ${spring.embedded.kafka.brokers} #
+    logger:
+      topic: loggerTopic
+      group-id: loggerGroup
+      auto-offset-reset: earliest
+    http-logger:
+      topic: httpLoggerTopic
+      group-id: httpLoggerGroup
+      auto-offset-reset: earliest
+    alim-talk:
+      topic: alimTalkTopic
+      group-id: alimTalkGroup
+      auto-offset-reset: earliest
+    app-push:
+      topic: appPushTopic
+      group-id: appPushGroup
+      auto-offset-reset: earliest
+    email:
+      topic: emailTopic
+      group-id: emailGroup
+      auto-offset-reset: earliest
+    user-communication:
+      topic: userCommunicationTopic
+      group-id: userCommunicationGroup
+      auto-offset-reset: earliest
+
+logging:
+  config: classpath:slf4j/logback-local.xml
+  level:
+    org.apache: OFF
+    kafka: OFF
+
+feign:
+  httpclient:
+    enabled: true
+
+
+# actuator 설정
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      base-path: "/showmethemoney"
+      exposure:
+        include: "*"
+
+# rest doc + swagger ui 설정
+springdoc:
+  default-consumes-media-type: application/json;charset=UTF-8
+  default-produces-media-type: application/json;charset=UTF-8
+  swagger-ui:
+    swagger-ui: /docs/user-service-api.json
+    path: /docs/swagger
+api-doc-meta-info:
+  title: User Service Api Doc
+  version: 1.0
+  description: User Service
+  tags: Operations
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 10
+        wait-duration-in-open-state: 10000
+        failure-rate-threshold: 10
+        event-consumer-buffer-size: 10
+        register-health-indicator: true
+      sample:
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 10
+        wait-duration-in-open-state: 10000
+        failure-rate-threshold: 10
+        event-consumer-buffer-size: 10
+        register-health-indicator: true
+    instance:
+      admin-service:
+        base-config: default
+        minimum-number-of-calls: 1
+        wait-duration-in-open-state: 5000
+      loan-service:
+        base-config: default
+        minimum-number-of-calls: 1
+        wait-duration-in-open-state: 5000
+      logger-service:
+        base-config: default
+        minimum-number-of-calls: 1
+        wait-duration-in-open-state: 5000
+
+app:
+  redirect-url: http://localhost:8001
+  threshold-password-fail: 5
+  oauth2:
+    google-token-url: "https://oauth2.googleapis.com"
+    kakao-token-url: "https://kauth.kakao.com/oauth/token"
+  jwt:
+    refresh:
+      renewal-threshold-days: 3 # 갱신 임계값
+      max-lifetime-days: 30 # 최대 수명 일
+    access-token-expiry: 3600000 # 1시간
+    refresh-token-expiry: 604800000 # 1week
+    secret: cGluayBzcGlkZXIgbGV2ZWwgdXAgdG9nZXRoZXIgbXNhIHVzZXIgc2VydmljZSBkZXYgYmFzZTY0IGp3dCBzZWNyZXQ=
+    master-token: "Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJndXVOSVNFVXhSZWY5SzBLSlN3UjZRPT0iLCJleHAiOjE3MTYyNzUwMTEsImlhdCI6MTcxNjI3MTQxMSwiaXNzIjoiL2xvZ2luIn0.C_7QDymi39qKvoRl2E1qo0HREOd-BqqcJ3LBEEWWq_XNWTqEHJyMc0cugoIVx12H"
+  meta-redis-key:
+    common-code: CommonCodeTest
+    crypto-meta-data: CryptoMetaDataTest
+  slack:
+    webhook:
+      url: https://hooks.slack.com/services/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
+  alarm:
+    exception:
+      slack:
+        enabled: true
+  ssh:
+    tunnel:
+      host: 121.136.108.44
+      port: 22
+      username: pinkspider
+      private-key-path: ~/.ssh/level_up_rsa
+      local-port: 5435
+      remote-host: localhost  # SSH 서버에서 본 DB 호스트
+      remote-port: 5432
+

@@ -1,0 +1,3 @@
+{
+  "auth_url": "https://kauth.kakao.com/oauth/authorize?client_id=f273874b67b3a35f20ed30613f44f509&redirect_uri=http://localhost:8001/oauth/callback/kakao&response_type=code&scope=profile_image profile_nickname account_email"
+}

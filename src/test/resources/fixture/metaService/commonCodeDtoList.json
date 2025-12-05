@@ -1,0 +1,1444 @@
+[
+  {
+    "id": "AG10",
+    "code_name": "agreement",
+    "code_title": "동의서 관리 (11 ~ 18)",
+    "description": "동의서 관리 (11 ~ 18)",
+    "parent_id": "M000"
+  },
+  {
+    "id": "AG11",
+    "code_name": "privacy_usage_agreement",
+    "code_title": "개인(신용)정보 조회 동의서",
+    "description": "개인(신용)정보 조회 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG12",
+    "code_name": "credit_usage_agreement",
+    "code_title": "개인(신용)정보 수집•이용 동의서",
+    "description": "개인(신용)정보 수집•이용 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG13",
+    "code_name": "3thparty_credit_usage_agreement",
+    "code_title": "개인(신용)정보 제3자 제공 동의서",
+    "description": "고유식별정보 수집•이용 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG14",
+    "code_name": "privacy_processing_agreement",
+    "code_title": "고유식별정보 조회 동의서",
+    "description": "고유식별정보 조회 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG15",
+    "code_name": "3_privacy_collection_agreement",
+    "code_title": "고유식별정보 수집•이용 동의서",
+    "description": "고유식별정보 수집•이용 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG16",
+    "code_name": "3privacy_collection_agreement",
+    "code_title": "고유식별정보 제3자 제공 동의서",
+    "description": "고유식별정보 제3자 제공 동의서",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG17",
+    "code_name": "service_agreement",
+    "code_title": "서비스약관(대출\/투자)",
+    "description": "서비스약관",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG18",
+    "code_name": "marketing_agreement",
+    "code_title": "마케팅 목적 개인(신용)정보 이용 동의서(선택)",
+    "description": "마케팅 목적 개인(신용)정보 이용 동의서(선택)",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG19",
+    "code_name": "investment_agreement",
+    "code_title": "투자동의서",
+    "description": "투자동의",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG20",
+    "code_name": "loan_agreement",
+    "code_title": "대출동의서_계약서(약정)",
+    "description": "대출동의",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AG21",
+    "code_name": "screen_scraping_agreement",
+    "code_title": "스크래핑동의",
+    "description": "스크래핑동의",
+    "parent_id": "AG10"
+  },
+  {
+    "id": "AT10",
+    "code_name": "corp_type",
+    "code_title": "법인 회원 타입",
+    "description": "법인 회원 타입",
+    "parent_id": "P000"
+  },
+  {
+    "id": "AT11",
+    "code_name": "self_employed",
+    "code_title": "개인사업자",
+    "description": "개인사업자",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "AT12",
+    "code_name": "corporation",
+    "code_title": "법인",
+    "description": "법인",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "AT13",
+    "code_name": "low_risk_non_profit",
+    "code_title": "저위험비영리법인",
+    "description": "저위험 비영리법인",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "AT14",
+    "code_name": "public_government",
+    "code_title": "공공및정부기관",
+    "description": "공공기관 정부기관",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "AT15",
+    "code_name": "high_risk_non_profit",
+    "code_title": "고위험비영리법인",
+    "description": "고위험 비영리법인",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "AT16",
+    "code_name": "financal_company",
+    "code_title": "금융기관",
+    "description": "금융기관",
+    "parent_id": "AT10"
+  },
+  {
+    "id": "BA10",
+    "code_name": "bank_account",
+    "code_title": "은행계좌  (11 ~ 72)",
+    "description": "은행계좌  (11 ~ 72)",
+    "parent_id": "M000"
+  },
+  {
+    "id": "BA11",
+    "code_name": "investor_account",
+    "code_title": "투자자 계좌 : 상환금지급, 투자금 환불 ",
+    "description": "투자자 계좌 : 상환금지급, 투자금 환불 ",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA12",
+    "code_name": "borrower_account",
+    "code_title": "대출자 계좌 : 대출금 지급계좌",
+    "description": "대출자 계좌 : 대출금 지급계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA13",
+    "code_name": "bank_account",
+    "code_title": "실계좌",
+    "description": "대출자, 투자자 실계좌 (투자자, 대출자 구분 되기 전) ",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA31",
+    "code_name": "fee_account",
+    "code_title": "온투업자 계좌 :수수료 관리 계좌",
+    "description": "온투업자 계좌 :수수료 관리 계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA41",
+    "code_name": "tax_account",
+    "code_title": "세금관리 계좌",
+    "description": "세금관리 계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA51",
+    "code_name": "collection_account",
+    "code_title": "추심관리 계좌",
+    "description": "추심관리 계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA61",
+    "code_name": "sale_account",
+    "code_title": "매각관리 계좌",
+    "description": "매각관리 계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "BA71",
+    "code_name": "recovery_account",
+    "code_title": "신용회복\/회생관리 계좌",
+    "description": "신용회복\/회생관리 계좌",
+    "parent_id": "BA10"
+  },
+  {
+    "id": "CN10",
+    "code_name": "certification_name",
+    "code_title": "인증 코드 이름 (11 ~ 19)",
+    "description": "인증 코드 이름 (11 ~ 19)",
+    "parent_id": "M000"
+  },
+  {
+    "id": "CN11",
+    "code_name": "mobile_identification",
+    "code_title": "핸드폰 본인확인",
+    "description": "핸드폰 본인확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN12",
+    "code_name": "accredited_cert_identification",
+    "code_title": "공인인증서를 통한 본인확인",
+    "description": "공인인증서를 통한 본인확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN13",
+    "code_name": "card_identification",
+    "code_title": "카드사를 통한 본인확인",
+    "description": "카드사를 통한 본인확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN14",
+    "code_name": "credit_company_identification",
+    "code_title": "신용평가사를 통한 본인확인",
+    "description": "신용평가사를 통한 본인확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN15",
+    "code_name": "face2face_verification",
+    "code_title": "대면 실명확인",
+    "description": "대면 실명확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN16",
+    "code_name": "ssn_card_verification",
+    "code_title": "주민등록증사본 이용 실명확인",
+    "description": "주민등록증사본 이용 실명확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN17",
+    "code_name": "driver_licence_verification",
+    "code_title": "운전면허증사본 이용 실명확인",
+    "description": "운전면허증사본 이용 실명확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN18",
+    "code_name": "passport_verification",
+    "code_title": "여권사본 이용 실명확인",
+    "description": "여권사본 이용 실명확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN19",
+    "code_name": "bank_account_verification",
+    "code_title": "기존계좌이체 이용 실명확인",
+    "description": "기존계좌이체 이용 실명확인",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN51",
+    "code_name": "finda_verification",
+    "code_title": "핀다인증",
+    "description": "핀다에서 인증",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN52",
+    "code_name": "banksalad_verification",
+    "code_title": "뱅크샐러드인증",
+    "description": "뱅크샐러드에서 인증",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CN53",
+    "code_name": "finnq_verification",
+    "code_title": "핀크인증",
+    "description": "핀크에서 인증",
+    "parent_id": "CN10"
+  },
+  {
+    "id": "CP10",
+    "code_name": "certification_purpose",
+    "code_title": "인증 사유 (11 ~ 31)",
+    "description": "인증 사유 (11 ~ 16)",
+    "parent_id": "M000"
+  },
+  {
+    "id": "CP11",
+    "code_name": "escrow_account_opening",
+    "code_title": "가상계좌개설",
+    "description": "가상계좌개설",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP12",
+    "code_name": "sign_up",
+    "code_title": "회원가입",
+    "description": "회원가입",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP13",
+    "code_name": "credit_inquiry",
+    "code_title": "신용조회",
+    "description": "신용조회",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP14",
+    "code_name": "loan_evaluation",
+    "code_title": "대출심사",
+    "description": "대출심사",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP15",
+    "code_name": "debt_collection",
+    "code_title": "추심",
+    "description": "추심",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP16",
+    "code_name": "credit_change_mgmt",
+    "code_title": "신용변동관리",
+    "description": "신용변동관리",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP17",
+    "code_name": "bond_purchase",
+    "code_title": "신규 채권구매",
+    "description": "신규 채권구매",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP18",
+    "code_name": "market_purchase",
+    "code_title": "마켓 채권구매",
+    "description": "마켓 채권구매",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP19",
+    "code_name": "marke_sell",
+    "code_title": "마켓 채권판매",
+    "description": "마켓 채권판매",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP20",
+    "code_name": "invest_cancel",
+    "code_title": "투자취소",
+    "description": "투자취소",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP21",
+    "code_name": "buying_cancel",
+    "code_title": "양수취소",
+    "description": "양수취소",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP22",
+    "code_name": "selling_cancel",
+    "code_title": "양도취소",
+    "description": "양도취소",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP23",
+    "code_name": "selling_contract",
+    "code_title": "양도최종승인",
+    "description": "양도최종승인",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP31",
+    "code_name": "my_info_update",
+    "code_title": "회원정보수정",
+    "description": "회원 자기정보 수정",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CP41",
+    "code_name": "loan_contract",
+    "code_title": "대출계약",
+    "description": "대출거래 약정",
+    "parent_id": "CP10"
+  },
+  {
+    "id": "CS10",
+    "code_name": "investor_credential_status",
+    "code_title": "투자자 자격 상태",
+    "description": "투자자 자격 상태",
+    "parent_id": "M000"
+  },
+  {
+    "id": "CS11",
+    "code_name": "gener",
+    "code_title": "개인일반투자자",
+    "description": "개인일반투자자",
+    "parent_id": "CS10"
+  },
+  {
+    "id": "CS12",
+    "code_name": "incom",
+    "code_title": "소득적격투자자",
+    "description": "소득적격투자자",
+    "parent_id": "CS10"
+  },
+  {
+    "id": "CS13",
+    "code_name": "prof",
+    "code_title": "개인전문투자자",
+    "description": "개인전문투자자",
+    "parent_id": "CS10"
+  },
+  {
+    "id": "CS14",
+    "code_name": "corp",
+    "code_title": "법인투자자",
+    "description": "법인투자자",
+    "parent_id": "CS10"
+  },
+  {
+    "id": "CS15",
+    "code_name": "insti",
+    "code_title": "법인여신 투자자",
+    "description": "법인여신 투자자",
+    "parent_id": "CS10"
+  },
+  {
+    "id": "CS20",
+    "code_name": "borrower_credential_status",
+    "code_title": "대출자 자격 상태",
+    "description": "대출자 자격 상태",
+    "parent_id": "M000"
+  },
+  {
+    "id": "CS21",
+    "code_name": "comm",
+    "code_title": "개인",
+    "description": "개인",
+    "parent_id": "CS20"
+  },
+  {
+    "id": "CS22",
+    "code_name": "sole_biz",
+    "code_title": "개인사업자",
+    "description": "개인사업자",
+    "parent_id": "CS20"
+  },
+  {
+    "id": "CS23",
+    "code_name": "corp",
+    "code_title": "법인",
+    "description": "법인",
+    "parent_id": "CS20"
+  },
+  {
+    "id": "DT10",
+    "code_name": "docu_type",
+    "code_title": "문서 종류",
+    "description": "회원등록 문서 종류",
+    "parent_id": "P000"
+  },
+  {
+    "id": "DT11",
+    "code_name": "ele_docu",
+    "code_title": "전자문서",
+    "description": "전자문서",
+    "parent_id": "DT10"
+  },
+  {
+    "id": "DT12",
+    "code_name": "gen_docu",
+    "code_title": "일반문서",
+    "description": "전자문서 외 문서",
+    "parent_id": "DT10"
+  },
+  {
+    "id": "DT20",
+    "code_name": "id_card",
+    "code_title": "신분증 종류",
+    "description": "신분증 종류",
+    "parent_id": "DT00"
+  },
+  {
+    "id": "DT21",
+    "code_name": "resident_card",
+    "code_title": "주민등록증",
+    "description": "주민등록증",
+    "parent_id": "DT20"
+  },
+  {
+    "id": "DT22",
+    "code_name": "driver_licence",
+    "code_title": "운전면허증",
+    "description": "운전면허증",
+    "parent_id": "DT20"
+  },
+  {
+    "id": "DT23",
+    "code_name": "passport",
+    "code_title": "여권",
+    "description": "여권",
+    "parent_id": "DT20"
+  },
+  {
+    "id": "DT30",
+    "code_name": "borrow_docu",
+    "code_title": "대출 서류",
+    "description": "대출 서류",
+    "parent_id": "DT00"
+  },
+  {
+    "id": "DT31",
+    "code_name": "hins_qualify",
+    "code_title": "건강보험자격득실서",
+    "description": "건강보험 자격득실서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT32",
+    "code_name": "hins_pay",
+    "code_title": "건강보험료납부확인서",
+    "description": "건강보험료 납부확인서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT33",
+    "code_name": "incom_amo",
+    "code_title": "소득금액증명원",
+    "description": "연소득금액 증명원",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT34",
+    "code_name": "nice_credit",
+    "code_title": "나이스신용조회",
+    "description": "나이스평가정보 개인신용정보",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT35",
+    "code_name": "hins_member",
+    "code_title": "건강보험공단자격확인",
+    "description": "건강보험공단 자격확인",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT51",
+    "code_name": "biz_reg_docu",
+    "code_title": "사업자등록증",
+    "description": "사업자등록증",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT52",
+    "code_name": "corp_seal_cert",
+    "code_title": "법인인감증명서",
+    "description": "법인 인감 증명서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT53",
+    "code_name": "corp_reg_cert",
+    "code_title": "법인등기부등본",
+    "description": "법인 등기부 등본",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT54",
+    "code_name": "corp_bankbook_docu",
+    "code_title": "법인계좌사본",
+    "description": "법인계좌 사본",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT55",
+    "code_name": "loan_biz_cert",
+    "code_title": "대부업증명서",
+    "description": "대부업 증명서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT56",
+    "code_name": "deputy_id_card",
+    "code_title": "대리인신분증",
+    "description": "대리인 신분증",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT57",
+    "code_name": "rep_id_card",
+    "code_title": "대표자신분증사본",
+    "description": "대표자 신분증 사본",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT58",
+    "code_name": "deputy_emp_cert",
+    "code_title": "대리인재직증명서",
+    "description": "대리인 재직 증명서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT59",
+    "code_name": "shareholder_register",
+    "code_title": "주주명부",
+    "description": "주주 명부",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT60",
+    "code_name": "deputy_delegation",
+    "code_title": "투자위임장",
+    "description": "투자 위임장",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT61",
+    "code_name": "global_income_tax_return",
+    "code_title": "종합소득세신고서접수증",
+    "description": "종합소득세 신고서접수증",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT62",
+    "code_name": "final_income_tax_return",
+    "code_title": "종합소득과세표준확정신고서",
+    "description": "종합소득과세 표준확정신고서",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT63",
+    "code_name": "withholding_receipt",
+    "code_title": "근로소득원천징수영수증",
+    "description": "근로소득원천징수영수증",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "DT64",
+    "code_name": "pro_investor_license",
+    "code_title": "전문투자자확인증",
+    "description": "전문 투자자 확인증",
+    "parent_id": "DT30"
+  },
+  {
+    "id": "EM10",
+    "code_name": "employment_type",
+    "code_title": "고용형태",
+    "description": "고용형태",
+    "parent_id": "P000"
+  },
+  {
+    "id": "EM11",
+    "code_name": "full_time",
+    "code_title": "정규직",
+    "description": "정규직",
+    "parent_id": "EM10"
+  },
+  {
+    "id": "EM12",
+    "code_name": "contract",
+    "code_title": "계약직",
+    "description": "계약직",
+    "parent_id": "EM10"
+  },
+  {
+    "id": "EM13",
+    "code_name": "freelancer",
+    "code_title": "파견직",
+    "description": "파견직",
+    "parent_id": "EM10"
+  },
+  {
+    "id": "EM14",
+    "code_name": "intern",
+    "code_title": "기타",
+    "description": "기타",
+    "parent_id": "EM10"
+  },
+  {
+    "id": "ES10",
+    "code_name": "evaluate_status",
+    "code_title": "심사상태",
+    "description": "심사상태",
+    "parent_id": "P000"
+  },
+  {
+    "id": "ES11",
+    "code_name": "pass",
+    "code_title": "승인",
+    "description": "승인",
+    "parent_id": "ES10"
+  },
+  {
+    "id": "ES12",
+    "code_name": "fail",
+    "code_title": "거절",
+    "description": "거절",
+    "parent_id": "ES10"
+  },
+  {
+    "id": "ES13",
+    "code_name": "progressing",
+    "code_title": "심사중",
+    "description": "심사중",
+    "parent_id": "ES10"
+  },
+  {
+    "id": "LI11",
+    "code_name": "non-listed",
+    "code_title": "비상장",
+    "description": "비상장",
+    "parent_id": "LI10"
+  },
+  {
+    "id": "LI12",
+    "code_name": "kospi",
+    "code_title": "코스피",
+    "description": "코스피",
+    "parent_id": "LI10"
+  },
+  {
+    "id": "LI13",
+    "code_name": "kosdaq",
+    "code_title": "코스탁",
+    "description": "코스탁",
+    "parent_id": "LI10"
+  },
+  {
+    "id": "LI14",
+    "code_name": "konex",
+    "code_title": "코넥스",
+    "description": "코넥스",
+    "parent_id": "LI10"
+  },
+  {
+    "id": "MS10",
+    "code_name": "member_status",
+    "code_title": "회원 상태",
+    "description": "회원 상태",
+    "parent_id": "M000"
+  },
+  {
+    "id": "MS11",
+    "code_name": "preparation",
+    "code_title": "준비",
+    "description": "준비",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS12",
+    "code_name": "regular",
+    "code_title": "정상",
+    "description": "정상",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS13",
+    "code_name": "suspended",
+    "code_title": "유예",
+    "description": "유예",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS14",
+    "code_name": "dormancy",
+    "code_title": "휴면",
+    "description": "휴면",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS15",
+    "code_name": "blacklist",
+    "code_title": "블랙리스트",
+    "description": "블랙리스트",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS16",
+    "code_name": "withdrawal",
+    "code_title": "탈퇴",
+    "description": "탈퇴",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "MS17",
+    "code_name": "withdrawal_apply",
+    "code_title": "탈퇴 신청",
+    "description": "탈퇴 신청",
+    "parent_id": "MS10"
+  },
+  {
+    "id": "OC10",
+    "code_name": "occupation",
+    "code_title": "직업 (11 ~ 15)",
+    "description": "직업 (11 ~ 15)",
+    "parent_id": "M000"
+  },
+  {
+    "id": "OC11",
+    "code_name": "office_worker",
+    "code_title": "회사원",
+    "description": "회사원",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC12",
+    "code_name": "profession",
+    "code_title": "전문직",
+    "description": "전문직 회사원",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC13",
+    "code_name": "official",
+    "code_title": "공무원",
+    "description": "공무원, 공공단체",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC14",
+    "code_name": "freelancer",
+    "code_title": "프리랜서",
+    "description": "프리랜서",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC15",
+    "code_name": "self-employed",
+    "code_title": "자영업자",
+    "description": "개인사업자, 자영업자",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC16",
+    "code_name": "agriculture_fishery",
+    "code_title": "농수산업",
+    "description": "농수산업 종사자",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC17",
+    "code_name": "housewife",
+    "code_title": "전업주부",
+    "description": "전업주부",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC18",
+    "code_name": "student",
+    "code_title": "학생",
+    "description": "학생",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC19",
+    "code_name": "military",
+    "code_title": "군인",
+    "description": "군인",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC20",
+    "code_name": "inoccupation",
+    "code_title": "무직",
+    "description": "무직",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC21",
+    "code_name": "casino_business",
+    "code_title": "카지노",
+    "description": "카지노사업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC22",
+    "code_name": "loan_business",
+    "code_title": "대부업",
+    "description": "대부업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC23",
+    "code_name": "money_exchange",
+    "code_title": "환전업",
+    "description": "환전업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC24",
+    "code_name": "expensive_precious_metal_sales",
+    "code_title": "고가귀금속판매업",
+    "description": "고가귀금속 판매업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC25",
+    "code_name": "virtual_currency_business",
+    "code_title": "가상통화사업",
+    "description": "가상통화사업 관련 종사자",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC26",
+    "code_name": "other",
+    "code_title": "기타",
+    "description": "기타",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC50",
+    "code_name": "investor_job",
+    "code_title": "투자자 직업 (51 ~ 56)",
+    "description": "투자자 직업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC51",
+    "code_name": "salary",
+    "code_title": "급여소득자",
+    "description": "급여소득자",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC52",
+    "code_name": "self_employment",
+    "code_title": "개인사업자",
+    "description": "개인사업자",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC53",
+    "code_name": "profession",
+    "code_title": "전문직",
+    "description": "전문식",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC54",
+    "code_name": "student",
+    "code_title": "학생",
+    "description": "학생",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC55",
+    "code_name": "house_wife",
+    "code_title": "주부",
+    "description": "주부",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC56",
+    "code_name": "etc",
+    "code_title": "기타",
+    "description": "기타",
+    "parent_id": "OC50"
+  },
+  {
+    "id": "OC70",
+    "code_name": "borrower_job",
+    "code_title": "대출자 직군 (71 ~ 77)",
+    "description": "대출자 직업",
+    "parent_id": "OC10"
+  },
+  {
+    "id": "OC71",
+    "code_name": "large_company",
+    "code_title": "대기업",
+    "description": "대기업",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC72",
+    "code_name": "smaller_company",
+    "code_title": "중소기업",
+    "description": "중소기업",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC73",
+    "code_name": "public_servant",
+    "code_title": "공무원",
+    "description": "공무원",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC74",
+    "code_name": "soldier",
+    "code_title": "군인",
+    "description": "군인",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC75",
+    "code_name": "legal_person",
+    "code_title": "법조인",
+    "description": "법조인",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC76",
+    "code_name": "teacher",
+    "code_title": "교사",
+    "description": "교사",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OC77",
+    "code_name": "etc",
+    "code_title": "기타",
+    "description": "기타",
+    "parent_id": "OC70"
+  },
+  {
+    "id": "OR10",
+    "code_name": "original_type",
+    "code_title": "근거타입",
+    "description": "데이터 근거 타입",
+    "parent_id": "B000"
+  },
+  {
+    "id": "OR11",
+    "code_name": "self",
+    "code_title": "자기입력",
+    "description": "자기작성",
+    "parent_id": "OR10"
+  },
+  {
+    "id": "OR12",
+    "code_name": "docu",
+    "code_title": "제출서류",
+    "description": "제출서류",
+    "parent_id": "OR10"
+  },
+  {
+    "id": "OR13",
+    "code_name": "banksalad",
+    "code_title": "뱅크 샐러드 입력 정보",
+    "description": "뱅크 샐러드에서 작성",
+    "parent_id": "OR10"
+  },
+  {
+    "id": "OR14",
+    "code_name": "finnq",
+    "code_title": "핀크 샐러드 입력 정보",
+    "description": "핀크 샐러드에서 작성",
+    "parent_id": "OR10"
+  },
+  {
+    "id": "OR15",
+    "code_name": "finda",
+    "code_title": "핀다 샐러드 입력 정보",
+    "description": "핀다 샐러드에서 작성",
+    "parent_id": "OR10"
+  },
+  {
+    "id": "OW10",
+    "code_name": "owner_type",
+    "code_title": "소유주 타입",
+    "description": "소유주 타입",
+    "parent_id": "I000"
+  },
+  {
+    "id": "OW11",
+    "code_name": "owner_25",
+    "code_title": "25%이상지분소유자 ",
+    "description": "25%이상지분소유자 ",
+    "parent_id": "OW10"
+  },
+  {
+    "id": "OW12",
+    "code_name": "owner_largest",
+    "code_title": "최대지분소유자",
+    "description": "최대지분소유자",
+    "parent_id": "OW10"
+  },
+  {
+    "id": "OW13",
+    "code_name": "winner",
+    "code_title": "임원등의과반수를선임한자",
+    "description": "임원등의과반수를선임한자",
+    "parent_id": "OW10"
+  },
+  {
+    "id": "OW14",
+    "code_name": "domination",
+    "code_title": "사실상지배자",
+    "description": "사실상지배자",
+    "parent_id": "OW10"
+  },
+  {
+    "id": "OW15",
+    "code_name": "representative",
+    "code_title": "대표자",
+    "description": "대표자",
+    "parent_id": "OW10"
+  },
+  {
+    "id": "RR00",
+    "code_name": "ceo_relation",
+    "code_title": "대표와관계",
+    "description": "회사대표와 관계",
+    "parent_id": "P000"
+  },
+  {
+    "id": "RR11",
+    "code_name": "spouse",
+    "code_title": "배우자",
+    "description": "배우자",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR12",
+    "code_name": "parents",
+    "code_title": "부모",
+    "description": "부모",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR13",
+    "code_name": "sibling",
+    "code_title": "형제자매",
+    "description": "형제자매",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR14",
+    "code_name": "children",
+    "code_title": "자녀",
+    "description": "자녀",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR15",
+    "code_name": "relaive",
+    "code_title": "친적",
+    "description": "친적",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR16",
+    "code_name": "friend",
+    "code_title": "친구",
+    "description": "친구",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR17",
+    "code_name": "employee",
+    "code_title": "임직원",
+    "description": "임직원",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "RR18",
+    "code_name": "기타",
+    "code_title": "기타",
+    "description": "기타",
+    "parent_id": "RR00"
+  },
+  {
+    "id": "S002",
+    "code_name": "SANUP",
+    "code_title": "산업은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S003",
+    "code_name": "KIUP",
+    "code_title": "기업은행",
+    "description": "11",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S004",
+    "code_name": "KUKMIN",
+    "code_title": "국민은행",
+    "description": "12",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S007",
+    "code_name": "SUHYUP",
+    "code_title": "수협은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S011",
+    "code_name": "NONGHYUP",
+    "code_title": "NH농협은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S012",
+    "code_name": "NHCENTRAL",
+    "code_title": "농협중앙회(지역농축협)",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S020",
+    "code_name": "WOORI",
+    "code_title": "우리은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S023",
+    "code_name": "SC",
+    "code_title": "SC제일은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S027",
+    "code_name": "CITY",
+    "code_title": "한국씨티은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S031",
+    "code_name": "DAEGU",
+    "code_title": "대구은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S032",
+    "code_name": "BUSAN",
+    "code_title": "부산은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S034",
+    "code_name": "KWANGJU",
+    "code_title": "광주은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S035",
+    "code_name": "JEJU",
+    "code_title": "제주은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S037",
+    "code_name": "JEONBUK",
+    "code_title": "전북은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S039",
+    "code_name": "KYONGNAM",
+    "code_title": "경남은행",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S045",
+    "code_name": "SAEMAEULGEUMGO",
+    "code_title": "새마을금고",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S048",
+    "code_name": "SINHYUB",
+    "code_title": "신협",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S050",
+    "code_name": "SAVINGCENTRAL",
+    "code_title": "저축은행중앙회(상호저축은행)",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S064",
+    "code_name": "SJCENTRAL",
+    "code_title": "산림조합중앙회",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S071",
+    "code_name": "POSTOFFICE",
+    "code_title": "우체국",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S081",
+    "code_name": "HANA",
+    "code_title": "하나은행",
+    "description": "12",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S088",
+    "code_name": "SHINHAN",
+    "code_title": "신한은행",
+    "description": "11",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S089",
+    "code_name": "KBANK",
+    "code_title": "케이뱅크",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S090",
+    "code_name": "KAKAOBANK",
+    "code_title": "카카오뱅크",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S092",
+    "code_name": "TOSS",
+    "code_title": "토스뱅크",
+    "description": "0",
+    "parent_id": "SB00"
+  },
+  {
+    "id": "S240",
+    "code_name": "SAMCKRSL",
+    "code_title": "삼성증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S243",
+    "code_name": "KISEKRSE",
+    "code_title": "한국투자증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S247",
+    "code_name": "WISHKRSE",
+    "code_title": "NH투자증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S266",
+    "code_name": "SKSEKRS1",
+    "code_title": "SK증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S267",
+    "code_name": "DSSCKRSE",
+    "code_title": "대신증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S278",
+    "code_name": "SSISKRS1",
+    "code_title": "신한금융투자",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S280",
+    "code_name": "SEOSKRS1",
+    "code_title": "유진투자증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "S287",
+    "code_name": "HAISKRS1",
+    "code_title": "메리츠증권",
+    "description": "0",
+    "parent_id": "SS00"
+  },
+  {
+    "id": "ST10",
+    "code_name": "staff_type",
+    "code_title": "직원 타입",
+    "description": "직원 타입",
+    "parent_id": "I000"
+  },
+  {
+    "id": "ST11",
+    "code_name": "ceo",
+    "code_title": "ceo",
+    "description": "ceo",
+    "parent_id": "ST10"
+  },
+  {
+    "id": "ST12",
+    "code_name": "pic",
+    "code_title": "투자대리인",
+    "description": "투자대리인",
+    "parent_id": "ST10"
+  },
+  {
+    "id": "ST13",
+    "code_name": "deputy",
+    "code_title": "deputy",
+    "description": "deputy",
+    "parent_id": "ST10"
+  },
+  {
+    "id": "ST14",
+    "code_name": "owner",
+    "code_title": "owner",
+    "description": "owner",
+    "parent_id": "ST10"
+  }
+]

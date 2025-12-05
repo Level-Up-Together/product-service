@@ -1,0 +1,10 @@
+type QueryResolver {
+}
+
+type MutationResolver {
+}
+
+schema {
+    query: QueryResolver
+    mutation: MutationResolver
+}
