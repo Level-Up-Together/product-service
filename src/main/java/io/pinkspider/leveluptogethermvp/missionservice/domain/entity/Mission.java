@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -91,6 +92,26 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Column(name = "end_date")
     @Comment("미션 종료일")
     private LocalDateTime endDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mission_interval", length = 20)
+    @Comment("미션 수행 주기")
+    @Builder.Default
+    private MissionInterval missionInterval = MissionInterval.DAILY;
+
+    @Column(name = "duration_days")
+    @Comment("미션 기간 (일수)")
+    private Integer durationDays;
+
+    @Column(name = "exp_per_completion")
+    @Comment("1회 완료시 경험치")
+    @Builder.Default
+    private Integer expPerCompletion = 10;
+
+    @Column(name = "bonus_exp_on_full_completion")
+    @Comment("전체 완료시 보너스 경험치")
+    @Builder.Default
+    private Integer bonusExpOnFullCompletion = 50;
 
     @Builder.Default
     @OneToMany(mappedBy = "mission")

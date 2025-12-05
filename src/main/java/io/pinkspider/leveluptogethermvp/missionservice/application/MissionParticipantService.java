@@ -4,7 +4,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionPartici
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
@@ -23,6 +22,7 @@ public class MissionParticipantService {
 
     private final MissionRepository missionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final MissionExecutionService missionExecutionService;
 
     @Transactional
     public MissionParticipantResponse joinMission(Long missionId, String userId) {
@@ -45,6 +45,11 @@ public class MissionParticipantService {
         MissionParticipant saved = participantRepository.save(participant);
         log.info("미션 참여 신청: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
 
+        // 공개 미션은 바로 수락되므로 실행 스케줄 생성
+        if (initialStatus == ParticipantStatus.ACCEPTED) {
+            missionExecutionService.generateExecutionsForParticipant(saved);
+        }
+
         return MissionParticipantResponse.from(saved);
     }
 
@@ -58,6 +63,9 @@ public class MissionParticipantService {
 
         participant.accept();
         log.info("참여자 승인: missionId={}, participantId={}", missionId, participantId);
+
+        // 참여자 승인 시 실행 스케줄 생성
+        missionExecutionService.generateExecutionsForParticipant(participant);
 
         return MissionParticipantResponse.from(participant);
     }

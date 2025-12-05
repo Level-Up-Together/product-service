@@ -43,6 +43,10 @@ public class MissionService {
             .maxParticipants(request.getMaxParticipants())
             .startDate(request.getStartDate())
             .endDate(request.getEndDate())
+            .missionInterval(request.getMissionInterval())
+            .durationDays(request.getDurationDays())
+            .expPerCompletion(request.getExpPerCompletion())
+            .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
             .build();
 
         Mission saved = missionRepository.save(mission);
@@ -105,6 +109,18 @@ public class MissionService {
         }
         if (request.getEndDate() != null) {
             mission.setEndDate(request.getEndDate());
+        }
+        if (request.getMissionInterval() != null) {
+            mission.setMissionInterval(request.getMissionInterval());
+        }
+        if (request.getDurationDays() != null) {
+            mission.setDurationDays(request.getDurationDays());
+        }
+        if (request.getExpPerCompletion() != null) {
+            mission.setExpPerCompletion(request.getExpPerCompletion());
+        }
+        if (request.getBonusExpOnFullCompletion() != null) {
+            mission.setBonusExpOnFullCompletion(request.getBonusExpOnFullCompletion());
         }
 
         log.info("미션 수정 완료: id={}", missionId);
