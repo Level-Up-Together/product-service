@@ -24,7 +24,10 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "io.pinkspider.leveluptogethermvp.userservice",
+    basePackages = {
+        "io.pinkspider.leveluptogethermvp.userservice",
+        "io.pinkspider.global.saga.persistence"
+    },
     entityManagerFactoryRef = "userEntityManagerFactory",
     transactionManagerRef = "userTransactionManager"
 )
@@ -69,7 +72,10 @@ public class UserDataSourceConfig {
         @Qualifier("userDataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
-        em.setPackagesToScan("io.pinkspider.leveluptogethermvp.userservice");
+        em.setPackagesToScan(
+            "io.pinkspider.leveluptogethermvp.userservice",
+            "io.pinkspider.global.saga.persistence"
+        );
         em.setPersistenceUnitName("user");
         HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
         em.setJpaVendorAdapter(vendorAdapter);

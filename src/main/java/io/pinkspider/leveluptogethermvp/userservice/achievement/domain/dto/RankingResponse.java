@@ -1,0 +1,51 @@
+package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
+
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RankingResponse {
+
+    private Long rank;
+    private String userId;
+    private Long rankingPoints;
+    private Integer totalMissionCompletions;
+    private Integer maxStreak;
+    private Integer totalAchievementsCompleted;
+
+    // 추가 정보 (프로필 조회 시 조인해서 가져올 수 있음)
+    private String nickname;
+    private Integer userLevel;
+    private String equippedTitleName;
+
+    public static RankingResponse from(UserStats stats, Long rank) {
+        return RankingResponse.builder()
+            .rank(rank)
+            .userId(stats.getUserId())
+            .rankingPoints(stats.getRankingPoints())
+            .totalMissionCompletions(stats.getTotalMissionCompletions())
+            .maxStreak(stats.getMaxStreak())
+            .totalAchievementsCompleted(stats.getTotalAchievementsCompleted())
+            .build();
+    }
+
+    public static RankingResponse from(UserStats stats, Long rank, String nickname, Integer userLevel, String equippedTitleName) {
+        return RankingResponse.builder()
+            .rank(rank)
+            .userId(stats.getUserId())
+            .rankingPoints(stats.getRankingPoints())
+            .totalMissionCompletions(stats.getTotalMissionCompletions())
+            .maxStreak(stats.getMaxStreak())
+            .totalAchievementsCompleted(stats.getTotalAchievementsCompleted())
+            .nickname(nickname)
+            .userLevel(userLevel)
+            .equippedTitleName(equippedTitleName)
+            .build();
+    }
+}

@@ -11,10 +11,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 
 @Configuration
 @Profile("test")
+@EnableJpaRepositories(
+    basePackages = {
+        "io.pinkspider.leveluptogethermvp",
+        "io.pinkspider.global.saga.persistence"
+    }
+)
 public class TestDataSourceConfig {
 
     @Bean
@@ -54,7 +61,10 @@ public class TestDataSourceConfig {
 
         return builder
             .dataSource(dataSource)
-            .packages("io.pinkspider.leveluptogethermvp")
+            .packages(
+                "io.pinkspider.leveluptogethermvp",
+                "io.pinkspider.global.saga.persistence"
+            )
             .persistenceUnit("test")
             .properties(properties)
             .build();

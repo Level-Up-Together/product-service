@@ -1,0 +1,24 @@
+[
+  {
+    "friendship_id": 1,
+    "friend_id": "friend-user-123",
+    "friend_nickname": "친구1",
+    "friend_profile_image_url": "https://example.com/profile1.jpg",
+    "friend_level": 10,
+    "friend_title": "초보 모험가",
+    "status": "ACCEPTED",
+    "friends_since": "2025-01-15T10:30:00",
+    "is_online": true
+  },
+  {
+    "friendship_id": 2,
+    "friend_id": "friend-user-456",
+    "friend_nickname": "친구2",
+    "friend_profile_image_url": "https://example.com/profile2.jpg",
+    "friend_level": 15,
+    "friend_title": "숙련된 모험가",
+    "status": "ACCEPTED",
+    "friends_since": "2025-01-10T08:00:00",
+    "is_online": false
+  }
+]

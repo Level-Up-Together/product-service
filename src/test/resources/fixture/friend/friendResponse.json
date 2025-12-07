@@ -1,0 +1,11 @@
+{
+  "friendship_id": 1,
+  "friend_id": "friend-user-123",
+  "friend_nickname": "친구닉네임",
+  "friend_profile_image_url": "https://example.com/profile.jpg",
+  "friend_level": 10,
+  "friend_title": "초보 모험가",
+  "status": "ACCEPTED",
+  "friends_since": "2025-01-15T10:30:00",
+  "is_online": true
+}

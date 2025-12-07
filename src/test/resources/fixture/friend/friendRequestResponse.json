@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "requester_id": "requester-user-123",
+  "requester_nickname": "요청자닉네임",
+  "requester_profile_image_url": "https://example.com/profile.jpg",
+  "requester_level": 10,
+  "message": "친구 신청합니다!",
+  "requested_at": "2025-01-15T10:30:00"
+}

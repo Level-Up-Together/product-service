@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "requester_id": "requester-user-123",
+    "requester_nickname": "요청자1",
+    "requester_profile_image_url": "https://example.com/profile1.jpg",
+    "requester_level": 10,
+    "message": "친구 신청합니다!",
+    "requested_at": "2025-01-15T10:30:00"
+  },
+  {
+    "id": 2,
+    "requester_id": "requester-user-456",
+    "requester_nickname": "요청자2",
+    "requester_profile_image_url": "https://example.com/profile2.jpg",
+    "requester_level": 15,
+    "message": "함께 미션해요!",
+    "requested_at": "2025-01-14T09:00:00"
+  }
+]
