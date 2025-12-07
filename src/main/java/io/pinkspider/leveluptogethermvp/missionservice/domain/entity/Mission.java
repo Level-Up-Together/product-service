@@ -113,6 +113,16 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer bonusExpOnFullCompletion = 50;
 
+    @Column(name = "guild_exp_per_completion")
+    @Comment("1회 완료시 길드 경험치 (길드 미션 전용)")
+    @Builder.Default
+    private Integer guildExpPerCompletion = 5;
+
+    @Column(name = "guild_bonus_exp_on_full_completion")
+    @Comment("전체 완료시 길드 보너스 경험치 (길드 미션 전용)")
+    @Builder.Default
+    private Integer guildBonusExpOnFullCompletion = 20;
+
     @Builder.Default
     @OneToMany(mappedBy = "mission")
     private List<MissionParticipant> participants = new ArrayList<>();

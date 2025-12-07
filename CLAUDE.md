@@ -11,6 +11,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Run tests
 ./gradlew test
 
+# Run single test class
+./gradlew test --tests "io.pinkspider.leveluptogethermvp.userservice.oauth.api.Oauth2ControllerTest"
+
+# Run single test method
+./gradlew test --tests "*.Oauth2ControllerTest.getOauth2LoginUri"
+
 # Run application
 ./gradlew bootRun                                    # Default (port 8443)
 ./gradlew bootRun --args='--spring.profiles.active=test'  # Test profile (port 18080)
@@ -48,11 +54,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Tracing**: Zipkin/Brave distributed tracing
 - **Monitoring**: Actuator at `/showmethemoney`
 
+### Service Layer Pattern
+
+Each service module follows a consistent layered structure:
+- `api/` - REST controllers returning `ApiResult<T>` wrapper
+- `application/` - Business logic services with `@Transactional`
+- `domain/` - Entities, DTOs, enums
+- `infrastructure/` - JPA repositories
+
+### API Response Format
+
+All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
+```java
+{
+  "code": "0000",      // ApiStatus code
+  "message": "success",
+  "value": { ... }     // Response payload
+}
+```
+
 ### Key Technologies
 
-- GraphQL via Netflix DGS
+- GraphQL via Netflix DGS (schemas in `src/main/resources/schema/*.graphqls`)
 - REST API with Spring REST Docs + OpenAPI 3.0
-- QueryDSL for type-safe queries
+- QueryDSL for type-safe queries (generated in `src/main/generated/querydsl`)
 - Resilience4j for circuit breaker
 - Pact for contract testing
 
@@ -66,7 +91,23 @@ Each service has its own datasource configuration in `io.pinkspider.global.confi
 
 ## Testing
 
-Tests exclude classes in `io/pinkspider/global/**`. Test fixtures are in `src/test/resources/fixture`.
+Tests exclude classes in `io/pinkspider/global/**`.
+
+### Test Fixtures
+JSON fixtures in `src/test/resources/fixture/{servicename}/` are loaded via `MockUtil`:
+```java
+MockUtil.readJsonFileToClass("fixture/userservice/oauth/mockCreateJwtResponseDto.json", CreateJwtResponseDto.class);
+```
+
+### Controller Tests
+Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
+```java
+@WebMvcTest(controllers = YourController.class, excludeAutoConfiguration = {...})
+@Import(ControllerTestConfig.class)
+@AutoConfigureRestDocs
+@AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
+```
 
 ## CI/CD
 

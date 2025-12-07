@@ -1,0 +1,41 @@
+package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
+
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
+import java.time.LocalDate;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserStatsResponse {
+
+    private String userId;
+    private Integer totalMissionCompletions;
+    private Integer totalMissionFullCompletions;
+    private Integer totalGuildMissionCompletions;
+    private Integer currentStreak;
+    private Integer maxStreak;
+    private LocalDate lastActivityDate;
+    private Integer totalAchievementsCompleted;
+    private Integer totalTitlesAcquired;
+    private Long rankingPoints;
+
+    public static UserStatsResponse from(UserStats stats) {
+        return UserStatsResponse.builder()
+            .userId(stats.getUserId())
+            .totalMissionCompletions(stats.getTotalMissionCompletions())
+            .totalMissionFullCompletions(stats.getTotalMissionFullCompletions())
+            .totalGuildMissionCompletions(stats.getTotalGuildMissionCompletions())
+            .currentStreak(stats.getCurrentStreak())
+            .maxStreak(stats.getMaxStreak())
+            .lastActivityDate(stats.getLastActivityDate())
+            .totalAchievementsCompleted(stats.getTotalAchievementsCompleted())
+            .totalTitlesAcquired(stats.getTotalTitlesAcquired())
+            .rankingPoints(stats.getRankingPoints())
+            .build();
+    }
+}

@@ -1,0 +1,67 @@
+package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
+
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ActivityFeedResponse {
+
+    private Long id;
+    private String userId;
+    private String userNickname;
+    private String userProfileImageUrl;
+    private ActivityType activityType;
+    private String activityTypeDisplayName;
+    private String category;
+    private String title;
+    private String description;
+    private String referenceType;
+    private Long referenceId;
+    private String referenceName;
+    private FeedVisibility visibility;
+    private Long guildId;
+    private String imageUrl;
+    private String iconUrl;
+    private int likeCount;
+    private int commentCount;
+    private boolean likedByMe;
+    private LocalDateTime createdAt;
+
+    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe) {
+        return ActivityFeedResponse.builder()
+            .id(feed.getId())
+            .userId(feed.getUserId())
+            .userNickname(feed.getUserNickname())
+            .userProfileImageUrl(feed.getUserProfileImageUrl())
+            .activityType(feed.getActivityType())
+            .activityTypeDisplayName(feed.getActivityType().getDisplayName())
+            .category(feed.getActivityType().getCategory())
+            .title(feed.getTitle())
+            .description(feed.getDescription())
+            .referenceType(feed.getReferenceType())
+            .referenceId(feed.getReferenceId())
+            .referenceName(feed.getReferenceName())
+            .visibility(feed.getVisibility())
+            .guildId(feed.getGuildId())
+            .imageUrl(feed.getImageUrl())
+            .iconUrl(feed.getIconUrl())
+            .likeCount(feed.getLikeCount())
+            .commentCount(feed.getCommentCount())
+            .likedByMe(likedByMe)
+            .createdAt(feed.getCreatedAt())
+            .build();
+    }
+
+    public static ActivityFeedResponse from(ActivityFeed feed) {
+        return from(feed, false);
+    }
+}

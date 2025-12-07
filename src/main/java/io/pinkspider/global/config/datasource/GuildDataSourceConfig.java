@@ -24,8 +24,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @EnableJpaRepositories(
     basePackages = "io.pinkspider.leveluptogethermvp.guildservice",
-    entityManagerFactoryRef = "userEntityManagerFactory",
-    transactionManagerRef = "userTransactionManager"
+    entityManagerFactoryRef = "guildEntityManagerFactory",
+    transactionManagerRef = "guildTransactionManager"
 )
 @Profile("!test")
 @Slf4j

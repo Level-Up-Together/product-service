@@ -1,0 +1,13 @@
+{
+  "id": 1,
+  "guild_id": 1,
+  "sender_id": "user-123",
+  "sender_nickname": "사용자닉네임",
+  "message_type": "TEXT",
+  "content": "안녕하세요!",
+  "image_url": null,
+  "reference_type": null,
+  "reference_id": null,
+  "is_system_message": false,
+  "created_at": "2025-01-15T10:30:00"
+}

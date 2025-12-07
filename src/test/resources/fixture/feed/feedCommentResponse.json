@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "feed_id": 1,
+  "user_id": "commenter-123",
+  "user_nickname": "댓글작성자",
+  "content": "축하합니다!",
+  "is_deleted": false,
+  "created_at": "2025-01-15T11:00:00"
+}
