@@ -39,7 +39,7 @@ jobs:
 
       # 5. Gradle 빌드
       - name: Build with Gradle
-        run: ./gradlew clean build -x test
+        run: ./gradlew clean build
 
       # 6. 서버로 파일 전송
       - name: Deploy to Server
