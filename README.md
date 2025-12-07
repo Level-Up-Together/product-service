@@ -5,7 +5,7 @@
 ## 기술 스택
 
 - **Framework**: Spring Boot 3.4.5, Spring Cloud 2024.0.0
-- **Language**: Java 25
+- **Language**: Java 21
 - **Build**: Gradle 8.14.3
 - **Database**: PostgreSQL (Production), H2 (Test)
 - **Cache**: Redis (Lettuce)
@@ -37,7 +37,7 @@ src/main/java/io/pinkspider/
 
 ### 요구사항
 
-- JDK 25
+- JDK 21
 - Gradle 8.14+
 - PostgreSQL / Redis / Kafka (또는 test 프로필 사용)
 

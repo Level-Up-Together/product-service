@@ -27,7 +27,7 @@ description = 'level-up-together-mvp'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -170,8 +170,6 @@ clean {
 
 tasks.named('test') {
     systemProperty 'file.encoding', 'UTF-8'
-    // Java 25 support for Byte Buddy (used by Mockito)
-    systemProperty 'net.bytebuddy.experimental', 'true'
 
     useJUnitPlatform {
         exclude("io/pinkspider/global/**/*.class")
@@ -241,13 +239,23 @@ tasks.register('copySortedOpenApiJson') {
         project.file('src/main/resources/restdocs').mkdirs()
     }
     doLast {
-        copy {
-            from "build/resources/main/restdocs/" + getRootProject().name + "-api-sorted.json"
-            into "src/main/resources/restdocs"
-        }
-        def sortedFile = file("src/main/resources/restdocs/${rootProject.name}-api-sorted.json")
+        def buildSortedFile = file("build/resources/main/restdocs/${rootProject.name}-api-sorted.json")
         def targetFile = file("src/main/resources/restdocs/${rootProject.name}-api.json")
-        sortedFile.renameTo(targetFile)
+
+        // 기존 파일 삭제 후 복사
+        if (targetFile.exists()) {
+            targetFile.delete()
+        }
+        copy {
+            from buildSortedFile
+            into "src/main/resources/restdocs"
+            rename { "${rootProject.name}-api.json" }
+        }
+
+        // build 디렉토리의 sorted 파일 삭제
+        if (buildSortedFile.exists()) {
+            buildSortedFile.delete()
+        }
     }
 }
 
