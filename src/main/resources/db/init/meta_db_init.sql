@@ -64,7 +64,7 @@ CREATE TABLE level_config (
     title VARCHAR(50),
     description VARCHAR(200),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_level_config_level UNIQUE (level),
     CONSTRAINT chk_level CHECK (level >= 1),

@@ -1,10 +1,37 @@
 -- ============================================================
 -- USER_DB 초기화 스크립트
--- UserService + MissionService 테이블
+-- UserService 테이블 전용
 -- ============================================================
 
--- 사용자 기본 테이블
-CREATE TABLE IF NOT EXISTS users (
+-- ============================================================
+-- DROP EXISTING TABLES (for clean initialization)
+-- ============================================================
+DROP TABLE IF EXISTS feed_comment CASCADE;
+DROP TABLE IF EXISTS feed_like CASCADE;
+DROP TABLE IF EXISTS activity_feed CASCADE;
+DROP TABLE IF EXISTS user_quest CASCADE;
+DROP TABLE IF EXISTS quest CASCADE;
+DROP TABLE IF EXISTS notification_preference CASCADE;
+DROP TABLE IF EXISTS notification CASCADE;
+DROP TABLE IF EXISTS attendance_reward_config CASCADE;
+DROP TABLE IF EXISTS attendance_record CASCADE;
+DROP TABLE IF EXISTS user_stats CASCADE;
+DROP TABLE IF EXISTS user_title CASCADE;
+DROP TABLE IF EXISTS user_achievement CASCADE;
+DROP TABLE IF EXISTS achievement CASCADE;
+DROP TABLE IF EXISTS title CASCADE;
+DROP TABLE IF EXISTS friendship CASCADE;
+DROP TABLE IF EXISTS user_term_agreements CASCADE;
+DROP TABLE IF EXISTS term_versions CASCADE;
+DROP TABLE IF EXISTS terms CASCADE;
+DROP TABLE IF EXISTS experience_history CASCADE;
+DROP TABLE IF EXISTS user_experience CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- ============================================================
+-- 1. 사용자 기본 테이블
+-- ============================================================
+CREATE TABLE users (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255),
     email VARCHAR(255) NOT NULL,
@@ -14,11 +41,20 @@ CREATE TABLE IF NOT EXISTS users (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_provider ON users(provider);
 
--- 사용자 경험치 테이블
-CREATE TABLE IF NOT EXISTS user_experience (
+COMMENT ON TABLE users IS '사용자';
+COMMENT ON COLUMN users.id IS '사용자 ID (UUID)';
+COMMENT ON COLUMN users.name IS '이름';
+COMMENT ON COLUMN users.email IS '이메일';
+COMMENT ON COLUMN users.picture IS '프로필 이미지 URL';
+COMMENT ON COLUMN users.provider IS 'OAuth 제공자 (GOOGLE, KAKAO, APPLE)';
+
+-- ============================================================
+-- 2. 사용자 경험치 테이블
+-- ============================================================
+CREATE TABLE user_experience (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL UNIQUE,
     current_level INTEGER DEFAULT 1,
@@ -28,10 +64,18 @@ CREATE TABLE IF NOT EXISTS user_experience (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_exp_user ON user_experience(user_id);
+CREATE INDEX idx_user_exp_user ON user_experience(user_id);
 
--- 경험치 획득 이력 테이블
-CREATE TABLE IF NOT EXISTS experience_history (
+COMMENT ON TABLE user_experience IS '사용자 경험치';
+COMMENT ON COLUMN user_experience.user_id IS '사용자 ID';
+COMMENT ON COLUMN user_experience.current_level IS '현재 레벨';
+COMMENT ON COLUMN user_experience.current_exp IS '현재 레벨에서의 경험치';
+COMMENT ON COLUMN user_experience.total_exp IS '총 누적 경험치';
+
+-- ============================================================
+-- 3. 경험치 획득 이력 테이블
+-- ============================================================
+CREATE TABLE experience_history (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     source_type VARCHAR(50) NOT NULL,
@@ -44,11 +88,21 @@ CREATE TABLE IF NOT EXISTS experience_history (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_exp_history_user ON experience_history(user_id);
-CREATE INDEX IF NOT EXISTS idx_exp_history_source ON experience_history(source_type, source_id);
+CREATE INDEX idx_exp_history_user ON experience_history(user_id);
+CREATE INDEX idx_exp_history_source ON experience_history(source_type, source_id);
+CREATE INDEX idx_exp_history_created ON experience_history(created_at);
 
--- 약관 테이블
-CREATE TABLE IF NOT EXISTS terms (
+COMMENT ON TABLE experience_history IS '경험치 획득 이력';
+COMMENT ON COLUMN experience_history.source_type IS '경험치 획득 유형 (MISSION_EXECUTION, ATTENDANCE, QUEST, ACHIEVEMENT 등)';
+COMMENT ON COLUMN experience_history.source_id IS '경험치 획득 소스 ID';
+COMMENT ON COLUMN experience_history.exp_amount IS '획득/차감 경험치';
+COMMENT ON COLUMN experience_history.level_before IS '획득 전 레벨';
+COMMENT ON COLUMN experience_history.level_after IS '획득 후 레벨';
+
+-- ============================================================
+-- 4. 약관 테이블
+-- ============================================================
+CREATE TABLE terms (
     id BIGSERIAL PRIMARY KEY,
     code VARCHAR(100) NOT NULL,
     title VARCHAR(255) NOT NULL,
@@ -61,8 +115,11 @@ CREATE TABLE IF NOT EXISTS terms (
     modified_by VARCHAR(255)
 );
 
--- 약관 버전 테이블
-CREATE TABLE IF NOT EXISTS term_versions (
+COMMENT ON TABLE terms IS '약관';
+COMMENT ON COLUMN terms.code IS '약관 코드';
+COMMENT ON COLUMN terms.is_required IS '필수 동의 여부';
+
+CREATE TABLE term_versions (
     id BIGSERIAL PRIMARY KEY,
     term_id BIGINT NOT NULL REFERENCES terms(id) ON DELETE CASCADE,
     version VARCHAR(50) NOT NULL,
@@ -72,24 +129,26 @@ CREATE TABLE IF NOT EXISTS term_versions (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_term_versions_term ON term_versions(term_id);
+CREATE INDEX idx_term_versions_term ON term_versions(term_id);
 
--- 사용자 약관 동의 테이블
-CREATE TABLE IF NOT EXISTS user_term_agreements (
+COMMENT ON TABLE term_versions IS '약관 버전';
+
+CREATE TABLE user_term_agreements (
     id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id VARCHAR(36) NOT NULL,
     term_version_id BIGINT NOT NULL REFERENCES term_versions(id) ON DELETE CASCADE,
     is_agreed BOOLEAN NOT NULL DEFAULT FALSE,
     agreed_at TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_uta_user ON user_term_agreements(user_id);
+CREATE INDEX idx_uta_user ON user_term_agreements(user_id);
+
+COMMENT ON TABLE user_term_agreements IS '사용자 약관 동의';
 
 -- ============================================================
--- 친구 시스템 테이블
+-- 5. 친구 시스템 테이블
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS friendship (
+CREATE TABLE friendship (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     friend_id VARCHAR(36) NOT NULL,
@@ -100,18 +159,21 @@ CREATE TABLE IF NOT EXISTS friendship (
     message VARCHAR(200),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_friendship UNIQUE (user_id, friend_id)
+    CONSTRAINT uk_friendship UNIQUE (user_id, friend_id),
+    CONSTRAINT chk_friendship_status CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED', 'REJECTED'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_friendship_user ON friendship(user_id);
-CREATE INDEX IF NOT EXISTS idx_friendship_friend ON friendship(friend_id);
-CREATE INDEX IF NOT EXISTS idx_friendship_status ON friendship(status);
+CREATE INDEX idx_friendship_user ON friendship(user_id);
+CREATE INDEX idx_friendship_friend ON friendship(friend_id);
+CREATE INDEX idx_friendship_status ON friendship(status);
+
+COMMENT ON TABLE friendship IS '친구 관계';
+COMMENT ON COLUMN friendship.status IS '친구 상태 (PENDING, ACCEPTED, BLOCKED, REJECTED)';
 
 -- ============================================================
--- 업적 시스템 테이블
+-- 6. 업적/칭호 시스템 테이블
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS title (
+CREATE TABLE title (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -122,10 +184,14 @@ CREATE TABLE IF NOT EXISTS title (
     icon_url VARCHAR(500),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_title_rarity CHECK (rarity IN ('COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'))
 );
 
-CREATE TABLE IF NOT EXISTS achievement (
+COMMENT ON TABLE title IS '칭호';
+COMMENT ON COLUMN title.rarity IS '희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY)';
+
+CREATE TABLE achievement (
     id BIGSERIAL PRIMARY KEY,
     achievement_type VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -139,10 +205,15 @@ CREATE TABLE IF NOT EXISTS achievement (
     is_hidden BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_achievement_category CHECK (category IN ('MISSION', 'ATTENDANCE', 'SOCIAL', 'GUILD', 'SPECIAL'))
 );
 
-CREATE TABLE IF NOT EXISTS user_achievement (
+COMMENT ON TABLE achievement IS '업적';
+COMMENT ON COLUMN achievement.achievement_type IS '업적 타입 코드';
+COMMENT ON COLUMN achievement.category IS '카테고리 (MISSION, ATTENDANCE, SOCIAL, GUILD, SPECIAL)';
+
+CREATE TABLE user_achievement (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     achievement_id BIGINT REFERENCES achievement(id),
@@ -156,9 +227,11 @@ CREATE TABLE IF NOT EXISTS user_achievement (
     CONSTRAINT uk_user_achievement UNIQUE (user_id, achievement_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_achievement_user ON user_achievement(user_id);
+CREATE INDEX idx_user_achievement_user ON user_achievement(user_id);
 
-CREATE TABLE IF NOT EXISTS user_title (
+COMMENT ON TABLE user_achievement IS '사용자 업적 진행';
+
+CREATE TABLE user_title (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     title_id BIGINT REFERENCES title(id),
@@ -169,9 +242,11 @@ CREATE TABLE IF NOT EXISTS user_title (
     CONSTRAINT uk_user_title UNIQUE (user_id, title_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_title_user ON user_title(user_id);
+CREATE INDEX idx_user_title_user ON user_title(user_id);
 
-CREATE TABLE IF NOT EXISTS user_stats (
+COMMENT ON TABLE user_title IS '사용자 보유 칭호';
+
+CREATE TABLE user_stats (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL UNIQUE,
     total_mission_completions INTEGER DEFAULT 0,
@@ -187,14 +262,15 @@ CREATE TABLE IF NOT EXISTS user_stats (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_stats_user ON user_stats(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_stats_ranking ON user_stats(ranking_points DESC);
+CREATE INDEX idx_user_stats_user ON user_stats(user_id);
+CREATE INDEX idx_user_stats_ranking ON user_stats(ranking_points DESC);
+
+COMMENT ON TABLE user_stats IS '사용자 통계';
 
 -- ============================================================
--- 출석 시스템 테이블
+-- 7. 출석 시스템 테이블
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS attendance_record (
+CREATE TABLE attendance_record (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     attendance_date DATE NOT NULL,
@@ -208,10 +284,12 @@ CREATE TABLE IF NOT EXISTS attendance_record (
     CONSTRAINT uk_attendance UNIQUE (user_id, attendance_date)
 );
 
-CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance_record(user_id, attendance_date);
-CREATE INDEX IF NOT EXISTS idx_attendance_user_month ON attendance_record(user_id, year_month);
+CREATE INDEX idx_attendance_user_date ON attendance_record(user_id, attendance_date);
+CREATE INDEX idx_attendance_user_month ON attendance_record(user_id, year_month);
 
-CREATE TABLE IF NOT EXISTS attendance_reward_config (
+COMMENT ON TABLE attendance_record IS '출석 기록';
+
+CREATE TABLE attendance_reward_config (
     id BIGSERIAL PRIMARY KEY,
     reward_type VARCHAR(30) NOT NULL,
     required_days INTEGER,
@@ -224,11 +302,12 @@ CREATE TABLE IF NOT EXISTS attendance_reward_config (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ============================================================
--- 알림 시스템 테이블
--- ============================================================
+COMMENT ON TABLE attendance_reward_config IS '출석 보상 설정';
 
-CREATE TABLE IF NOT EXISTS notification (
+-- ============================================================
+-- 8. 알림 시스템 테이블
+-- ============================================================
+CREATE TABLE notification (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     notification_type VARCHAR(30) NOT NULL,
@@ -247,11 +326,13 @@ CREATE TABLE IF NOT EXISTS notification (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notification_user ON notification(user_id);
-CREATE INDEX IF NOT EXISTS idx_notification_user_read ON notification(user_id, is_read);
-CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at DESC);
+CREATE INDEX idx_notification_user ON notification(user_id);
+CREATE INDEX idx_notification_user_read ON notification(user_id, is_read);
+CREATE INDEX idx_notification_created ON notification(created_at DESC);
 
-CREATE TABLE IF NOT EXISTS notification_preference (
+COMMENT ON TABLE notification IS '알림';
+
+CREATE TABLE notification_preference (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL UNIQUE,
     push_enabled BOOLEAN DEFAULT TRUE,
@@ -269,13 +350,12 @@ CREATE TABLE IF NOT EXISTS notification_preference (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_pref_user ON notification_preference(user_id);
+COMMENT ON TABLE notification_preference IS '알림 설정';
 
 -- ============================================================
--- 퀘스트 시스템 테이블
+-- 9. 퀘스트 시스템 테이블
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS quest (
+CREATE TABLE quest (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
@@ -290,13 +370,17 @@ CREATE TABLE IF NOT EXISTS quest (
     sort_order INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_quest_type CHECK (quest_type IN ('DAILY', 'WEEKLY', 'MONTHLY', 'SPECIAL'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_quest_type ON quest(quest_type);
-CREATE INDEX IF NOT EXISTS idx_quest_active ON quest(is_active);
+CREATE INDEX idx_quest_type ON quest(quest_type);
+CREATE INDEX idx_quest_active ON quest(is_active);
 
-CREATE TABLE IF NOT EXISTS user_quest (
+COMMENT ON TABLE quest IS '퀘스트';
+COMMENT ON COLUMN quest.quest_type IS '퀘스트 유형 (DAILY, WEEKLY, MONTHLY, SPECIAL)';
+
+CREATE TABLE user_quest (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     quest_id BIGINT REFERENCES quest(id),
@@ -311,14 +395,15 @@ CREATE TABLE IF NOT EXISTS user_quest (
     CONSTRAINT uk_user_quest UNIQUE (user_id, quest_id, period_key)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_quest_user ON user_quest(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_quest_period ON user_quest(period_key);
+CREATE INDEX idx_user_quest_user ON user_quest(user_id);
+CREATE INDEX idx_user_quest_period ON user_quest(period_key);
+
+COMMENT ON TABLE user_quest IS '사용자 퀘스트 진행';
 
 -- ============================================================
--- 활동 피드 시스템 테이블
+-- 10. 활동 피드 시스템 테이블
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS activity_feed (
+CREATE TABLE activity_feed (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     user_nickname VARCHAR(50),
@@ -336,15 +421,18 @@ CREATE TABLE IF NOT EXISTS activity_feed (
     like_count INTEGER DEFAULT 0,
     comment_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_feed_visibility CHECK (visibility IN ('PUBLIC', 'FRIENDS_ONLY', 'GUILD_ONLY', 'PRIVATE'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_feed_user ON activity_feed(user_id);
-CREATE INDEX IF NOT EXISTS idx_feed_created ON activity_feed(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_feed_visibility ON activity_feed(visibility);
-CREATE INDEX IF NOT EXISTS idx_feed_guild ON activity_feed(guild_id);
+CREATE INDEX idx_feed_user ON activity_feed(user_id);
+CREATE INDEX idx_feed_created ON activity_feed(created_at DESC);
+CREATE INDEX idx_feed_visibility ON activity_feed(visibility);
+CREATE INDEX idx_feed_guild ON activity_feed(guild_id);
 
-CREATE TABLE IF NOT EXISTS feed_like (
+COMMENT ON TABLE activity_feed IS '활동 피드';
+
+CREATE TABLE feed_like (
     id BIGSERIAL PRIMARY KEY,
     feed_id BIGINT NOT NULL REFERENCES activity_feed(id) ON DELETE CASCADE,
     user_id VARCHAR(36) NOT NULL,
@@ -353,10 +441,12 @@ CREATE TABLE IF NOT EXISTS feed_like (
     CONSTRAINT uk_feed_like UNIQUE (feed_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_like_feed ON feed_like(feed_id);
-CREATE INDEX IF NOT EXISTS idx_like_user ON feed_like(user_id);
+CREATE INDEX idx_like_feed ON feed_like(feed_id);
+CREATE INDEX idx_like_user ON feed_like(user_id);
 
-CREATE TABLE IF NOT EXISTS feed_comment (
+COMMENT ON TABLE feed_like IS '피드 좋아요';
+
+CREATE TABLE feed_comment (
     id BIGSERIAL PRIMARY KEY,
     feed_id BIGINT NOT NULL REFERENCES activity_feed(id) ON DELETE CASCADE,
     user_id VARCHAR(36) NOT NULL,
@@ -368,124 +458,11 @@ CREATE TABLE IF NOT EXISTS feed_comment (
     modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_comment_feed ON feed_comment(feed_id);
-CREATE INDEX IF NOT EXISTS idx_comment_user ON feed_comment(user_id);
-CREATE INDEX IF NOT EXISTS idx_comment_created ON feed_comment(created_at DESC);
+CREATE INDEX idx_comment_feed ON feed_comment(feed_id);
+CREATE INDEX idx_comment_user ON feed_comment(user_id);
+CREATE INDEX idx_comment_created ON feed_comment(created_at DESC);
 
--- ============================================================
--- 미션 시스템 테이블 (MissionService)
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS mission (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    status VARCHAR(20) NOT NULL,
-    visibility VARCHAR(20) NOT NULL,
-    type VARCHAR(20) NOT NULL,
-    creator_id VARCHAR(36) NOT NULL,
-    guild_id VARCHAR(36),
-    max_participants INTEGER,
-    start_date TIMESTAMP,
-    end_date TIMESTAMP,
-    mission_interval VARCHAR(20) DEFAULT 'DAILY',
-    duration_days INTEGER,
-    exp_per_completion INTEGER DEFAULT 10,
-    bonus_exp_on_full_completion INTEGER DEFAULT 50,
-    guild_exp_per_completion INTEGER DEFAULT 5,
-    guild_bonus_exp_on_full_completion INTEGER DEFAULT 20,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_mission_creator ON mission(creator_id);
-CREATE INDEX IF NOT EXISTS idx_mission_status ON mission(status);
-CREATE INDEX IF NOT EXISTS idx_mission_visibility ON mission(visibility);
-CREATE INDEX IF NOT EXISTS idx_mission_guild ON mission(guild_id);
-
-CREATE TABLE IF NOT EXISTS mission_participant (
-    id BIGSERIAL PRIMARY KEY,
-    mission_id BIGINT NOT NULL REFERENCES mission(id) ON DELETE CASCADE,
-    user_id VARCHAR(36) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    progress INTEGER,
-    joined_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    note VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_mission_participant UNIQUE (mission_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_participant_mission ON mission_participant(mission_id);
-CREATE INDEX IF NOT EXISTS idx_participant_user ON mission_participant(user_id);
-CREATE INDEX IF NOT EXISTS idx_participant_status ON mission_participant(status);
-
-CREATE TABLE IF NOT EXISTS mission_execution (
-    id BIGSERIAL PRIMARY KEY,
-    participant_id BIGINT NOT NULL REFERENCES mission_participant(id) ON DELETE CASCADE,
-    execution_date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    completed_at TIMESTAMP,
-    exp_earned INTEGER DEFAULT 0,
-    note VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_mission_execution UNIQUE (participant_id, execution_date)
-);
-
-CREATE INDEX IF NOT EXISTS idx_execution_participant ON mission_execution(participant_id);
-CREATE INDEX IF NOT EXISTS idx_execution_date ON mission_execution(execution_date);
-CREATE INDEX IF NOT EXISTS idx_execution_status ON mission_execution(status);
-
--- ============================================================
--- Saga 시스템 테이블 (분산 트랜잭션 관리)
--- ============================================================
-
--- Saga 인스턴스 테이블
-CREATE TABLE IF NOT EXISTS saga_instance (
-    saga_id VARCHAR(36) PRIMARY KEY,
-    saga_type VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'STARTED',
-    executor_id VARCHAR(255),
-    current_step VARCHAR(100),
-    current_step_index INTEGER DEFAULT 0,
-    context_data TEXT,
-    compensation_data TEXT,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    failure_reason VARCHAR(1000),
-    retry_count INTEGER DEFAULT 0,
-    max_retries INTEGER DEFAULT 3,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_saga_type ON saga_instance(saga_type);
-CREATE INDEX IF NOT EXISTS idx_saga_status ON saga_instance(status);
-CREATE INDEX IF NOT EXISTS idx_saga_created ON saga_instance(created_at);
-CREATE INDEX IF NOT EXISTS idx_saga_executor ON saga_instance(executor_id);
-
--- Saga Step 실행 로그 테이블
-CREATE TABLE IF NOT EXISTS saga_step_log (
-    id BIGSERIAL PRIMARY KEY,
-    saga_id VARCHAR(36) NOT NULL,
-    step_name VARCHAR(100) NOT NULL,
-    step_index INTEGER,
-    status VARCHAR(20) NOT NULL,
-    execution_type VARCHAR(20) DEFAULT 'FORWARD',
-    duration_ms BIGINT,
-    input_data TEXT,
-    output_data TEXT,
-    error_message VARCHAR(1000),
-    stack_trace TEXT,
-    retry_attempt INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_step_log_saga ON saga_step_log(saga_id);
-CREATE INDEX IF NOT EXISTS idx_step_log_status ON saga_step_log(status);
-CREATE INDEX IF NOT EXISTS idx_step_log_created ON saga_step_log(created_at);
+COMMENT ON TABLE feed_comment IS '피드 댓글';
 
 -- ============================================================
 -- 초기 데이터 삽입
@@ -502,8 +479,7 @@ INSERT INTO title (name, description, rarity, prefix, color_code, is_active) VAL
     ('영웅 모험가', '레벨 60-69 사용자', 'EPIC', '[영웅]', '#9400D3', true),
     ('전설의 모험가', '레벨 70-79 사용자', 'EPIC', '[전설]', '#8B008B', true),
     ('신화의 모험가', '레벨 80-89 사용자', 'LEGENDARY', '[신화]', '#FFD700', true),
-    ('초월자', '레벨 90+ 사용자', 'LEGENDARY', '[초월]', '#FF4500', true)
-ON CONFLICT DO NOTHING;
+    ('초월자', '레벨 90+ 사용자', 'LEGENDARY', '[초월]', '#FF4500', true);
 
 -- 기본 업적 삽입
 INSERT INTO achievement (achievement_type, name, description, category, required_count, reward_exp, is_active) VALUES
@@ -516,8 +492,7 @@ INSERT INTO achievement (achievement_type, name, description, category, required
     ('FIRST_FRIEND', '첫 친구', '첫 친구를 만드세요', 'SOCIAL', 1, 30, true),
     ('FRIENDS_10', '인싸', '친구 10명 달성', 'SOCIAL', 10, 100, true),
     ('FIRST_GUILD', '길드 합류', '첫 길드에 가입하세요', 'GUILD', 1, 50, true),
-    ('GUILD_MASTER', '길드 마스터', '길드를 생성하세요', 'GUILD', 1, 200, true)
-ON CONFLICT DO NOTHING;
+    ('GUILD_MASTER', '길드 마스터', '길드를 생성하세요', 'GUILD', 1, 200, true);
 
 -- 기본 퀘스트 삽입
 INSERT INTO quest (name, description, quest_type, category, action_type, required_count, reward_exp, is_active) VALUES
@@ -525,8 +500,7 @@ INSERT INTO quest (name, description, quest_type, category, action_type, require
     ('출석 체크', '오늘 출석 체크하기', 'DAILY', 'ATTENDANCE', 'DAILY_ATTENDANCE', 1, 10, true),
     ('친구와 인사', '친구에게 메시지 보내기', 'DAILY', 'SOCIAL', 'SEND_MESSAGE', 1, 10, true),
     ('주간 미션 달인', '이번 주 미션 5개 완료하기', 'WEEKLY', 'MISSION', 'COMPLETE_MISSION', 5, 100, true),
-    ('주간 출석왕', '이번 주 5일 출석하기', 'WEEKLY', 'ATTENDANCE', 'DAILY_ATTENDANCE', 5, 50, true)
-ON CONFLICT DO NOTHING;
+    ('주간 출석왕', '이번 주 5일 출석하기', 'WEEKLY', 'ATTENDANCE', 'DAILY_ATTENDANCE', 5, 50, true);
 
 -- 기본 출석 보상 설정
 INSERT INTO attendance_reward_config (reward_type, required_days, reward_exp, description, is_active) VALUES
@@ -535,5 +509,8 @@ INSERT INTO attendance_reward_config (reward_type, required_days, reward_exp, de
     ('STREAK_7', 7, 50, '7일 연속 출석 보너스', true),
     ('STREAK_14', 14, 100, '14일 연속 출석 보너스', true),
     ('STREAK_30', 30, 300, '30일 연속 출석 보너스', true),
-    ('MONTHLY_PERFECT', NULL, 500, '월간 개근 보너스', true)
-ON CONFLICT DO NOTHING;
+    ('MONTHLY_PERFECT', NULL, 500, '월간 개근 보너스', true);
+
+-- ============================================================
+-- END OF INITIALIZATION
+-- ============================================================

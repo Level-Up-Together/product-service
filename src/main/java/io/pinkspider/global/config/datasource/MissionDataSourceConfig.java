@@ -3,7 +3,7 @@ package io.pinkspider.global.config.datasource;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.pinkspider.global.component.SshTunnel;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.UserDataSourceProperties;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.MissionDataSourceProperties;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Properties;
 import javax.sql.DataSource;
@@ -24,17 +24,17 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @EnableJpaRepositories(
     basePackages = "io.pinkspider.leveluptogethermvp.missionservice",
-    entityManagerFactoryRef = "userEntityManagerFactory",
-    transactionManagerRef = "userTransactionManager"
+    entityManagerFactoryRef = "missionEntityManagerFactory",
+    transactionManagerRef = "missionTransactionManager"
 )
 @Profile("!test")
 @Slf4j
 public class MissionDataSourceConfig {
 
-    private final UserDataSourceProperties properties;
+    private final MissionDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public MissionDataSourceConfig(UserDataSourceProperties properties, SshTunnel sshTunnel) {
+    public MissionDataSourceConfig(MissionDataSourceProperties properties, SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }

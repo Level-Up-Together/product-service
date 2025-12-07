@@ -30,7 +30,7 @@ CREATE TABLE guild (
     current_exp INTEGER NOT NULL DEFAULT 0,
     total_exp INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_guild_visibility CHECK (visibility IN ('PUBLIC', 'PRIVATE')),
     CONSTRAINT chk_guild_level CHECK (current_level >= 1),
@@ -68,7 +68,7 @@ CREATE TABLE guild_member (
     joined_at TIMESTAMP,
     left_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_guild_member_guild FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE,
     CONSTRAINT uk_guild_member UNIQUE (guild_id, user_id),
@@ -102,7 +102,7 @@ CREATE TABLE guild_join_request (
     processed_at TIMESTAMP,
     reject_reason VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_join_request_guild FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE,
     CONSTRAINT chk_request_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'))
@@ -134,7 +134,7 @@ CREATE TABLE guild_level_config (
     title VARCHAR(50),
     description VARCHAR(200),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_guild_level_config_level UNIQUE (level),
     CONSTRAINT chk_level CHECK (level >= 1),
@@ -201,7 +201,7 @@ CREATE TABLE guild_chat_message (
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_chat_message_guild FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE,
     CONSTRAINT chk_message_type CHECK (message_type IN ('TEXT', 'IMAGE', 'SYSTEM_JOIN', 'SYSTEM_LEAVE', 'SYSTEM_KICK', 'SYSTEM_ACHIEVEMENT', 'SYSTEM_MISSION', 'SYSTEM_LEVEL_UP', 'SYSTEM_ANNOUNCEMENT'))

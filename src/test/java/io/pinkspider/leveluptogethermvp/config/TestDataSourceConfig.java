@@ -50,6 +50,12 @@ public class TestDataSourceConfig {
     }
 
     @Bean
+    @ConfigurationProperties("spring.datasource.saga")
+    public DataSource sagaDataSource() {
+        return DataSourceBuilder.create().build();
+    }
+
+    @Bean
     @Primary
     public LocalContainerEntityManagerFactoryBean entityManagerFactory(
         @Qualifier("userDataSource") DataSource dataSource,

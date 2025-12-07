@@ -3,7 +3,7 @@ package io.pinkspider.global.config.datasource;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.pinkspider.global.component.SshTunnel;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.UserDataSourceProperties;
+import io.pinkspider.global.saga.properties.SagaDataSourceProperties;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Properties;
 import javax.sql.DataSource;
@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -24,30 +23,29 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "io.pinkspider.leveluptogethermvp.userservice",
-    entityManagerFactoryRef = "userEntityManagerFactory",
-    transactionManagerRef = "userTransactionManager"
+    basePackages = "io.pinkspider.global.saga.persistence",
+    entityManagerFactoryRef = "sagaEntityManagerFactory",
+    transactionManagerRef = "sagaTransactionManager"
 )
 @Profile("!test")
 @Slf4j
-public class UserDataSourceConfig {
+public class SagaDataSourceConfig {
 
-    private final UserDataSourceProperties properties;
+    private final SagaDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public UserDataSourceConfig(UserDataSourceProperties properties, SshTunnel sshTunnel) {
+    public SagaDataSourceConfig(SagaDataSourceProperties properties, SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }
 
-    @Bean(name = "userDataSource")
+    @Bean(name = "sagaDataSource")
     @DependsOn("sshTunnel")
-    @Primary
-    public DataSource userDataSource() {
+    public DataSource sagaDataSource() {
         HikariConfig cfg = new HikariConfig();
 
         String jdbcUrl = DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort());
-        log.info("User DataSource JDBC URL: {}", jdbcUrl);
+        log.info("Saga DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);
         cfg.setUsername(properties.getUsername());
@@ -57,30 +55,28 @@ public class UserDataSourceConfig {
         cfg.setInitializationFailTimeout(-1);
         cfg.setConnectionTimeout(15000);
         cfg.setValidationTimeout(5000);
-        cfg.setMaximumPoolSize(10);
-        cfg.setMinimumIdle(2);
+        cfg.setMaximumPoolSize(5);
+        cfg.setMinimumIdle(1);
 
         return new HikariDataSource(cfg);
     }
 
-    @Primary
-    @Bean(name = "userEntityManagerFactory")
-    public LocalContainerEntityManagerFactoryBean userEntityManagerFactory(
-        @Qualifier("userDataSource") DataSource dataSource) {
+    @Bean(name = "sagaEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean sagaEntityManagerFactory(
+        @Qualifier("sagaDataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
-        em.setPackagesToScan("io.pinkspider.leveluptogethermvp.userservice");
-        em.setPersistenceUnitName("user");
+        em.setPackagesToScan("io.pinkspider.global.saga.persistence");
+        em.setPersistenceUnitName("saga");
         HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
         em.setJpaVendorAdapter(vendorAdapter);
         em.setJpaProperties(jpaProperties());
         return em;
     }
 
-    @Primary
-    @Bean(name = "userTransactionManager")
-    public PlatformTransactionManager userTransactionManager(
-        @Qualifier("userEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+    @Bean(name = "sagaTransactionManager")
+    public PlatformTransactionManager sagaTransactionManager(
+        @Qualifier("sagaEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 
