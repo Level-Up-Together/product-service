@@ -211,46 +211,4 @@ public class AchievementService {
             .build();
         return userAchievementRepository.save(userAchievement);
     }
-
-    // 업적 초기화 (관리자용)
-    @Transactional
-    public Achievement createOrUpdateAchievement(AchievementType type, String name, String description,
-                                                  Integer rewardExp, Long rewardTitleId, Integer rewardPoints,
-                                                  String iconUrl, Boolean isHidden) {
-        Achievement achievement = achievementRepository.findByAchievementType(type)
-            .orElse(Achievement.builder()
-                .achievementType(type)
-                .category(type.getCategory())
-                .requiredCount(type.getRequiredCount())
-                .build());
-
-        achievement.setName(name != null ? name : type.getDisplayName());
-        achievement.setDescription(description);
-        achievement.setRewardExp(rewardExp != null ? rewardExp : 0);
-        achievement.setRewardTitleId(rewardTitleId);
-        achievement.setRewardPoints(rewardPoints != null ? rewardPoints : 0);
-        achievement.setIconUrl(iconUrl);
-        achievement.setIsHidden(isHidden != null ? isHidden : false);
-
-        return achievementRepository.save(achievement);
-    }
-
-    // 모든 업적 타입 초기화
-    @Transactional
-    public void initializeAllAchievements() {
-        for (AchievementType type : AchievementType.values()) {
-            if (achievementRepository.findByAchievementType(type).isEmpty()) {
-                Achievement achievement = Achievement.builder()
-                    .achievementType(type)
-                    .name(type.getDisplayName())
-                    .description(type.getDisplayName() + " 업적입니다.")
-                    .category(type.getCategory())
-                    .requiredCount(type.getRequiredCount())
-                    .rewardExp(type.getRequiredCount() * 10)
-                    .build();
-                achievementRepository.save(achievement);
-            }
-        }
-        log.info("모든 업적 초기화 완료");
-    }
 }

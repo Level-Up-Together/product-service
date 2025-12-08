@@ -140,12 +140,4 @@ public class AchievementController {
         UserStatsResponse response = userStatsService.getUserStats(userId);
         return ResponseEntity.ok(ApiResult.<UserStatsResponse>builder().value(response).build());
     }
-
-    // 업적 초기화 (관리자용)
-    @PostMapping("/init")
-    public ResponseEntity<ApiResult<Void>> initializeAchievements() {
-        achievementService.initializeAllAchievements();
-        titleService.initializeDefaultTitles();
-        return ResponseEntity.ok(ApiResult.getBase());
-    }
 }

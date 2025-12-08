@@ -69,11 +69,4 @@ public class QuestController {
         List<UserQuestResponse> responses = questService.claimAllRewards(userId);
         return ResponseEntity.ok(ApiResult.<List<UserQuestResponse>>builder().value(responses).build());
     }
-
-    // 퀘스트 초기화 (관리자용)
-    @PostMapping("/init")
-    public ResponseEntity<ApiResult<Void>> initializeQuests() {
-        questService.initializeDefaultQuests();
-        return ResponseEntity.ok(ApiResult.getBase());
-    }
 }
