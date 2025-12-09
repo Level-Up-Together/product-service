@@ -64,8 +64,6 @@ spring:
         format_sql: true
         show_sql: true
         use_sql_comments: true
-        default_catalog: user_db
-        # default_catalog는 제거 (H2에서는 불필요)
     defer-datasource-initialization: true
   security:
     oauth2:
