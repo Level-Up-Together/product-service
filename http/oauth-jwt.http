@@ -1,0 +1,78 @@
+### ============================================================
+### OAuth2 & JWT APIs
+### ============================================================
+
+### ----------------------------------------------------------
+### OAuth2 로그인 URI 조회 - Google
+### ----------------------------------------------------------
+GET {{baseUrl}}/oauth/uri/google
+Accept: application/json
+
+### ----------------------------------------------------------
+### OAuth2 로그인 URI 조회 - Kakao
+### ----------------------------------------------------------
+GET {{baseUrl}}/oauth/uri/kakao
+Accept: application/json
+
+### ----------------------------------------------------------
+### OAuth2 로그인 URI 조회 - Apple
+### ----------------------------------------------------------
+GET {{baseUrl}}/oauth/uri/apple
+Accept: application/json
+
+### ----------------------------------------------------------
+### OAuth2 콜백 - Google (GET)
+### ----------------------------------------------------------
+GET {{baseUrl}}/oauth/callback/google?code=auth-code-here&device_type=ANDROID&device_id=device-123
+Accept: application/json
+
+### ----------------------------------------------------------
+### OAuth2 콜백 - Kakao (GET)
+### ----------------------------------------------------------
+GET {{baseUrl}}/oauth/callback/kakao?code=auth-code-here&device_type=IOS&device_id=device-456
+Accept: application/json
+
+### ----------------------------------------------------------
+### OAuth2 콜백 - Apple (POST with id_token)
+### ----------------------------------------------------------
+POST {{baseUrl}}/oauth/callback/apple?code=auth-code-here&id_token=apple-id-token&device_type=IOS&device_id=device-789
+Accept: application/json
+
+### ----------------------------------------------------------
+### JWT 토큰 갱신 (Reissue)
+### ----------------------------------------------------------
+POST {{baseUrl}}/jwt/reissue
+Content-Type: application/json
+Accept: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### ----------------------------------------------------------
+### 로그아웃 (현재 세션)
+### ----------------------------------------------------------
+POST {{baseUrl}}/jwt/logout
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 전체 로그아웃 (모든 세션)
+### ----------------------------------------------------------
+POST {{baseUrl}}/jwt/logout-all
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 활성 세션 목록 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/jwt/sessions
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 토큰 상태 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/jwt/token-status
+Authorization: Bearer {{accessToken}}
+Accept: application/json

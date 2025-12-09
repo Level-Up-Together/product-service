@@ -1,0 +1,49 @@
+### ============================================================
+### Meta Service - 공통코드 APIs
+### ============================================================
+
+### ----------------------------------------------------------
+### 부모 ID로 하위 공통코드 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/meta-service/common-code/PARENT_CODE_ID
+Accept: application/json
+
+### ----------------------------------------------------------
+### 특정 공통코드 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/meta-service/common-code/CODE_ID
+Accept: application/json
+
+### ----------------------------------------------------------
+### 공통코드 생성 (Admin용 - TODO)
+### ----------------------------------------------------------
+POST {{baseUrl}}/meta-service/common-code
+Content-Type: application/json
+Accept: application/json
+
+{
+  "id": "NEW_CODE",
+  "parentId": "PARENT_CODE",
+  "name": "New Code Name",
+  "description": "Description here",
+  "sortOrder": 1
+}
+
+### ----------------------------------------------------------
+### 공통코드 수정 (Admin용 - TODO)
+### ----------------------------------------------------------
+PUT {{baseUrl}}/meta-service/common-code
+Content-Type: application/json
+Accept: application/json
+
+{
+  "id": "EXISTING_CODE",
+  "name": "Updated Code Name",
+  "description": "Updated description"
+}
+
+### ----------------------------------------------------------
+### 공통코드 삭제 (TODO)
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/meta-service/common-code
+Accept: application/json

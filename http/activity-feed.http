@@ -1,0 +1,101 @@
+### ============================================================
+### 활동 피드 APIs
+### ============================================================
+
+### ----------------------------------------------------------
+### 전체 공개 피드 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/public?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 내 타임라인 피드 조회 (내 + 친구 피드)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/timeline?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 특정 사용자의 피드 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/user/target-user-id?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 길드 피드 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/guild/1?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 카테고리별 피드 조회
+### Category: MISSION_COMPLETE, ACHIEVEMENT, GUILD_JOIN, etc.
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/category/MISSION_COMPLETE?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 피드 상세 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/1
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 피드 생성 (사용자 직접 생성)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/feeds
+X-User-Id: {{userId}}
+X-User-Nickname: {{userNickname}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "Today I completed my first mission!",
+  "visibility": "PUBLIC",
+  "category": "GENERAL"
+}
+
+### ----------------------------------------------------------
+### 피드 삭제
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/feeds/1
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 좋아요 토글
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/feeds/1/like
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 댓글 목록 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/1/comments?page=0&size=20
+Accept: application/json
+
+### ----------------------------------------------------------
+### 댓글 작성
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/feeds/1/comments
+X-User-Id: {{userId}}
+X-User-Nickname: {{userNickname}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "Great job! Keep it up!"
+}
+
+### ----------------------------------------------------------
+### 댓글 삭제
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/feeds/1/comments/1
+X-User-Id: {{userId}}
+Accept: application/json

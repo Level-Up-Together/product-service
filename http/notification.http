@@ -1,0 +1,69 @@
+### ============================================================
+### 알림 시스템 APIs
+### ============================================================
+
+### ----------------------------------------------------------
+### 알림 목록 조회 (페이징)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/notifications?page=0&size=20
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 읽지 않은 알림 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/notifications/unread
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 알림 요약 (읽지 않은 개수)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/notifications/summary
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 알림 읽음 처리
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/notifications/1/read
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 모든 알림 읽음 처리
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/notifications/read-all
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 알림 삭제
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/notifications/1
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 알림 설정 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/notifications/preferences
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 알림 설정 수정
+### ----------------------------------------------------------
+PUT {{baseUrl}}/api/v1/notifications/preferences
+X-User-Id: {{userId}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pushEnabled": true,
+  "emailEnabled": false,
+  "missionNotification": true,
+  "guildNotification": true,
+  "friendNotification": true,
+  "achievementNotification": true
+}
