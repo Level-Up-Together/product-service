@@ -7,6 +7,8 @@
   "type": "PERSONAL",
   "creator_id": "test-user-123",
   "guild_id": null,
+  "category_id": 1,
+  "category_name": "운동",
   "max_participants": 50,
   "current_participants": 25,
   "start_date": "2025-01-01 00:00:00",

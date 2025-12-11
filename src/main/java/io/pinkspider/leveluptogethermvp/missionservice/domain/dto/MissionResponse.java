@@ -42,6 +42,10 @@ public class MissionResponse {
     private Integer expPerCompletion;
     private Integer bonusExpOnFullCompletion;
 
+    // 카테고리 정보
+    private Long categoryId;
+    private String categoryName;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -65,6 +69,8 @@ public class MissionResponse {
             .durationDays(mission.getDurationDays())
             .expPerCompletion(mission.getExpPerCompletion())
             .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
+            .categoryId(mission.getCategory() != null ? mission.getCategory().getId() : null)
+            .categoryName(mission.getCategoryName())
             .createdAt(mission.getCreatedAt())
             .modifiedAt(mission.getModifiedAt())
             .build();

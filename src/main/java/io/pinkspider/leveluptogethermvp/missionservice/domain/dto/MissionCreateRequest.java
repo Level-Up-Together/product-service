@@ -56,4 +56,10 @@ public class MissionCreateRequest {
     @Min(value = 0, message = "보너스 경험치는 0 이상이어야 합니다.")
     @Builder.Default
     private Integer bonusExpOnFullCompletion = 50;
+
+    // 카테고리: categoryId 또는 customCategory 중 하나 선택
+    private Long categoryId;
+
+    @Size(max = 50, message = "사용자 정의 카테고리는 50자 이하여야 합니다.")
+    private String customCategory;
 }

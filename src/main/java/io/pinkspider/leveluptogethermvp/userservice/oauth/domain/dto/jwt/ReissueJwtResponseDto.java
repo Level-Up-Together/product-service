@@ -28,4 +28,7 @@ public class ReissueJwtResponseDto {
     private String userId;
 
     private String deviceId;
+
+    @Builder.Default
+    private boolean refreshTokenRenewed = false;
 }

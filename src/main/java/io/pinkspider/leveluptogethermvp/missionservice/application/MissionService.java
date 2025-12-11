@@ -4,9 +4,11 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateR
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.util.List;
@@ -25,11 +27,27 @@ public class MissionService {
 
     private final MissionRepository missionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final MissionCategoryRepository missionCategoryRepository;
 
     @Transactional
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
         if (request.getType() == MissionType.GUILD && request.getGuildId() == null) {
             throw new IllegalArgumentException("길드 미션은 길드 ID가 필요합니다.");
+        }
+
+        // 카테고리 처리: categoryId 또는 customCategory 중 하나만 사용
+        MissionCategory category = null;
+        String customCategory = null;
+
+        if (request.getCategoryId() != null) {
+            category = missionCategoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리입니다: " + request.getCategoryId()));
+
+            if (!category.getIsActive()) {
+                throw new IllegalArgumentException("비활성화된 카테고리입니다.");
+            }
+        } else if (request.getCustomCategory() != null && !request.getCustomCategory().isBlank()) {
+            customCategory = request.getCustomCategory().trim();
         }
 
         Mission mission = Mission.builder()
@@ -47,10 +65,13 @@ public class MissionService {
             .durationDays(request.getDurationDays())
             .expPerCompletion(request.getExpPerCompletion())
             .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
+            .category(category)
+            .customCategory(customCategory)
             .build();
 
         Mission saved = missionRepository.save(mission);
-        log.info("미션 생성 완료: id={}, title={}, creator={}", saved.getId(), saved.getTitle(), creatorId);
+        log.info("미션 생성 완료: id={}, title={}, creator={}, category={}",
+            saved.getId(), saved.getTitle(), creatorId, saved.getCategoryName());
 
         return MissionResponse.from(saved);
     }
@@ -121,6 +142,28 @@ public class MissionService {
         }
         if (request.getBonusExpOnFullCompletion() != null) {
             mission.setBonusExpOnFullCompletion(request.getBonusExpOnFullCompletion());
+        }
+
+        // 카테고리 수정 처리
+        if (Boolean.TRUE.equals(request.getClearCategory())) {
+            // 카테고리 제거
+            mission.setCategory(null);
+            mission.setCustomCategory(null);
+        } else if (request.getCategoryId() != null) {
+            // 기존 카테고리 선택
+            MissionCategory category = missionCategoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리입니다: " + request.getCategoryId()));
+
+            if (!category.getIsActive()) {
+                throw new IllegalArgumentException("비활성화된 카테고리입니다.");
+            }
+
+            mission.setCategory(category);
+            mission.setCustomCategory(null);
+        } else if (request.getCustomCategory() != null && !request.getCustomCategory().isBlank()) {
+            // 사용자 정의 카테고리
+            mission.setCategory(null);
+            mission.setCustomCategory(request.getCustomCategory().trim());
         }
 
         log.info("미션 수정 완료: id={}", missionId);

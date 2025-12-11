@@ -7,6 +7,8 @@
 -- =====================================================
 -- DROP EXISTING TABLES (for clean initialization)
 -- =====================================================
+DROP TABLE IF EXISTS guild_post_comment CASCADE;
+DROP TABLE IF EXISTS guild_post CASCADE;
 DROP TABLE IF EXISTS guild_experience_history CASCADE;
 DROP TABLE IF EXISTS guild_chat_message CASCADE;
 DROP TABLE IF EXISTS guild_join_request CASCADE;
@@ -223,6 +225,83 @@ COMMENT ON COLUMN guild_chat_message.deleted_at IS '삭제 시간';
 CREATE INDEX idx_chat_guild ON guild_chat_message(guild_id);
 CREATE INDEX idx_chat_guild_created ON guild_chat_message(guild_id, created_at DESC);
 CREATE INDEX idx_chat_sender ON guild_chat_message(sender_id);
+
+-- =====================================================
+-- 7. Guild Post (길드 게시글)
+-- =====================================================
+CREATE TABLE guild_post (
+    id BIGSERIAL PRIMARY KEY,
+    guild_id BIGINT NOT NULL,
+    author_id VARCHAR(255) NOT NULL,
+    author_nickname VARCHAR(50),
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    post_type VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+    is_pinned BOOLEAN DEFAULT FALSE,
+    view_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_guild_post_guild FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE,
+    CONSTRAINT chk_post_type CHECK (post_type IN ('NOTICE', 'NORMAL'))
+);
+
+COMMENT ON TABLE guild_post IS '길드 게시글';
+COMMENT ON COLUMN guild_post.id IS '게시글 ID';
+COMMENT ON COLUMN guild_post.guild_id IS '길드 ID';
+COMMENT ON COLUMN guild_post.author_id IS '작성자 ID';
+COMMENT ON COLUMN guild_post.author_nickname IS '작성자 닉네임';
+COMMENT ON COLUMN guild_post.title IS '제목';
+COMMENT ON COLUMN guild_post.content IS '내용';
+COMMENT ON COLUMN guild_post.post_type IS '게시글 유형 (NOTICE: 공지, NORMAL: 일반)';
+COMMENT ON COLUMN guild_post.is_pinned IS '상단 고정 여부';
+COMMENT ON COLUMN guild_post.view_count IS '조회수';
+COMMENT ON COLUMN guild_post.comment_count IS '댓글 수';
+COMMENT ON COLUMN guild_post.is_deleted IS '삭제 여부';
+COMMENT ON COLUMN guild_post.deleted_at IS '삭제 시간';
+
+CREATE INDEX idx_guild_post_guild ON guild_post(guild_id);
+CREATE INDEX idx_guild_post_guild_created ON guild_post(guild_id, created_at DESC);
+CREATE INDEX idx_guild_post_author ON guild_post(author_id);
+CREATE INDEX idx_guild_post_type ON guild_post(guild_id, post_type);
+CREATE INDEX idx_guild_post_pinned ON guild_post(guild_id, is_pinned DESC, created_at DESC);
+
+-- =====================================================
+-- 8. Guild Post Comment (길드 게시글 댓글)
+-- =====================================================
+CREATE TABLE guild_post_comment (
+    id BIGSERIAL PRIMARY KEY,
+    post_id BIGINT NOT NULL,
+    author_id VARCHAR(255) NOT NULL,
+    author_nickname VARCHAR(50),
+    content VARCHAR(1000) NOT NULL,
+    parent_id BIGINT,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_guild_post_comment_post FOREIGN KEY (post_id) REFERENCES guild_post(id) ON DELETE CASCADE,
+    CONSTRAINT fk_guild_post_comment_parent FOREIGN KEY (parent_id) REFERENCES guild_post_comment(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE guild_post_comment IS '길드 게시글 댓글';
+COMMENT ON COLUMN guild_post_comment.id IS '댓글 ID';
+COMMENT ON COLUMN guild_post_comment.post_id IS '게시글 ID';
+COMMENT ON COLUMN guild_post_comment.author_id IS '작성자 ID';
+COMMENT ON COLUMN guild_post_comment.author_nickname IS '작성자 닉네임';
+COMMENT ON COLUMN guild_post_comment.content IS '댓글 내용';
+COMMENT ON COLUMN guild_post_comment.parent_id IS '상위 댓글 ID (대댓글인 경우)';
+COMMENT ON COLUMN guild_post_comment.is_deleted IS '삭제 여부';
+COMMENT ON COLUMN guild_post_comment.deleted_at IS '삭제 시간';
+
+CREATE INDEX idx_guild_post_comment_post ON guild_post_comment(post_id);
+CREATE INDEX idx_guild_post_comment_post_created ON guild_post_comment(post_id, created_at);
+CREATE INDEX idx_guild_post_comment_author ON guild_post_comment(author_id);
+CREATE INDEX idx_guild_post_comment_parent ON guild_post_comment(parent_id);
 
 -- =====================================================
 -- INITIAL DATA

@@ -9,9 +9,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
@@ -123,9 +126,29 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer guildBonusExpOnFullCompletion = 20;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    @Comment("카테고리 ID (기존 카테고리 선택 시)")
+    private MissionCategory category;
+
+    @Size(max = 50)
+    @Column(name = "custom_category", length = 50)
+    @Comment("사용자 정의 카테고리 (직접 입력 시)")
+    private String customCategory;
+
     @Builder.Default
     @OneToMany(mappedBy = "mission")
     private List<MissionParticipant> participants = new ArrayList<>();
+
+    /**
+     * 카테고리 이름 반환 (기존 카테고리 또는 사용자 정의)
+     */
+    public String getCategoryName() {
+        if (category != null) {
+            return category.getName();
+        }
+        return customCategory;
+    }
 
     public void updateStatus(MissionStatus newStatus) {
         this.status = newStatus;

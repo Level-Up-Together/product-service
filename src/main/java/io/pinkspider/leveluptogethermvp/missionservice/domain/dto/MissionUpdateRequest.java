@@ -43,4 +43,13 @@ public class MissionUpdateRequest {
 
     @Min(value = 0, message = "보너스 경험치는 0 이상이어야 합니다.")
     private Integer bonusExpOnFullCompletion;
+
+    // 카테고리: categoryId 또는 customCategory 중 하나 선택
+    private Long categoryId;
+
+    @Size(max = 50, message = "사용자 정의 카테고리는 50자 이하여야 합니다.")
+    private String customCategory;
+
+    // 카테고리 제거 여부 (true면 카테고리 정보 삭제)
+    private Boolean clearCategory;
 }

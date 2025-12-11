@@ -90,22 +90,14 @@ public class JwtService {
             tokenService.updateTokens(userId, request.getDeviceType(), deviceId,
                 newAccessToken, refreshTokenRenewed ? newRefreshToken : null);
 
-            // TODO 갱신 정보를 헤더에 추가
-            HttpHeaders headers = new HttpHeaders();
-            if (refreshTokenRenewed) {
-                headers.add("X-Refresh-Token-Renewed", "true");
-                headers.add("X-New-Refresh-Expiry", String.valueOf(jwtUtil.getRemainingTime(newRefreshToken)));
-            }
-
-            // return ResponseEntity.ok().headers(headers).body(response);
-
             return ReissueJwtResponseDto.builder()
                 .accessToken(newAccessToken)
-                .refreshToken(refreshToken)
+                .refreshToken(newRefreshToken)  // 갱신된 토큰 반환 (갱신되지 않았으면 기존 토큰)
                 .tokenType("Bearer")
                 .expiresIn(900)
                 .userId(userId)
                 .deviceId(deviceId)
+                .refreshTokenRenewed(refreshTokenRenewed)  // 갱신 여부 플래그
                 .build();
 
         } catch (JwtException e) {

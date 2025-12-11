@@ -261,8 +261,8 @@ tasks.register('copySortedOpenApiJson') {
 
 sortOpenApiJson.finalizedBy(copySortedOpenApiJson)
 
-// Quertdsl 설정부
-def querydslDir = 'src/main/generated/querydsl'
+// Querydsl 설정부
+def querydslDir = "${buildDir}/generated/querydsl"
 
 // java source set에 querydsl QClass 위치 추가
 sourceSets {

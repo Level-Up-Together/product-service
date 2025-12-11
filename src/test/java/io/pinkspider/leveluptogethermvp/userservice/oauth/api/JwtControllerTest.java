@@ -102,7 +102,8 @@ class JwtControllerTest {
                             fieldWithPath("value.token_type").type(JsonFieldType.STRING).description("token_type"),
                             fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("expires_in"),
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("user_id"),
-                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("device_id")
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("device_id"),
+                            fieldWithPath("value.refresh_token_renewed").type(JsonFieldType.BOOLEAN).description("refresh_token_renewed").optional()
                         )
                         .build()
                 )
