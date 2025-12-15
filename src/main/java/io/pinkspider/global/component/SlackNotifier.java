@@ -33,13 +33,13 @@ public class SlackNotifier {
     private final Slack slackClient = Slack.getInstance();
 
     @Async
-    public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request, String traceId, String spanId) {
+    public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request) {
         WebhookResponse response = null;
         try {
             response = slackClient.send(webhookUrl, payload(p -> p
                 .text("서버 에러 발생! 백엔드 확인 요망")
                 .attachments(
-                    List.of(generateSlackAttachment(exception, request, traceId, spanId))
+                    List.of(generateSlackAttachment(exception, request))
                 )
             ));
         } catch (IOException slackError) {
@@ -48,7 +48,7 @@ public class SlackNotifier {
         return CompletableFuture.completedFuture(response);
     }
 
-    private Attachment generateSlackAttachment(Exception exception, HttpServletRequest request, String traceId, String spanId) {
+    private Attachment generateSlackAttachment(Exception exception, HttpServletRequest request) {
         String requestTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(LocalDateTime.now());
         String targetName = Arrays.stream(exception.getStackTrace()).findFirst().toString();
         String xffHeader = request.getHeader("X-FORWARDED-FOR");
@@ -61,8 +61,8 @@ public class SlackNotifier {
                     generateSlackField("Target Name", targetName),
                     generateSlackField("Request IP", xffHeader == null ? request.getRemoteAddr() : xffHeader),
                     generateSlackField("Request URL", request.getMethod() + " " + request.getRequestURI()),
-                    generateSlackField("Trace ID", traceId),
-                    generateSlackField("Span ID", spanId),
+//                    generateSlackField("Trace ID", traceId),
+//                    generateSlackField("Span ID", spanId),
                     generateSlackField("Error Message", exception.getMessage())
                 )
             )

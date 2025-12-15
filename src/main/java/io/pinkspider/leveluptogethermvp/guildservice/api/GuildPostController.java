@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildPostService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentResponse;
@@ -47,7 +48,7 @@ public class GuildPostController {
     @PostMapping
     public ResponseEntity<ApiResult<GuildPostResponse>> createPost(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
         @Valid @RequestBody GuildPostCreateRequest request) {
 
@@ -61,7 +62,7 @@ public class GuildPostController {
     @GetMapping
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPosts(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
         Page<GuildPostListResponse> responses = guildPostService.getPosts(guildId, userId, pageable);
@@ -75,7 +76,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPostsByType(
         @PathVariable Long guildId,
         @PathVariable GuildPostType postType,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
         Page<GuildPostListResponse> responses = guildPostService.getPostsByType(guildId, userId, postType, pageable);
@@ -88,7 +89,7 @@ public class GuildPostController {
     @GetMapping("/notices")
     public ResponseEntity<ApiResult<List<GuildPostListResponse>>> getNotices(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<GuildPostListResponse> responses = guildPostService.getNotices(guildId, userId);
         return ResponseEntity.ok(ApiResult.<List<GuildPostListResponse>>builder().value(responses).build());
@@ -101,7 +102,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> searchPosts(
         @PathVariable Long guildId,
         @RequestParam String keyword,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
         Page<GuildPostListResponse> responses = guildPostService.searchPosts(guildId, userId, keyword, pageable);
@@ -115,7 +116,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostResponse>> getPost(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         GuildPostResponse response = guildPostService.getPost(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
@@ -128,7 +129,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostResponse>> updatePost(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody GuildPostUpdateRequest request) {
 
         GuildPostResponse response = guildPostService.updatePost(guildId, postId, userId, request);
@@ -142,7 +143,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Void>> deletePost(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         guildPostService.deletePost(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
@@ -155,7 +156,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostResponse>> togglePin(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         GuildPostResponse response = guildPostService.togglePin(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
@@ -172,7 +173,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostCommentResponse>> createComment(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestHeader(value = "X-User-Nickname", required = false) String userNickname,
         @Valid @RequestBody GuildPostCommentCreateRequest request) {
 
@@ -187,7 +188,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<List<GuildPostCommentResponse>>> getComments(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<GuildPostCommentResponse> responses = guildPostService.getComments(guildId, postId, userId);
         return ResponseEntity.ok(ApiResult.<List<GuildPostCommentResponse>>builder().value(responses).build());
@@ -201,7 +202,7 @@ public class GuildPostController {
         @PathVariable Long guildId,
         @PathVariable Long postId,
         @PathVariable Long commentId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody GuildPostCommentUpdateRequest request) {
 
         GuildPostCommentResponse response = guildPostService.updateComment(guildId, postId, commentId, userId, request);
@@ -216,7 +217,7 @@ public class GuildPostController {
         @PathVariable Long guildId,
         @PathVariable Long postId,
         @PathVariable Long commentId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         guildPostService.deleteComment(guildId, postId, commentId, userId);
         return ResponseEntity.ok(ApiResult.getBase());

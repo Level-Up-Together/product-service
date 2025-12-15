@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.notification.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -58,7 +58,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class NotificationControllerTest {
 
@@ -70,7 +70,6 @@ class NotificationControllerTest {
     @MockitoBean
     private NotificationService notificationService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     private NotificationResponse createMockNotification(Long id, NotificationType type, boolean isRead) {
@@ -103,7 +102,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/notifications")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -114,10 +113,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("알림 목록 조회 (페이징)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("알림 목록 조회 (페이징, JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
@@ -144,7 +140,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/notifications/unread")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-02. 읽지 않은 알림",
@@ -153,10 +149,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("읽지 않은 알림 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("읽지 않은 알림 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -197,7 +190,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/notifications/summary")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-03. 알림 요약",
@@ -206,10 +199,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("알림 요약 정보")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("알림 요약 정보 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -237,7 +227,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/notifications/{notificationId}/read", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-04. 알림 읽음 처리",
@@ -246,10 +236,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("특정 알림을 읽음 처리")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 알림을 읽음 처리 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("notificationId").type(SimpleType.NUMBER).description("알림 ID")
                         )
@@ -271,7 +258,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/notifications/read-all")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-05. 전체 읽음 처리",
@@ -280,10 +267,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("모든 알림을 읽음 처리")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("모든 알림을 읽음 처리 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -307,7 +291,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/notifications/{notificationId}", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-06. 알림 삭제",
@@ -316,10 +300,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("알림 삭제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("알림 삭제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("notificationId").type(SimpleType.NUMBER).description("알림 ID")
                         )
@@ -359,7 +340,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/notifications/preferences")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("알림-07. 알림 설정 조회",
@@ -368,10 +349,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("알림 설정 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("알림 설정 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -435,7 +413,7 @@ class NotificationControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/notifications/preferences")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -445,10 +423,7 @@ class NotificationControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Notification")
-                        .description("알림 설정 수정")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("알림 설정 수정 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("push_enabled").type(JsonFieldType.BOOLEAN).description("푸시 알림 활성화").optional(),
                             fieldWithPath("mission_notifications").type(JsonFieldType.BOOLEAN).description("미션 알림").optional(),

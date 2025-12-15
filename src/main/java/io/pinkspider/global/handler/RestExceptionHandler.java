@@ -4,7 +4,6 @@ import static org.springframework.core.NestedExceptionUtils.getMostSpecificCause
 
 import feign.FeignException;
 import io.micrometer.core.instrument.config.validate.ValidationException;
-import io.micrometer.tracing.Tracer;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.component.SlackNotifier;
@@ -50,7 +49,7 @@ public class RestExceptionHandler {
 
     private final SlackNotifier slackNotifier;
 
-    private final Tracer tracer;
+//    private final Tracer tracer;
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -229,16 +228,16 @@ public class RestExceptionHandler {
 
     private void handleError(Exception exception, HttpServletRequest request) {
         String targetName = Arrays.stream(exception.getStackTrace()).findFirst().toString();
-        String traceId = Objects.requireNonNull(tracer.currentTraceContext().context()).traceId();
-        String spanId = Objects.requireNonNull(tracer.currentTraceContext().context()).spanId();
+//        String traceId = Objects.requireNonNull(tracer.currentTraceContext().context()).traceId();
+//        String spanId = Objects.requireNonNull(tracer.currentTraceContext().context()).spanId();
 
         log.error("##### api error #####");
         log.error("service name: {}", applicationName);
         log.error("request method: {}", request.getMethod());
         log.error("request path: {}", request.getRequestURI());
         log.error("target: {}", targetName);
-        log.error("traceId: {}", traceId);
-        log.error("spanId: {}", traceId);
+//        log.error("traceId: {}", traceId);
+//        log.error("spanId: {}", traceId);
         log.error("exception message: {}", getMostSpecificCause(exception).getMessage());
         log.error("exception original", exception);
         log.error("#####################");
@@ -247,6 +246,6 @@ public class RestExceptionHandler {
             return;
         }
 
-        slackNotifier.sendSlackAlert(exception, request, traceId, spanId);
+        slackNotifier.sendSlackAlert(exception, request);
     }
 }

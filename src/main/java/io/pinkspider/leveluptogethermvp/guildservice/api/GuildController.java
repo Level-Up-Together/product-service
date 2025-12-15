@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
@@ -40,7 +41,7 @@ public class GuildController {
 
     @PostMapping
     public ResponseEntity<ApiResult<GuildResponse>> createGuild(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody GuildCreateRequest request) {
 
         GuildResponse response = guildService.createGuild(userId, request);
@@ -50,7 +51,7 @@ public class GuildController {
     @GetMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> getGuild(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         GuildResponse response = guildService.getGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
@@ -75,7 +76,7 @@ public class GuildController {
 
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<GuildResponse>>> getMyGuilds(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<GuildResponse> responses = guildService.getMyGuilds(userId);
         return ResponseEntity.ok(ApiResult.<List<GuildResponse>>builder().value(responses).build());
@@ -84,7 +85,7 @@ public class GuildController {
     @PutMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> updateGuild(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody GuildUpdateRequest request) {
 
         GuildResponse response = guildService.updateGuild(guildId, userId, request);
@@ -94,7 +95,7 @@ public class GuildController {
     @PostMapping("/{guildId}/transfer-master")
     public ResponseEntity<ApiResult<Void>> transferMaster(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody TransferMasterRequest request) {
 
         guildService.transferMaster(guildId, userId, request.getNewMasterId());
@@ -104,7 +105,7 @@ public class GuildController {
     @GetMapping("/{guildId}/members")
     public ResponseEntity<ApiResult<List<GuildMemberResponse>>> getGuildMembers(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<GuildMemberResponse> responses = guildService.getGuildMembers(guildId, userId);
         return ResponseEntity.ok(ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
@@ -113,7 +114,7 @@ public class GuildController {
     @DeleteMapping("/{guildId}/members/me")
     public ResponseEntity<ApiResult<Void>> leaveGuild(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         guildService.leaveGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
@@ -123,7 +124,7 @@ public class GuildController {
     @PostMapping("/{guildId}/join-requests")
     public ResponseEntity<ApiResult<GuildJoinRequestResponse>> requestJoin(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestBody(required = false) GuildJoinRequestDto request) {
 
         GuildJoinRequestResponse response = guildService.requestJoin(guildId, userId, request);
@@ -134,7 +135,7 @@ public class GuildController {
     @GetMapping("/{guildId}/join-requests")
     public ResponseEntity<ApiResult<Page<GuildJoinRequestResponse>>> getPendingJoinRequests(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
         Page<GuildJoinRequestResponse> responses = guildService.getPendingJoinRequests(guildId, userId, pageable);
@@ -145,7 +146,7 @@ public class GuildController {
     @PostMapping("/join-requests/{requestId}/approve")
     public ResponseEntity<ApiResult<GuildMemberResponse>> approveJoinRequest(
         @PathVariable Long requestId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         GuildMemberResponse response = guildService.approveJoinRequest(requestId, userId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
@@ -155,7 +156,7 @@ public class GuildController {
     @PostMapping("/join-requests/{requestId}/reject")
     public ResponseEntity<ApiResult<GuildJoinRequestResponse>> rejectJoinRequest(
         @PathVariable Long requestId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestBody(required = false) JoinRequestProcessRequest request) {
 
         String reason = request != null ? request.getRejectReason() : null;
@@ -168,7 +169,7 @@ public class GuildController {
     public ResponseEntity<ApiResult<GuildMemberResponse>> inviteMember(
         @PathVariable Long guildId,
         @PathVariable String inviteeId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         GuildMemberResponse response = guildService.inviteMember(guildId, userId, inviteeId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());

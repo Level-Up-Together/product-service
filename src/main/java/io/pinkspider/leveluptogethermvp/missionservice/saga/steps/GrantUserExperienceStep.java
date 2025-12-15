@@ -61,7 +61,8 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 expToGrant,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
-                "미션 수행 완료: " + context.getMission().getTitle()
+                "미션 수행 완료: " + context.getMission().getTitle(),
+                context.getMission().getCategoryName()
             );
 
             // 지급 후 레벨 확인
@@ -94,7 +95,8 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 expGranted,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
-                "미션 완료 보상 - 경험치 환수"
+                "미션 완료 보상 - 경험치 환수",
+                context.getMission().getCategoryName()
             );
 
             log.info("User experience compensated: userId={}, exp={}", userId, expGranted);

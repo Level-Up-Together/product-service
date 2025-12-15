@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.core.handler;
 
 
-import io.micrometer.tracing.Tracer;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.component.SlackNotifier;
 import io.pinkspider.global.handler.RestExceptionHandler;
@@ -21,8 +20,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @Slf4j
 public class UserExceptionHandler extends RestExceptionHandler {
 
-    public UserExceptionHandler(SlackNotifier slackNotifier, Tracer tracer) {
-        super(slackNotifier, tracer);
+    public UserExceptionHandler(SlackNotifier slackNotifier) {
+        super(slackNotifier);
     }
 
     @ExceptionHandler(NotExistUserException.class)

@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -59,7 +59,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AchievementControllerTest {
 
@@ -75,7 +75,6 @@ class AchievementControllerTest {
     @MockitoBean
     private UserStatsService userStatsService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -212,7 +211,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/achievements/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-03. 내 업적 목록",
@@ -221,10 +220,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement")
-                        .description("내 업적 진행 상태 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 업적 진행 상태 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -279,7 +275,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/achievements/{achievementId}/claim", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-04. 보상 수령",
@@ -288,10 +284,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement")
-                        .description("완료된 업적의 보상 수령")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("완료된 업적의 보상 수령 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("achievementId").type(SimpleType.NUMBER).description("업적 ID")
                         )
@@ -385,7 +378,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/achievements/titles/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-06. 내 칭호 목록",
@@ -394,10 +387,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("내가 보유한 칭호 목록")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내가 보유한 칭호 목록 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -441,7 +431,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/achievements/titles/{titleId}/equip", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-07. 칭호 장착",
@@ -450,10 +440,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("칭호 장착")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("칭호 장착 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("titleId").type(SimpleType.NUMBER).description("칭호 ID")
                         )
@@ -475,7 +462,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/achievements/titles/unequip")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-08. 칭호 해제",
@@ -484,10 +471,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("현재 장착된 칭호 해제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("현재 장착된 칭호 해제 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
@@ -523,7 +507,7 @@ class AchievementControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/achievements/stats/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("업적-09. 내 통계",
@@ -532,10 +516,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Stats")
-                        .description("내 활동 통계 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 활동 통계 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),

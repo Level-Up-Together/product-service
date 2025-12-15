@@ -140,7 +140,8 @@ public class MissionExecutionService {
             expEarned,
             ExpSourceType.MISSION_EXECUTION,
             mission.getId(),
-            "미션 수행 완료: " + mission.getTitle()
+            "미션 수행 완료: " + mission.getTitle(),
+            mission.getCategoryName()
         );
 
         // 길드 미션인 경우 길드 경험치 지급
@@ -317,7 +318,8 @@ public class MissionExecutionService {
                 bonusExp,
                 ExpSourceType.MISSION_FULL_COMPLETION,
                 mission.getId(),
-                "미션 전체 완료 보너스: " + mission.getTitle()
+                "미션 전체 완료 보너스: " + mission.getTitle(),
+                mission.getCategoryName()
             );
 
             // 길드 미션인 경우 길드 보너스 경험치 지급

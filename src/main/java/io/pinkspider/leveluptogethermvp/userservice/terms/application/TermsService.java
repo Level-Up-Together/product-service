@@ -22,4 +22,11 @@ public class TermsService {
     public List<TermAgreementsByUserResponseDto> getTermAgreementsByUser(String userId) {
         return termsRepository.getTermAgreementsByUser(userId);
     }
+
+    /**
+     * 사용자가 아직 동의하지 않은 약관 목록 조회
+     */
+    public List<TermAgreementsByUserResponseDto> getPendingTermsByUser(String userId) {
+        return termsRepository.getPendingTermsByUser(userId);
+    }
 }

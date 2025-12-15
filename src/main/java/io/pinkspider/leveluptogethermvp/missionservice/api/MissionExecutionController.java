@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
@@ -30,7 +31,7 @@ public class MissionExecutionController {
     public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecution(
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam(required = false) String note) {
 
         MissionExecutionResponse response = executionService.completeExecution(
@@ -44,7 +45,7 @@ public class MissionExecutionController {
     @GetMapping("/{missionId}/executions")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getExecutions(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
@@ -56,7 +57,7 @@ public class MissionExecutionController {
     @GetMapping("/{missionId}/executions/range")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getExecutionsByDateRange(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
 
@@ -70,7 +71,7 @@ public class MissionExecutionController {
      */
     @GetMapping("/executions/today")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getTodayExecutions(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<MissionExecutionResponse> responses = executionService.getTodayExecutions(userId);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
@@ -82,7 +83,7 @@ public class MissionExecutionController {
     @GetMapping("/{missionId}/executions/completion-rate")
     public ResponseEntity<ApiResult<Double>> getCompletionRate(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         double rate = executionService.getCompletionRate(missionId, userId);
         return ResponseEntity.ok(ApiResult.<Double>builder().value(rate).build());

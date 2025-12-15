@@ -85,6 +85,7 @@ CREATE TABLE experience_history (
     source_id BIGINT,
     exp_amount INTEGER NOT NULL,
     description VARCHAR(500),
+    category_name VARCHAR(50),
     level_before INTEGER,
     level_after INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -94,11 +95,13 @@ CREATE TABLE experience_history (
 CREATE INDEX idx_exp_history_user ON experience_history(user_id);
 CREATE INDEX idx_exp_history_source ON experience_history(source_type, source_id);
 CREATE INDEX idx_exp_history_created ON experience_history(created_at);
+CREATE INDEX idx_exp_history_category ON experience_history(category_name);
 
 COMMENT ON TABLE experience_history IS '경험치 획득 이력';
 COMMENT ON COLUMN experience_history.source_type IS '경험치 획득 유형 (MISSION_EXECUTION, ATTENDANCE, QUEST, ACHIEVEMENT 등)';
 COMMENT ON COLUMN experience_history.source_id IS '경험치 획득 소스 ID';
 COMMENT ON COLUMN experience_history.exp_amount IS '획득/차감 경험치';
+COMMENT ON COLUMN experience_history.category_name IS '카테고리명 (미션 카테고리)';
 COMMENT ON COLUMN experience_history.level_before IS '획득 전 레벨';
 COMMENT ON COLUMN experience_history.level_after IS '획득 후 레벨';
 
@@ -472,6 +475,36 @@ CREATE INDEX idx_comment_created ON feed_comment(created_at DESC);
 COMMENT ON TABLE feed_comment IS '피드 댓글';
 
 -- ============================================================
+-- 11. 홈 배너 시스템 테이블
+-- ============================================================
+CREATE TABLE home_banner (
+    id BIGSERIAL PRIMARY KEY,
+    banner_type VARCHAR(30) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    image_url VARCHAR(500),
+    link_type VARCHAR(30),
+    link_url VARCHAR(500),
+    guild_id BIGINT,
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_banner_type CHECK (banner_type IN ('GUILD_RECRUIT', 'EVENT', 'NOTICE', 'AD'))
+);
+
+CREATE INDEX idx_banner_active ON home_banner(is_active, start_date, end_date);
+CREATE INDEX idx_banner_type ON home_banner(banner_type);
+CREATE INDEX idx_banner_guild ON home_banner(guild_id);
+
+COMMENT ON TABLE home_banner IS '홈 배너';
+COMMENT ON COLUMN home_banner.banner_type IS '배너 유형 (GUILD_RECRUIT: 길드모집, EVENT: 이벤트, NOTICE: 공지, AD: 광고)';
+COMMENT ON COLUMN home_banner.link_type IS '링크 유형 (GUILD, MISSION, EXTERNAL, INTERNAL)';
+COMMENT ON COLUMN home_banner.guild_id IS '길드 모집 배너인 경우 연결된 길드 ID';
+
+-- ============================================================
 -- 초기 데이터 삽입
 -- ============================================================
 
@@ -517,6 +550,56 @@ INSERT INTO attendance_reward_config (reward_type, required_days, reward_exp, de
     ('STREAK_14', 14, 100, '14일 연속 출석 보너스', true),
     ('STREAK_30', 30, 300, '30일 연속 출석 보너스', true),
     ('MONTHLY_PERFECT', NULL, 500, '월간 개근 보너스', true);
+
+-- 기본 약관 삽입
+INSERT INTO terms (code, title, description, type, is_required) VALUES
+    ('SERVICE_TERMS', '서비스 이용약관', 'Level Up Together 서비스 이용에 관한 약관입니다.', 'SERVICE', true),
+    ('PRIVACY_POLICY', '개인정보 처리방침', '개인정보 수집, 이용, 제공에 관한 약관입니다.', 'PRIVACY', true),
+    ('MARKETING_CONSENT', '마케팅 정보 수신 동의', '이벤트, 프로모션 등 마케팅 정보 수신에 관한 약관입니다.', 'MARKETING', false);
+
+-- 약관 버전 삽입
+INSERT INTO term_versions (term_id, version, content) VALUES
+    (1, '1.0', '## 서비스 이용약관
+
+제1조 (목적)
+이 약관은 Level Up Together(이하 "서비스")의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+
+제2조 (정의)
+1. "서비스"란 회사가 제공하는 미션 관리 및 습관 형성 플랫폼을 의미합니다.
+2. "회원"이란 서비스에 가입하여 이용하는 자를 말합니다.
+
+제3조 (약관의 효력)
+1. 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 회원에게 공지함으로써 효력이 발생합니다.
+2. 회사는 필요한 경우 관련 법령을 위반하지 않는 범위에서 이 약관을 개정할 수 있습니다.'),
+    (2, '1.0', '## 개인정보 처리방침
+
+1. 수집하는 개인정보 항목
+- 필수항목: 이메일, 닉네임, 프로필 이미지
+- 선택항목: 생년월일, 성별
+
+2. 개인정보의 수집 및 이용목적
+- 서비스 제공 및 회원 관리
+- 서비스 개선 및 신규 서비스 개발
+- 마케팅 및 광고에의 활용 (동의 시)
+
+3. 개인정보의 보유 및 이용기간
+- 회원 탈퇴 시까지 또는 법령에서 정한 기간까지
+
+4. 개인정보의 파기절차 및 방법
+- 회원 탈퇴 시 지체 없이 파기합니다.'),
+    (3, '1.0', '## 마케팅 정보 수신 동의
+
+1. 수신 정보의 종류
+- 이벤트 및 프로모션 안내
+- 신규 기능 및 서비스 안내
+- 맞춤형 혜택 정보
+
+2. 수신 방법
+- 앱 푸시 알림
+- 이메일
+
+3. 동의 철회
+- 언제든지 설정에서 수신 동의를 철회할 수 있습니다.');
 
 -- ============================================================
 -- END OF INITIALIZATION

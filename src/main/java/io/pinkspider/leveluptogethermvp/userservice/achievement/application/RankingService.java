@@ -1,12 +1,19 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.LevelRankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.RankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +31,8 @@ public class RankingService {
     private final UserStatsRepository userStatsRepository;
     private final UserTitleRepository userTitleRepository;
     private final UserExperienceRepository userExperienceRepository;
+    private final UserRepository userRepository;
+    private final ExperienceHistoryRepository experienceHistoryRepository;
 
     // 종합 랭킹 (랭킹 포인트 기준)
     public Page<RankingResponse> getOverallRanking(Pageable pageable) {
@@ -121,5 +130,165 @@ public class RankingService {
         }
 
         return new PageImpl<>(responses, pageable, statsPage.getTotalElements());
+    }
+
+    /**
+     * 내 레벨 랭킹 조회
+     * (레벨 기준, 동일 레벨 시 총 경험치 기준)
+     */
+    public LevelRankingResponse getMyLevelRanking(String userId) {
+        long totalUsers = userExperienceRepository.countTotalUsers();
+
+        UserExperience userExp = userExperienceRepository.findByUserId(userId)
+            .orElse(null);
+
+        if (userExp == null) {
+            return LevelRankingResponse.defaultResponse(userId, totalUsers);
+        }
+
+        long rank = userExperienceRepository.calculateLevelRank(
+            userExp.getCurrentLevel(),
+            userExp.getTotalExp()
+        );
+
+        return LevelRankingResponse.from(userExp, rank, totalUsers);
+    }
+
+    /**
+     * 전체 레벨 랭킹 조회
+     * (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순)
+     */
+    public Page<LevelRankingResponse> getLevelRanking(Pageable pageable) {
+        long totalUsers = userExperienceRepository.countTotalUsers();
+        Page<UserExperience> expPage = userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable);
+
+        // 사용자 ID 목록 추출
+        List<String> userIds = expPage.getContent().stream()
+            .map(UserExperience::getUserId)
+            .collect(Collectors.toList());
+
+        // 사용자 정보 일괄 조회
+        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+
+        // 장착된 칭호 일괄 조회
+        Map<String, String> titleMap = userIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userTitleRepository.findEquippedByUserId(id)
+                    .map(ut -> ut.getTitle().getDisplayName())
+                    .orElse(null)
+            ));
+
+        List<LevelRankingResponse> responses = new ArrayList<>();
+        long startRank = pageable.getOffset() + 1;
+
+        for (UserExperience exp : expPage.getContent()) {
+            Users user = userMap.get(exp.getUserId());
+            String nickname = user != null ? user.getDisplayName() : null;
+            String profileImageUrl = user != null ? user.getPicture() : null;
+            String equippedTitle = titleMap.get(exp.getUserId());
+
+            responses.add(LevelRankingResponse.from(
+                exp, startRank++, totalUsers, nickname, profileImageUrl, equippedTitle
+            ));
+        }
+
+        return new PageImpl<>(responses, pageable, expPage.getTotalElements());
+    }
+
+    /**
+     * 카테고리별 레벨 랭킹 조회
+     * (해당 카테고리 미션에서 획득한 경험치 기준)
+     */
+    public Page<LevelRankingResponse> getLevelRankingByCategory(String category, Pageable pageable) {
+        log.info("카테고리별 레벨 랭킹 조회 요청: category={}", category);
+
+        // 카테고리별 전체 사용자 수
+        long totalUsersInCategory = experienceHistoryRepository.countUsersByCategory(category);
+
+        if (totalUsersInCategory == 0) {
+            log.info("해당 카테고리에 경험치 기록이 없습니다: category={}", category);
+            return Page.empty(pageable);
+        }
+
+        // 카테고리별 경험치 랭킹 조회
+        Page<Object[]> categoryRanking = experienceHistoryRepository.findUserExpRankingByCategory(category, pageable);
+
+        // 사용자 ID 목록 추출
+        List<String> userIds = categoryRanking.getContent().stream()
+            .map(row -> (String) row[0])
+            .collect(Collectors.toList());
+
+        // 사용자 정보 일괄 조회
+        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+
+        // 사용자 경험치 정보 일괄 조회
+        Map<String, UserExperience> expMap = userIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userExperienceRepository.findByUserId(id).orElse(null)
+            ));
+
+        // 장착된 칭호 일괄 조회
+        Map<String, String> titleMap = userIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userTitleRepository.findEquippedByUserId(id)
+                    .map(ut -> ut.getTitle().getDisplayName())
+                    .orElse(null)
+            ));
+
+        List<LevelRankingResponse> responses = new ArrayList<>();
+        long startRank = pageable.getOffset() + 1;
+
+        for (Object[] row : categoryRanking.getContent()) {
+            String odayUserId = (String) row[0];
+            Long categoryExp = ((Number) row[1]).longValue();
+
+            Users user = userMap.get(odayUserId);
+            UserExperience userExp = expMap.get(odayUserId);
+
+            String nickname = user != null ? user.getDisplayName() : null;
+            String profileImageUrl = user != null ? user.getPicture() : null;
+            String equippedTitle = titleMap.get(odayUserId);
+
+            // 카테고리별 랭킹은 카테고리 내 경험치를 기준으로 함
+            if (userExp != null) {
+                responses.add(LevelRankingResponse.builder()
+                    .rank(startRank++)
+                    .userId(odayUserId)
+                    .nickname(nickname)
+                    .profileImageUrl(profileImageUrl)
+                    .equippedTitle(equippedTitle)
+                    .currentLevel(userExp.getCurrentLevel())
+                    .currentExp(userExp.getCurrentExp())
+                    .totalExp(categoryExp.intValue()) // 카테고리 내 총 경험치
+                    .totalUsers(totalUsersInCategory)
+                    .percentile(calculatePercentile(startRank - 1, totalUsersInCategory))
+                    .build());
+            } else {
+                responses.add(LevelRankingResponse.builder()
+                    .rank(startRank++)
+                    .userId(odayUserId)
+                    .nickname(nickname)
+                    .profileImageUrl(profileImageUrl)
+                    .equippedTitle(equippedTitle)
+                    .currentLevel(1)
+                    .currentExp(0)
+                    .totalExp(categoryExp.intValue())
+                    .totalUsers(totalUsersInCategory)
+                    .percentile(calculatePercentile(startRank - 1, totalUsersInCategory))
+                    .build());
+            }
+        }
+
+        return new PageImpl<>(responses, pageable, categoryRanking.getTotalElements());
+    }
+
+    private double calculatePercentile(long rank, long totalUsers) {
+        if (totalUsers == 0) return 100.0;
+        return Math.round((double) rank / totalUsers * 1000) / 10.0;
     }
 }

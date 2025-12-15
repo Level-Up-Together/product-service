@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.experience.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory;
@@ -13,7 +14,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,7 +30,7 @@ public class UserExperienceController {
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResult<UserExperienceResponse>> getMyExperience(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         UserExperienceResponse response = userExperienceService.getUserExperience(userId);
         return ResponseEntity.ok(ApiResult.<UserExperienceResponse>builder().value(response).build());
@@ -41,7 +41,7 @@ public class UserExperienceController {
      */
     @GetMapping("/me/history")
     public ResponseEntity<ApiResult<Page<ExperienceHistory>>> getMyExperienceHistory(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
         Page<ExperienceHistory> history = userExperienceService.getExperienceHistory(userId, pageable);

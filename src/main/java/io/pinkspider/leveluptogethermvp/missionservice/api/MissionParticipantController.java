@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionParticipantService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionParticipantResponse;
 import java.util.List;
@@ -25,7 +26,7 @@ public class MissionParticipantController {
     @PostMapping("/{missionId}/join")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> joinMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.joinMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -35,7 +36,7 @@ public class MissionParticipantController {
     public ResponseEntity<ApiResult<MissionParticipantResponse>> acceptParticipant(
         @PathVariable Long missionId,
         @PathVariable Long participantId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.acceptParticipant(missionId, participantId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -44,7 +45,7 @@ public class MissionParticipantController {
     @PatchMapping("/{missionId}/start-progress")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> startProgress(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.startProgress(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -53,7 +54,7 @@ public class MissionParticipantController {
     @PatchMapping("/{missionId}/progress")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> updateProgress(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam int progress) {
 
         MissionParticipantResponse response = participantService.updateProgress(missionId, userId, progress);
@@ -63,7 +64,7 @@ public class MissionParticipantController {
     @PatchMapping("/{missionId}/complete-participation")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> completeParticipation(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.completeParticipant(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -72,7 +73,7 @@ public class MissionParticipantController {
     @PatchMapping("/{missionId}/withdraw")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> withdrawFromMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.withdrawFromMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -89,7 +90,7 @@ public class MissionParticipantController {
     @GetMapping("/{missionId}/my-participation")
     public ResponseEntity<ApiResult<MissionParticipantResponse>> getMyParticipation(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionParticipantResponse response = participantService.getMyParticipation(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionParticipantResponse>builder().value(response).build());
@@ -97,7 +98,7 @@ public class MissionParticipantController {
 
     @GetMapping("/my-participations")
     public ResponseEntity<ApiResult<List<MissionParticipantResponse>>> getMyParticipations(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<MissionParticipantResponse> responses = participantService.getMyParticipations(userId);
         return ResponseEntity.ok(ApiResult.<List<MissionParticipantResponse>>builder().value(responses).build());

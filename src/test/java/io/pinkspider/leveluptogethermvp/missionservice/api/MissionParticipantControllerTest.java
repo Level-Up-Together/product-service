@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -11,6 +10,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -50,7 +50,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MissionParticipantControllerTest {
 
@@ -63,7 +63,6 @@ class MissionParticipantControllerTest {
     @MockitoBean
     private MissionParticipantService participantService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-456";
 
     @Test
@@ -80,7 +79,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/missions/{missionId}/join", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-01. 미션 참여 신청",
@@ -89,10 +88,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("미션에 참여 신청 (공개 미션: 자동 승인, 비공개 미션: 대기 상태)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션에 참여 신청 (공개 미션: 자동 승인, 비공개 미션: 대기 상태) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -135,7 +131,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/participants/{participantId}/accept", missionId, participantId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-02. 참여자 승인",
@@ -144,10 +140,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("미션 생성자가 참여 신청자를 승인")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID (미션 생성자)")
-                        )
+                        .description("미션 생성자가 참여 신청자를 승인 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
                             parameterWithName("participantId").type(SimpleType.NUMBER).description("참여자 ID")
@@ -191,7 +184,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/start-progress", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-03. 미션 진행 시작",
@@ -200,10 +193,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("참여자가 미션 진행을 시작")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("참여자가 미션 진행을 시작 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -247,7 +237,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/progress", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("progress", String.valueOf(progress))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -257,10 +247,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("미션 진행률 업데이트 (0-100). progress 파라미터: 진행률 (0-100)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 진행률 업데이트 (0-100). progress 파라미터: 진행률 (0-100) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -304,7 +291,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/complete-participation", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-05. 참여 완료",
@@ -313,10 +300,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("미션 참여를 완료 상태로 변경")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 참여를 완료 상태로 변경 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -359,7 +343,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/withdraw", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-06. 미션 참여 철회",
@@ -368,10 +352,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("미션 참여를 철회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 참여를 철회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -464,7 +445,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/my-participation", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-08. 내 참여 정보 조회",
@@ -473,10 +454,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("특정 미션에 대한 내 참여 정보 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 미션에 대한 내 참여 정보 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -518,7 +496,7 @@ class MissionParticipantControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/my-participations")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("참여자-09. 내 참여 목록 조회",
@@ -527,10 +505,7 @@ class MissionParticipantControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Participant")
-                        .description("내가 참여한 모든 미션 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내가 참여한 모든 미션 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),

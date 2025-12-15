@@ -2,7 +2,9 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.RankingService;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.LevelRankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.RankingResponse;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -10,7 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,7 +59,7 @@ public class RankingController {
     // 내 랭킹
     @GetMapping("/my")
     public ResponseEntity<ApiResult<RankingResponse>> getMyRanking(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         RankingResponse response = rankingService.getMyRanking(userId);
         return ResponseEntity.ok(ApiResult.<RankingResponse>builder().value(response).build());
     }
@@ -65,9 +67,34 @@ public class RankingController {
     // 주변 랭킹 (내 위아래 N명)
     @GetMapping("/nearby")
     public ResponseEntity<ApiResult<List<RankingResponse>>> getNearbyRanking(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam(defaultValue = "5") int range) {
         List<RankingResponse> responses = rankingService.getNearbyRanking(userId, range);
         return ResponseEntity.ok(ApiResult.<List<RankingResponse>>builder().value(responses).build());
+    }
+
+    // 내 레벨 랭킹 (레벨 + 경험치 기준)
+    @GetMapping("/my/level")
+    public ResponseEntity<ApiResult<LevelRankingResponse>> getMyLevelRanking(
+        @CurrentUser String userId) {
+        LevelRankingResponse response = rankingService.getMyLevelRanking(userId);
+        return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
+    }
+
+    // 전체 레벨 랭킹 (레벨 + 총 경험치 기준)
+    @GetMapping("/level")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRanking(
+        @PageableDefault(size = 20) Pageable pageable) {
+        Page<LevelRankingResponse> responses = rankingService.getLevelRanking(pageable);
+        return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
+    }
+
+    // 카테고리별 레벨 랭킹 (카테고리별 경험치 획득 기준)
+    @GetMapping("/level/category/{category}")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRankingByCategory(
+        @PathVariable String category,
+        @PageableDefault(size = 20) Pageable pageable) {
+        Page<LevelRankingResponse> responses = rankingService.getLevelRankingByCategory(category, pageable);
+        return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 }

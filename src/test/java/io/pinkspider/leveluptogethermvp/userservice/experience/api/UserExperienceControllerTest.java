@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.experience.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,6 +10,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -55,7 +55,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class UserExperienceControllerTest {
 
@@ -65,7 +65,6 @@ class UserExperienceControllerTest {
     @MockitoBean
     private UserExperienceService userExperienceService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -90,7 +89,7 @@ class UserExperienceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/users/experience/me")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("경험치-01. 내 경험치 정보 조회",
@@ -99,10 +98,7 @@ class UserExperienceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("User Experience")
-                        .description("내 경험치/레벨 정보 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 경험치/레벨 정보 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -160,7 +156,7 @@ class UserExperienceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/users/experience/me/history")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -171,10 +167,7 @@ class UserExperienceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("User Experience")
-                        .description("내 경험치 획득 이력 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 경험치 획득 이력 조회 (JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
@@ -190,6 +183,7 @@ class UserExperienceControllerTest {
                             fieldWithPath("value.content[].source_id").type(JsonFieldType.NUMBER).description("출처 ID").optional(),
                             fieldWithPath("value.content[].exp_amount").type(JsonFieldType.NUMBER).description("획득 경험치"),
                             fieldWithPath("value.content[].description").type(JsonFieldType.STRING).description("설명").optional(),
+                            fieldWithPath("value.content[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
                             fieldWithPath("value.content[].level_before").type(JsonFieldType.NUMBER).description("획득 전 레벨").optional(),
                             fieldWithPath("value.content[].level_after").type(JsonFieldType.NUMBER).description("획득 후 레벨").optional(),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("획득 일시"),

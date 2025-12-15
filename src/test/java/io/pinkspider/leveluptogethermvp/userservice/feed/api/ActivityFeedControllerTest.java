@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +12,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -57,7 +57,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ActivityFeedControllerTest {
 
@@ -69,7 +69,6 @@ class ActivityFeedControllerTest {
     @MockitoBean
     private ActivityFeedService activityFeedService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -87,7 +86,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/feeds/public")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -98,10 +97,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("전체 공개 피드 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID").optional()
-                        )
+                        .description("전체 공개 피드 조회 (JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
@@ -178,7 +174,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/feeds/timeline")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -189,10 +185,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("내 피드 + 친구 피드 타임라인 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 피드 + 친구 피드 타임라인 조회 (JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
@@ -268,7 +261,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/feeds/{feedId}", feedId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("피드-03. 피드 상세 조회",
@@ -277,10 +270,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("피드 상세 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID").optional()
-                        )
+                        .description("피드 상세 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID")
                         )
@@ -330,7 +320,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/feeds/{feedId}/like", feedId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("피드-04. 좋아요 토글",
@@ -339,10 +329,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("피드 좋아요 토글 (좋아요/좋아요 취소)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("피드 좋아요 토글 (좋아요/좋아요 취소) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID")
                         )
@@ -387,7 +374,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("피드 댓글 목록 조회")
+                        .description("피드 댓글 목록 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID")
                         )
@@ -453,7 +440,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/feeds/{feedId}/comments", feedId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"content\":\"축하합니다!\"}")
         ).andDo(
@@ -463,10 +450,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("피드에 댓글 작성")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("피드에 댓글 작성 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID")
                         )
@@ -506,7 +490,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/feeds/{feedId}/comments/{commentId}", feedId, commentId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("피드-07. 댓글 삭제",
@@ -515,10 +499,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("피드 댓글 삭제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("피드 댓글 삭제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID"),
                             parameterWithName("commentId").type(SimpleType.NUMBER).description("댓글 ID")
@@ -547,7 +528,7 @@ class ActivityFeedControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/feeds/{feedId}", feedId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("피드-08. 피드 삭제",
@@ -556,10 +537,7 @@ class ActivityFeedControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Activity Feed")
-                        .description("자신의 피드 삭제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("자신의 피드 삭제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("feedId").type(SimpleType.NUMBER).description("피드 ID")
                         )

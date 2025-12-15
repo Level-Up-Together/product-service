@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.quest.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -10,6 +9,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -52,7 +52,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class QuestControllerTest {
 
@@ -62,7 +62,6 @@ class QuestControllerTest {
     @MockitoBean
     private QuestService questService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     private QuestResponse createMockQuestResponse(Long id, String name, QuestType type) {
@@ -162,7 +161,7 @@ class QuestControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/quests/daily")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("퀘스트-02. 일일 퀘스트 조회",
@@ -171,10 +170,7 @@ class QuestControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Quest")
-                        .description("오늘의 일일 퀘스트 진행 상태")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("오늘의 일일 퀘스트 진행 상태 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -237,7 +233,7 @@ class QuestControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/quests/weekly")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("퀘스트-03. 주간 퀘스트 조회",
@@ -246,10 +242,7 @@ class QuestControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Quest")
-                        .description("이번 주 주간 퀘스트 진행 상태")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("이번 주 주간 퀘스트 진행 상태 (JWT 토큰 인증 필요)")
                         .build()
                 )
             )
@@ -273,7 +266,7 @@ class QuestControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/quests/claimable")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("퀘스트-04. 수령 가능한 보상 조회",
@@ -282,10 +275,7 @@ class QuestControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Quest")
-                        .description("수령 가능한 퀘스트 보상 목록")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("수령 가능한 퀘스트 보상 목록 (JWT 토큰 인증 필요)")
                         .build()
                 )
             )
@@ -319,7 +309,7 @@ class QuestControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/quests/{userQuestId}/claim", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("퀘스트-05. 보상 수령",
@@ -328,10 +318,7 @@ class QuestControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Quest")
-                        .description("완료된 퀘스트 보상 수령")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("완료된 퀘스트 보상 수령 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("userQuestId").type(SimpleType.NUMBER).description("사용자 퀘스트 ID")
                         )
@@ -375,7 +362,7 @@ class QuestControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/quests/claim-all")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("퀘스트-06. 보상 일괄 수령",
@@ -384,10 +371,7 @@ class QuestControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Quest")
-                        .description("수령 가능한 모든 퀘스트 보상 일괄 수령")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("수령 가능한 모든 퀘스트 보상 일괄 수령 (JWT 토큰 인증 필요)")
                         .build()
                 )
             )

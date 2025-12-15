@@ -44,6 +44,19 @@ public class UserTermsController {
             .build();
     }
 
+    /**
+     * 사용자가 동의하지 않은 약관 목록 조회
+     * (약관 버전 업데이트 시 새로 동의가 필요한 약관만 반환)
+     */
+    @GetMapping("/pending/{userId}")
+    public ApiResult<List<TermAgreementsByUserResponseDto>> getPendingTermsByUser(@PathVariable("userId") String userId) {
+        List<TermAgreementsByUserResponseDto> result = userTermsService.getPendingTermsByUser(userId);
+
+        return ApiResult.<List<TermAgreementsByUserResponseDto>>builder()
+            .value(result)
+            .build();
+    }
+
     @PostMapping("/agreements/{userId}")
     public ApiResult<?> agreementTermsByUser(@PathVariable("userId") String userId, @RequestBody AgreementTermsByUserRequestDto requestDto) {
         userTermsService.agreementTermsByUser(userId, requestDto);

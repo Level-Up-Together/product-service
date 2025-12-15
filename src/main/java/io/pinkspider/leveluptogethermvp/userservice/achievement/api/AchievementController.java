@@ -10,15 +10,14 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserA
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -50,7 +49,7 @@ public class AchievementController {
     // 내 업적 목록
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyAchievements(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserAchievementResponse> responses = achievementService.getUserAchievements(userId);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
@@ -58,7 +57,7 @@ public class AchievementController {
     // 완료한 업적
     @GetMapping("/my/completed")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyCompletedAchievements(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserAchievementResponse> responses = achievementService.getCompletedAchievements(userId);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
@@ -66,7 +65,7 @@ public class AchievementController {
     // 진행 중인 업적
     @GetMapping("/my/in-progress")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyInProgressAchievements(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserAchievementResponse> responses = achievementService.getInProgressAchievements(userId);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
@@ -74,7 +73,7 @@ public class AchievementController {
     // 수령 가능한 보상
     @GetMapping("/my/claimable")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getClaimableAchievements(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserAchievementResponse> responses = achievementService.getClaimableAchievements(userId);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
@@ -82,7 +81,7 @@ public class AchievementController {
     // 보상 수령
     @PostMapping("/{achievementId}/claim")
     public ResponseEntity<ApiResult<UserAchievementResponse>> claimReward(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PathVariable Long achievementId) {
         UserAchievementResponse response = achievementService.claimReward(userId, achievementId);
         return ResponseEntity.ok(ApiResult.<UserAchievementResponse>builder().value(response).build());
@@ -100,7 +99,7 @@ public class AchievementController {
     // 내 칭호 목록
     @GetMapping("/titles/my")
     public ResponseEntity<ApiResult<List<UserTitleResponse>>> getMyTitles(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserTitleResponse> responses = titleService.getUserTitles(userId);
         return ResponseEntity.ok(ApiResult.<List<UserTitleResponse>>builder().value(responses).build());
     }
@@ -108,7 +107,7 @@ public class AchievementController {
     // 장착된 칭호
     @GetMapping("/titles/my/equipped")
     public ResponseEntity<ApiResult<UserTitleResponse>> getEquippedTitle(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         return titleService.getEquippedTitle(userId)
             .map(response -> ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(response).build()))
             .orElse(ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(null).build()));
@@ -117,7 +116,7 @@ public class AchievementController {
     // 칭호 장착
     @PostMapping("/titles/{titleId}/equip")
     public ResponseEntity<ApiResult<UserTitleResponse>> equipTitle(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PathVariable Long titleId) {
         UserTitleResponse response = titleService.equipTitle(userId, titleId);
         return ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(response).build());
@@ -126,7 +125,7 @@ public class AchievementController {
     // 칭호 해제
     @PostMapping("/titles/unequip")
     public ResponseEntity<ApiResult<Void>> unequipTitle(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         titleService.unequipTitle(userId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
@@ -136,7 +135,7 @@ public class AchievementController {
     // 내 통계
     @GetMapping("/stats/my")
     public ResponseEntity<ApiResult<UserStatsResponse>> getMyStats(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         UserStatsResponse response = userStatsService.getUserStats(userId);
         return ResponseEntity.ok(ApiResult.<UserStatsResponse>builder().value(response).build());
     }

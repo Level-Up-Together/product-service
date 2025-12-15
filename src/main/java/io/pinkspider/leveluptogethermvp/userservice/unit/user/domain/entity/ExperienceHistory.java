@@ -58,6 +58,10 @@ public class ExperienceHistory extends LocalDateTimeBaseEntity {
     @Comment("설명")
     private String description;
 
+    @Column(name = "category_name", length = 50)
+    @Comment("카테고리명 (미션 카테고리)")
+    private String categoryName;
+
     @Column(name = "level_before")
     @Comment("획득 전 레벨")
     private Integer levelBefore;

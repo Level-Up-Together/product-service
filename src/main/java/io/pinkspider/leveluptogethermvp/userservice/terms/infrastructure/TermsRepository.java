@@ -46,9 +46,34 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
                uta.is_agreed,
                uta.agreed_at
         FROM terms t
-                 JOIN latest_term_versions ltv ON t.id = ltv.terms_id AND ltv.rn = 1
+                 JOIN latest_term_versions ltv ON t.id = ltv.term_id AND ltv.rn = 1
                  LEFT JOIN user_term_agreements uta
                            ON uta.term_version_id = ltv.id AND uta.user_id = :userId;
         """, nativeQuery = true)
     List<TermAgreementsByUserResponseDto> getTermAgreementsByUser(@Param("userId") String userId);
+
+    /**
+     * 사용자가 아직 동의하지 않은 최신 버전 약관 조회
+     * (신규 가입 또는 약관 버전 업데이트 시 동의 필요한 약관)
+     */
+    @Query(value = """
+        WITH latest_term_versions AS (
+            SELECT tv.*,
+                   ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.created_at DESC) AS rn
+            FROM term_versions tv
+        )
+        SELECT t.id    AS term_id,
+               t.title AS term_title,
+               t.is_required,
+               ltv.id  AS latest_version_id,
+               ltv.version,
+               COALESCE(uta.is_agreed, false) AS is_agreed,
+               uta.agreed_at
+        FROM terms t
+                 JOIN latest_term_versions ltv ON t.id = ltv.term_id AND ltv.rn = 1
+                 LEFT JOIN user_term_agreements uta
+                           ON uta.term_version_id = ltv.id AND uta.user_id = :userId
+        WHERE uta.id IS NULL OR uta.is_agreed = false;
+        """, nativeQuery = true)
+    List<TermAgreementsByUserResponseDto> getPendingTermsByUser(@Param("userId") String userId);
 }

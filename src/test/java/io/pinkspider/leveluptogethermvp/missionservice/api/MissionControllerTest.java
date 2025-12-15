@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MissionControllerTest {
 
@@ -68,7 +68,6 @@ class MissionControllerTest {
     @MockitoBean
     private MissionService missionService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -92,7 +91,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/missions")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -102,10 +101,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 생성")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 생성 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("title").type(JsonFieldType.STRING).description("미션 제목"),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("미션 설명").optional(),
@@ -230,7 +226,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("03. 내 미션 목록 조회",
@@ -239,10 +235,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("내가 생성한 미션 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내가 생성한 미션 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -446,7 +439,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/missions/{missionId}", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -456,10 +449,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 정보 수정 (DRAFT 상태일 때만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 정보 수정 (DRAFT 상태일 때만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -526,7 +516,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/open", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("07. 미션 모집 시작",
@@ -535,10 +525,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 상태를 OPEN으로 변경하여 참여자 모집 시작")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 상태를 OPEN으로 변경하여 참여자 모집 시작 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -590,7 +577,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/start", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("08. 미션 진행 시작",
@@ -599,10 +586,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 상태를 IN_PROGRESS로 변경하여 미션 진행 시작")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 상태를 IN_PROGRESS로 변경하여 미션 진행 시작 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -654,7 +638,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/complete", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("09. 미션 완료",
@@ -663,10 +647,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 상태를 COMPLETED로 변경")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 상태를 COMPLETED로 변경 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -718,7 +699,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/cancel", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("10. 미션 취소",
@@ -727,10 +708,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 상태를 CANCELLED로 변경")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 상태를 CANCELLED로 변경 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -779,7 +757,7 @@ class MissionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/missions/{missionId}", missionId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("11. 미션 삭제",
@@ -788,10 +766,7 @@ class MissionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission")
-                        .description("미션 삭제 (IN_PROGRESS 상태가 아닐 때만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 삭제 (IN_PROGRESS 상태가 아닐 때만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )

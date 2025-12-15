@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,6 +10,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -50,7 +50,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MissionExecutionControllerTest {
 
@@ -60,7 +60,6 @@ class MissionExecutionControllerTest {
     @MockitoBean
     private MissionExecutionService executionService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     private List<MissionExecutionResponse> createMockExecutions() {
@@ -112,7 +111,7 @@ class MissionExecutionControllerTest {
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/executions/{executionDate}/complete",
                     1L, LocalDate.now().toString())
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("note", "1시간 조깅 완료")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -122,10 +121,7 @@ class MissionExecutionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Execution")
-                        .description("특정 날짜의 미션 실행 완료 처리")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 날짜의 미션 실행 완료 처리 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
                             parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
@@ -168,7 +164,7 @@ class MissionExecutionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/executions", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("미션실행-02. 미션 실행 기록 조회",
@@ -177,10 +173,7 @@ class MissionExecutionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Execution")
-                        .description("미션의 모든 실행 기록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션의 모든 실행 기록 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -220,7 +213,7 @@ class MissionExecutionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/executions/range", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("startDate", LocalDate.now().minusDays(7).toString())
                 .param("endDate", LocalDate.now().toString())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -231,10 +224,7 @@ class MissionExecutionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Execution")
-                        .description("특정 기간의 미션 실행 기록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 기간의 미션 실행 기록 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )
@@ -281,7 +271,7 @@ class MissionExecutionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/executions/today")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("미션실행-04. 오늘 실행할 미션 목록",
@@ -290,10 +280,7 @@ class MissionExecutionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Execution")
-                        .description("오늘 실행해야 할 미션 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("오늘 실행해야 할 미션 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -328,7 +315,7 @@ class MissionExecutionControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/executions/completion-rate", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("미션실행-05. 미션 완료율 조회",
@@ -337,10 +324,7 @@ class MissionExecutionControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Mission Execution")
-                        .description("미션 완료율 조회 (완료된 실행 / 전체 실행)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("미션 완료율 조회 (완료된 실행 / 전체 실행) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
                         )

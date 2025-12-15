@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class GuildChatControllerTest {
 
@@ -68,7 +68,6 @@ class GuildChatControllerTest {
     @MockitoBean
     private GuildChatService guildChatService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
     private static final String MOCK_NICKNAME = "테스트유저";
@@ -88,7 +87,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/chat", guildId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .header(X_USER_NICKNAME, MOCK_NICKNAME)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"content\":\"안녕하세요!\",\"message_type\":\"TEXT\"}")
@@ -99,11 +98,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("길드 채팅 메시지 전송")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID"),
-                            headerWithName(X_USER_NICKNAME).description("사용자 닉네임").optional()
-                        )
+                        .description("길드 채팅 메시지 전송 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -153,7 +148,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat", guildId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "50")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -164,10 +159,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("길드 채팅 메시지 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 채팅 메시지 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -238,7 +230,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/new", guildId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("since", "2025-01-15T10:00:00")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -248,10 +240,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("특정 시간 이후의 새 메시지 조회 (폴링용)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 시간 이후의 새 메시지 조회 (폴링용) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -299,7 +288,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/after/{lastMessageId}", guildId, lastMessageId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드채팅-04. 특정 메시지 이후 조회",
@@ -308,10 +297,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("특정 메시지 ID 이후의 메시지 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 메시지 ID 이후의 메시지 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("lastMessageId").type(SimpleType.NUMBER).description("기준 메시지 ID")
@@ -363,7 +349,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/before/{beforeId}", guildId, beforeId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "50")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -374,10 +360,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("특정 메시지 ID 이전의 메시지 조회 (무한스크롤 용)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("특정 메시지 ID 이전의 메시지 조회 (무한스크롤 용) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("beforeId").type(SimpleType.NUMBER).description("기준 메시지 ID")
@@ -455,7 +438,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/chat/search", guildId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("keyword", "안녕")
                 .param("page", "0")
                 .param("size", "20")
@@ -467,10 +450,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("키워드로 채팅 메시지 검색")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("키워드로 채팅 메시지 검색 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -539,7 +519,7 @@ class GuildChatControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}/chat/{messageId}", guildId, messageId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드채팅-07. 채팅 메시지 삭제",
@@ -548,10 +528,7 @@ class GuildChatControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Chat")
-                        .description("자신이 보낸 채팅 메시지 삭제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("자신이 보낸 채팅 메시지 삭제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("messageId").type(SimpleType.NUMBER).description("메시지 ID")

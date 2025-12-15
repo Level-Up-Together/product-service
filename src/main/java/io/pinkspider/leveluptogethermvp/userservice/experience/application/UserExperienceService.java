@@ -32,6 +32,12 @@ public class UserExperienceService {
     @Transactional
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description) {
+        return addExperience(userId, expAmount, sourceType, sourceId, description, null);
+    }
+
+    @Transactional
+    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                 Long sourceId, String description, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -47,6 +53,7 @@ public class UserExperienceService {
             .sourceId(sourceId)
             .expAmount(expAmount)
             .description(description)
+            .categoryName(categoryName)
             .levelBefore(levelBefore)
             .levelAfter(levelAfter)
             .build();
@@ -162,6 +169,12 @@ public class UserExperienceService {
     @Transactional
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description) {
+        return subtractExperience(userId, expAmount, sourceType, sourceId, description, null);
+    }
+
+    @Transactional
+    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                      Long sourceId, String description, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -187,6 +200,7 @@ public class UserExperienceService {
             .sourceId(sourceId)
             .expAmount(-expAmount) // 음수로 기록
             .description(description)
+            .categoryName(categoryName)
             .levelBefore(levelBefore)
             .levelAfter(levelAfter)
             .build();

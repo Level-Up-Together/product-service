@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,6 +8,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -57,7 +57,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class MyPageControllerTest {
 
@@ -70,7 +70,6 @@ class MyPageControllerTest {
     @MockitoBean
     private MyPageService myPageService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -137,7 +136,7 @@ class MyPageControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/mypage")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("마이페이지-01. MyPage 전체 데이터 조회",
@@ -146,10 +145,7 @@ class MyPageControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("MyPage")
-                        .description("MyPage 화면에 필요한 전체 데이터 조회 (프로필, 경험치, 유저 정보)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("MyPage 화면에 필요한 전체 데이터 조회 (프로필, 경험치, 유저 정보) (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -229,7 +225,7 @@ class MyPageControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/mypage/profile")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -239,10 +235,7 @@ class MyPageControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("MyPage")
-                        .description("프로필 이미지 변경")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("프로필 이미지 변경 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("profile_image_url").type(JsonFieldType.STRING).description("새 프로필 이미지 URL")
                         )
@@ -325,7 +318,7 @@ class MyPageControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/mypage/titles")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("마이페이지-03. 보유 칭호 목록 조회",
@@ -334,10 +327,7 @@ class MyPageControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("MyPage")
-                        .description("사용자가 보유한 칭호 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("사용자가 보유한 칭호 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -408,7 +398,7 @@ class MyPageControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/mypage/titles")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -418,10 +408,7 @@ class MyPageControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("MyPage")
-                        .description("좌측/우측 칭호 동시 변경 (둘 다 필수 선택)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("좌측/우측 칭호 동시 변경 (둘 다 필수 선택) (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("left_user_title_id").type(JsonFieldType.NUMBER).description("좌측 장착할 사용자 칭호 ID (필수)"),
                             fieldWithPath("right_user_title_id").type(JsonFieldType.NUMBER).description("우측 장착할 사용자 칭호 ID (필수)")

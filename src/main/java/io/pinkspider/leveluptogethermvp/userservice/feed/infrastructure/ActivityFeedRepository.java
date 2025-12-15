@@ -51,4 +51,21 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
            "AND f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findByCategoryTypes(
         @Param("types") List<ActivityType> types, Pageable pageable);
+
+    // 검색 기능 - 제목(미션명) 기준 검색 (전체 카테고리)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
+           "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> searchByKeyword(
+        @Param("keyword") String keyword, Pageable pageable);
+
+    // 검색 기능 - 제목(미션명) 기준 검색 (카테고리 내 검색)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
+           "AND f.activityType IN :types " +
+           "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> searchByKeywordAndCategory(
+        @Param("keyword") String keyword,
+        @Param("types") List<ActivityType> types,
+        Pageable pageable);
 }

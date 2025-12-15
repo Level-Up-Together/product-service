@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.attendance.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -10,6 +9,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -51,7 +51,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AttendanceControllerTest {
 
@@ -61,7 +61,6 @@ class AttendanceControllerTest {
     @MockitoBean
     private AttendanceService attendanceService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -95,7 +94,7 @@ class AttendanceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/attendance/check-in")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("출석-01. 출석 체크",
@@ -104,10 +103,7 @@ class AttendanceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Attendance")
-                        .description("일일 출석 체크")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("일일 출석 체크 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -147,7 +143,7 @@ class AttendanceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/attendance/today")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("출석-02. 오늘 출석 여부 확인",
@@ -156,10 +152,7 @@ class AttendanceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Attendance")
-                        .description("오늘 출석 완료 여부 확인")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("오늘 출석 완료 여부 확인 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -193,7 +186,7 @@ class AttendanceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/attendance/monthly")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("yearMonth", "2025-01")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -203,10 +196,7 @@ class AttendanceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Attendance")
-                        .description("월간 출석 현황 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("월간 출석 현황 조회 (JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("yearMonth").type(SimpleType.STRING).description("조회할 년월 (YYYY-MM 형식, 미입력시 현재 월)").optional()
                         )
@@ -241,7 +231,7 @@ class AttendanceControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/attendance/streak")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("출석-04. 연속 출석 일수 조회",
@@ -250,10 +240,7 @@ class AttendanceControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Attendance")
-                        .description("현재 연속 출석 일수 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("현재 연속 출석 일수 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),

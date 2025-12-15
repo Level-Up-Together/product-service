@@ -32,6 +32,14 @@ public class UserTermsService {
         return termsService.getTermAgreementsByUser(userId);
     }
 
+    /**
+     * 사용자가 아직 동의하지 않은 약관 목록 조회
+     * (약관 버전 업데이트 시 새로 동의가 필요한 약관만 반환)
+     */
+    public List<TermAgreementsByUserResponseDto> getPendingTermsByUser(String userId) {
+        return termsService.getPendingTermsByUser(userId);
+    }
+
     @Transactional
     public void agreementTermsByUser(String userId, AgreementTermsByUserRequestDto requestDto) {
         requestDto.getAgreementTermsList().forEach(

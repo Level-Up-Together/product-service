@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
@@ -33,7 +34,7 @@ public class MissionController {
 
     @PostMapping
     public ResponseEntity<ApiResult<MissionResponse>> createMission(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody MissionCreateRequest request) {
 
         MissionResponse response = missionService.createMission(userId, request);
@@ -48,7 +49,7 @@ public class MissionController {
 
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<MissionResponse>>> getMyMissions(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         List<MissionResponse> responses = missionService.getMyMissions(userId);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
@@ -73,7 +74,7 @@ public class MissionController {
     @PutMapping("/{missionId}")
     public ResponseEntity<ApiResult<MissionResponse>> updateMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @Valid @RequestBody MissionUpdateRequest request) {
 
         MissionResponse response = missionService.updateMission(missionId, userId, request);
@@ -83,7 +84,7 @@ public class MissionController {
     @PatchMapping("/{missionId}/open")
     public ResponseEntity<ApiResult<MissionResponse>> openMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionResponse response = missionService.openMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
@@ -92,7 +93,7 @@ public class MissionController {
     @PatchMapping("/{missionId}/start")
     public ResponseEntity<ApiResult<MissionResponse>> startMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionResponse response = missionService.startMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
@@ -101,7 +102,7 @@ public class MissionController {
     @PatchMapping("/{missionId}/complete")
     public ResponseEntity<ApiResult<MissionResponse>> completeMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionResponse response = missionService.completeMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
@@ -110,7 +111,7 @@ public class MissionController {
     @PatchMapping("/{missionId}/cancel")
     public ResponseEntity<ApiResult<MissionResponse>> cancelMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         MissionResponse response = missionService.cancelMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
@@ -119,7 +120,7 @@ public class MissionController {
     @DeleteMapping("/{missionId}")
     public ResponseEntity<ApiResult<Void>> deleteMission(
         @PathVariable Long missionId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
 
         missionService.deleteMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.getBase());

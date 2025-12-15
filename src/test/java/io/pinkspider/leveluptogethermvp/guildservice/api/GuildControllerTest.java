@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -65,7 +65,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class GuildControllerTest {
 
@@ -80,7 +80,6 @@ class GuildControllerTest {
     @MockitoBean
     private GuildExperienceService guildExperienceService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     private GuildResponse createMockGuildResponse() {
@@ -116,7 +115,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -126,10 +125,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("새 길드 생성")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("새 길드 생성 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("길드 설명").optional(),
@@ -173,7 +169,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드-02. 길드 상세 조회",
@@ -182,10 +178,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("길드 상세 정보 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 상세 정보 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -282,7 +275,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드-05. 내 길드 목록",
@@ -291,10 +284,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("내가 가입한 길드 목록")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내가 가입한 길드 목록 (JWT 토큰 인증 필요)")
                         .build()
                 )
             )
@@ -319,7 +309,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/guilds/{guildId}", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -329,10 +319,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("길드 정보 수정 (마스터만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 정보 수정 (마스터만 가능, JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -380,7 +367,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/members", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드-07. 길드 멤버 목록",
@@ -389,10 +376,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("길드 멤버 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 멤버 목록 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -434,7 +418,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/join-requests", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"message\":\"가입 신청합니다!\"}")
         ).andDo(
@@ -444,10 +428,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("공개 길드 가입 신청")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("공개 길드 가입 신청 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -484,7 +465,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}/members/me", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드-09. 길드 탈퇴",
@@ -493,10 +474,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("길드 탈퇴 (마스터는 탈퇴 불가)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 탈퇴 (마스터는 탈퇴 불가, JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -522,7 +500,7 @@ class GuildControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/transfer-master", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"new_master_id\":\"new-master-123\"}")
         ).andDo(
@@ -532,10 +510,7 @@ class GuildControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild")
-                        .description("길드 마스터 권한 이양")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 마스터 권한 이양 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )

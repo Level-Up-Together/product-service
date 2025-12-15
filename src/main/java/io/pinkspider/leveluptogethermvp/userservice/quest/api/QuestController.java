@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.quest.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.dto.QuestProgressResponse;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.dto.QuestResponse;
@@ -32,7 +33,7 @@ public class QuestController {
     // 일일 퀘스트 조회
     @GetMapping("/daily")
     public ResponseEntity<ApiResult<QuestProgressResponse>> getDailyQuests(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         QuestProgressResponse response = questService.getDailyQuests(userId);
         return ResponseEntity.ok(ApiResult.<QuestProgressResponse>builder().value(response).build());
     }
@@ -40,7 +41,7 @@ public class QuestController {
     // 주간 퀘스트 조회
     @GetMapping("/weekly")
     public ResponseEntity<ApiResult<QuestProgressResponse>> getWeeklyQuests(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         QuestProgressResponse response = questService.getWeeklyQuests(userId);
         return ResponseEntity.ok(ApiResult.<QuestProgressResponse>builder().value(response).build());
     }
@@ -48,7 +49,7 @@ public class QuestController {
     // 수령 가능한 보상 조회
     @GetMapping("/claimable")
     public ResponseEntity<ApiResult<List<UserQuestResponse>>> getClaimableQuests(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserQuestResponse> responses = questService.getClaimableQuests(userId);
         return ResponseEntity.ok(ApiResult.<List<UserQuestResponse>>builder().value(responses).build());
     }
@@ -56,7 +57,7 @@ public class QuestController {
     // 보상 수령
     @PostMapping("/{userQuestId}/claim")
     public ResponseEntity<ApiResult<UserQuestResponse>> claimReward(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PathVariable Long userQuestId) {
         UserQuestResponse response = questService.claimReward(userId, userQuestId);
         return ResponseEntity.ok(ApiResult.<UserQuestResponse>builder().value(response).build());
@@ -65,7 +66,7 @@ public class QuestController {
     // 보상 일괄 수령
     @PostMapping("/claim-all")
     public ResponseEntity<ApiResult<List<UserQuestResponse>>> claimAllRewards(
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         List<UserQuestResponse> responses = questService.claimAllRewards(userId);
         return ResponseEntity.ok(ApiResult.<List<UserQuestResponse>>builder().value(responses).build());
     }

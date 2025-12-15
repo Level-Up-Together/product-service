@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
@@ -33,7 +34,7 @@ public class GuildChatController {
     @PostMapping
     public ResponseEntity<ApiResult<ChatMessageResponse>> sendMessage(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestHeader(value = "X-User-Nickname", required = false) String nickname,
         @RequestBody ChatMessageRequest request) {
         ChatMessageResponse response = chatService.sendMessage(guildId, userId, nickname, request);
@@ -44,7 +45,7 @@ public class GuildChatController {
     @GetMapping
     public ResponseEntity<ApiResult<Page<ChatMessageResponse>>> getMessages(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PageableDefault(size = 50) Pageable pageable) {
         Page<ChatMessageResponse> responses = chatService.getMessages(guildId, userId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<ChatMessageResponse>>builder().value(responses).build());
@@ -54,7 +55,7 @@ public class GuildChatController {
     @GetMapping("/new")
     public ResponseEntity<ApiResult<List<ChatMessageResponse>>> getNewMessages(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime since) {
         List<ChatMessageResponse> responses = chatService.getNewMessages(guildId, userId, since);
         return ResponseEntity.ok(ApiResult.<List<ChatMessageResponse>>builder().value(responses).build());
@@ -64,7 +65,7 @@ public class GuildChatController {
     @GetMapping("/after/{lastMessageId}")
     public ResponseEntity<ApiResult<List<ChatMessageResponse>>> getMessagesAfterId(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PathVariable Long lastMessageId) {
         List<ChatMessageResponse> responses = chatService.getMessagesAfterId(guildId, userId, lastMessageId);
         return ResponseEntity.ok(ApiResult.<List<ChatMessageResponse>>builder().value(responses).build());
@@ -74,7 +75,7 @@ public class GuildChatController {
     @GetMapping("/before/{beforeId}")
     public ResponseEntity<ApiResult<Page<ChatMessageResponse>>> getMessagesBeforeId(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @PathVariable Long beforeId,
         @PageableDefault(size = 50) Pageable pageable) {
         Page<ChatMessageResponse> responses = chatService.getMessagesBeforeId(
@@ -86,7 +87,7 @@ public class GuildChatController {
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<ChatMessageResponse>>> searchMessages(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam String keyword,
         @PageableDefault(size = 20) Pageable pageable) {
         Page<ChatMessageResponse> responses = chatService.searchMessages(
@@ -99,7 +100,7 @@ public class GuildChatController {
     public ResponseEntity<ApiResult<Void>> deleteMessage(
         @PathVariable Long guildId,
         @PathVariable Long messageId,
-        @RequestHeader("X-User-Id") String userId) {
+        @CurrentUser String userId) {
         chatService.deleteMessage(guildId, messageId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
     }

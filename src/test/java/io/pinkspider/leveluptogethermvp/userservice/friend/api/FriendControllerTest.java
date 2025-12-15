@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +12,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class FriendControllerTest {
 
@@ -68,7 +68,6 @@ class FriendControllerTest {
     @MockitoBean
     private FriendService friendService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
@@ -86,7 +85,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/friends")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -97,10 +96,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("친구 목록 조회 (페이징)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("친구 목록 조회 (페이징, JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
@@ -177,7 +173,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/friends/request")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"friendId\":\"target-user-456\",\"message\":\"친구 신청합니다!\"}")
         ).andDo(
@@ -187,10 +183,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("친구 요청 보내기")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("친구 요청 보내기 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("friendId").type(JsonFieldType.STRING).description("친구 요청 대상 ID"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("친구 요청 메시지").optional()
@@ -230,7 +223,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/friends/requests/received")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-03. 받은 친구 요청 목록 조회",
@@ -239,10 +232,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("받은 친구 요청 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("받은 친구 요청 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -278,7 +268,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/friends/requests/{requestId}/accept", requestId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-04. 친구 요청 수락",
@@ -287,10 +277,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("친구 요청 수락")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("친구 요청 수락 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("requestId").type(SimpleType.NUMBER).description("친구 요청 ID")
                         )
@@ -328,7 +315,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/friends/requests/{requestId}/reject", requestId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-05. 친구 요청 거절",
@@ -337,10 +324,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("친구 요청 거절")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("친구 요청 거절 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("requestId").type(SimpleType.NUMBER).description("친구 요청 ID")
                         )
@@ -368,7 +352,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/friends/{friendId}", friendId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-06. 친구 삭제",
@@ -377,10 +361,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("친구 관계 삭제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("친구 관계 삭제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("friendId").type(SimpleType.STRING).description("삭제할 친구 ID")
                         )
@@ -408,7 +389,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/friends/block/{targetId}", targetId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-07. 사용자 차단",
@@ -417,10 +398,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("사용자 차단")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("사용자 차단 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("targetId").type(SimpleType.STRING).description("차단할 사용자 ID")
                         )
@@ -448,7 +426,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/friends/block/{targetId}", targetId)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-08. 사용자 차단 해제",
@@ -457,10 +435,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("사용자 차단 해제")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("사용자 차단 해제 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("targetId").type(SimpleType.STRING).description("차단 해제할 사용자 ID")
                         )
@@ -491,7 +466,7 @@ class FriendControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/friends/blocked")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-09. 차단 목록 조회",
@@ -500,10 +475,7 @@ class FriendControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Friend")
-                        .description("차단한 사용자 목록 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("차단한 사용자 목록 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),

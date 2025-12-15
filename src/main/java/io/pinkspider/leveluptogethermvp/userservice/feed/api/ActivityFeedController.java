@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
@@ -33,7 +34,7 @@ public class ActivityFeedController {
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
-        @RequestHeader(value = "X-User-Id", required = false) String userId,
+        @CurrentUser(required = false) String userId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -46,7 +47,7 @@ public class ActivityFeedController {
      */
     @GetMapping("/timeline")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getTimelineFeeds(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -60,7 +61,7 @@ public class ActivityFeedController {
     @GetMapping("/user/{targetUserId}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getUserFeeds(
         @PathVariable String targetUserId,
-        @RequestHeader("X-User-Id") String currentUserId,
+        @CurrentUser String currentUserId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -74,7 +75,7 @@ public class ActivityFeedController {
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getGuildFeeds(
         @PathVariable Long guildId,
-        @RequestHeader("X-User-Id") String currentUserId,
+        @CurrentUser String currentUserId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -88,11 +89,41 @@ public class ActivityFeedController {
     @GetMapping("/category/{category}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getFeedsByCategory(
         @PathVariable String category,
-        @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+        @CurrentUser(required = false) String currentUserId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
         Page<ActivityFeedResponse> feeds = activityFeedService.getFeedsByCategory(category, currentUserId, page, size);
+        return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
+    }
+
+    /**
+     * 피드 검색 (미션명/제목 기준)
+     * - 검색어는 2글자 이상 필요
+     * - category가 없으면 전체 카테고리에서 검색
+     * - category가 있으면 해당 카테고리 내에서 검색
+     */
+    @GetMapping("/search")
+    public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> searchFeeds(
+        @RequestParam String keyword,
+        @RequestParam(required = false) String category,
+        @CurrentUser(required = false) String currentUserId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
+    ) {
+        // 검색어 2글자 이상 검증
+        if (keyword == null || keyword.trim().length() < 2) {
+            return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder()
+                .value(Page.empty())
+                .build());
+        }
+
+        Page<ActivityFeedResponse> feeds;
+        if (category != null && !category.isEmpty() && !category.equals("전체")) {
+            feeds = activityFeedService.searchFeedsByCategory(keyword.trim(), category, currentUserId, page, size);
+        } else {
+            feeds = activityFeedService.searchFeeds(keyword.trim(), currentUserId, page, size);
+        }
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -102,7 +133,7 @@ public class ActivityFeedController {
     @GetMapping("/{feedId}")
     public ResponseEntity<ApiResult<ActivityFeedResponse>> getFeed(
         @PathVariable Long feedId,
-        @RequestHeader(value = "X-User-Id", required = false) String currentUserId
+        @CurrentUser(required = false) String currentUserId
     ) {
         ActivityFeedResponse feed = activityFeedService.getFeed(feedId, currentUserId);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
@@ -113,7 +144,7 @@ public class ActivityFeedController {
      */
     @PostMapping
     public ResponseEntity<ApiResult<ActivityFeedResponse>> createFeed(
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestHeader(value = "X-User-Nickname", required = false) String nickname,
         @Valid @RequestBody CreateFeedRequest request
     ) {
@@ -130,7 +161,7 @@ public class ActivityFeedController {
     @DeleteMapping("/{feedId}")
     public ResponseEntity<ApiResult<Void>> deleteFeed(
         @PathVariable Long feedId,
-        @RequestHeader("X-User-Id") String userId
+        @CurrentUser String userId
     ) {
         activityFeedService.deleteFeed(feedId, userId);
         return ResponseEntity.ok(ApiResult.<Void>builder().build());
@@ -142,7 +173,7 @@ public class ActivityFeedController {
     @PostMapping("/{feedId}/like")
     public ResponseEntity<ApiResult<Map<String, Boolean>>> toggleLike(
         @PathVariable Long feedId,
-        @RequestHeader("X-User-Id") String userId
+        @CurrentUser String userId
     ) {
         boolean liked = activityFeedService.toggleLike(feedId, userId);
         return ResponseEntity.ok(ApiResult.<Map<String, Boolean>>builder().value(Map.of("liked", liked)).build());
@@ -167,7 +198,7 @@ public class ActivityFeedController {
     @PostMapping("/{feedId}/comments")
     public ResponseEntity<ApiResult<FeedCommentResponse>> addComment(
         @PathVariable Long feedId,
-        @RequestHeader("X-User-Id") String userId,
+        @CurrentUser String userId,
         @RequestHeader(value = "X-User-Nickname", required = false) String nickname,
         @Valid @RequestBody FeedCommentRequest request
     ) {
@@ -185,7 +216,7 @@ public class ActivityFeedController {
     public ResponseEntity<ApiResult<Void>> deleteComment(
         @PathVariable Long feedId,
         @PathVariable Long commentId,
-        @RequestHeader("X-User-Id") String userId
+        @CurrentUser String userId
     ) {
         activityFeedService.deleteComment(feedId, commentId, userId);
         return ResponseEntity.ok(ApiResult.<Void>builder().build());

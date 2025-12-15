@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +11,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -60,7 +60,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class GuildPostControllerTest {
 
@@ -72,7 +72,6 @@ class GuildPostControllerTest {
     @MockitoBean
     private GuildPostService guildPostService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
     private static final String MOCK_NICKNAME = "테스트유저";
@@ -108,7 +107,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/posts", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .header(X_USER_NICKNAME, MOCK_NICKNAME)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
@@ -119,11 +118,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("길드 게시글 작성 (공지글은 길드 마스터만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID"),
-                            headerWithName(X_USER_NICKNAME).description("사용자 닉네임").optional()
-                        )
+                        .description("길드 게시글 작성 (공지글은 길드 마스터만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -185,7 +180,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/posts", 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("page", "0")
                 .param("size", "20")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -196,10 +191,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("길드 게시글 목록 조회 (상단 고정 우선, 최신순)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 게시글 목록 조회 (상단 고정 우선, 최신순) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
                         )
@@ -241,7 +233,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/posts/{postId}", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드게시판-03. 게시글 상세 조회",
@@ -250,10 +242,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("길드 게시글 상세 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("길드 게시글 상세 조회 (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -297,7 +286,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.put("/api/v1/guilds/{guildId}/posts/{postId}", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andDo(
@@ -307,10 +296,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("게시글 수정 (작성자만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("게시글 수정 (작성자만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -337,7 +323,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}/posts/{postId}", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드게시판-05. 게시글 삭제",
@@ -346,10 +332,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("게시글 삭제 (작성자 또는 마스터 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("게시글 삭제 (작성자 또는 마스터 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -392,7 +375,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.patch("/api/v1/guilds/{guildId}/posts/{postId}/pin", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드게시판-06. 게시글 상단 고정 토글",
@@ -401,10 +384,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post")
-                        .description("게시글 상단 고정/해제 (마스터만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("게시글 상단 고정/해제 (마스터만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -444,7 +424,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/posts/{postId}/comments", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .header(X_USER_NICKNAME, MOCK_NICKNAME)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
@@ -455,11 +435,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post - Comment")
-                        .description("게시글 댓글 작성 (길드원만 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID"),
-                            headerWithName(X_USER_NICKNAME).description("사용자 닉네임").optional()
-                        )
+                        .description("게시글 댓글 작성 (길드원만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -515,7 +491,7 @@ class GuildPostControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/posts/{postId}/comments", 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드게시판-08. 댓글 목록 조회",
@@ -524,10 +500,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post - Comment")
-                        .description("게시글 댓글 목록 조회 (대댓글 포함)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("게시글 댓글 목록 조회 (대댓글 포함) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID")
@@ -551,7 +524,7 @@ class GuildPostControllerTest {
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete(
                     "/api/v1/guilds/{guildId}/posts/{postId}/comments/{commentId}", 1L, 1L, 1L)
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("길드게시판-09. 댓글 삭제",
@@ -560,10 +533,7 @@ class GuildPostControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Guild Post - Comment")
-                        .description("댓글 삭제 (작성자 또는 마스터 가능)")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("댓글 삭제 (작성자 또는 마스터 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
                             parameterWithName("postId").type(SimpleType.NUMBER).description("게시글 ID"),

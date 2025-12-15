@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.api;
 
-import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,6 +10,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -51,7 +51,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 )
 @Import(ControllerTestConfig.class)
 @AutoConfigureRestDocs
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RankingControllerTest {
 
@@ -61,7 +61,6 @@ class RankingControllerTest {
     @MockitoBean
     private RankingService rankingService;
 
-    private static final String X_USER_ID = "X-User-Id";
     private static final String MOCK_USER_ID = "test-user-123";
 
     private List<RankingResponse> createMockRankings() {
@@ -293,7 +292,7 @@ class RankingControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/rankings/my")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("랭킹-05. 내 랭킹 조회",
@@ -302,10 +301,7 @@ class RankingControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Ranking")
-                        .description("내 랭킹 정보 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 랭킹 정보 조회 (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -346,7 +342,7 @@ class RankingControllerTest {
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/rankings/nearby")
-                .header(X_USER_ID, MOCK_USER_ID)
+                .with(user(MOCK_USER_ID))
                 .param("range", "5")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -356,10 +352,7 @@ class RankingControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Ranking")
-                        .description("내 위아래 N명의 랭킹 조회")
-                        .requestHeaders(
-                            headerWithName(X_USER_ID).description("사용자 ID")
-                        )
+                        .description("내 위아래 N명의 랭킹 조회 (JWT 토큰 인증 필요)")
                         .queryParameters(
                             parameterWithName("range").type(SimpleType.NUMBER).description("위아래 표시할 인원 수 (기본값: 5)").optional()
                         )

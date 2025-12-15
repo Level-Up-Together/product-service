@@ -183,6 +183,32 @@ public class ActivityFeedService {
     }
 
     /**
+     * 피드 검색 (제목/미션명 기준, 전체 카테고리)
+     */
+    public Page<ActivityFeedResponse> searchFeeds(String keyword, String currentUserId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeyword(keyword, pageable);
+        Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+    }
+
+    /**
+     * 피드 검색 (제목/미션명 기준, 카테고리 내 검색)
+     */
+    public Page<ActivityFeedResponse> searchFeedsByCategory(String keyword, String category, String currentUserId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<ActivityType> types = ActivityType.getByCategory(category);
+
+        if (types.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeywordAndCategory(keyword, types, pageable);
+        Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+    }
+
+    /**
      * 피드 상세 조회
      */
     public ActivityFeedResponse getFeed(Long feedId, String currentUserId) {
