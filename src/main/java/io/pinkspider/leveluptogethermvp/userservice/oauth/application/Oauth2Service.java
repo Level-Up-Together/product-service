@@ -148,7 +148,7 @@ public class Oauth2Service {
         }
 
         // providerToken는 kakao, google일때는 access token, apple일때는 id token 이다.
-        String providerToken = "apple".equals(provider) ? idToken[0] : getProviderAccessToken(provider, code);
+        String providerToken = "apple".equals(provider) ? idToken[0] : getProviderAccessToken(httpRequest, provider, code);
 
         OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
         Users users = dbProcessOAuth2User(userInfo);
@@ -211,29 +211,30 @@ public class Oauth2Service {
         return userRepository.save(newUsers);
     }
 
-    private String getProviderAccessToken(String provider, String authorizationCode) {
+    private String getProviderAccessToken(HttpServletRequest request, String provider, String authorizationCode) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+        String redirectUri = resolveRedirectUri(request, provider);
 
         String token;
         return switch (provider) {
             case "kakao" -> {
-                token = getKakaoAccessToken(clientRegistration, authorizationCode);
+                token = getKakaoAccessToken(clientRegistration, redirectUri, authorizationCode);
                 yield token;
             }
             case "google" -> {
-                token = getGoogleAccessToken(clientRegistration, authorizationCode);
+                token = getGoogleAccessToken(clientRegistration, redirectUri, authorizationCode);
                 yield token;
             }
             default -> throw new IllegalArgumentException("Unsupported provider: " + provider);
         };
     }
 
-    private String getKakaoAccessToken(ClientRegistration clientRegistration, String authorizationCode) {
+    private String getKakaoAccessToken(ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
         Map<String, String> tokenResponse = kakaoOAuth2FeignClient.getAccessToken(
             "authorization_code",
             clientRegistration.getClientId(),
             clientRegistration.getClientSecret(),
-            clientRegistration.getRedirectUri(),
+            redirectUri,
             authorizationCode
         );
 
@@ -244,12 +245,12 @@ public class Oauth2Service {
         return tokenResponse.get("access_token");
     }
 
-    private String getGoogleAccessToken(ClientRegistration clientRegistration, String authorizationCode) {
+    private String getGoogleAccessToken(ClientRegistration clientRegistration, String redirectUri, String authorizationCode) {
         Map<String, String> tokenResponse = googleOAuth2FeignClient.getAccessToken(
             "authorization_code",
             clientRegistration.getClientId(),
             clientRegistration.getClientSecret(),
-            clientRegistration.getRedirectUri(),
+            redirectUri,
             authorizationCode
         );
 
