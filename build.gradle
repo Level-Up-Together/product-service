@@ -41,7 +41,7 @@ ext {
 }
 
 springBoot {
-    mainClass = 'io.pinkspider.LevelUpTogetherMvpAApplication'
+    mainClass = 'io.pinkspider.LevelUpTogetherMvpApplication'
 }
 
 bootJar {
