@@ -26,14 +26,16 @@ public class Oauth2Controller {
 
     // 주소는 프론트에서 생성해서 redirect 하는걸로 바꿨지만, 테스트를 위해 남겨둠
     @GetMapping("/uri/{provider}")
-    public ApiResult<OAuth2LoginUriResponseDto> getOauth2LoginUri(@PathVariable("provider") String provider) {
+    public ApiResult<OAuth2LoginUriResponseDto> getOauth2LoginUri(
+        @PathVariable("provider") String provider,
+        HttpServletRequest request) {
         if ("apple".equals(provider)) {
             return ApiResult.<OAuth2LoginUriResponseDto>builder()
-                .value(oauth2Service.getAppleOauthUri(provider))
+                .value(oauth2Service.getAppleOauthUri(provider, request))
                 .build();
         } else {
             return ApiResult.<OAuth2LoginUriResponseDto>builder()
-                .value(oauth2Service.getOauth2LoginUri(provider))
+                .value(oauth2Service.getOauth2LoginUri(provider, request))
                 .build();
         }
     }
