@@ -1,6 +1,6 @@
 spring:
   config:
-    import: "optional:configserver:http://localhost:10085/"
+    import: "optional:configserver:http://${app.dev-config-server-ip}:10085/"
   cloud:
     config:
       name: common,redis,actuator,circuit-breaker,jwt,slack-notification,kafka,logging,${spring.application.name}
