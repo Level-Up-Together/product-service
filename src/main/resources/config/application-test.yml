@@ -217,9 +217,9 @@ app:
     allowed-origins:
       - http://localhost:8001
       - http://localhost:3000
-      - https://local.level-up-together.ai
-      - https://dev.level-up-together.ai
-      - https://level-up-together.ai
+      - https://local.level-up-together.com
+      - https://dev.level-up-together.com
+      - https://level-up-together.com
   jwt:
     refresh:
       renewal-threshold-days: 3 # 갱신 임계값

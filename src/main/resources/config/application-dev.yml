@@ -6,3 +6,4 @@ spring:
       name: common,redis,actuator,circuit-breaker,jwt,slack-notification,kafka,logging,${spring.application.name}
       profile: dev
       label: main
+개

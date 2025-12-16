@@ -77,7 +77,7 @@ class Oauth2ControllerTest {
         // then
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/oauth/uri/{provider}", mockProvider)
-                .header("Origin", "https://local.level-up-together.ai")
+                .header("Origin", "https://local.level-up-together.com")
                 .contentType("application/json;charset=UTF-8")
         ).andDo(
             MockMvcRestDocumentationWrapper.document("01. provider별 oauth login url",
