@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.Goog
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleUserInfoFeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.KakaoOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.KakaoUserInfoFeignClient;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.OAuth2Properties;
 import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo;
@@ -49,18 +50,18 @@ public class Oauth2Service {
     private final JwtUtil jwtUtil;
     private final MultiDeviceTokenService tokenService;
     private final DeviceIdentifier deviceIdentifier;
+    private final OAuth2Properties oAuth2Properties;
 
-    public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider) {
+    public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
         if (clientRegistration == null) {
             throw new CustomException(ApiStatus.SYSTEM_ERROR.getResultCode(), ApiStatus.SYSTEM_ERROR.getResultMessage());
         }
 
         // OAuth2 인증 URL 생성
-        assert clientRegistration != null;
         String authorizationUri = clientRegistration.getProviderDetails().getAuthorizationUri();
         String clientId = clientRegistration.getClientId();
-        String redirectUri = clientRegistration.getRedirectUri();
+        String redirectUri = resolveRedirectUri(request, provider);
 
         // 최종 OAuth2 인증 URL 구성
         String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
@@ -77,12 +78,12 @@ public class Oauth2Service {
     }
 
     // Apple의 경우 OAuth Uri 별도 처리
-    public OAuth2LoginUriResponseDto getAppleOauthUri(String provider) {
+    public OAuth2LoginUriResponseDto getAppleOauthUri(String provider, HttpServletRequest request) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
 
         String authorizationUri = clientRegistration.getProviderDetails().getAuthorizationUri();
         String clientId = clientRegistration.getClientId();
-        String redirectUri = clientRegistration.getRedirectUri();
+        String redirectUri = resolveRedirectUri(request, provider);
 
         String state = UUID.randomUUID().toString(); // CSRF 방지를 위한 랜덤 값
         String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
@@ -98,6 +99,41 @@ public class Oauth2Service {
         return OAuth2LoginUriResponseDto.builder()
             .authUrl(authUrl)
             .build();
+    }
+
+    /**
+     * Origin 헤더 기반으로 redirect URI를 동적으로 결정합니다.
+     * 허용된 origin이 아닌 경우 설정 파일의 기본 redirect-url을 사용합니다.
+     */
+    private String resolveRedirectUri(HttpServletRequest request, String provider) {
+        String origin = request.getHeader("Origin");
+        if (origin == null || origin.isBlank()) {
+            origin = request.getHeader("Referer");
+            if (origin != null && !origin.isBlank()) {
+                // Referer에서 origin 부분만 추출 (path 제거)
+                try {
+                    java.net.URI uri = java.net.URI.create(origin);
+                    origin = uri.getScheme() + "://" + uri.getHost();
+                    if (uri.getPort() != -1 && uri.getPort() != 80 && uri.getPort() != 443) {
+                        origin += ":" + uri.getPort();
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse Referer header: {}", origin);
+                    origin = null;
+                }
+            }
+        }
+
+        if (origin != null && oAuth2Properties.isAllowedOrigin(origin)) {
+            log.info("Using dynamic redirect URI from origin: {}", origin);
+            return origin + "/oauth/callback/" + provider;
+        }
+
+        // 허용된 origin이 아니면 기본 설정 사용
+        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
+        String defaultRedirectUri = clientRegistration.getRedirectUri();
+        log.info("Using default redirect URI: {}", defaultRedirectUri);
+        return defaultRedirectUri;
     }
 
     // Kakao, Google, apple User 정보 받아서 DB 저장하고, 자체 JWT 발급

@@ -68,15 +68,16 @@ class Oauth2ControllerTest {
             "fixture/userservice/oauth/mockOAuth2LoginUriResponseDto.json",
             OAuth2LoginUriResponseDto.class);
 
-        when(oauth2Service.getAppleOauthUri(any()))
+        when(oauth2Service.getAppleOauthUri(any(), any()))
             .thenReturn(mockOAuth2LoginUriResponseDto);
 
-        when(oauth2Service.getOauth2LoginUri(any()))
+        when(oauth2Service.getOauth2LoginUri(any(), any()))
             .thenReturn(mockOAuth2LoginUriResponseDto);
 
         // then
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/oauth/uri/{provider}", mockProvider)
+                .header("Origin", "https://local.level-up-together.ai")
                 .contentType("application/json;charset=UTF-8")
         ).andDo(
             MockMvcRestDocumentationWrapper.document("01. provider별 oauth login url",
