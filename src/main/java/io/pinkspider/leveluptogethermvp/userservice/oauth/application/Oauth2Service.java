@@ -136,6 +136,55 @@ public class Oauth2Service {
         return defaultRedirectUri;
     }
 
+    /**
+     * 모바일 앱용 JWT 발급
+     * 네이티브 SDK에서 받은 access_token/id_token을 직접 사용하여 JWT 발급
+     */
+    public CreateJwtResponseDto createJwtFromMobileToken(HttpServletRequest httpRequest,
+                                                          String provider,
+                                                          String providerToken,
+                                                          String deviceType,
+                                                          String deviceId) {
+        try {
+            OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
+            Users users = dbProcessOAuth2User(userInfo);
+
+            deviceType = deviceType == null ? "mobile" : deviceType;
+            if (deviceId == null || deviceId.trim().isEmpty()) {
+                deviceId = deviceIdentifier.generateDeviceId(httpRequest, deviceType);
+            }
+
+            String userId = users.getId();
+            String userEmail = users.getEmail();
+
+            String accessToken = jwtUtil.generateAccessToken(userId, userEmail, deviceId);
+            String refreshToken = jwtUtil.generateRefreshToken(userId, userEmail, deviceId);
+
+            log.info("Mobile login - user id: {}, provider: {}", users.getId(), provider);
+
+            // Redis에 토큰 저장
+            tokenService.saveTokensToRedis(
+                userId,
+                deviceType,
+                deviceId,
+                accessToken,
+                refreshToken
+            );
+
+            return CreateJwtResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(900) // 15분
+                .userId(userId)
+                .deviceId(deviceId)
+                .build();
+        } catch (Exception e) {
+            log.error("Mobile login failed - provider: {}, error: {}", provider, e.getMessage());
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "소셜 로그인 실패: " + e.getMessage());
+        }
+    }
+
     // Kakao, Google, apple User 정보 받아서 DB 저장하고, 자체 JWT 발급
     public CreateJwtResponseDto createJwt(HttpServletRequest httpRequest,
                                           String provider,

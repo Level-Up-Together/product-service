@@ -321,5 +321,121 @@ INSERT INTO guild_level_config (level, required_exp, cumulative_exp, max_members
 (10, 5000, 17500, 60, '최강의 길드', '최고의 경지에 오른 길드입니다');
 
 -- =====================================================
+-- 샘플 길드 데이터
+-- =====================================================
+
+-- 샘플 길드 (3개)
+-- Guild 1: 레벨업 파이터즈 (공개) - 마스터: user-001, 멤버: user-002, user-003
+-- Guild 2: 함께성장클럽 (공개) - 마스터: user-004, 멤버: user-005, user-006, user-007
+-- Guild 3: 비밀 특공대 (비공개) - 마스터: user-008, 멤버: user-009
+-- 길드 미가입: user-010 (가입신청중), user-011, user-012
+
+INSERT INTO guild (id, name, description, visibility, master_id, max_members, image_url, is_active, current_level, current_exp, total_exp, created_at, modified_at) VALUES
+    (1, '레벨업 파이터즈', '함께 레벨업하며 성장하는 모험가들의 길드입니다! 초보자 환영, 열정만 있으면 OK!', 'PUBLIC', 'user-001-uuid-0001-000000000001', 30, 'https://picsum.photos/seed/guild1/400/300', true, 3, 250, 650, NOW() - INTERVAL '28 days', NOW()),
+    (2, '함께성장클럽', '꾸준함이 힘! 매일 미션을 완수하며 함께 성장해요. 활발한 커뮤니티 운영 중!', 'PUBLIC', 'user-004-uuid-0004-000000000004', 50, 'https://picsum.photos/seed/guild2/400/300', true, 5, 800, 2800, NOW() - INTERVAL '18 days', NOW()),
+    (3, '비밀 특공대', '선택받은 모험가들만을 위한 비밀 길드. 초대를 통해서만 가입 가능합니다.', 'PRIVATE', 'user-008-uuid-0008-000000000008', 20, 'https://picsum.photos/seed/guild3/400/300', true, 4, 100, 1100, NOW() - INTERVAL '8 days', NOW());
+
+-- 시퀀스 업데이트 (다음 INSERT 시 ID 충돌 방지)
+SELECT setval('guild_id_seq', 3, true);
+
+-- 길드 멤버 (1인 1길드 정책 준수)
+INSERT INTO guild_member (id, guild_id, user_id, role, status, joined_at, created_at, modified_at) VALUES
+    -- Guild 1: 레벨업 파이터즈
+    (1, 1, 'user-001-uuid-0001-000000000001', 'MASTER', 'ACTIVE', NOW() - INTERVAL '28 days', NOW() - INTERVAL '28 days', NOW()),
+    (2, 1, 'user-002-uuid-0002-000000000002', 'MEMBER', 'ACTIVE', NOW() - INTERVAL '26 days', NOW() - INTERVAL '26 days', NOW()),
+    (3, 1, 'user-003-uuid-0003-000000000003', 'MEMBER', 'ACTIVE', NOW() - INTERVAL '24 days', NOW() - INTERVAL '24 days', NOW()),
+    -- Guild 2: 함께성장클럽
+    (4, 2, 'user-004-uuid-0004-000000000004', 'MASTER', 'ACTIVE', NOW() - INTERVAL '18 days', NOW() - INTERVAL '18 days', NOW()),
+    (5, 2, 'user-005-uuid-0005-000000000005', 'ADMIN', 'ACTIVE', NOW() - INTERVAL '16 days', NOW() - INTERVAL '16 days', NOW()),
+    (6, 2, 'user-006-uuid-0006-000000000006', 'MEMBER', 'ACTIVE', NOW() - INTERVAL '14 days', NOW() - INTERVAL '14 days', NOW()),
+    (7, 2, 'user-007-uuid-0007-000000000007', 'MEMBER', 'ACTIVE', NOW() - INTERVAL '10 days', NOW() - INTERVAL '10 days', NOW()),
+    -- Guild 3: 비밀 특공대
+    (8, 3, 'user-008-uuid-0008-000000000008', 'MASTER', 'ACTIVE', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days', NOW()),
+    (9, 3, 'user-009-uuid-0009-000000000009', 'MEMBER', 'ACTIVE', NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days', NOW());
+
+SELECT setval('guild_member_id_seq', 9, true);
+
+-- 길드 가입 신청 (user-010이 Guild 1에 가입 신청 중)
+INSERT INTO guild_join_request (id, guild_id, requester_id, message, status, created_at, modified_at) VALUES
+    (1, 1, 'user-010-uuid-0010-000000000010', '안녕하세요! 열심히 활동하겠습니다. 가입 부탁드려요!', 'PENDING', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+    (2, 2, 'user-011-uuid-0011-000000000011', '함께 성장하고 싶습니다!', 'PENDING', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day');
+
+SELECT setval('guild_join_request_id_seq', 2, true);
+
+-- 길드 채팅 메시지 샘플
+INSERT INTO guild_chat_message (id, guild_id, sender_id, sender_nickname, message_type, content, created_at, modified_at) VALUES
+    -- Guild 1 채팅
+    (1, 1, NULL, NULL, 'SYSTEM_JOIN', 'user-002-uuid-0002-000000000002님이 길드에 가입했습니다.', NOW() - INTERVAL '26 days', NOW() - INTERVAL '26 days'),
+    (2, 1, 'user-001-uuid-0001-000000000001', '길동이', 'TEXT', '철수님 환영합니다! 우리 길드에서 즐거운 시간 보내세요 😊', NOW() - INTERVAL '26 days' + INTERVAL '1 hour', NOW() - INTERVAL '26 days' + INTERVAL '1 hour'),
+    (3, 1, 'user-002-uuid-0002-000000000002', '철수짱', 'TEXT', '감사합니다! 열심히 하겠습니다!', NOW() - INTERVAL '26 days' + INTERVAL '2 hours', NOW() - INTERVAL '26 days' + INTERVAL '2 hours'),
+    (4, 1, NULL, NULL, 'SYSTEM_JOIN', 'user-003-uuid-0003-000000000003님이 길드에 가입했습니다.', NOW() - INTERVAL '24 days', NOW() - INTERVAL '24 days'),
+    (5, 1, 'user-003-uuid-0003-000000000003', '영희님', 'TEXT', '안녕하세요~ 잘 부탁드려요!', NOW() - INTERVAL '24 days' + INTERVAL '30 minutes', NOW() - INTERVAL '24 days' + INTERVAL '30 minutes'),
+    (6, 1, 'user-001-uuid-0001-000000000001', '길동이', 'TEXT', '오늘 미션 다들 완료하셨나요?', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
+    (7, 1, 'user-002-uuid-0002-000000000002', '철수짱', 'TEXT', '넵! 저는 완료했어요~', NOW() - INTERVAL '1 day' + INTERVAL '30 minutes', NOW() - INTERVAL '1 day' + INTERVAL '30 minutes'),
+    -- Guild 2 채팅
+    (8, 2, NULL, NULL, 'SYSTEM_JOIN', 'user-005-uuid-0005-000000000005님이 길드에 가입했습니다.', NOW() - INTERVAL '16 days', NOW() - INTERVAL '16 days'),
+    (9, 2, 'user-004-uuid-0004-000000000004', '지민파크', 'TEXT', '수아님 환영해요! 앞으로 함께 성장해요 💪', NOW() - INTERVAL '16 days' + INTERVAL '1 hour', NOW() - INTERVAL '16 days' + INTERVAL '1 hour'),
+    (10, 2, NULL, NULL, 'SYSTEM_LEVEL_UP', '길드가 레벨 5로 레벨업했습니다!', NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+    (11, 2, 'user-004-uuid-0004-000000000004', '지민파크', 'TEXT', '드디어 레벨 5 달성! 모두 수고하셨습니다! 🎉', NOW() - INTERVAL '3 days' + INTERVAL '10 minutes', NOW() - INTERVAL '3 days' + INTERVAL '10 minutes'),
+    (12, 2, 'user-006-uuid-0006-000000000006', '민준킹', 'TEXT', '축하드려요~ 다들 화이팅!', NOW() - INTERVAL '3 days' + INTERVAL '20 minutes', NOW() - INTERVAL '3 days' + INTERVAL '20 minutes'),
+    -- Guild 3 채팅
+    (13, 3, NULL, NULL, 'SYSTEM_JOIN', 'user-009-uuid-0009-000000000009님이 길드에 초대되었습니다.', NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days'),
+    (14, 3, 'user-008-uuid-0008-000000000008', '재현마스터', 'TEXT', '하늘님 환영합니다. 우리 길드 규칙 먼저 읽어주세요.', NOW() - INTERVAL '6 days' + INTERVAL '1 hour', NOW() - INTERVAL '6 days' + INTERVAL '1 hour'),
+    (15, 3, 'user-009-uuid-0009-000000000009', '하늘이', 'TEXT', '네, 알겠습니다! 열심히 하겠습니다.', NOW() - INTERVAL '6 days' + INTERVAL '2 hours', NOW() - INTERVAL '6 days' + INTERVAL '2 hours');
+
+SELECT setval('guild_chat_message_id_seq', 15, true);
+
+-- 길드 게시글 샘플
+INSERT INTO guild_post (id, guild_id, author_id, author_nickname, title, content, post_type, is_pinned, view_count, comment_count, created_at, modified_at) VALUES
+    -- Guild 1 게시글
+    (1, 1, 'user-001-uuid-0001-000000000001', '길동이', '[공지] 길드 가입을 환영합니다!', '레벨업 파이터즈에 오신 것을 환영합니다!\n\n우리 길드는 함께 성장하는 것을 목표로 합니다.\n\n길드 규칙:\n1. 매일 최소 1개 미션 완료하기\n2. 길드원끼리 서로 격려하기\n3. 비매너 행위 금지\n\n즐거운 모험 되세요!', 'NOTICE', true, 45, 3, NOW() - INTERVAL '28 days', NOW()),
+    (2, 1, 'user-002-uuid-0002-000000000002', '철수짱', '오늘의 미션 인증합니다!', '오늘도 미션 완료했습니다!\n매일 꾸준히 하니까 실력이 느는 것 같아요.\n다들 화이팅!', 'NORMAL', false, 12, 2, NOW() - INTERVAL '5 days', NOW()),
+    -- Guild 2 게시글
+    (3, 2, 'user-004-uuid-0004-000000000004', '지민파크', '[공지] 함께성장클럽 운영 방침', '안녕하세요, 길드 마스터 지민입니다.\n\n우리 길드는 \"꾸준함이 힘\"이라는 모토 아래 운영됩니다.\n\n주간 목표:\n- 개인 미션 5개 이상 완료\n- 길드 채팅 참여\n\n매주 MVP를 선정하여 특별 보상을 드립니다!\n\n함께 성장해요 💪', 'NOTICE', true, 89, 7, NOW() - INTERVAL '18 days', NOW()),
+    (4, 2, 'user-005-uuid-0005-000000000005', '수아링', '이번 주 MVP 발표!', '이번 주 MVP는 민준킹님입니다!\n미션 완료율 100%, 채팅 참여도 최고!\n\n다음 주도 모두 화이팅해요~', 'NORMAL', false, 34, 5, NOW() - INTERVAL '2 days', NOW()),
+    (5, 2, 'user-007-uuid-0007-000000000007', '서연스타', '신규 가입자입니다 ㅎㅎ', '안녕하세요! 새로 가입한 서연입니다.\n아직 익숙하지 않은데 많이 도와주세요!\n잘 부탁드립니다 :)', 'NORMAL', false, 23, 4, NOW() - INTERVAL '9 days', NOW()),
+    -- Guild 3 게시글
+    (6, 3, 'user-008-uuid-0008-000000000008', '재현마스터', '[중요] 비밀 특공대 규칙', '비밀 특공대에 오신 것을 환영합니다.\n\n본 길드는 철저한 보안과 높은 활동량을 요구합니다.\n\n규칙:\n1. 길드 정보 외부 유출 금지\n2. 주 7일 중 5일 이상 활동 필수\n3. 미션 완료율 80% 이상 유지\n\n규칙 미준수 시 경고 없이 제명될 수 있습니다.', 'NOTICE', true, 15, 1, NOW() - INTERVAL '8 days', NOW());
+
+SELECT setval('guild_post_id_seq', 6, true);
+
+-- 길드 게시글 댓글 샘플
+INSERT INTO guild_post_comment (id, post_id, author_id, author_nickname, content, created_at, modified_at) VALUES
+    (1, 1, 'user-002-uuid-0002-000000000002', '철수짱', '환영해주셔서 감사합니다! 열심히 하겠습니다!', NOW() - INTERVAL '26 days', NOW()),
+    (2, 1, 'user-003-uuid-0003-000000000003', '영희님', '저도 새로 왔어요~ 같이 열심히 해요!', NOW() - INTERVAL '24 days', NOW()),
+    (3, 1, 'user-001-uuid-0001-000000000001', '길동이', '네~ 모두 환영합니다! 궁금한 거 있으면 물어보세요 ㅎㅎ', NOW() - INTERVAL '24 days' + INTERVAL '1 hour', NOW()),
+    (4, 2, 'user-001-uuid-0001-000000000001', '길동이', '좋아요! 꾸준함이 최고입니다 👍', NOW() - INTERVAL '5 days' + INTERVAL '2 hours', NOW()),
+    (5, 2, 'user-003-uuid-0003-000000000003', '영희님', '저도 오늘 완료했어요~', NOW() - INTERVAL '5 days' + INTERVAL '3 hours', NOW()),
+    (6, 3, 'user-005-uuid-0005-000000000005', '수아링', '마스터님 항상 감사합니다!', NOW() - INTERVAL '18 days' + INTERVAL '1 day', NOW()),
+    (7, 3, 'user-006-uuid-0006-000000000006', '민준킹', '열심히 하겠습니다!', NOW() - INTERVAL '18 days' + INTERVAL '2 days', NOW()),
+    (8, 4, 'user-006-uuid-0006-000000000006', '민준킹', '감사합니다! 앞으로도 열심히 할게요!', NOW() - INTERVAL '2 days' + INTERVAL '1 hour', NOW()),
+    (9, 5, 'user-004-uuid-0004-000000000004', '지민파크', '환영해요 서연님! 궁금한 거 있으면 편하게 물어보세요~', NOW() - INTERVAL '9 days' + INTERVAL '2 hours', NOW()),
+    (10, 6, 'user-009-uuid-0009-000000000009', '하늘이', '네, 규칙 숙지했습니다!', NOW() - INTERVAL '6 days', NOW());
+
+SELECT setval('guild_post_comment_id_seq', 10, true);
+
+-- 길드 경험치 히스토리 샘플
+INSERT INTO guild_experience_history (id, guild_id, source_type, contributor_id, exp_amount, description, level_before, level_after, created_at) VALUES
+    -- Guild 1 경험치 히스토리
+    (1, 1, 'GUILD_MISSION_EXECUTION', 'user-001-uuid-0001-000000000001', 50, '미션 완료 - 아침 운동', 1, 1, NOW() - INTERVAL '25 days'),
+    (2, 1, 'GUILD_MISSION_EXECUTION', 'user-002-uuid-0002-000000000002', 50, '미션 완료 - 독서 30분', 1, 1, NOW() - INTERVAL '24 days'),
+    (3, 1, 'GUILD_MISSION_FULL_COMPLETION', 'user-001-uuid-0001-000000000001', 100, '길드 미션 달성 보너스', 1, 2, NOW() - INTERVAL '20 days'),
+    (4, 1, 'GUILD_MISSION_EXECUTION', 'user-003-uuid-0003-000000000003', 50, '미션 완료 - 영어 공부', 2, 2, NOW() - INTERVAL '18 days'),
+    (5, 1, 'GUILD_MISSION_FULL_COMPLETION', 'user-002-uuid-0002-000000000002', 100, '길드 미션 달성 보너스', 2, 3, NOW() - INTERVAL '10 days'),
+    -- Guild 2 경험치 히스토리
+    (6, 2, 'GUILD_MISSION_EXECUTION', 'user-004-uuid-0004-000000000004', 100, '미션 완료 - 코딩 연습', 1, 1, NOW() - INTERVAL '17 days'),
+    (7, 2, 'GUILD_MISSION_EXECUTION', 'user-005-uuid-0005-000000000005', 100, '미션 완료 - 운동', 1, 2, NOW() - INTERVAL '15 days'),
+    (8, 2, 'GUILD_MISSION_FULL_COMPLETION', 'user-004-uuid-0004-000000000004', 200, '길드 미션 달성 보너스', 2, 3, NOW() - INTERVAL '12 days'),
+    (9, 2, 'GUILD_MISSION_EXECUTION', 'user-006-uuid-0006-000000000006', 100, '미션 완료 - 독서', 3, 3, NOW() - INTERVAL '10 days'),
+    (10, 2, 'EVENT_BONUS', NULL, 500, '신규 길드 이벤트 보너스', 3, 4, NOW() - INTERVAL '8 days'),
+    (11, 2, 'GUILD_MISSION_FULL_COMPLETION', 'user-007-uuid-0007-000000000007', 200, '길드 미션 달성 보너스', 4, 5, NOW() - INTERVAL '3 days'),
+    -- Guild 3 경험치 히스토리
+    (12, 3, 'GUILD_MISSION_EXECUTION', 'user-008-uuid-0008-000000000008', 150, '미션 완료 - 고급 과제', 1, 2, NOW() - INTERVAL '7 days'),
+    (13, 3, 'GUILD_MISSION_EXECUTION', 'user-009-uuid-0009-000000000009', 150, '미션 완료 - 특수 미션', 2, 3, NOW() - INTERVAL '5 days'),
+    (14, 3, 'GUILD_MISSION_FULL_COMPLETION', 'user-008-uuid-0008-000000000008', 300, '길드 미션 달성 보너스', 3, 4, NOW() - INTERVAL '2 days');
+
+SELECT setval('guild_experience_history_id_seq', 14, true);
+
+-- =====================================================
 -- END OF INITIALIZATION
 -- =====================================================

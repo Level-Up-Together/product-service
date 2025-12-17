@@ -6,6 +6,7 @@
 -- ============================================================
 -- DROP EXISTING TABLES (for clean initialization)
 -- ============================================================
+DROP TABLE IF EXISTS home_banner CASCADE;
 DROP TABLE IF EXISTS feed_comment CASCADE;
 DROP TABLE IF EXISTS feed_like CASCADE;
 DROP TABLE IF EXISTS activity_feed CASCADE;
@@ -600,6 +601,85 @@ INSERT INTO term_versions (term_id, version, content) VALUES
 
 3. 동의 철회
 - 언제든지 설정에서 수신 동의를 철회할 수 있습니다.');
+
+-- ============================================================
+-- 샘플 사용자 데이터
+-- ============================================================
+
+-- 샘플 사용자 (12명)
+INSERT INTO users (id, name, nickname, email, picture, provider, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', '홍길동', '길동이', 'gildong@example.com', 'https://picsum.photos/seed/user1/200', 'GOOGLE', NOW() - INTERVAL '30 days', NOW()),
+    ('user-002-uuid-0002-000000000002', '김철수', '철수짱', 'chulsoo@example.com', 'https://picsum.photos/seed/user2/200', 'KAKAO', NOW() - INTERVAL '28 days', NOW()),
+    ('user-003-uuid-0003-000000000003', '이영희', '영희님', 'younghee@example.com', 'https://picsum.photos/seed/user3/200', 'GOOGLE', NOW() - INTERVAL '25 days', NOW()),
+    ('user-004-uuid-0004-000000000004', '박지민', '지민파크', 'jimin@example.com', 'https://picsum.photos/seed/user4/200', 'KAKAO', NOW() - INTERVAL '20 days', NOW()),
+    ('user-005-uuid-0005-000000000005', '최수아', '수아링', 'sua@example.com', 'https://picsum.photos/seed/user5/200', 'APPLE', NOW() - INTERVAL '18 days', NOW()),
+    ('user-006-uuid-0006-000000000006', '정민준', '민준킹', 'minjun@example.com', 'https://picsum.photos/seed/user6/200', 'GOOGLE', NOW() - INTERVAL '15 days', NOW()),
+    ('user-007-uuid-0007-000000000007', '강서연', '서연스타', 'seoyeon@example.com', 'https://picsum.photos/seed/user7/200', 'KAKAO', NOW() - INTERVAL '12 days', NOW()),
+    ('user-008-uuid-0008-000000000008', '윤재현', '재현마스터', 'jaehyun@example.com', 'https://picsum.photos/seed/user8/200', 'GOOGLE', NOW() - INTERVAL '10 days', NOW()),
+    ('user-009-uuid-0009-000000000009', '장하늘', '하늘이', 'haneul@example.com', 'https://picsum.photos/seed/user9/200', 'APPLE', NOW() - INTERVAL '8 days', NOW()),
+    ('user-010-uuid-0010-000000000010', '한지우', '지우랜드', 'jiwoo@example.com', 'https://picsum.photos/seed/user10/200', 'KAKAO', NOW() - INTERVAL '5 days', NOW()),
+    ('user-011-uuid-0011-000000000011', '오다은', '다은공주', 'daeun@example.com', 'https://picsum.photos/seed/user11/200', 'GOOGLE', NOW() - INTERVAL '3 days', NOW()),
+    ('user-012-uuid-0012-000000000012', '신유진', '유진퀸', 'yujin@example.com', 'https://picsum.photos/seed/user12/200', 'KAKAO', NOW() - INTERVAL '1 day', NOW());
+
+-- 사용자 경험치 데이터
+INSERT INTO user_experience (user_id, current_level, current_exp, total_exp, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', 15, 120, 2520, NOW() - INTERVAL '30 days', NOW()),
+    ('user-002-uuid-0002-000000000002', 12, 80, 1680, NOW() - INTERVAL '28 days', NOW()),
+    ('user-003-uuid-0003-000000000003', 10, 50, 1250, NOW() - INTERVAL '25 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 18, 200, 3400, NOW() - INTERVAL '20 days', NOW()),
+    ('user-005-uuid-0005-000000000005', 8, 30, 830, NOW() - INTERVAL '18 days', NOW()),
+    ('user-006-uuid-0006-000000000006', 11, 60, 1460, NOW() - INTERVAL '15 days', NOW()),
+    ('user-007-uuid-0007-000000000007', 9, 40, 1040, NOW() - INTERVAL '12 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 20, 150, 4150, NOW() - INTERVAL '10 days', NOW()),
+    ('user-009-uuid-0009-000000000009', 7, 20, 620, NOW() - INTERVAL '8 days', NOW()),
+    ('user-010-uuid-0010-000000000010', 5, 10, 410, NOW() - INTERVAL '5 days', NOW()),
+    ('user-011-uuid-0011-000000000011', 3, 50, 250, NOW() - INTERVAL '3 days', NOW()),
+    ('user-012-uuid-0012-000000000012', 2, 20, 120, NOW() - INTERVAL '1 day', NOW());
+
+-- 사용자 통계 데이터
+INSERT INTO user_stats (user_id, total_mission_completions, total_mission_full_completions, current_streak, max_streak, last_activity_date, total_achievements_completed, total_titles_acquired, ranking_points, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', 45, 30, 7, 15, CURRENT_DATE, 5, 3, 2520, NOW() - INTERVAL '30 days', NOW()),
+    ('user-002-uuid-0002-000000000002', 32, 20, 5, 10, CURRENT_DATE, 3, 2, 1680, NOW() - INTERVAL '28 days', NOW()),
+    ('user-003-uuid-0003-000000000003', 25, 15, 3, 8, CURRENT_DATE, 2, 1, 1250, NOW() - INTERVAL '25 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 60, 45, 12, 20, CURRENT_DATE, 6, 4, 3400, NOW() - INTERVAL '20 days', NOW()),
+    ('user-005-uuid-0005-000000000005', 18, 10, 4, 6, CURRENT_DATE, 2, 1, 830, NOW() - INTERVAL '18 days', NOW()),
+    ('user-006-uuid-0006-000000000006', 28, 18, 6, 9, CURRENT_DATE, 3, 2, 1460, NOW() - INTERVAL '15 days', NOW()),
+    ('user-007-uuid-0007-000000000007', 20, 12, 2, 7, CURRENT_DATE, 2, 1, 1040, NOW() - INTERVAL '12 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 80, 60, 15, 25, CURRENT_DATE, 8, 5, 4150, NOW() - INTERVAL '10 days', NOW()),
+    ('user-009-uuid-0009-000000000009', 12, 8, 3, 5, CURRENT_DATE, 1, 1, 620, NOW() - INTERVAL '8 days', NOW()),
+    ('user-010-uuid-0010-000000000010', 8, 5, 2, 3, CURRENT_DATE, 1, 0, 410, NOW() - INTERVAL '5 days', NOW()),
+    ('user-011-uuid-0011-000000000011', 5, 3, 1, 2, CURRENT_DATE, 0, 0, 250, NOW() - INTERVAL '3 days', NOW()),
+    ('user-012-uuid-0012-000000000012', 2, 1, 1, 1, CURRENT_DATE, 0, 0, 120, NOW() - INTERVAL '1 day', NOW());
+
+-- 사용자 칭호 보유 (레벨별 기본 칭호)
+INSERT INTO user_title (user_id, title_id, acquired_at, is_equipped, equipped_position, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', 2, NOW() - INTERVAL '20 days', true, 'LEFT', NOW() - INTERVAL '20 days', NOW()),
+    ('user-002-uuid-0002-000000000002', 2, NOW() - INTERVAL '15 days', true, 'LEFT', NOW() - INTERVAL '15 days', NOW()),
+    ('user-003-uuid-0003-000000000003', 2, NOW() - INTERVAL '10 days', true, 'LEFT', NOW() - INTERVAL '10 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 2, NOW() - INTERVAL '10 days', true, 'LEFT', NOW() - INTERVAL '10 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 3, NOW() - INTERVAL '5 days', true, 'LEFT', NOW() - INTERVAL '5 days', NOW());
+
+-- 사용자 업적 진행 (일부 완료)
+INSERT INTO user_achievement (user_id, achievement_id, current_count, is_completed, completed_at, is_reward_claimed, reward_claimed_at, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', 1, 1, true, NOW() - INTERVAL '29 days', true, NOW() - INTERVAL '29 days', NOW() - INTERVAL '30 days', NOW()),
+    ('user-001-uuid-0001-000000000001', 2, 10, true, NOW() - INTERVAL '15 days', true, NOW() - INTERVAL '15 days', NOW() - INTERVAL '30 days', NOW()),
+    ('user-001-uuid-0001-000000000001', 9, 1, true, NOW() - INTERVAL '28 days', true, NOW() - INTERVAL '28 days', NOW() - INTERVAL '30 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 1, 1, true, NOW() - INTERVAL '19 days', true, NOW() - INTERVAL '19 days', NOW() - INTERVAL '20 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 2, 10, true, NOW() - INTERVAL '10 days', true, NOW() - INTERVAL '10 days', NOW() - INTERVAL '20 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 3, 50, true, NOW() - INTERVAL '5 days', true, NOW() - INTERVAL '5 days', NOW() - INTERVAL '20 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 10, 1, true, NOW() - INTERVAL '18 days', true, NOW() - INTERVAL '18 days', NOW() - INTERVAL '20 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 1, 1, true, NOW() - INTERVAL '9 days', true, NOW() - INTERVAL '9 days', NOW() - INTERVAL '10 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 2, 10, true, NOW() - INTERVAL '5 days', true, NOW() - INTERVAL '5 days', NOW() - INTERVAL '10 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 10, 1, true, NOW() - INTERVAL '8 days', true, NOW() - INTERVAL '8 days', NOW() - INTERVAL '10 days', NOW());
+
+-- 친구 관계 샘플
+INSERT INTO friendship (user_id, friend_id, status, requested_at, accepted_at, created_at, modified_at) VALUES
+    ('user-001-uuid-0001-000000000001', 'user-002-uuid-0002-000000000002', 'ACCEPTED', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', NOW() - INTERVAL '25 days', NOW()),
+    ('user-001-uuid-0001-000000000001', 'user-003-uuid-0003-000000000003', 'ACCEPTED', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days', NOW() - INTERVAL '20 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 'user-005-uuid-0005-000000000005', 'ACCEPTED', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days', NOW() - INTERVAL '15 days', NOW()),
+    ('user-004-uuid-0004-000000000004', 'user-006-uuid-0006-000000000006', 'ACCEPTED', NOW() - INTERVAL '12 days', NOW() - INTERVAL '12 days', NOW() - INTERVAL '12 days', NOW()),
+    ('user-008-uuid-0008-000000000008', 'user-009-uuid-0009-000000000009', 'ACCEPTED', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days', NOW()),
+    ('user-010-uuid-0010-000000000010', 'user-011-uuid-0011-000000000011', 'PENDING', NOW() - INTERVAL '2 days', NULL, NOW() - INTERVAL '2 days', NOW());
 
 -- ============================================================
 -- END OF INITIALIZATION

@@ -3,12 +3,15 @@ package io.pinkspider.leveluptogethermvp.userservice.oauth.api;
 import static com.epages.restdocs.apispec.ResourceDocumentation.headerWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.MobileLoginRequestDto;
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
@@ -158,5 +161,97 @@ class Oauth2ControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /oauth/mobile/login : 모바일 앱용 소셜 로그인 JWT 발급")
+    void mobileLogin() throws Exception {
+        // given
+        MobileLoginRequestDto requestDto = MobileLoginRequestDto.builder()
+            .provider("google")
+            .accessToken("mock_access_token_from_native_sdk")
+            .deviceType("ios")
+            .deviceId("device_uuid_12345")
+            .build();
+
+        CreateJwtResponseDto mockCreateJwtResponseDto = MockUtil.readJsonFileToClass(
+            "fixture/userservice/oauth/mockCreateJwtResponseDto.json",
+            CreateJwtResponseDto.class);
+
+        when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345")))
+            .thenReturn(mockCreateJwtResponseDto);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/oauth/mobile/login")
+                .contentType("application/json;charset=UTF-8")
+                .content(objectMapper.writeValueAsString(requestDto))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("03. 모바일 앱용 소셜 로그인 JWT 발급",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .description("03. 모바일 앱용 소셜 로그인 JWT 발급 - 네이티브 SDK에서 받은 access_token/id_token을 직접 전달받아 JWT 발급")
+                        .requestHeaders(
+                            headerWithName(HttpHeaders.CONTENT_TYPE).description("application/json; charset=UTF-8")
+                        )
+                        .requestFields(
+                            fieldWithPath("provider").type(JsonFieldType.STRING).description("OAuth 제공자 (google, kakao, apple)"),
+                            fieldWithPath("access_token").type(JsonFieldType.STRING).description("네이티브 SDK에서 받은 access_token (Apple의 경우 id_token)"),
+                            fieldWithPath("device_type").type(JsonFieldType.STRING).description("디바이스 타입 (ios, android)").optional(),
+                            fieldWithPath("device_id").type(JsonFieldType.STRING).description("디바이스 고유 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("응답 데이터"),
+                            fieldWithPath("value.access_token").type(JsonFieldType.STRING).description("JWT Access Token"),
+                            fieldWithPath("value.refresh_token").type(JsonFieldType.STRING).description("JWT Refresh Token"),
+                            fieldWithPath("value.token_type").type(JsonFieldType.STRING).description("토큰 타입 (Bearer)"),
+                            fieldWithPath("value.expired_time").type(JsonFieldType.STRING).description("만료 시간"),
+                            fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("만료까지 남은 시간 (초)"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("디바이스 ID")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /oauth/mobile/login : 필수 파라미터 누락 시 400 에러")
+    void mobileLogin_missingRequiredFields() throws Exception {
+        // given - provider 누락
+        MobileLoginRequestDto requestDto = MobileLoginRequestDto.builder()
+            .accessToken("mock_access_token")
+            .build();
+
+        // when & then
+        mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/oauth/mobile/login")
+                .contentType("application/json;charset=UTF-8")
+                .content(objectMapper.writeValueAsString(requestDto))
+        ).andExpect(MockMvcResultMatchers.status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /oauth/mobile/login : accessToken 누락 시 400 에러")
+    void mobileLogin_missingAccessToken() throws Exception {
+        // given - accessToken 누락
+        MobileLoginRequestDto requestDto = MobileLoginRequestDto.builder()
+            .provider("google")
+            .build();
+
+        // when & then
+        mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/oauth/mobile/login")
+                .contentType("application/json;charset=UTF-8")
+                .content(objectMapper.writeValueAsString(requestDto))
+        ).andExpect(MockMvcResultMatchers.status().isBadRequest());
     }
 }

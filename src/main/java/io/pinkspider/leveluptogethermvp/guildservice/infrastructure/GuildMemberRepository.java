@@ -34,4 +34,18 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
     @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
            "WHERE gm.guild.id = :guildId AND gm.userId = :userId AND gm.status = 'ACTIVE'")
     boolean isActiveMember(@Param("guildId") Long guildId, @Param("userId") String userId);
+
+    /**
+     * 사용자가 이미 다른 길드에 가입되어 있는지 확인 (1인 1길드 정책)
+     */
+    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
+           "JOIN gm.guild g WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
+    boolean hasActiveGuildMembership(@Param("userId") String userId);
+
+    /**
+     * 사용자의 현재 활성 길드 멤버십 조회 (1인 1길드 정책)
+     */
+    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
+           "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
+    Optional<GuildMember> findActiveGuildMembership(@Param("userId") String userId);
 }

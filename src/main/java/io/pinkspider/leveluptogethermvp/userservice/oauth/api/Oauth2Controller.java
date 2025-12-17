@@ -7,11 +7,15 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.Oauth2Service;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.MobileLoginRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,6 +61,31 @@ public class Oauth2Controller {
 
         return ApiResult.<CreateJwtResponseDto>builder()
             .value(createJwtResponseDto)
+            .build();
+    }
+
+    /**
+     * 모바일 앱용 소셜 로그인 API
+     * 네이티브 SDK에서 받은 access_token/id_token을 직접 전달받아 JWT 발급
+     */
+    @PostMapping("/mobile/login")
+    public ApiResult<CreateJwtResponseDto> mobileLogin(
+        @Valid @RequestBody MobileLoginRequestDto request,
+        HttpServletRequest httpRequest
+    ) {
+        log.info("Mobile login request - provider: {}, deviceType: {}",
+            request.getProvider(), request.getDeviceType());
+
+        CreateJwtResponseDto response = oauth2Service.createJwtFromMobileToken(
+            httpRequest,
+            request.getProvider(),
+            request.getAccessToken(),
+            request.getDeviceType(),
+            request.getDeviceId()
+        );
+
+        return ApiResult.<CreateJwtResponseDto>builder()
+            .value(response)
             .build();
     }
 }

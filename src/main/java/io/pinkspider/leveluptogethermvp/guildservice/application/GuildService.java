@@ -40,6 +40,11 @@ public class GuildService {
 
     @Transactional
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
+        // 1인 1길드 정책: 이미 다른 길드에 가입되어 있는지 확인
+        if (guildMemberRepository.hasActiveGuildMembership(userId)) {
+            throw new IllegalStateException("이미 다른 길드에 가입되어 있습니다. 길드 탈퇴 후 다시 시도해주세요.");
+        }
+
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
             throw new IllegalArgumentException("이미 존재하는 길드명입니다: " + request.getName());
         }
@@ -170,6 +175,11 @@ public class GuildService {
             throw new IllegalStateException("비공개 길드는 초대를 통해서만 가입할 수 있습니다.");
         }
 
+        // 1인 1길드 정책: 이미 다른 길드에 가입되어 있는지 확인
+        if (guildMemberRepository.hasActiveGuildMembership(userId)) {
+            throw new IllegalStateException("이미 다른 길드에 가입되어 있습니다. 길드 탈퇴 후 다시 시도해주세요.");
+        }
+
         if (isMember(guildId, userId)) {
             throw new IllegalStateException("이미 길드 멤버입니다.");
         }
@@ -214,6 +224,12 @@ public class GuildService {
 
         Guild guild = request.getGuild();
         validateMaster(guild, masterId);
+
+        // 1인 1길드 정책: 대기 중에 다른 길드에 가입했는지 확인
+        if (guildMemberRepository.hasActiveGuildMembership(request.getRequesterId())) {
+            request.reject(masterId, "신청자가 이미 다른 길드에 가입되어 있습니다."); // 자동 거절 처리
+            throw new IllegalStateException("신청자가 이미 다른 길드에 가입되어 있어 자동 거절되었습니다.");
+        }
 
         int currentMembers = (int) guildMemberRepository.countActiveMembers(guild.getId());
         if (currentMembers >= guild.getMaxMembers()) {
