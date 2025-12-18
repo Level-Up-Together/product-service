@@ -54,7 +54,7 @@ public class ExperienceHistory extends LocalDateTimeBaseEntity {
     @Comment("획득 경험치")
     private Integer expAmount;
 
-    @Column(name = "description", length = 200)
+    @Column(name = "description", length = 500)
     @Comment("설명")
     private String description;
 

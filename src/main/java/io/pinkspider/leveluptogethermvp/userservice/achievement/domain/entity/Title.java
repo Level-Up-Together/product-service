@@ -67,6 +67,10 @@ public class Title extends LocalDateTimeBaseEntity {
     @Comment("칭호 아이콘 URL")
     private String iconUrl;
 
+    @Column(name = "mission_category_id")
+    @Comment("미션 카테고리 ID")
+    private Long missionCategoryId;
+
     @NotNull
     @Column(name = "is_active", nullable = false)
     @Comment("활성 여부")

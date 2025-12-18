@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -74,6 +76,27 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Column(name = "type", nullable = false, length = 20)
     @Comment("미션 타입 (개인/길드)")
     private MissionType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 20)
+    @Comment("미션 출처 (SYSTEM, USER, GUILD)")
+    @Builder.Default
+    private MissionSource source = MissionSource.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "participation_type", length = 20)
+    @Comment("참여 방식 (DIRECT, TEMPLATE_ONLY)")
+    @Builder.Default
+    private MissionParticipationType participationType = MissionParticipationType.DIRECT;
+
+    @Column(name = "base_mission_id")
+    @Comment("원본 시스템 미션 ID (복제된 경우)")
+    private Long baseMissionId;
+
+    @Column(name = "is_customizable", nullable = false)
+    @Comment("커스터마이징 가능 여부")
+    @Builder.Default
+    private Boolean isCustomizable = true;
 
     @NotNull
     @Column(name = "creator_id", nullable = false)
