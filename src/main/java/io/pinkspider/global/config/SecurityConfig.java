@@ -3,6 +3,7 @@ package io.pinkspider.global.config;
 
 import io.pinkspider.leveluptogethermvp.userservice.core.component.AuthEntryPointJwt;
 import io.pinkspider.leveluptogethermvp.userservice.core.filter.JwtAuthenticationFilter;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.OAuth2Properties;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class SecurityConfig {
 
     private final AuthEntryPointJwt unauthorizedHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final OAuth2Properties oAuth2Properties;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
@@ -41,10 +43,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE"));
-        configuration.setAllowedHeaders(Arrays.asList("X-Requested-With", "Content-Type", "Authorization", "X-XSRF-token"));
-        configuration.setAllowCredentials(false);
+        // OAuth2Properties의 allowedOrigins 사용 (credentials: include 지원)
+        List<String> allowedOrigins = oAuth2Properties.getAllowedOrigins();
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            configuration.setAllowedOrigins(allowedOrigins);
+            configuration.setAllowCredentials(true);
+        } else {
+            configuration.setAllowedOrigins(List.of("*"));
+            configuration.setAllowCredentials(false);
+        }
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("X-Requested-With", "Content-Type", "Authorization", "X-XSRF-token", "Origin", "Accept"));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
