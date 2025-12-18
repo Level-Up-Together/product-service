@@ -46,15 +46,10 @@ public class JwtService {
                     UserApiStatus.BLACKLISTED_JWT.getResultMessage());
             }
 
+            // 최대 수명(30일) 초과 여부만 확인 - 초과 시 재로그인 필요
             if (!slidingExpirationService.isWithinMaxLifetime(refreshToken)) {
                 throw new JwtException(UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultCode(),
                     UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultMessage());
-            }
-
-            // 갱신 가능 여부 확인
-            if (!tokenService.canRenewRefreshToken(refreshToken)) {
-                throw new JwtException(UserApiStatus.TOKEN_CANNOT_BE_RENEWED.getResultCode(),
-                    UserApiStatus.TOKEN_CANNOT_BE_RENEWED.getResultMessage());
             }
 
             // 토큰에서 정보 추출
