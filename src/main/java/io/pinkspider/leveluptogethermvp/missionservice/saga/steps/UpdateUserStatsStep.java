@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Us
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -34,7 +35,7 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult execute(MissionCompletionContext context) {
         String userId = context.getUserId();
         boolean isGuildMission = context.isGuildMission();
@@ -79,7 +80,7 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult compensate(MissionCompletionContext context) {
         String userId = context.getUserId();
 

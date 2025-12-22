@@ -107,6 +107,84 @@ public class MyPageService {
     }
 
     /**
+     * 닉네임 중복 확인
+     *
+     * @param nickname 확인할 닉네임
+     * @param userId 현재 사용자 ID (자신은 제외, null이면 전체 검사)
+     * @return 사용 가능 여부
+     */
+    public boolean isNicknameAvailable(String nickname, String userId) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            return false;
+        }
+
+        if (userId != null) {
+            // 자신 제외하고 중복 확인 (수정 시)
+            return !userRepository.existsByNicknameAndIdNot(nickname, userId);
+        } else {
+            // 전체 중복 확인 (회원가입 시)
+            return !userRepository.existsByNickname(nickname);
+        }
+    }
+
+    /**
+     * 닉네임 변경
+     *
+     * @param userId 사용자 ID
+     * @param nickname 새 닉네임
+     * @return 업데이트된 프로필 정보
+     */
+    @Transactional
+    public ProfileInfo updateNickname(String userId, String nickname) {
+        // 닉네임 유효성 검사
+        validateNickname(nickname);
+
+        // 중복 확인
+        if (!isNicknameAvailable(nickname, userId)) {
+            throw new CustomException("NICKNAME_001", "이미 사용 중인 닉네임입니다.");
+        }
+
+        Users user = findUserOrThrow(userId);
+        user.updateNickname(nickname);
+        userRepository.save(user);
+
+        log.info("닉네임 변경: userId={}, newNickname={}", userId, nickname);
+
+        return buildProfileInfo(user, userId);
+    }
+
+    /**
+     * 닉네임 설정 필요 여부 확인
+     * OAuth 가입 시 닉네임이 중복되어 자동 생성된 경우 true 반환
+     *
+     * @param userId 사용자 ID
+     * @return 닉네임 설정 필요 여부
+     */
+    public boolean needsNicknameSetup(String userId) {
+        Users user = findUserOrThrow(userId);
+        return !user.isNicknameSet();
+    }
+
+    /**
+     * 닉네임 유효성 검사
+     */
+    private void validateNickname(String nickname) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            throw new CustomException("NICKNAME_002", "닉네임을 입력해주세요.");
+        }
+        if (nickname.length() < 2) {
+            throw new CustomException("NICKNAME_003", "닉네임은 2자 이상이어야 합니다.");
+        }
+        if (nickname.length() > 10) {
+            throw new CustomException("NICKNAME_004", "닉네임은 10자 이하여야 합니다.");
+        }
+        // 한글, 영문, 숫자만 허용
+        if (!nickname.matches("^[가-힣a-zA-Z0-9]+$")) {
+            throw new CustomException("NICKNAME_005", "닉네임은 한글, 영문, 숫자만 사용 가능합니다.");
+        }
+    }
+
+    /**
      * 칭호 변경 (좌측/우측 동시 변경)
      */
     @Transactional

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,9 +12,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class TransferMasterRequest {
 
     @NotBlank(message = "새 길드 마스터 ID는 필수입니다.")
-    @JsonProperty("new_master_id")
     private String newMasterId;
 }

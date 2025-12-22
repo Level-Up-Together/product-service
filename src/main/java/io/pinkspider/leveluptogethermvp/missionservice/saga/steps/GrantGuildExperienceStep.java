@@ -11,6 +11,7 @@ import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -46,7 +47,7 @@ public class GrantGuildExperienceStep implements SagaStep<MissionCompletionConte
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult execute(MissionCompletionContext context) {
         Long guildId = context.getGuildId();
         int expToGrant = context.getGuildExpEarned();
@@ -92,7 +93,7 @@ public class GrantGuildExperienceStep implements SagaStep<MissionCompletionConte
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult compensate(MissionCompletionContext context) {
         if (!context.isGuildMission()) {
             return SagaStepResult.success("Not a guild mission - no compensation needed");

@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto;
+package io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -12,7 +12,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public class FriendRequestDto {
-    private String friendId;
+public class NicknameCheckResponse {
+
+    private String nickname;
+    private boolean available;
     private String message;
 }

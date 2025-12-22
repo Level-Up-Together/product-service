@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.api.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.home.domain.entity.HomeBanner;
 import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
 import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.LinkType;
@@ -13,6 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class HomeBannerResponse {
 
     private Long id;

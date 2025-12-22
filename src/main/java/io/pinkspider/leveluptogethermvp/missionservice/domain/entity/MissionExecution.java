@@ -65,6 +65,10 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Builder.Default
     private ExecutionStatus status = ExecutionStatus.PENDING;
 
+    @Column(name = "started_at")
+    @Comment("시작 일시")
+    private LocalDateTime startedAt;
+
     @Column(name = "completed_at")
     @Comment("완료 일시")
     private LocalDateTime completedAt;
@@ -78,6 +82,26 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Comment("메모")
     private String note;
 
+    /**
+     * 미션 수행 시작
+     */
+    public void start() {
+        if (this.status == ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("이미 완료된 수행 기록입니다.");
+        }
+        if (this.status == ExecutionStatus.MISSED) {
+            throw new IllegalStateException("미실행 처리된 수행 기록은 시작할 수 없습니다.");
+        }
+        if (this.startedAt != null) {
+            throw new IllegalStateException("이미 시작된 수행 기록입니다.");
+        }
+        this.status = ExecutionStatus.IN_PROGRESS;
+        this.startedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 미션 수행 완료 및 경험치 계산 (분당 1 EXP)
+     */
     public void complete() {
         if (this.status == ExecutionStatus.COMPLETED) {
             throw new IllegalStateException("이미 완료된 수행 기록입니다.");
@@ -85,8 +109,25 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
         if (this.status == ExecutionStatus.MISSED) {
             throw new IllegalStateException("미실행 처리된 수행 기록은 완료할 수 없습니다.");
         }
+        if (this.startedAt == null) {
+            throw new IllegalStateException("미션을 먼저 시작해야 합니다.");
+        }
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
+        // 경험치 계산: 시작~종료 시간을 분으로 계산하여 분당 1 EXP
+        this.expEarned = calculateExpByDuration();
+    }
+
+    /**
+     * 시작~종료 시간을 분으로 계산하여 경험치 반환 (분당 1 EXP)
+     */
+    public int calculateExpByDuration() {
+        if (this.startedAt == null || this.completedAt == null) {
+            return 0;
+        }
+        long durationMinutes = java.time.Duration.between(this.startedAt, this.completedAt).toMinutes();
+        // 최소 1분, 최대 480분(8시간) 제한
+        return (int) Math.max(1, Math.min(durationMinutes, 480));
     }
 
     public void markAsMissed() {
@@ -94,6 +135,21 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
             throw new IllegalStateException("완료된 수행 기록은 미실행 처리할 수 없습니다.");
         }
         this.status = ExecutionStatus.MISSED;
+    }
+
+    /**
+     * 진행 중인 미션 취소 (PENDING 상태로 되돌림)
+     */
+    public void skip() {
+        if (this.status == ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 수행 기록은 취소할 수 없습니다.");
+        }
+        if (this.status == ExecutionStatus.MISSED) {
+            throw new IllegalStateException("미실행 처리된 수행 기록은 취소할 수 없습니다.");
+        }
+        // PENDING 상태로 되돌리고 시작 시간 초기화
+        this.status = ExecutionStatus.PENDING;
+        this.startedAt = null;
     }
 
     public void setExpEarned(int exp) {

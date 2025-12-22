@@ -25,7 +25,35 @@ public class MissionExecutionController {
     private final MissionExecutionService executionService;
 
     /**
+     * 미션 수행 시작 (특정 날짜)
+     * 시작 시간을 기록하여 종료 시 경험치 계산에 사용 (분당 1 EXP)
+     */
+    @PatchMapping("/{missionId}/executions/{executionDate}/start")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> startExecution(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.startExecution(
+            missionId, userId, executionDate);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 미션 수행 시작 (오늘)
+     */
+    @PatchMapping("/{missionId}/executions/start")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> startExecutionToday(
+        @PathVariable Long missionId,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.startExecutionToday(missionId, userId);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
      * 미션의 특정 날짜 실행 완료 처리
+     * 시작 시간 ~ 종료 시간을 분으로 계산하여 분당 1 EXP 획득
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecution(
@@ -87,5 +115,43 @@ public class MissionExecutionController {
 
         double rate = executionService.getCompletionRate(missionId, userId);
         return ResponseEntity.ok(ApiResult.<Double>builder().value(rate).build());
+    }
+
+    /**
+     * 미션 수행 취소 (오늘)
+     * 진행 중인 미션을 PENDING 상태로 되돌림
+     */
+    @PatchMapping("/{missionId}/executions/skip")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> skipExecutionToday(
+        @PathVariable Long missionId,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.skipExecutionToday(missionId, userId);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 미션 수행 취소 (특정 날짜)
+     */
+    @PatchMapping("/{missionId}/executions/{executionDate}/skip")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> skipExecution(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.skipExecution(
+            missionId, userId, executionDate);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 사용자의 현재 진행 중인 미션 조회
+     */
+    @GetMapping("/executions/in-progress")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> getInProgressExecution(
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.getInProgressExecution(userId);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 }

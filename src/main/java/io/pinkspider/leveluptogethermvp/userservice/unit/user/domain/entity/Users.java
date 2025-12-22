@@ -33,8 +33,6 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "id", updatable = false, nullable = false)
     private String id;
 
-    private String name;
-
     @Column(name = "nickname", length = 50)
     private String nickname;
 
@@ -48,12 +46,16 @@ public class Users extends LocalDateTimeBaseEntity {
     @NotNull
     private String provider;
 
+    @lombok.Builder.Default
+    @Column(name = "nickname_set", nullable = false)
+    private boolean nicknameSet = false;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
 
-    public Users update(String name, String picture) {
-        this.name = name;
+    public Users update(String nickname, String picture) {
+        this.nickname = nickname;
         this.picture = picture;
 
         return this;
@@ -65,17 +67,19 @@ public class Users extends LocalDateTimeBaseEntity {
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+        this.nicknameSet = true;
+    }
+
+    public boolean isNicknameSet() {
+        return nicknameSet;
     }
 
     /**
-     * 표시용 이름 반환 (닉네임 > 이름 > 이메일 앞부분)
+     * 표시용 이름 반환 (닉네임 > 이메일 앞부분)
      */
     public String getDisplayName() {
         if (nickname != null && !nickname.isBlank()) {
             return nickname;
-        }
-        if (name != null && !name.isBlank()) {
-            return name;
         }
         // 이메일의 @ 앞부분 반환
         if (email != null && email.contains("@")) {

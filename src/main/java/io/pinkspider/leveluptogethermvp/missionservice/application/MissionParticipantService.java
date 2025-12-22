@@ -53,6 +53,26 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(saved);
     }
 
+    /**
+     * 미션 생성자를 자동으로 참여자로 등록 (상태 체크 없이)
+     */
+    @Transactional
+    public void addCreatorAsParticipant(Mission mission, String creatorId) {
+        MissionParticipant participant = MissionParticipant.builder()
+            .mission(mission)
+            .userId(creatorId)
+            .status(ParticipantStatus.ACCEPTED)
+            .progress(0)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        MissionParticipant saved = participantRepository.save(participant);
+        log.info("미션 생성자 참여 등록: missionId={}, userId={}", mission.getId(), creatorId);
+
+        // 실행 스케줄 생성
+        missionExecutionService.generateExecutionsForParticipant(saved);
+    }
+
     @Transactional
     public MissionParticipantResponse acceptParticipant(Long missionId, Long participantId, String ownerId) {
         Mission mission = findMissionById(missionId);

@@ -85,6 +85,9 @@ public class MissionExecutionService {
      * 여러 서비스에 걸친 트랜잭션을 안전하게 처리하고,
      * 실패 시 자동으로 보상 트랜잭션을 실행하여 데이터 일관성 보장
      *
+     * 각 Saga step은 REQUIRES_NEW 트랜잭션을 사용하므로
+     * 외부 메소드에서 별도의 트랜잭션 관리 불필요
+     *
      * @param executionId 수행 기록 ID
      * @param userId 사용자 ID
      * @param note 메모
@@ -210,6 +213,77 @@ public class MissionExecutionService {
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + date));
 
         return completeExecution(execution.getId(), userId, note);
+    }
+
+    /**
+     * 미션 수행 시작
+     * 이미 진행 중인 미션이 있으면 예외 발생
+     */
+    @Transactional
+    public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
+        // 이미 진행 중인 미션이 있는지 확인
+        executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {
+            String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
+            throw new IllegalStateException(
+                String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                    inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId())
+            );
+        });
+
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        execution.start();
+        executionRepository.save(execution);
+
+        log.info("미션 수행 시작: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+        return MissionExecutionResponse.from(execution);
+    }
+
+    /**
+     * 진행 중인 미션 취소 (PENDING 상태로 되돌림)
+     */
+    @Transactional
+    public MissionExecutionResponse skipExecution(Long missionId, String userId, LocalDate executionDate) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        execution.skip();
+        executionRepository.save(execution);
+
+        log.info("미션 수행 취소: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+        return MissionExecutionResponse.from(execution);
+    }
+
+    /**
+     * 진행 중인 미션 취소 (오늘 날짜 기준)
+     */
+    @Transactional
+    public MissionExecutionResponse skipExecutionToday(Long missionId, String userId) {
+        return skipExecution(missionId, userId, LocalDate.now());
+    }
+
+    /**
+     * 사용자의 현재 진행 중인 미션 조회
+     */
+    public MissionExecutionResponse getInProgressExecution(String userId) {
+        return executionRepository.findInProgressByUserId(userId)
+            .map(MissionExecutionResponse::from)
+            .orElse(null);
+    }
+
+    /**
+     * 미션 수행 시작 (오늘 날짜 기준)
+     */
+    @Transactional
+    public MissionExecutionResponse startExecutionToday(Long missionId, String userId) {
+        return startExecution(missionId, userId, LocalDate.now());
     }
 
     @Transactional

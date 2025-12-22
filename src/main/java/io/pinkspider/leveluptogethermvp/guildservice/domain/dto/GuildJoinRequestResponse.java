@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildJoinRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import java.time.LocalDateTime;
@@ -12,6 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class GuildJoinRequestResponse {
 
     private Long id;

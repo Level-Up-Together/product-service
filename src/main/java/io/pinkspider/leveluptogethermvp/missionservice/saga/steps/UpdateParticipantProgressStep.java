@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -30,7 +31,7 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult execute(MissionCompletionContext context) {
         MissionParticipant participant = context.getParticipant();
 
@@ -73,7 +74,7 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult compensate(MissionCompletionContext context) {
         MissionParticipant participant = context.getParticipant();
 

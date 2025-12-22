@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserAchievement;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementType;
@@ -13,6 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class UserAchievementResponse {
 
     private Long id;

@@ -1,8 +1,12 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -18,6 +22,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class MissionResponse {
 
     private Long id;
@@ -26,6 +31,9 @@ public class MissionResponse {
     private MissionStatus status;
     private MissionVisibility visibility;
     private MissionType type;
+    private MissionSource source;
+    private MissionParticipationType participationType;
+    private Boolean isCustomizable;
     private String creatorId;
     private String guildId;
     private Integer maxParticipants;
@@ -60,6 +68,9 @@ public class MissionResponse {
             .status(mission.getStatus())
             .visibility(mission.getVisibility())
             .type(mission.getType())
+            .source(mission.getSource())
+            .participationType(mission.getParticipationType())
+            .isCustomizable(mission.getIsCustomizable())
             .creatorId(mission.getCreatorId())
             .guildId(mission.getGuildId())
             .maxParticipants(mission.getMaxParticipants())

@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity.NotificationPreference;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class NotificationPreferenceResponse {
     private Boolean pushEnabled;
     private Boolean missionNotifications;

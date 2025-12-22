@@ -46,4 +46,23 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         @Param("userId") String userId,
         @Param("date") LocalDate date
     );
+
+    /**
+     * 사용자의 진행 중인 미션 조회
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "WHERE p.userId = :userId AND me.status = 'IN_PROGRESS'")
+    Optional<MissionExecution> findInProgressByUserId(@Param("userId") String userId);
+
+    /**
+     * 수행 기록 조회 (Participant, Mission, Category 함께 로드)
+     * Saga 패턴에서 LazyInitializationException 방지를 위해 사용
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "JOIN FETCH p.mission m " +
+           "LEFT JOIN FETCH m.category c " +
+           "WHERE me.id = :id")
+    Optional<MissionExecution> findByIdWithParticipantAndMission(@Param("id") Long id);
 }

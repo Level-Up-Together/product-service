@@ -226,6 +226,28 @@ public class RestExceptionHandler {
             .build();
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    protected Object handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+        handleError(ex, request);
+
+        return ApiResult.builder()
+            .code(ApiStatus.INVALID_INPUT.getResultCode())
+            .message(ex.getMessage())
+            .build();
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    protected Object handleIllegalStateException(IllegalStateException ex, HttpServletRequest request) {
+        handleError(ex, request);
+
+        return ApiResult.builder()
+            .code(ApiStatus.INVALID_INPUT.getResultCode())
+            .message(ex.getMessage())
+            .build();
+    }
+
     private void handleError(Exception exception, HttpServletRequest request) {
         String targetName = Arrays.stream(exception.getStackTrace()).findFirst().toString();
 //        String traceId = Objects.requireNonNull(tracer.currentTraceContext().context()).traceId();

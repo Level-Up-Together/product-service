@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
@@ -16,6 +18,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class MissionExecutionResponse {
 
     private Long id;
@@ -30,7 +33,13 @@ public class MissionExecutionResponse {
     private ExecutionStatus status;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime startedAt;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime completedAt;
+
+    // 수행 시간 (분)
+    private Integer durationMinutes;
 
     private Integer expEarned;
     private String note;
@@ -39,6 +48,12 @@ public class MissionExecutionResponse {
     private LocalDateTime createdAt;
 
     public static MissionExecutionResponse from(MissionExecution execution) {
+        Integer durationMinutes = null;
+        if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {
+            durationMinutes = (int) java.time.Duration.between(
+                execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+        }
+
         return MissionExecutionResponse.builder()
             .id(execution.getId())
             .participantId(execution.getParticipant().getId())
@@ -47,7 +62,9 @@ public class MissionExecutionResponse {
             .userId(execution.getParticipant().getUserId())
             .executionDate(execution.getExecutionDate())
             .status(execution.getStatus())
+            .startedAt(execution.getStartedAt())
             .completedAt(execution.getCompletedAt())
+            .durationMinutes(durationMinutes)
             .expEarned(execution.getExpEarned())
             .note(execution.getNote())
             .createdAt(execution.getCreatedAt())

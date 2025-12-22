@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CreateFeedRequest {
 
     @NotNull(message = "활동 유형을 선택해주세요")

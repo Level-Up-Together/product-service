@@ -9,13 +9,13 @@ import lombok.Getter;
 public class AppleUserInfo implements OAuth2UserInfo {
 
     private final String id;
-    private final String name; // Apple은 name을 제공하지 않음
+    private final String nickname; // Apple은 기본적으로 이름을 제공하지 않음
     private final String email;
 
     public AppleUserInfo(JWTClaimsSet claims) throws ParseException {
         this.id = claims.getSubject(); // "sub" 값 (Apple 사용자 ID)
         this.email = claims.getStringClaim("email");
-        this.name = ""; // Apple은 기본적으로 name을 제공하지 않음
+        this.nickname = null; // Apple은 기본적으로 이름을 제공하지 않음
     }
 
     @Override
@@ -24,8 +24,8 @@ public class AppleUserInfo implements OAuth2UserInfo {
     }
 
     @Override
-    public String getName() {
-        return name;
+    public String getNickname() {
+        return nickname;
     }
 
     @Override

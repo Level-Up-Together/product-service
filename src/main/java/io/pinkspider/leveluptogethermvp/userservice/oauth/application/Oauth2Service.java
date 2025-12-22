@@ -249,15 +249,54 @@ public class Oauth2Service {
             return existingUser.get(); // 기존 사용자 로그인 처리
         }
 
+        // 닉네임 중복 확인 및 처리
+        String nickname = userInfo.getNickname();
+        boolean nicknameSet = false;
+
+        if (nickname != null && !nickname.isBlank()) {
+            // 닉네임이 이미 존재하면 유니크한 닉네임 생성
+            if (userRepository.existsByNickname(nickname)) {
+                nickname = generateUniqueNickname(nickname);
+                nicknameSet = false; // 자동 생성된 닉네임이므로 사용자가 다시 설정해야 함
+            } else {
+                nicknameSet = true; // 원래 닉네임을 그대로 사용
+            }
+        }
+
         // 신규 사용자 저장
         Users newUsers = Users.builder()
             .email(userInfo.getEmail())
-            .name(userInfo.getName())
+            .nickname(nickname)
             .provider(userInfo.getProvider())
-//            .role(Role.USER)
+            .nicknameSet(nicknameSet)
             .build();
 
         return userRepository.save(newUsers);
+    }
+
+    /**
+     * 중복되지 않는 유니크한 닉네임 생성
+     * 기존 닉네임에 랜덤 숫자를 붙여서 생성
+     */
+    private String generateUniqueNickname(String baseNickname) {
+        // 닉네임이 10자 제한이므로 기본 닉네임을 6자로 자르고 4자리 숫자 추가
+        String prefix = baseNickname.length() > 6 ? baseNickname.substring(0, 6) : baseNickname;
+        String uniqueNickname;
+        int maxAttempts = 100;
+        int attempts = 0;
+
+        do {
+            int randomNum = (int) (Math.random() * 10000);
+            uniqueNickname = prefix + String.format("%04d", randomNum);
+            attempts++;
+        } while (userRepository.existsByNickname(uniqueNickname) && attempts < maxAttempts);
+
+        if (attempts >= maxAttempts) {
+            // 극히 드문 경우: UUID 일부 사용
+            uniqueNickname = prefix + UUID.randomUUID().toString().substring(0, 4);
+        }
+
+        return uniqueNickname;
     }
 
     private String getProviderAccessToken(HttpServletRequest request, String provider, String authorizationCode) {

@@ -10,6 +10,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Step 1: 미션 데이터 로드 및 검증
@@ -27,12 +29,13 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
     }
 
     @Override
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult execute(MissionCompletionContext context) {
         log.debug("Loading mission data for executionId: {}", context.getExecutionId());
 
         try {
-            // 수행 기록 조회
-            MissionExecution execution = executionRepository.findById(context.getExecutionId())
+            // 수행 기록 조회 (Participant, Mission 함께 FETCH JOIN으로 로드)
+            MissionExecution execution = executionRepository.findByIdWithParticipantAndMission(context.getExecutionId())
                 .orElse(null);
 
             if (execution == null) {

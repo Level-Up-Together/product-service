@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.quest.domain.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.entity.UserQuest;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -11,6 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class UserQuestResponse {
     private Long id;
     private QuestResponse quest;

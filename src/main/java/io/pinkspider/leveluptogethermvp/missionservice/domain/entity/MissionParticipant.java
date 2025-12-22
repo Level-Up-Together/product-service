@@ -93,11 +93,16 @@ public class MissionParticipant extends LocalDateTimeBaseEntity {
     }
 
     public void updateProgress(int progressValue) {
-        if (this.status != ParticipantStatus.IN_PROGRESS) {
-            throw new IllegalStateException("진행중 상태에서만 진행률을 업데이트할 수 있습니다.");
+        // ACCEPTED 또는 IN_PROGRESS 상태에서 진행률 업데이트 가능
+        if (this.status != ParticipantStatus.ACCEPTED && this.status != ParticipantStatus.IN_PROGRESS) {
+            throw new IllegalStateException("활성 상태에서만 진행률을 업데이트할 수 있습니다.");
         }
         if (progressValue < 0 || progressValue > 100) {
             throw new IllegalArgumentException("진행률은 0-100 사이여야 합니다.");
+        }
+        // ACCEPTED 상태에서 첫 진행률 업데이트 시 IN_PROGRESS로 전환
+        if (this.status == ParticipantStatus.ACCEPTED) {
+            this.status = ParticipantStatus.IN_PROGRESS;
         }
         this.progress = progressValue;
     }

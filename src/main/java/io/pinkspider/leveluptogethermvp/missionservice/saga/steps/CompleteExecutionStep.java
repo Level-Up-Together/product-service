@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -27,7 +28,7 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult execute(MissionCompletionContext context) {
         MissionExecution execution = context.getExecution();
 
@@ -47,16 +48,18 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
         log.debug("Completing execution: id={}", execution.getId());
 
         try {
-            // 완료 처리
+            // 완료 처리 (시간 기반 경험치 계산 포함)
             execution.complete();
             if (context.getNote() != null) {
                 execution.setNote(context.getNote());
             }
-            execution.setExpEarned(context.getUserExpEarned());
+
+            // complete()에서 계산된 시간 기반 경험치를 context에 반영
+            context.setUserExpEarned(execution.getExpEarned());
 
             executionRepository.save(execution);
 
-            log.info("Execution completed: id={}, exp={}", execution.getId(), context.getUserExpEarned());
+            log.info("Execution completed: id={}, durationExp={}", execution.getId(), execution.getExpEarned());
 
             return SagaStepResult.success("미션 수행 완료 처리됨");
 
@@ -67,7 +70,7 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SagaStepResult compensate(MissionCompletionContext context) {
         MissionExecution execution = context.getExecution();
 

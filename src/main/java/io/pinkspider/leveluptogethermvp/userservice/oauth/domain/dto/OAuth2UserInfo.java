@@ -4,7 +4,7 @@ public interface OAuth2UserInfo {
 
     String getId();       // 공급자의 사용자 ID
 
-    String getName();     // 사용자 이름
+    String getNickname(); // 사용자 닉네임 (소셜 로그인에서 받은 이름)
 
     String getEmail();    // 사용자 이메일
 

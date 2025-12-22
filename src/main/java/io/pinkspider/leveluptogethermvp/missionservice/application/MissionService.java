@@ -28,6 +28,7 @@ public class MissionService {
     private final MissionRepository missionRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionCategoryRepository missionCategoryRepository;
+    private final MissionParticipantService missionParticipantService;
 
     @Transactional
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
@@ -73,6 +74,9 @@ public class MissionService {
         log.info("미션 생성 완료: id={}, title={}, creator={}, category={}",
             saved.getId(), saved.getTitle(), creatorId, saved.getCategoryName());
 
+        // 생성자를 자동으로 참여자로 등록하고 실행 스케줄 생성
+        missionParticipantService.addCreatorAsParticipant(saved, creatorId);
+
         return MissionResponse.from(saved);
     }
 
@@ -83,7 +87,8 @@ public class MissionService {
     }
 
     public List<MissionResponse> getMyMissions(String userId) {
-        return missionRepository.findMyMissions(userId).stream()
+        // 고정미션 > 길드미션 > 일반미션 순으로 정렬된 목록 반환
+        return missionRepository.findMyMissionsSorted(userId).stream()
             .map(MissionResponse::from)
             .toList();
     }
