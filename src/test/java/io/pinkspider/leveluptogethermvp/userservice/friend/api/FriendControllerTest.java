@@ -175,7 +175,7 @@ class FriendControllerTest {
             RestDocumentationRequestBuilders.post("/api/v1/friends/request")
                 .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"friendId\":\"target-user-456\",\"message\":\"친구 신청합니다!\"}")
+                .content("{\"friend_id\":\"target-user-456\",\"message\":\"친구 신청합니다!\"}")
         ).andDo(
             MockMvcRestDocumentationWrapper.document("친구-02. 친구 요청 보내기",
                 preprocessRequest(prettyPrint()),
@@ -185,7 +185,7 @@ class FriendControllerTest {
                         .tag("Friend")
                         .description("친구 요청 보내기 (JWT 토큰 인증 필요)")
                         .requestFields(
-                            fieldWithPath("friendId").type(JsonFieldType.STRING).description("친구 요청 대상 ID"),
+                            fieldWithPath("friend_id").type(JsonFieldType.STRING).description("친구 요청 대상 ID"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("친구 요청 메시지").optional()
                         )
                         .responseFields(

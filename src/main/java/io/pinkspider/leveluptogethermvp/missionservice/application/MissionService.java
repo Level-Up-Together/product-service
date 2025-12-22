@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionRespons
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -57,6 +58,7 @@ public class MissionService {
             .status(MissionStatus.DRAFT)
             .visibility(request.getVisibility())
             .type(request.getType())
+            .source(MissionSource.USER)  // 명시적으로 USER로 설정
             .creatorId(creatorId)
             .guildId(request.getGuildId())
             .maxParticipants(request.getMaxParticipants())

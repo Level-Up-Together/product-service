@@ -143,7 +143,9 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
-                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional()
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
                         )
                         .build()
                 )
@@ -191,7 +193,9 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value[].note").type(JsonFieldType.STRING).description("메모").optional(),
-                            fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional()
+                            fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
                         )
                         .build()
                 )
@@ -295,7 +299,9 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value[].note").type(JsonFieldType.STRING).description("메모").optional(),
-                            fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional()
+                            fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
                         )
                         .build()
                 )

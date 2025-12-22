@@ -141,7 +141,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -201,7 +204,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -259,7 +265,10 @@ class MissionControllerTest {
                             fieldWithPath("value[].exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value[].source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -325,6 +334,9 @@ class MissionControllerTest {
                             fieldWithPath("value.content[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.content[].source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.content[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.content[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -407,7 +419,10 @@ class MissionControllerTest {
                             fieldWithPath("value[].exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value[].source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -491,7 +506,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -552,7 +570,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -613,7 +634,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -674,7 +698,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
@@ -735,7 +762,10 @@ class MissionControllerTest {
                             fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
                             fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
-                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional()
                         )
                         .build()
                 )
