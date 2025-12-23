@@ -5,6 +5,8 @@ import io.pinkspider.global.saga.SagaStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildExperienceHistory.GuildExpSourceType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -23,8 +25,12 @@ import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestServi
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -364,6 +370,59 @@ public class MissionExecutionService {
             participant.getId(), ExecutionStatus.COMPLETED);
 
         return (double) completedExecutions / totalExecutions * 100;
+    }
+
+    /**
+     * 월별 캘린더 데이터 조회
+     * 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환
+     */
+    public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        // 완료된 미션 실행 내역 조회
+        List<MissionExecution> completedExecutions = executionRepository
+            .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
+
+        // 월별 총 획득 경험치 조회
+        int totalExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+
+        // 날짜별 미션 그룹화
+        Map<String, List<DailyMission>> dailyMissions = new HashMap<>();
+        for (MissionExecution execution : completedExecutions) {
+            String dateKey = execution.getExecutionDate().toString();
+
+            Integer durationMinutes = null;
+            if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {
+                durationMinutes = (int) java.time.Duration.between(
+                    execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+            }
+
+            DailyMission dailyMission = DailyMission.builder()
+                .missionId(execution.getParticipant().getMission().getId())
+                .missionTitle(execution.getParticipant().getMission().getTitle())
+                .expEarned(execution.getExpEarned())
+                .durationMinutes(durationMinutes)
+                .build();
+
+            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
+        }
+
+        // 완료된 미션이 있는 날짜 목록
+        List<String> completedDates = new ArrayList<>(dailyMissions.keySet());
+        completedDates.sort(String::compareTo);
+
+        log.info("월별 캘린더 데이터 조회: userId={}, year={}, month={}, totalExp={}, completedDays={}",
+            userId, year, month, totalExp, completedDates.size());
+
+        return MonthlyCalendarResponse.builder()
+            .year(year)
+            .month(month)
+            .totalExp(totalExp)
+            .dailyMissions(dailyMissions)
+            .completedDates(completedDates)
+            .build();
     }
 
     private void updateParticipantProgress(MissionParticipant participant) {

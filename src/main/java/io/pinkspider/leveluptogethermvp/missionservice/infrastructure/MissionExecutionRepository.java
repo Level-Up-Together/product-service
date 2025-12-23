@@ -65,4 +65,34 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
            "LEFT JOIN FETCH m.category c " +
            "WHERE me.id = :id")
     Optional<MissionExecution> findByIdWithParticipantAndMission(@Param("id") Long id);
+
+    /**
+     * 사용자의 특정 기간 완료된 미션 실행 내역 조회 (캘린더용)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND me.executionDate BETWEEN :startDate AND :endDate " +
+           "AND me.status = 'COMPLETED' " +
+           "ORDER BY me.executionDate")
+    List<MissionExecution> findCompletedByUserIdAndDateRange(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * 사용자의 특정 기간 획득 경험치 합계 조회
+     */
+    @Query("SELECT COALESCE(SUM(me.expEarned), 0) FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "WHERE p.userId = :userId " +
+           "AND me.executionDate BETWEEN :startDate AND :endDate " +
+           "AND me.status = 'COMPLETED'")
+    Integer sumExpEarnedByUserIdAndDateRange(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
 }

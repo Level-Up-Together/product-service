@@ -4,6 +4,7 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -153,5 +154,19 @@ public class MissionExecutionController {
 
         MissionExecutionResponse response = executionService.getInProgressExecution(userId);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 사용자의 월별 캘린더 데이터 조회
+     * 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환
+     */
+    @GetMapping("/executions/monthly")
+    public ResponseEntity<ApiResult<MonthlyCalendarResponse>> getMonthlyCalendarData(
+        @CurrentUser String userId,
+        @RequestParam int year,
+        @RequestParam int month) {
+
+        MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(userId, year, month);
+        return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
 }

@@ -18,10 +18,13 @@ import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -338,6 +341,146 @@ class MissionExecutionControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.NUMBER).description("완료율 (%)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/executions/monthly : 월별 캘린더 데이터 조회")
+    void getMonthlyCalendarDataTest() throws Exception {
+        // given
+        LocalDate today = LocalDate.now();
+        String todayStr = today.toString();
+        String yesterdayStr = today.minusDays(1).toString();
+
+        MonthlyCalendarResponse response = MonthlyCalendarResponse.builder()
+            .year(today.getYear())
+            .month(today.getMonthValue())
+            .totalExp(500)
+            .dailyMissions(Map.of(
+                todayStr, List.of(
+                    DailyMission.builder()
+                        .missionId(1L)
+                        .missionTitle("30일 운동 챌린지")
+                        .expEarned(50)
+                        .durationMinutes(60)
+                        .build(),
+                    DailyMission.builder()
+                        .missionId(2L)
+                        .missionTitle("매일 독서하기")
+                        .expEarned(30)
+                        .durationMinutes(45)
+                        .build()
+                ),
+                yesterdayStr, List.of(
+                    DailyMission.builder()
+                        .missionId(1L)
+                        .missionTitle("30일 운동 챌린지")
+                        .expEarned(50)
+                        .durationMinutes(55)
+                        .build()
+                )
+            ))
+            .completedDates(List.of(yesterdayStr, todayStr))
+            .build();
+
+        when(executionService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/executions/monthly")
+                .with(user(MOCK_USER_ID))
+                .param("year", String.valueOf(today.getYear()))
+                .param("month", String.valueOf(today.getMonthValue()))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-06. 월별 캘린더 데이터 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("월별 캘린더 데이터 조회 - 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환 (JWT 토큰 인증 필요)")
+                        .queryParameters(
+                            parameterWithName("year").type(SimpleType.NUMBER).description("조회 연도 (예: 2024)"),
+                            parameterWithName("month").type(SimpleType.NUMBER).description("조회 월 (1-12)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("월별 캘린더 데이터"),
+                            fieldWithPath("value.year").type(JsonFieldType.NUMBER).description("조회 연도"),
+                            fieldWithPath("value.month").type(JsonFieldType.NUMBER).description("조회 월"),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("월별 총 획득 경험치"),
+                            fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (key: yyyy-MM-dd)"),
+                            fieldWithPath("value.daily_missions.*[]").type(JsonFieldType.ARRAY).description("해당 날짜 완료 미션 목록"),
+                            fieldWithPath("value.daily_missions.*[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.daily_missions.*[].mission_title").type(JsonFieldType.STRING).description("미션 제목"),
+                            fieldWithPath("value.daily_missions.*[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.daily_missions.*[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (캘린더 하이라이트용)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/executions/monthly : 월별 캘린더 데이터 조회 - 빈 데이터")
+    void getMonthlyCalendarDataEmptyTest() throws Exception {
+        // given
+        LocalDate today = LocalDate.now();
+
+        MonthlyCalendarResponse response = MonthlyCalendarResponse.builder()
+            .year(today.getYear())
+            .month(today.getMonthValue())
+            .totalExp(0)
+            .dailyMissions(Map.of())
+            .completedDates(List.of())
+            .build();
+
+        when(executionService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/executions/monthly")
+                .with(user(MOCK_USER_ID))
+                .param("year", String.valueOf(today.getYear()))
+                .param("month", String.valueOf(today.getMonthValue()))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-07. 월별 캘린더 데이터 조회 (빈 데이터)",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("월별 캘린더 데이터 조회 - 완료된 미션이 없는 경우 (JWT 토큰 인증 필요)")
+                        .queryParameters(
+                            parameterWithName("year").type(SimpleType.NUMBER).description("조회 연도"),
+                            parameterWithName("month").type(SimpleType.NUMBER).description("조회 월")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("월별 캘린더 데이터"),
+                            fieldWithPath("value.year").type(JsonFieldType.NUMBER).description("조회 연도"),
+                            fieldWithPath("value.month").type(JsonFieldType.NUMBER).description("조회 월"),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("월별 총 획득 경험치 (0)"),
+                            fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (빈 객체)"),
+                            fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (빈 배열)")
                         )
                         .build()
                 )
