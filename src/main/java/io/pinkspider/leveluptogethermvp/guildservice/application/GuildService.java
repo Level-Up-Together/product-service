@@ -16,9 +16,12 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
@@ -36,6 +39,7 @@ public class GuildService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
+    private final ProfanityValidationService profanityValidationService;
     private final ApplicationContext applicationContext;
 
     @Transactional
@@ -48,6 +52,14 @@ public class GuildService {
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
             throw new IllegalArgumentException("이미 존재하는 길드명입니다: " + request.getName());
         }
+
+        // 금칙어 검증
+        Map<String, String> contentsToValidate = new HashMap<>();
+        contentsToValidate.put("길드명", request.getName());
+        if (request.getDescription() != null) {
+            contentsToValidate.put("설명", request.getDescription());
+        }
+        profanityValidationService.validateContents(contentsToValidate);
 
         Guild guild = Guild.builder()
             .name(request.getName())
@@ -119,6 +131,18 @@ public class GuildService {
     public GuildResponse updateGuild(Long guildId, String userId, GuildUpdateRequest request) {
         Guild guild = findActiveGuildById(guildId);
         validateMaster(guild, userId);
+
+        // 금칙어 검증 (변경되는 필드만)
+        Map<String, String> contentsToValidate = new HashMap<>();
+        if (request.getName() != null && !request.getName().equals(guild.getName())) {
+            contentsToValidate.put("길드명", request.getName());
+        }
+        if (request.getDescription() != null) {
+            contentsToValidate.put("설명", request.getDescription());
+        }
+        if (!contentsToValidate.isEmpty()) {
+            profanityValidationService.validateContents(contentsToValidate);
+        }
 
         if (request.getName() != null && !request.getName().equals(guild.getName())) {
             if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
