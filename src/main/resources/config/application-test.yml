@@ -217,6 +217,9 @@ app:
     allowed-origins:
       - http://localhost:8001
       - http://localhost:3000
+      - https://localhost:3000
+      - http://localhost:8443
+      - https://localhost:8443
       - https://local.level-up-together.com
       - https://local.level-up-together.com:3000
       - https://dev.level-up-together.com

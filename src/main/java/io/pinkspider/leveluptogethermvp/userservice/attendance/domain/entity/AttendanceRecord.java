@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import lombok.AccessLevel;
@@ -73,6 +74,11 @@ public class AttendanceRecord extends LocalDateTimeBaseEntity {
     @Comment("보너스 경험치 (연속 출석 등)")
     @Builder.Default
     private Integer bonusRewardExp = 0;
+
+    @Version
+    @Column(name = "version")
+    @Comment("낙관적 락 버전")
+    private Long version;
 
     public static AttendanceRecord create(String userId, LocalDate date, int consecutiveDays) {
         return AttendanceRecord.builder()

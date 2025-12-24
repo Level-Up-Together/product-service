@@ -111,13 +111,13 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("최대 참여 인원")
     private Integer maxParticipants;
 
-    @Column(name = "start_date")
-    @Comment("미션 시작일")
-    private LocalDateTime startDate;
+    @Column(name = "start_at")
+    @Comment("미션 시작일시")
+    private LocalDateTime startAt;
 
-    @Column(name = "end_date")
-    @Comment("미션 종료일")
-    private LocalDateTime endDate;
+    @Column(name = "end_at")
+    @Comment("미션 종료일시")
+    private LocalDateTime endAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "mission_interval", length = 20)

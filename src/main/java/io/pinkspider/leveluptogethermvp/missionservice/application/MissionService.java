@@ -61,8 +61,8 @@ public class MissionService {
             .creatorId(creatorId)
             .guildId(request.getGuildId())
             .maxParticipants(request.getMaxParticipants())
-            .startDate(request.getStartDate())
-            .endDate(request.getEndDate())
+            .startAt(request.getStartAt())
+            .endAt(request.getEndAt())
             .missionInterval(request.getMissionInterval())
             .durationDays(request.getDurationDays())
             .expPerCompletion(request.getExpPerCompletion())
@@ -131,11 +131,11 @@ public class MissionService {
         if (request.getMaxParticipants() != null) {
             mission.setMaxParticipants(request.getMaxParticipants());
         }
-        if (request.getStartDate() != null) {
-            mission.setStartDate(request.getStartDate());
+        if (request.getStartAt() != null) {
+            mission.setStartAt(request.getStartAt());
         }
-        if (request.getEndDate() != null) {
-            mission.setEndDate(request.getEndDate());
+        if (request.getEndAt() != null) {
+            mission.setEndAt(request.getEndAt());
         }
         if (request.getMissionInterval() != null) {
             mission.setMissionInterval(request.getMissionInterval());

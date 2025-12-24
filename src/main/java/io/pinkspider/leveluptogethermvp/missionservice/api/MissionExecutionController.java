@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
@@ -8,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalenda
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/missions")
 @RequiredArgsConstructor
+@Slf4j
 public class MissionExecutionController {
 
     private final MissionExecutionService executionService;
@@ -55,8 +58,10 @@ public class MissionExecutionController {
     /**
      * 미션의 특정 날짜 실행 완료 처리
      * 시작 시간 ~ 종료 시간을 분으로 계산하여 분당 1 EXP 획득
+     * Rate Limit: 1분에 10회
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
+    @RateLimiter(name = "missionCompletion", fallbackMethod = "completeExecutionFallback")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecution(
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
@@ -66,6 +71,17 @@ public class MissionExecutionController {
         MissionExecutionResponse response = executionService.completeExecution(
             missionId, userId, executionDate, note);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    // Rate Limit 초과 시 fallback
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecutionFallback(
+        Long missionId, LocalDate executionDate, String userId, String note, Exception ex) {
+        log.warn("미션 완료 Rate Limit 초과: userId={}, missionId={}", userId, missionId);
+        return ResponseEntity.status(429)
+            .body(ApiResult.<MissionExecutionResponse>builder()
+                .code("TOO_MANY_REQUESTS")
+                .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+                .build());
     }
 
     /**

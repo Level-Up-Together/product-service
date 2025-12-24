@@ -16,7 +16,9 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -66,15 +68,31 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .authorizeHttpRequests(authorizeHttpRequests ->
                 authorizeHttpRequests
+                    // 공개 엔드포인트
                     .requestMatchers(new AntPathRequestMatcher(ACTUATOR_PATH + "/**")).permitAll()
-                    .requestMatchers(new AntPathRequestMatcher("/**")).permitAll()
-                    .requestMatchers("/favicon.ico").permitAll()
-                    .requestMatchers("/error").permitAll()
+                    .requestMatchers("/favicon.ico", "/error").permitAll()
+
+                    // 인증 관련 API (로그인, 회원가입, OAuth)
+                    .requestMatchers("/api/v1/auth/**").permitAll()
+                    .requestMatchers("/api/v1/oauth/**").permitAll()
+                    .requestMatchers("/oauth/**").permitAll()  // OAuth 컨트롤러 (/oauth/uri/*, /oauth/callback/*)
+                    .requestMatchers("/oauth2/**").permitAll()
+                    .requestMatchers("/login/oauth2/**").permitAll()
+                    // /jwt/reissue는 인증 필요 (JwtAuthenticationFilter에서 만료된 access token도 허용)
+
+                    // 관리자 전용 API
+                    .requestMatchers("/api/v1/users/experience/levels").hasRole("ADMIN")
+                    .requestMatchers("/api/v1/attendance/init").hasRole("ADMIN")
+
+                    // 나머지는 인증 필요
                     .anyRequest().authenticated())
-            .logout(logout -> logout.logoutSuccessUrl("/"));
+            .logout(logout -> logout.logoutSuccessUrl("/"))
+            // JWT 필터 추가
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         http.exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint));
 

@@ -55,11 +55,11 @@ public class MissionExecutionService {
     @Transactional
     public void generateExecutionsForParticipant(MissionParticipant participant) {
         Mission mission = participant.getMission();
-        LocalDate startDate = mission.getStartDate() != null
-            ? mission.getStartDate().toLocalDate()
+        LocalDate startDate = mission.getStartAt() != null
+            ? mission.getStartAt().toLocalDate()
             : LocalDate.now();
-        LocalDate endDate = mission.getEndDate() != null
-            ? mission.getEndDate().toLocalDate()
+        LocalDate endDate = mission.getEndAt() != null
+            ? mission.getEndAt().toLocalDate()
             : (mission.getDurationDays() != null
                 ? startDate.plusDays(mission.getDurationDays())
                 : startDate.plusDays(30));

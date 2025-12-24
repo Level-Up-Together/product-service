@@ -74,8 +74,8 @@ class HomeControllerTest {
             .linkUrl("/guild/1")
             .guildId(1L)
             .sortOrder(1)
-            .startDate(LocalDateTime.now().minusDays(1))
-            .endDate(LocalDateTime.now().plusDays(30))
+            .startAt(LocalDateTime.now().minusDays(1))
+            .endAt(LocalDateTime.now().plusDays(30))
             .createdAt(LocalDateTime.now())
             .build();
     }
