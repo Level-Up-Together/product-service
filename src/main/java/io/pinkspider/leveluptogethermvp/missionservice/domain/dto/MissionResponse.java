@@ -40,10 +40,10 @@ public class MissionResponse {
     private Integer currentParticipants;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime startDate;
+    private LocalDateTime startAt;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime endDate;
+    private LocalDateTime endAt;
 
     private MissionInterval missionInterval;
     private Integer durationDays;
@@ -74,8 +74,8 @@ public class MissionResponse {
             .creatorId(mission.getCreatorId())
             .guildId(mission.getGuildId())
             .maxParticipants(mission.getMaxParticipants())
-            .startDate(mission.getStartDate())
-            .endDate(mission.getEndDate())
+            .startAt(mission.getStartAt())
+            .endAt(mission.getEndAt())
             .missionInterval(mission.getMissionInterval())
             .durationDays(mission.getDurationDays())
             .expPerCompletion(mission.getExpPerCompletion())

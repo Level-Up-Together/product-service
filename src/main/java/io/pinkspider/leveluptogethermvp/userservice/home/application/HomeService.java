@@ -150,11 +150,11 @@ public class HomeService {
         if (updateData.getIsActive() != null) {
             banner.setIsActive(updateData.getIsActive());
         }
-        if (updateData.getStartDate() != null) {
-            banner.setStartDate(updateData.getStartDate());
+        if (updateData.getStartAt() != null) {
+            banner.setStartAt(updateData.getStartAt());
         }
-        if (updateData.getEndDate() != null) {
-            banner.setEndDate(updateData.getEndDate());
+        if (updateData.getEndAt() != null) {
+            banner.setEndAt(updateData.getEndAt());
         }
 
         HomeBanner saved = homeBannerRepository.save(banner);

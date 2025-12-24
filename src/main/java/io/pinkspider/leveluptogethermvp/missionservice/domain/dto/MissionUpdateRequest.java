@@ -34,9 +34,9 @@ public class MissionUpdateRequest {
 
     private Integer maxParticipants;
 
-    private LocalDateTime startDate;
+    private LocalDateTime startAt;
 
-    private LocalDateTime endDate;
+    private LocalDateTime endAt;
 
     private MissionInterval missionInterval;
 

@@ -28,8 +28,8 @@ public class HomeBannerResponse {
     private String linkUrl;
     private Long guildId;
     private Integer sortOrder;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
+    private LocalDateTime startAt;
+    private LocalDateTime endAt;
     private LocalDateTime createdAt;
 
     public static HomeBannerResponse from(HomeBanner banner) {
@@ -44,8 +44,8 @@ public class HomeBannerResponse {
             .linkUrl(banner.getLinkUrl())
             .guildId(banner.getGuildId())
             .sortOrder(banner.getSortOrder())
-            .startDate(banner.getStartDate())
-            .endDate(banner.getEndDate())
+            .startAt(banner.getStartAt())
+            .endAt(banner.getEndAt())
             .createdAt(banner.getCreatedAt())
             .build();
     }

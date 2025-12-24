@@ -14,7 +14,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -82,6 +84,14 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Comment("메모")
     private String note;
 
+    @Version
+    @Column(name = "version")
+    @Comment("낙관적 락 버전")
+    private Long version;
+
+    // 최소 미션 수행 시간 (분) - 어뷰징 방지
+    private static final long MINIMUM_EXECUTION_MINUTES = 1;
+
     /**
      * 미션 수행 시작
      */
@@ -101,6 +111,7 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
 
     /**
      * 미션 수행 완료 및 경험치 계산 (분당 1 EXP)
+     * 최소 수행 시간 검증으로 어뷰징 방지
      */
     public void complete() {
         if (this.status == ExecutionStatus.COMPLETED) {
@@ -112,8 +123,18 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
         if (this.startedAt == null) {
             throw new IllegalStateException("미션을 먼저 시작해야 합니다.");
         }
+
+        // 최소 수행 시간 검증 (어뷰징 방지)
+        LocalDateTime now = LocalDateTime.now();
+        long elapsedMinutes = Duration.between(this.startedAt, now).toMinutes();
+        if (elapsedMinutes < MINIMUM_EXECUTION_MINUTES) {
+            throw new IllegalStateException(
+                String.format("최소 %d분 이상 수행해야 미션을 완료할 수 있습니다. (현재: %d분 경과)",
+                    MINIMUM_EXECUTION_MINUTES, elapsedMinutes));
+        }
+
         this.status = ExecutionStatus.COMPLETED;
-        this.completedAt = LocalDateTime.now();
+        this.completedAt = now;
         // 경험치 계산: 시작~종료 시간을 분으로 계산하여 분당 1 EXP
         this.expEarned = calculateExpByDuration();
     }

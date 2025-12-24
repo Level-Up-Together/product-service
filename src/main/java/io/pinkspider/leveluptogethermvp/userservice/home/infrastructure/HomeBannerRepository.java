@@ -20,8 +20,8 @@ public interface HomeBannerRepository extends JpaRepository<HomeBanner, Long> {
     @Query("""
         SELECT b FROM HomeBanner b
         WHERE b.isActive = true
-          AND (b.startDate IS NULL OR b.startDate <= :now)
-          AND (b.endDate IS NULL OR b.endDate >= :now)
+          AND (b.startAt IS NULL OR b.startAt <= :now)
+          AND (b.endAt IS NULL OR b.endAt >= :now)
         ORDER BY b.sortOrder ASC, b.createdAt DESC
         """)
     List<HomeBanner> findActiveBanners(@Param("now") LocalDateTime now);
@@ -33,8 +33,8 @@ public interface HomeBannerRepository extends JpaRepository<HomeBanner, Long> {
         SELECT b FROM HomeBanner b
         WHERE b.isActive = true
           AND b.bannerType = :bannerType
-          AND (b.startDate IS NULL OR b.startDate <= :now)
-          AND (b.endDate IS NULL OR b.endDate >= :now)
+          AND (b.startAt IS NULL OR b.startAt <= :now)
+          AND (b.endAt IS NULL OR b.endAt >= :now)
         ORDER BY b.sortOrder ASC, b.createdAt DESC
         """)
     List<HomeBanner> findActiveBannersByType(

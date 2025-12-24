@@ -83,13 +83,13 @@ public class HomeBanner extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
-    @Column(name = "start_date")
+    @Column(name = "start_at")
     @Comment("배너 시작일시")
-    private LocalDateTime startDate;
+    private LocalDateTime startAt;
 
-    @Column(name = "end_date")
+    @Column(name = "end_at")
     @Comment("배너 종료일시")
-    private LocalDateTime endDate;
+    private LocalDateTime endAt;
 
     /**
      * 현재 배너가 표시 가능한지 확인
@@ -99,10 +99,10 @@ public class HomeBanner extends LocalDateTimeBaseEntity {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();
-        if (startDate != null && now.isBefore(startDate)) {
+        if (startAt != null && now.isBefore(startAt)) {
             return false;
         }
-        if (endDate != null && now.isAfter(endDate)) {
+        if (endAt != null && now.isAfter(endAt)) {
             return false;
         }
         return true;

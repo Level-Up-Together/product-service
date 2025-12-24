@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.core.util;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -120,6 +121,60 @@ public class JwtUtil {
             log.debug("JWT validation failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 만료된 토큰에서도 Claims를 추출합니다 (서명은 검증됨).
+     * 토큰 재발급 시 사용합니다.
+     */
+    public Claims getClaimsFromExpiredToken(String token) {
+        try {
+            return getClaimsFromToken(token);
+        } catch (ExpiredJwtException e) {
+            // 만료된 토큰이지만 서명은 유효함 - claims 반환
+            return e.getClaims();
+        }
+    }
+
+    /**
+     * 토큰의 서명만 검증합니다 (만료 여부는 무시).
+     * 토큰 재발급 시 access token 검증에 사용합니다.
+     */
+    public boolean validateTokenSignature(String token) {
+        try {
+            getClaimsFromToken(token);
+            return true;
+        } catch (ExpiredJwtException e) {
+            // 만료되었지만 서명은 유효함
+            return true;
+        } catch (Exception e) {
+            log.debug("JWT signature validation failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 만료된 토큰에서 사용자 ID를 추출합니다.
+     */
+    public String getUserIdFromExpiredToken(String token) {
+        Claims claims = getClaimsFromExpiredToken(token);
+        return claims != null ? claims.get("user_id", String.class) : null;
+    }
+
+    /**
+     * 만료된 토큰에서 디바이스 ID를 추출합니다.
+     */
+    public String getDeviceIdFromExpiredToken(String token) {
+        Claims claims = getClaimsFromExpiredToken(token);
+        return claims != null ? claims.get("device_id", String.class) : null;
+    }
+
+    /**
+     * 만료된 토큰에서 이메일을 추출합니다.
+     */
+    public String getEmailFromExpiredToken(String token) {
+        Claims claims = getClaimsFromExpiredToken(token);
+        return claims != null ? claims.get("email", String.class) : null;
     }
 
     public long getRemainingTime(String token) {

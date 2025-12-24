@@ -44,9 +44,9 @@ public class MissionCreateRequest {
 
     private Integer maxParticipants;
 
-    private LocalDateTime startDate;
+    private LocalDateTime startAt;
 
-    private LocalDateTime endDate;
+    private LocalDateTime endAt;
 
     @Builder.Default
     private MissionInterval missionInterval = MissionInterval.DAILY;
