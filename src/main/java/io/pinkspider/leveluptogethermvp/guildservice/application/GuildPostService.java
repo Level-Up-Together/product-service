@@ -17,10 +17,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostCommentRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +36,6 @@ public class GuildPostService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildPostRepository guildPostRepository;
     private final GuildPostCommentRepository guildPostCommentRepository;
-    private final ProfanityValidationService profanityValidationService;
 
     /**
      * 게시글 작성
@@ -55,12 +51,6 @@ public class GuildPostService {
         if (request.getPostType() == GuildPostType.NOTICE && member.getRole() != GuildMemberRole.MASTER) {
             throw new IllegalStateException("공지글은 길드 마스터만 작성할 수 있습니다.");
         }
-
-        // 금칙어 검증
-        Map<String, String> contentsToValidate = new HashMap<>();
-        contentsToValidate.put("제목", request.getTitle());
-        contentsToValidate.put("내용", request.getContent());
-        profanityValidationService.validateContents(contentsToValidate);
 
         // 상단 고정은 마스터만 가능
         boolean isPinned = Boolean.TRUE.equals(request.getIsPinned()) && member.getRole() == GuildMemberRole.MASTER;
@@ -225,9 +215,6 @@ public class GuildPostService {
 
         GuildPost post = findActivePost(postId);
         validatePostBelongsToGuild(post, guildId);
-
-        // 금칙어 검증
-        profanityValidationService.validateContent(request.getContent(), "댓글 내용");
 
         GuildPostComment parentComment = null;
         if (request.getParentId() != null) {

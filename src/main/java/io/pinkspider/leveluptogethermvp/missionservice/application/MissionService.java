@@ -8,14 +8,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCate
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,24 +29,12 @@ public class MissionService {
     private final MissionParticipantRepository participantRepository;
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
-    private final ProfanityValidationService profanityValidationService;
 
     @Transactional
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
         if (request.getType() == MissionType.GUILD && request.getGuildId() == null) {
             throw new IllegalArgumentException("길드 미션은 길드 ID가 필요합니다.");
         }
-
-        // 금칙어 검증
-        Map<String, String> contentsToValidate = new HashMap<>();
-        contentsToValidate.put("제목", request.getTitle());
-        if (request.getDescription() != null) {
-            contentsToValidate.put("설명", request.getDescription());
-        }
-        if (request.getCustomCategory() != null) {
-            contentsToValidate.put("커스텀 카테고리", request.getCustomCategory());
-        }
-        profanityValidationService.validateContents(contentsToValidate);
 
         // 카테고리 처리: categoryId 또는 customCategory 중 하나만 사용
         MissionCategory category = null;
@@ -133,21 +117,6 @@ public class MissionService {
 
         if (mission.getStatus() != MissionStatus.DRAFT) {
             throw new IllegalStateException("작성중 상태의 미션만 수정할 수 있습니다.");
-        }
-
-        // 금칙어 검증 (변경되는 필드만)
-        Map<String, String> contentsToValidate = new HashMap<>();
-        if (request.getTitle() != null) {
-            contentsToValidate.put("제목", request.getTitle());
-        }
-        if (request.getDescription() != null) {
-            contentsToValidate.put("설명", request.getDescription());
-        }
-        if (request.getCustomCategory() != null && !request.getCustomCategory().isBlank()) {
-            contentsToValidate.put("커스텀 카테고리", request.getCustomCategory());
-        }
-        if (!contentsToValidate.isEmpty()) {
-            profanityValidationService.validateContents(contentsToValidate);
         }
 
         if (request.getTitle() != null) {

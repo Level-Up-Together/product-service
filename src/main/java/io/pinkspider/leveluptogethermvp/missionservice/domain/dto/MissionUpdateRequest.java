@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.annotation.NoProfanity;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import jakarta.validation.constraints.Max;
@@ -23,8 +24,10 @@ import lombok.Setter;
 public class MissionUpdateRequest {
 
     @Size(max = 200, message = "미션 제목은 200자 이하여야 합니다.")
+    @NoProfanity(fieldName = "미션 제목")
     private String title;
 
+    @NoProfanity(fieldName = "미션 설명")
     private String description;
 
     private MissionVisibility visibility;
@@ -51,6 +54,7 @@ public class MissionUpdateRequest {
     private Long categoryId;
 
     @Size(max = 50, message = "사용자 정의 카테고리는 50자 이하여야 합니다.")
+    @NoProfanity(fieldName = "커스텀 카테고리")
     private String customCategory;
 
     // 카테고리 제거 여부 (true면 카테고리 정보 삭제)

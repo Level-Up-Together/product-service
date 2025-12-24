@@ -24,7 +24,6 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -47,7 +46,6 @@ public class MyPageService {
     private final UserStatsRepository userStatsRepository;
     private final FriendshipRepository friendshipRepository;
     private final LevelConfigRepository levelConfigRepository;
-    private final ProfanityValidationService profanityValidationService;
 
     /**
      * MyPage 전체 데이터 조회
@@ -140,9 +138,6 @@ public class MyPageService {
     public ProfileInfo updateNickname(String userId, String nickname) {
         // 닉네임 유효성 검사
         validateNickname(nickname);
-
-        // 금칙어 검증
-        profanityValidationService.validateContent(nickname, "닉네임");
 
         // 중복 확인
         if (!isNicknameAvailable(nickname, userId)) {

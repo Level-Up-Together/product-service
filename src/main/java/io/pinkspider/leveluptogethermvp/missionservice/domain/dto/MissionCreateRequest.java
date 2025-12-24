@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.global.annotation.NoProfanity;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -27,8 +28,10 @@ public class MissionCreateRequest {
 
     @NotBlank(message = "미션 제목은 필수입니다.")
     @Size(max = 200, message = "미션 제목은 200자 이하여야 합니다.")
+    @NoProfanity(fieldName = "미션 제목")
     private String title;
 
+    @NoProfanity(fieldName = "미션 설명")
     private String description;
 
     @NotNull(message = "공개 여부는 필수입니다.")
@@ -64,5 +67,6 @@ public class MissionCreateRequest {
     private Long categoryId;
 
     @Size(max = 50, message = "사용자 정의 카테고리는 50자 이하여야 합니다.")
+    @NoProfanity(fieldName = "커스텀 카테고리")
     private String customCategory;
 }

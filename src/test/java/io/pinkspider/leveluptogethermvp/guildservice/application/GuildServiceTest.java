@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +49,9 @@ class GuildServiceTest {
 
     @Mock
     private GuildJoinRequestRepository joinRequestRepository;
+
+    @Mock
+    private ProfanityValidationService profanityValidationService;
 
     @Mock
     private ApplicationContext applicationContext;

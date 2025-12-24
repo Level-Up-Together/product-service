@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.annotation.NoProfanity;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -17,9 +18,11 @@ import lombok.NoArgsConstructor;
 public class GuildUpdateRequest {
 
     @Size(max = 100, message = "길드명은 100자 이하여야 합니다.")
+    @NoProfanity(fieldName = "길드명")
     private String name;
 
     @Size(max = 1000, message = "길드 설명은 1000자 이하여야 합니다.")
+    @NoProfanity(fieldName = "길드 설명")
     private String description;
 
     private GuildVisibility visibility;

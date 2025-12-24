@@ -173,7 +173,10 @@ public class TestDataSourceConfig {
     @Configuration
     @Profile("test")
     @EnableJpaRepositories(
-        basePackages = "io.pinkspider.leveluptogethermvp.metaservice",
+        basePackages = {
+            "io.pinkspider.leveluptogethermvp.metaservice",
+            "io.pinkspider.leveluptogethermvp.profanity.infrastructure"
+        },
         entityManagerFactoryRef = "metaEntityManagerFactory",
         transactionManagerRef = "metaTransactionManager"
     )
@@ -190,7 +193,10 @@ public class TestDataSourceConfig {
             @Qualifier("metaDataSource") DataSource dataSource) {
             LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
-            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.metaservice");
+            em.setPackagesToScan(
+                "io.pinkspider.leveluptogethermvp.metaservice",
+                "io.pinkspider.leveluptogethermvp.profanity.domain.entity"
+            );
             em.setPersistenceUnitName("meta");
             HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
             em.setJpaVendorAdapter(vendorAdapter);
