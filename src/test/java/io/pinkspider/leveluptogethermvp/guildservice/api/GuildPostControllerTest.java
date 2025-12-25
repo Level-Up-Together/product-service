@@ -551,4 +551,75 @@ class GuildPostControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/{guildId}/posts/notices : 공지글 목록 조회")
+    void getNoticesTest() throws Exception {
+        // given
+        List<GuildPostListResponse> notices = List.of(
+            GuildPostListResponse.builder()
+                .id(1L)
+                .authorId(MOCK_USER_ID)
+                .authorNickname(MOCK_NICKNAME)
+                .title("길드 규칙 안내")
+                .postType(GuildPostType.NOTICE)
+                .isPinned(true)
+                .viewCount(100)
+                .commentCount(5)
+                .createdAt(LocalDateTime.now())
+                .build(),
+            GuildPostListResponse.builder()
+                .id(2L)
+                .authorId(MOCK_USER_ID)
+                .authorNickname(MOCK_NICKNAME)
+                .title("이번 주 미션 안내")
+                .postType(GuildPostType.NOTICE)
+                .isPinned(false)
+                .viewCount(50)
+                .commentCount(3)
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .build()
+        );
+
+        when(guildPostService.getNotices(anyLong(), anyString()))
+            .thenReturn(notices);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/posts/notices", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드게시판-10. 공지글 목록 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild Post")
+                        .description("길드 공지글 목록 조회 - 길드 메인 페이지에서 공지사항 섹션에 사용 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("공지글 목록"),
+                            fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
+                            fieldWithPath("value[].author_id").type(JsonFieldType.STRING).description("작성자 ID"),
+                            fieldWithPath("value[].author_nickname").type(JsonFieldType.STRING).description("작성자 닉네임").optional(),
+                            fieldWithPath("value[].title").type(JsonFieldType.STRING).description("제목"),
+                            fieldWithPath("value[].post_type").type(JsonFieldType.STRING).description("게시글 유형 (NOTICE)"),
+                            fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("상단 고정 여부"),
+                            fieldWithPath("value[].view_count").type(JsonFieldType.NUMBER).description("조회수"),
+                            fieldWithPath("value[].comment_count").type(JsonFieldType.NUMBER).description("댓글 수"),
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("작성일시")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
 }
