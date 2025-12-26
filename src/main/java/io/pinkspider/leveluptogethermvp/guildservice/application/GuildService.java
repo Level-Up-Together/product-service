@@ -15,6 +15,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,13 +37,21 @@ public class GuildService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
+    private final MissionCategoryService missionCategoryService;
     private final ApplicationContext applicationContext;
 
     @Transactional
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
-        // 1인 1길드 정책: 이미 다른 길드에 가입되어 있는지 확인
-        if (guildMemberRepository.hasActiveGuildMembership(userId)) {
-            throw new IllegalStateException("이미 다른 길드에 가입되어 있습니다. 길드 탈퇴 후 다시 시도해주세요.");
+        // 카테고리 유효성 검증
+        MissionCategoryResponse category = missionCategoryService.getCategory(request.getCategoryId());
+        if (category == null || !category.getIsActive()) {
+            throw new IllegalArgumentException("유효하지 않은 카테고리입니다.");
+        }
+
+        // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
+        if (guildMemberRepository.hasActiveGuildMembershipInCategory(userId, request.getCategoryId())) {
+            throw new IllegalStateException(
+                "이미 해당 카테고리('" + category.getName() + "')의 다른 길드에 가입되어 있습니다. 탈퇴 후 다시 시도해주세요.");
         }
 
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
@@ -53,6 +63,7 @@ public class GuildService {
             .description(request.getDescription())
             .visibility(request.getVisibility())
             .masterId(userId)
+            .categoryId(request.getCategoryId())
             .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 50)
             .imageUrl(request.getImageUrl())
             .build();
@@ -174,9 +185,12 @@ public class GuildService {
             throw new IllegalStateException("비공개 길드는 초대를 통해서만 가입할 수 있습니다.");
         }
 
-        // 1인 1길드 정책: 이미 다른 길드에 가입되어 있는지 확인
-        if (guildMemberRepository.hasActiveGuildMembership(userId)) {
-            throw new IllegalStateException("이미 다른 길드에 가입되어 있습니다. 길드 탈퇴 후 다시 시도해주세요.");
+        // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
+        if (guildMemberRepository.hasActiveGuildMembershipInCategory(userId, guild.getCategoryId())) {
+            MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
+            String categoryName = category != null ? category.getName() : "해당";
+            throw new IllegalStateException(
+                "이미 '" + categoryName + "' 카테고리의 다른 길드에 가입되어 있습니다. 탈퇴 후 다시 시도해주세요.");
         }
 
         if (isMember(guildId, userId)) {
@@ -224,10 +238,10 @@ public class GuildService {
         Guild guild = request.getGuild();
         validateMaster(guild, masterId);
 
-        // 1인 1길드 정책: 대기 중에 다른 길드에 가입했는지 확인
-        if (guildMemberRepository.hasActiveGuildMembership(request.getRequesterId())) {
-            request.reject(masterId, "신청자가 이미 다른 길드에 가입되어 있습니다."); // 자동 거절 처리
-            throw new IllegalStateException("신청자가 이미 다른 길드에 가입되어 있어 자동 거절되었습니다.");
+        // 카테고리당 1개 길드 정책: 대기 중에 해당 카테고리의 다른 길드에 가입했는지 확인
+        if (guildMemberRepository.hasActiveGuildMembershipInCategory(request.getRequesterId(), guild.getCategoryId())) {
+            request.reject(masterId, "신청자가 이미 해당 카테고리의 다른 길드에 가입되어 있습니다."); // 자동 거절 처리
+            throw new IllegalStateException("신청자가 이미 해당 카테고리의 다른 길드에 가입되어 있어 자동 거절되었습니다.");
         }
 
         int currentMembers = (int) guildMemberRepository.countActiveMembers(guild.getId());
@@ -278,6 +292,14 @@ public class GuildService {
     public GuildMemberResponse inviteMember(Long guildId, String masterId, String inviteeId) {
         Guild guild = findActiveGuildById(guildId);
         validateMaster(guild, masterId);
+
+        // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
+        if (guildMemberRepository.hasActiveGuildMembershipInCategory(inviteeId, guild.getCategoryId())) {
+            MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
+            String categoryName = category != null ? category.getName() : "해당";
+            throw new IllegalStateException(
+                "초대 대상자가 이미 '" + categoryName + "' 카테고리의 다른 길드에 가입되어 있습니다.");
+        }
 
         if (isMember(guildId, inviteeId)) {
             throw new IllegalStateException("이미 길드 멤버입니다.");

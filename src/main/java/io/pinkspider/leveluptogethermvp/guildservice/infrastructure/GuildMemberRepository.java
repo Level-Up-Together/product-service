@@ -36,16 +36,35 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
     boolean isActiveMember(@Param("guildId") Long guildId, @Param("userId") String userId);
 
     /**
-     * 사용자가 이미 다른 길드에 가입되어 있는지 확인 (1인 1길드 정책)
+     * 사용자가 이미 다른 길드에 가입되어 있는지 확인 (전체 - deprecated)
+     * @deprecated 카테고리별 멤버십 체크로 대체됨. {@link #hasActiveGuildMembershipInCategory} 사용
      */
+    @Deprecated
     @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
            "JOIN gm.guild g WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
     boolean hasActiveGuildMembership(@Param("userId") String userId);
 
     /**
-     * 사용자의 현재 활성 길드 멤버십 조회 (1인 1길드 정책)
+     * 사용자가 특정 카테고리의 길드에 가입되어 있는지 확인 (카테고리당 1개 길드 정책)
+     */
+    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
+           "JOIN gm.guild g WHERE gm.userId = :userId AND gm.status = 'ACTIVE' " +
+           "AND g.isActive = true AND g.categoryId = :categoryId")
+    boolean hasActiveGuildMembershipInCategory(@Param("userId") String userId, @Param("categoryId") Long categoryId);
+
+    /**
+     * 사용자의 현재 활성 길드 멤버십 조회 (카테고리별)
+     */
+    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
+           "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true " +
+           "AND g.categoryId = :categoryId")
+    Optional<GuildMember> findActiveGuildMembershipInCategory(
+        @Param("userId") String userId, @Param("categoryId") Long categoryId);
+
+    /**
+     * 사용자의 현재 활성 길드 멤버십 조회 (전체)
      */
     @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
            "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
-    Optional<GuildMember> findActiveGuildMembership(@Param("userId") String userId);
+    List<GuildMember> findAllActiveGuildMemberships(@Param("userId") String userId);
 }

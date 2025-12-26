@@ -25,6 +25,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -54,6 +56,9 @@ class GuildServiceTest {
     private ProfanityValidationService profanityValidationService;
 
     @Mock
+    private MissionCategoryService missionCategoryService;
+
+    @Mock
     private ApplicationContext applicationContext;
 
     @InjectMocks
@@ -63,11 +68,21 @@ class GuildServiceTest {
     private String testMasterId;
     private Guild testGuild;
     private GuildMember testMasterMember;
+    private Long testCategoryId;
+    private MissionCategoryResponse testCategory;
 
     @BeforeEach
     void setUp() {
         testUserId = "test-user-id";
         testMasterId = "test-master-id";
+        testCategoryId = 1L;
+
+        testCategory = MissionCategoryResponse.builder()
+            .id(testCategoryId)
+            .name("테스트 카테고리")
+            .icon("📚")
+            .isActive(true)
+            .build();
 
         testGuild = Guild.builder()
             .name("테스트 길드")
@@ -75,6 +90,7 @@ class GuildServiceTest {
             .visibility(GuildVisibility.PUBLIC)
             .masterId(testMasterId)
             .maxMembers(50)
+            .categoryId(testCategoryId)
             .build();
         setGuildId(testGuild, 1L);
 
@@ -120,9 +136,11 @@ class GuildServiceTest {
                 .description("새 길드 설명")
                 .visibility(GuildVisibility.PUBLIC)
                 .maxMembers(30)
+                .categoryId(testCategoryId)
                 .build();
 
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
@@ -138,26 +156,29 @@ class GuildServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getName()).isEqualTo("새 길드");
             assertThat(response.getMasterId()).isEqualTo(testUserId);
+            assertThat(response.getCategoryId()).isEqualTo(testCategoryId);
             verify(guildRepository).save(any(Guild.class));
             verify(guildMemberRepository).save(any(GuildMember.class));
         }
 
         @Test
-        @DisplayName("1인 1길드 정책: 이미 다른 길드에 가입된 사용자는 길드를 생성할 수 없다")
-        void createGuild_failWhenAlreadyInGuild() {
+        @DisplayName("카테고리별 1인 1길드 정책: 동일 카테고리의 다른 길드에 가입된 사용자는 길드를 생성할 수 없다")
+        void createGuild_failWhenAlreadyInGuildOfSameCategory() {
             // given
             GuildCreateRequest request = GuildCreateRequest.builder()
                 .name("새 길드")
                 .description("새 길드 설명")
                 .visibility(GuildVisibility.PUBLIC)
+                .categoryId(testCategoryId)
                 .build();
 
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(true);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 다른 길드에 가입되어 있습니다");
+                .hasMessageContaining("카테고리");
 
             verify(guildRepository, never()).save(any(Guild.class));
         }
@@ -170,9 +191,11 @@ class GuildServiceTest {
                 .name("중복 길드")
                 .description("설명")
                 .visibility(GuildVisibility.PUBLIC)
+                .categoryId(testCategoryId)
                 .build();
 
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("중복 길드")).thenReturn(true);
 
             // when & then
@@ -195,7 +218,7 @@ class GuildServiceTest {
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
             when(joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(1L, testUserId, JoinRequestStatus.PENDING)).thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
@@ -215,20 +238,20 @@ class GuildServiceTest {
         }
 
         @Test
-        @DisplayName("1인 1길드 정책: 이미 다른 길드에 가입된 사용자는 가입 신청할 수 없다")
-        void requestJoin_failWhenAlreadyInGuild() {
+        @DisplayName("카테고리별 1인 1길드 정책: 동일 카테고리의 다른 길드에 가입된 사용자는 가입 신청할 수 없다")
+        void requestJoin_failWhenAlreadyInGuildOfSameCategory() {
             // given
             GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder()
                 .message("가입 희망합니다")
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(true);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> guildService.requestJoin(1L, testUserId, joinRequest))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 다른 길드에 가입되어 있습니다");
+                .hasMessageContaining("카테고리");
 
             verify(joinRequestRepository, never()).save(any(GuildJoinRequest.class));
         }
@@ -243,6 +266,7 @@ class GuildServiceTest {
                 .visibility(GuildVisibility.PRIVATE)
                 .masterId(testMasterId)
                 .maxMembers(50)
+                .categoryId(testCategoryId)
                 .build();
             setGuildId(privateGuild, 2L);
 
@@ -267,7 +291,7 @@ class GuildServiceTest {
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
 
             // when & then
@@ -285,7 +309,7 @@ class GuildServiceTest {
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
             when(joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(1L, testUserId, JoinRequestStatus.PENDING)).thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L); // maxMembers = 50
@@ -313,7 +337,7 @@ class GuildServiceTest {
             setJoinRequestId(joinRequest, 1L);
 
             when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(false);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -328,8 +352,8 @@ class GuildServiceTest {
         }
 
         @Test
-        @DisplayName("1인 1길드 정책: 대기 중 다른 길드에 가입한 경우 자동 거절된다")
-        void approveJoinRequest_autoRejectWhenAlreadyInOtherGuild() {
+        @DisplayName("카테고리별 1인 1길드 정책: 대기 중 동일 카테고리의 다른 길드에 가입한 경우 자동 거절된다")
+        void approveJoinRequest_autoRejectWhenAlreadyInOtherGuildOfSameCategory() {
             // given
             GuildJoinRequest joinRequest = GuildJoinRequest.builder()
                 .guild(testGuild)
@@ -339,12 +363,12 @@ class GuildServiceTest {
             setJoinRequestId(joinRequest, 1L);
 
             when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
-            when(guildMemberRepository.hasActiveGuildMembership(testUserId)).thenReturn(true);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> guildService.approveJoinRequest(1L, testMasterId))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("신청자가 이미 다른 길드에 가입되어 있어 자동 거절되었습니다");
+                .hasMessageContaining("카테고리");
 
             assertThat(joinRequest.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
             verify(guildMemberRepository, never()).save(any(GuildMember.class));

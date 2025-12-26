@@ -94,6 +94,9 @@ class GuildControllerTest {
             .currentLevel(5)
             .currentExp(500)
             .totalExp(1500)
+            .categoryId(1L)
+            .categoryName("자기계발")
+            .categoryIcon("📚")
             .createdAt(LocalDateTime.now())
             .build();
     }
@@ -106,6 +109,7 @@ class GuildControllerTest {
             .name("테스트 길드")
             .description("테스트 길드입니다.")
             .visibility(GuildVisibility.PUBLIC)
+            .categoryId(1L)
             .maxMembers(50)
             .build();
 
@@ -130,6 +134,7 @@ class GuildControllerTest {
                             fieldWithPath("name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("visibility").type(JsonFieldType.STRING).description("공개 여부 (PUBLIC, PRIVATE)"),
+                            fieldWithPath("category_id").type(JsonFieldType.NUMBER).description("카테고리 ID (필수)"),
                             fieldWithPath("max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수").optional(),
                             fieldWithPath("image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional()
                         )
@@ -147,6 +152,9 @@ class GuildControllerTest {
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시")
                         )
@@ -327,6 +335,7 @@ class GuildControllerTest {
                             fieldWithPath("name").type(JsonFieldType.STRING).description("길드 이름").optional(),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("visibility").type(JsonFieldType.STRING).description("공개 여부").optional(),
+                            fieldWithPath("category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수").optional(),
                             fieldWithPath("image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional()
                         )

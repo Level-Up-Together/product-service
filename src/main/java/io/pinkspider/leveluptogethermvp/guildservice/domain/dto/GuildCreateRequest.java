@@ -31,6 +31,9 @@ public class GuildCreateRequest {
     @NotNull(message = "공개 여부는 필수입니다.")
     private GuildVisibility visibility;
 
+    @NotNull(message = "카테고리는 필수입니다.")
+    private Long categoryId;
+
     private Integer maxMembers;
 
     private String imageUrl;

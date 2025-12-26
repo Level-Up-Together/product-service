@@ -28,6 +28,9 @@ public class GuildResponse {
     private Integer currentLevel;
     private Integer currentExp;
     private Integer totalExp;
+    private Long categoryId;
+    private String categoryName;
+    private String categoryIcon;
     private LocalDateTime createdAt;
 
     public static GuildResponse from(Guild guild) {
@@ -42,6 +45,7 @@ public class GuildResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .categoryId(guild.getCategoryId())
             .createdAt(guild.getCreatedAt())
             .build();
     }
@@ -59,6 +63,27 @@ public class GuildResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .categoryId(guild.getCategoryId())
+            .createdAt(guild.getCreatedAt())
+            .build();
+    }
+
+    public static GuildResponse from(Guild guild, int memberCount, String categoryName, String categoryIcon) {
+        return GuildResponse.builder()
+            .id(guild.getId())
+            .name(guild.getName())
+            .description(guild.getDescription())
+            .visibility(guild.getVisibility())
+            .masterId(guild.getMasterId())
+            .maxMembers(guild.getMaxMembers())
+            .currentMemberCount(memberCount)
+            .imageUrl(guild.getImageUrl())
+            .currentLevel(guild.getCurrentLevel())
+            .currentExp(guild.getCurrentExp())
+            .totalExp(guild.getTotalExp())
+            .categoryId(guild.getCategoryId())
+            .categoryName(categoryName)
+            .categoryIcon(categoryIcon)
             .createdAt(guild.getCreatedAt())
             .build();
     }

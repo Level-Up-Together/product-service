@@ -27,6 +27,8 @@ public class GuildUpdateRequest {
 
     private GuildVisibility visibility;
 
+    private Long categoryId;
+
     private Integer maxMembers;
 
     private String imageUrl;

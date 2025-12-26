@@ -90,6 +90,11 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer totalExp = 0;
 
+    @NotNull
+    @Column(name = "category_id", nullable = false)
+    @Comment("카테고리 ID (mission_category 참조)")
+    private Long categoryId;
+
     @Builder.Default
     @OneToMany(mappedBy = "guild")
     private List<GuildMember> members = new ArrayList<>();

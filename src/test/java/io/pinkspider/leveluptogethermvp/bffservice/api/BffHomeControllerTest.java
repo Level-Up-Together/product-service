@@ -115,6 +115,9 @@ class BffHomeControllerTest {
             .currentLevel(5)
             .currentExp(1000)
             .totalExp(5000)
+            .categoryId(1L)
+            .categoryName("자기계발")
+            .categoryIcon("📚")
             .createdAt(LocalDateTime.now())
             .build();
     }
@@ -309,6 +312,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_guilds[].current_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
                             fieldWithPath("value.my_guilds[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.my_guilds[].total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.my_guilds[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.my_guilds[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.my_guilds[].category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.my_guilds[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.public_guilds").type(JsonFieldType.OBJECT).description("공개 길드 목록 (페이징)"),
                             fieldWithPath("value.public_guilds.content[]").type(JsonFieldType.ARRAY).description("공개 길드 목록"),
@@ -323,6 +329,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.public_guilds.content[].current_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
                             fieldWithPath("value.public_guilds.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.public_guilds.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.public_guilds.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.public_guilds.content[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.public_guilds.content[].category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.public_guilds.content[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.public_guilds.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
                             fieldWithPath("value.public_guilds.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -417,6 +426,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.guild.current_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
                             fieldWithPath("value.guild.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.guild.total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.guild.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.guild.category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.guild.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.guild.created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.members[]").type(JsonFieldType.ARRAY).description("길드 멤버 목록"),
                             fieldWithPath("value.members[].id").type(JsonFieldType.NUMBER).description("멤버 ID"),
@@ -515,6 +527,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_guilds[].current_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
                             fieldWithPath("value.my_guilds[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.my_guilds[].total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.my_guilds[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.my_guilds[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.my_guilds[].category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.my_guilds[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.recommended_guilds").type(JsonFieldType.OBJECT).description("추천 길드 목록 (페이징)"),
                             fieldWithPath("value.recommended_guilds.content[]").type(JsonFieldType.ARRAY).description("추천 길드 목록"),
@@ -529,6 +544,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.recommended_guilds.content[].current_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
                             fieldWithPath("value.recommended_guilds.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.recommended_guilds.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.recommended_guilds.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.recommended_guilds.content[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.recommended_guilds.content[].category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
                             fieldWithPath("value.recommended_guilds.content[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.recommended_guilds.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
                             fieldWithPath("value.recommended_guilds.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
