@@ -55,11 +55,14 @@ public class MetaDataSourceConfig {
         cfg.setPassword(properties.getPassword());
         cfg.setDriverClassName(properties.getDriverClassName());
 
-        cfg.setInitializationFailTimeout(-1);
+        cfg.setInitializationFailTimeout(30000);  // 30초 (무한 대기 방지)
         cfg.setConnectionTimeout(15000);
         cfg.setValidationTimeout(5000);
         cfg.setMaximumPoolSize(10);
         cfg.setMinimumIdle(2);
+        cfg.setMaxLifetime(1800000);             // 30분
+        cfg.setIdleTimeout(600000);              // 10분
+        cfg.setLeakDetectionThreshold(60000);   // 커넥션 누수 감지 1분
 
         return new HikariDataSource(cfg);
     }

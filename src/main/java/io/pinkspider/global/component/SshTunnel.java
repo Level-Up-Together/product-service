@@ -175,6 +175,9 @@ public class SshTunnel {
                 Thread.sleep(500);
             }
         }
-        log.warn("포트 {}가 {}ms 내에 열리지 않았습니다.", port, timeoutMillis);
+        // 포트가 열리지 않으면 예외 발생 (무한 대기 방지)
+        throw new RuntimeException(
+            String.format("SSH 터널 포트 %d가 %dms 내에 열리지 않았습니다. DB 연결이 불가능합니다.", port, timeoutMillis)
+        );
     }
 }
