@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.bffservice.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
@@ -45,7 +46,8 @@ public class GuildListDataResponse {
     /**
      * 길드 가입 여부
      */
-    private boolean hasGuild;
+    @JsonProperty("has_guild")
+    private boolean guildJoined;
 
     @Getter
     @Builder

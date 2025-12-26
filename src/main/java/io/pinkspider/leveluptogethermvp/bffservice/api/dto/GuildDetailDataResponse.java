@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.bffservice.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
@@ -40,7 +41,8 @@ public class GuildDetailDataResponse {
     /**
      * 현재 사용자의 길드 멤버 여부
      */
-    private boolean isMember;
+    @JsonProperty("is_member")
+    private boolean member;
 
     /**
      * 현재 사용자의 멤버 역할 (MASTER, ADMIN, MEMBER)

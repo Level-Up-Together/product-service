@@ -107,7 +107,7 @@ public class BffGuildService {
             .guild(guild)
             .members(members)
             .posts(postsFuture.join())
-            .isMember(isMember)
+            .member(isMember)
             .memberRole(memberRole)
             .build();
 
@@ -216,7 +216,7 @@ public class BffGuildService {
             .recommendedGuilds(recommendedGuildsFuture.join())
             .guildNotices(noticesFuture.join())
             .guildActivityFeeds(activityFeedsFuture.join())
-            .hasGuild(hasGuild)
+            .guildJoined(hasGuild)
             .build();
 
         log.info("BFF getGuildList completed: userId={}, hasGuild={}", userId, hasGuild);

@@ -370,7 +370,7 @@ class BffHomeControllerTest {
                 .totalElements(1)
                 .totalPages(1)
                 .build())
-            .isMember(true)
+            .member(true)
             .memberRole("MASTER")
             .build();
 
@@ -440,7 +440,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.posts.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
                             fieldWithPath("value.posts.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
                             fieldWithPath("value.posts.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
-                            fieldWithPath("value.member").type(JsonFieldType.BOOLEAN).description("현재 사용자의 멤버 여부"),
+                            fieldWithPath("value.is_member").type(JsonFieldType.BOOLEAN).description("현재 사용자의 멤버 여부"),
                             fieldWithPath("value.member_role").type(JsonFieldType.STRING).description("현재 사용자의 역할").optional()
                         )
                         .build()
@@ -473,7 +473,7 @@ class BffHomeControllerTest {
                 .totalElements(1)
                 .totalPages(1)
                 .build())
-            .hasGuild(true)
+            .guildJoined(true)
             .build();
 
         when(bffGuildService.getGuildList(anyString(), anyInt(), anyInt()))

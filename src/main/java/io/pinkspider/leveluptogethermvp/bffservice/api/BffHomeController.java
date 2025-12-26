@@ -8,10 +8,9 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataRespo
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +41,7 @@ public class BffHomeController {
      * - 공개 길드 목록 (페이징)
      * - 활성 공지사항 목록
      *
-     * @param userDetails 인증된 사용자 정보
+     * @param userId 인증된 사용자 ID
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
@@ -50,12 +49,11 @@ public class BffHomeController {
      */
     @GetMapping("/home")
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
-        @AuthenticationPrincipal UserDetails userDetails,
+        @CurrentUser String userId,
         @RequestParam(defaultValue = "0") int feedPage,
         @RequestParam(defaultValue = "20") int feedSize,
         @RequestParam(defaultValue = "5") int publicGuildSize
     ) {
-        String userId = userDetails.getUsername();
         HomeDataResponse response = bffHomeService.getHomeData(userId, feedPage, feedSize, publicGuildSize);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
@@ -69,7 +67,7 @@ public class BffHomeController {
      * - 길드 게시글 목록 (페이징)
      * - 멤버 여부 및 역할
      *
-     * @param userDetails 인증된 사용자 정보
+     * @param userId 인증된 사용자 ID
      * @param guildId 길드 ID
      * @param postPage 게시글 페이지 번호 (기본: 0)
      * @param postSize 게시글 페이지 크기 (기본: 20)
@@ -77,12 +75,11 @@ public class BffHomeController {
      */
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<GuildDetailDataResponse>> getGuildDetail(
-        @AuthenticationPrincipal UserDetails userDetails,
+        @CurrentUser String userId,
         @PathVariable Long guildId,
         @RequestParam(defaultValue = "0") int postPage,
         @RequestParam(defaultValue = "20") int postSize
     ) {
-        String userId = userDetails.getUsername();
         GuildDetailDataResponse response = bffGuildService.getGuildDetail(guildId, userId, postPage, postSize);
         return ResponseEntity.ok(ApiResult.<GuildDetailDataResponse>builder().value(response).build());
     }
@@ -96,18 +93,17 @@ public class BffHomeController {
      * - 내 첫 번째 길드의 공지사항 (길드 가입 시)
      * - 내 첫 번째 길드의 활동 피드 (길드 가입 시)
      *
-     * @param userDetails 인증된 사용자 정보
+     * @param userId 인증된 사용자 ID
      * @param recommendedGuildSize 추천 길드 조회 개수 (기본: 10)
      * @param activityFeedSize 활동 피드 조회 개수 (기본: 10)
      * @return GuildListDataResponse
      */
     @GetMapping("/guild/list")
     public ResponseEntity<ApiResult<GuildListDataResponse>> getGuildList(
-        @AuthenticationPrincipal UserDetails userDetails,
+        @CurrentUser String userId,
         @RequestParam(defaultValue = "10") int recommendedGuildSize,
         @RequestParam(defaultValue = "10") int activityFeedSize
     ) {
-        String userId = userDetails.getUsername();
         GuildListDataResponse response = bffGuildService.getGuildList(userId, recommendedGuildSize, activityFeedSize);
         return ResponseEntity.ok(ApiResult.<GuildListDataResponse>builder().value(response).build());
     }
@@ -120,14 +116,13 @@ public class BffHomeController {
      * - 오늘의 미션 실행 현황
      * - 완료/진행중/미완료 통계
      *
-     * @param userDetails 인증된 사용자 정보
+     * @param userId 인증된 사용자 ID
      * @return MissionTodayDataResponse
      */
     @GetMapping("/mission/today")
     public ResponseEntity<ApiResult<MissionTodayDataResponse>> getTodayMissions(
-        @AuthenticationPrincipal UserDetails userDetails
+        @CurrentUser String userId
     ) {
-        String userId = userDetails.getUsername();
         MissionTodayDataResponse response = bffMissionService.getTodayMissions(userId);
         return ResponseEntity.ok(ApiResult.<MissionTodayDataResponse>builder().value(response).build());
     }
