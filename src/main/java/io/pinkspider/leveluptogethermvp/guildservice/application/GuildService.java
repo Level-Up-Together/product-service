@@ -66,6 +66,9 @@ public class GuildService {
             .categoryId(request.getCategoryId())
             .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 50)
             .imageUrl(request.getImageUrl())
+            .baseAddress(request.getBaseAddress())
+            .baseLatitude(request.getBaseLatitude())
+            .baseLongitude(request.getBaseLongitude())
             .build();
 
         Guild savedGuild = guildRepository.save(guild);
@@ -147,6 +150,15 @@ public class GuildService {
         }
         if (request.getImageUrl() != null) {
             guild.setImageUrl(request.getImageUrl());
+        }
+        if (request.getBaseAddress() != null) {
+            guild.setBaseAddress(request.getBaseAddress());
+        }
+        if (request.getBaseLatitude() != null) {
+            guild.setBaseLatitude(request.getBaseLatitude());
+        }
+        if (request.getBaseLongitude() != null) {
+            guild.setBaseLongitude(request.getBaseLongitude());
         }
 
         log.info("길드 수정 완료: id={}", guildId);

@@ -32,4 +32,10 @@ public class GuildUpdateRequest {
     private Integer maxMembers;
 
     private String imageUrl;
+
+    private String baseAddress;
+
+    private Double baseLatitude;
+
+    private Double baseLongitude;
 }

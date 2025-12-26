@@ -31,6 +31,9 @@ public class GuildResponse {
     private Long categoryId;
     private String categoryName;
     private String categoryIcon;
+    private String baseAddress;
+    private Double baseLatitude;
+    private Double baseLongitude;
     private LocalDateTime createdAt;
 
     public static GuildResponse from(Guild guild) {
@@ -46,6 +49,9 @@ public class GuildResponse {
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
             .categoryId(guild.getCategoryId())
+            .baseAddress(guild.getBaseAddress())
+            .baseLatitude(guild.getBaseLatitude())
+            .baseLongitude(guild.getBaseLongitude())
             .createdAt(guild.getCreatedAt())
             .build();
     }
@@ -64,6 +70,9 @@ public class GuildResponse {
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
             .categoryId(guild.getCategoryId())
+            .baseAddress(guild.getBaseAddress())
+            .baseLatitude(guild.getBaseLatitude())
+            .baseLongitude(guild.getBaseLongitude())
             .createdAt(guild.getCreatedAt())
             .build();
     }
@@ -84,6 +93,9 @@ public class GuildResponse {
             .categoryId(guild.getCategoryId())
             .categoryName(categoryName)
             .categoryIcon(categoryIcon)
+            .baseAddress(guild.getBaseAddress())
+            .baseLatitude(guild.getBaseLatitude())
+            .baseLongitude(guild.getBaseLongitude())
             .createdAt(guild.getCreatedAt())
             .build();
     }
