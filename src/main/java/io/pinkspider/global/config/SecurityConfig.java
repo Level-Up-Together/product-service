@@ -82,7 +82,8 @@ public class SecurityConfig {
                     .requestMatchers("/oauth/**").permitAll()  // OAuth 컨트롤러 (/oauth/uri/*, /oauth/callback/*)
                     .requestMatchers("/oauth2/**").permitAll()
                     .requestMatchers("/login/oauth2/**").permitAll()
-                    // /jwt/reissue는 인증 필요 (JwtAuthenticationFilter에서 만료된 access token도 허용)
+                    // JWT 토큰 재발급 - refresh_token 검증으로 보안 확보
+                    .requestMatchers("/jwt/reissue").permitAll()
 
                     // 관리자 전용 API
                     .requestMatchers("/api/v1/users/experience/levels").hasRole("ADMIN")
