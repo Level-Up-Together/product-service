@@ -39,6 +39,7 @@ public class GuildService {
     private final GuildJoinRequestRepository joinRequestRepository;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationContext applicationContext;
+    private final GuildHeadquartersService guildHeadquartersService;
 
     @Transactional
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -56,6 +57,12 @@ public class GuildService {
 
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
             throw new IllegalArgumentException("이미 존재하는 길드명입니다: " + request.getName());
+        }
+
+        // 거점 위치 설정 시 다른 길드와의 거리 검증
+        if (request.getBaseLatitude() != null && request.getBaseLongitude() != null) {
+            guildHeadquartersService.validateAndThrowIfInvalid(
+                    null, request.getBaseLatitude(), request.getBaseLongitude());
         }
 
         Guild guild = Guild.builder()
@@ -154,10 +161,15 @@ public class GuildService {
         if (request.getBaseAddress() != null) {
             guild.setBaseAddress(request.getBaseAddress());
         }
-        if (request.getBaseLatitude() != null) {
+        // 거점 위치 변경 시 다른 길드와의 거리 검증
+        if (request.getBaseLatitude() != null && request.getBaseLongitude() != null) {
+            guildHeadquartersService.validateAndThrowIfInvalid(
+                    guildId, request.getBaseLatitude(), request.getBaseLongitude());
             guild.setBaseLatitude(request.getBaseLatitude());
-        }
-        if (request.getBaseLongitude() != null) {
+            guild.setBaseLongitude(request.getBaseLongitude());
+        } else if (request.getBaseLatitude() != null) {
+            guild.setBaseLatitude(request.getBaseLatitude());
+        } else if (request.getBaseLongitude() != null) {
             guild.setBaseLongitude(request.getBaseLongitude());
         }
 

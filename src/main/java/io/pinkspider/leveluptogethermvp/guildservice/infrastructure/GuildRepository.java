@@ -36,4 +36,19 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
            "LOWER(g.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
            "g.visibility = 'PUBLIC'")
     Page<Guild> searchPublicGuilds(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * 거점이 설정된 모든 활성 길드 조회 (거점 검증용)
+     */
+    @Query("SELECT g FROM Guild g WHERE g.isActive = true " +
+           "AND g.baseLatitude IS NOT NULL AND g.baseLongitude IS NOT NULL")
+    List<Guild> findAllWithHeadquarters();
+
+    /**
+     * 특정 길드 제외, 거점이 설정된 모든 활성 길드 조회
+     */
+    @Query("SELECT g FROM Guild g WHERE g.isActive = true " +
+           "AND g.baseLatitude IS NOT NULL AND g.baseLongitude IS NOT NULL " +
+           "AND g.id != :excludeGuildId")
+    List<Guild> findAllWithHeadquartersExcluding(@Param("excludeGuildId") Long excludeGuildId);
 }

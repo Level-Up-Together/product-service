@@ -3,9 +3,13 @@ package io.pinkspider.leveluptogethermvp.guildservice.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersInfoResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersValidationRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersValidationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestDto;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
@@ -38,6 +42,7 @@ public class GuildController {
 
     private final GuildService guildService;
     private final GuildExperienceService guildExperienceService;
+    private final GuildHeadquartersService guildHeadquartersService;
 
     @PostMapping
     public ResponseEntity<ApiResult<GuildResponse>> createGuild(
@@ -182,5 +187,34 @@ public class GuildController {
 
         GuildExperienceResponse response = guildExperienceService.getGuildExperience(guildId);
         return ResponseEntity.ok(ApiResult.<GuildExperienceResponse>builder().value(response).build());
+    }
+
+    // 모든 길드 거점 정보 조회 (지도 표시용)
+    @GetMapping("/headquarters")
+    public ResponseEntity<ApiResult<GuildHeadquartersInfoResponse>> getAllHeadquarters() {
+        GuildHeadquartersInfoResponse response = guildHeadquartersService.getAllHeadquartersInfo();
+        return ResponseEntity.ok(ApiResult.<GuildHeadquartersInfoResponse>builder().value(response).build());
+    }
+
+    // 거점 설정 가능 여부 검증 (마스터용)
+    @PostMapping("/{guildId}/headquarters/validate")
+    public ResponseEntity<ApiResult<GuildHeadquartersValidationResponse>> validateHeadquarters(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @Valid @RequestBody GuildHeadquartersValidationRequest request) {
+
+        GuildHeadquartersValidationResponse response = guildHeadquartersService.validateHeadquartersLocation(
+            guildId, request.getLatitude(), request.getLongitude());
+        return ResponseEntity.ok(ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
+    }
+
+    // 거점 설정 가능 여부 검증 (길드 생성 전)
+    @PostMapping("/headquarters/validate")
+    public ResponseEntity<ApiResult<GuildHeadquartersValidationResponse>> validateHeadquartersForNew(
+        @Valid @RequestBody GuildHeadquartersValidationRequest request) {
+
+        GuildHeadquartersValidationResponse response = guildHeadquartersService.validateHeadquartersLocation(
+            null, request.getLatitude(), request.getLongitude());
+        return ResponseEntity.ok(ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
     }
 }
