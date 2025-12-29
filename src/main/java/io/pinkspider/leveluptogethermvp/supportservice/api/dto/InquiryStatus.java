@@ -1,5 +1,6 @@
-package io.pinkspider.leveluptogethermvp.customerservice.domain.enums;
+package io.pinkspider.leveluptogethermvp.supportservice.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -12,4 +13,9 @@ public enum InquiryStatus {
     CLOSED("종료");
 
     private final String description;
+
+    @JsonValue
+    public String getValue() {
+        return name();
+    }
 }
