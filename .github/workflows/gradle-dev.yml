@@ -36,12 +36,24 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'gradle'
 
-      # 5. Gradle 빌드
+      # 5. Gradle 캐시 설정
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 6. Gradle 빌드
       - name: Build with Gradle
-        run: ./gradlew clean build
+        run: ./gradlew clean build --no-daemon
 
-      # 6. 서버로 파일 전송
+      # 7. 서버로 파일 전송
       - name: Deploy to Server
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
@@ -60,7 +72,7 @@ jobs:
           # swagger rest doc json
           scp -i ~/.ssh/github_action build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
 
-      # 7. 서버에서 애플리케이션 실행
+      # 8. 서버에서 애플리케이션 실행
       - name: Start Application
         env:
           DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
