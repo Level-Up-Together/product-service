@@ -264,4 +264,49 @@ public class TestDataSourceConfig {
             return properties;
         }
     }
+
+    // ========== Admin DataSource ==========
+    @Configuration
+    @Profile("test")
+    @EnableJpaRepositories(
+        basePackages = "io.pinkspider.leveluptogethermvp.customerservice",
+        entityManagerFactoryRef = "adminEntityManagerFactory",
+        transactionManagerRef = "adminTransactionManager"
+    )
+    static class TestAdminDataSourceConfig {
+
+        @Bean
+        @ConfigurationProperties("spring.datasource.admin")
+        public DataSource adminDataSource() {
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "adminEntityManagerFactory")
+        public LocalContainerEntityManagerFactoryBean adminEntityManagerFactory(
+            @Qualifier("adminDataSource") DataSource dataSource) {
+            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            em.setDataSource(dataSource);
+            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.customerservice");
+            em.setPersistenceUnitName("admin");
+            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+            em.setJpaVendorAdapter(vendorAdapter);
+            em.setJpaProperties(jpaProperties());
+            return em;
+        }
+
+        @Bean(name = "adminTransactionManager")
+        public PlatformTransactionManager adminTransactionManager(
+            @Qualifier("adminEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            return new JpaTransactionManager(entityManagerFactory);
+        }
+
+        private Properties jpaProperties() {
+            Properties properties = new Properties();
+            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
+            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+            properties.setProperty("hibernate.format_sql", "true");
+            properties.setProperty("hibernate.show_sql", "true");
+            return properties;
+        }
+    }
 }
