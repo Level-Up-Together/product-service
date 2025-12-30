@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.google.Goog
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.kakao.KakaoUserInfo;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +53,7 @@ public class Oauth2Service {
     private final MultiDeviceTokenService tokenService;
     private final DeviceIdentifier deviceIdentifier;
     private final OAuth2Properties oAuth2Properties;
+    private final TitleService titleService;
 
     public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
@@ -280,6 +282,10 @@ public class Oauth2Service {
 
         Users savedUser = userRepository.save(newUsers);
         log.info("신규 사용자 가입: userId={}, provider={}", savedUser.getId(), userInfo.getProvider());
+
+        // 신규 사용자에게 기본 칭호 부여 (LEFT: 신입, RIGHT: 모험가)
+        titleService.grantAndEquipDefaultTitles(savedUser.getId());
+
         return savedUser;
     }
 

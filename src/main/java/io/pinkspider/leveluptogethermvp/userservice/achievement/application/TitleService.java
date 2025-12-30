@@ -153,6 +153,27 @@ public class TitleService {
         return TitleResponse.from(saved);
     }
 
+    /**
+     * 신규 사용자에게 기본 칭호 부여 및 장착
+     * LEFT: 신입 (id: 1), RIGHT: 모험가 (id: 26)
+     */
+    @Transactional
+    public void grantAndEquipDefaultTitles(String userId) {
+        // 기본 칭호 ID (DML에서 정의된 값)
+        final Long DEFAULT_LEFT_TITLE_ID = 1L;   // 신입
+        final Long DEFAULT_RIGHT_TITLE_ID = 26L; // 모험가
+
+        // LEFT 칭호 "신입" 부여 및 장착
+        grantTitle(userId, DEFAULT_LEFT_TITLE_ID);
+        equipTitle(userId, DEFAULT_LEFT_TITLE_ID);
+
+        // RIGHT 칭호 "모험가" 부여 및 장착
+        grantTitle(userId, DEFAULT_RIGHT_TITLE_ID);
+        equipTitle(userId, DEFAULT_RIGHT_TITLE_ID);
+
+        log.info("기본 칭호 부여 완료: userId={}, left=신입, right=모험가", userId);
+    }
+
     // 기본 칭호 초기화
     @Transactional
     public void initializeDefaultTitles() {
