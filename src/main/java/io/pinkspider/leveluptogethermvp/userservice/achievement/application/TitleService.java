@@ -4,6 +4,8 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Title
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleAcquisitionType;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
@@ -31,6 +33,13 @@ public class TitleService {
             .toList();
     }
 
+    // 포지션별 칭호 목록 (LEFT 또는 RIGHT)
+    public List<TitleResponse> getTitlesByPosition(TitlePosition position) {
+        return titleRepository.findByPositionTypeAndIsActiveTrue(position).stream()
+            .map(TitleResponse::from)
+            .toList();
+    }
+
     public List<TitleResponse> getTitlesByRarity(TitleRarity rarity) {
         return titleRepository.findByRarityAndIsActiveTrue(rarity).stream()
             .map(TitleResponse::from)
@@ -44,9 +53,23 @@ public class TitleService {
             .toList();
     }
 
-    // 장착된 칭호 조회
+    // 유저의 포지션별 칭호 목록
+    public List<UserTitleResponse> getUserTitlesByPosition(String userId, TitlePosition position) {
+        return userTitleRepository.findByUserIdWithTitle(userId).stream()
+            .filter(ut -> position.equals(ut.getTitle().getPositionType()))
+            .map(UserTitleResponse::from)
+            .toList();
+    }
+
+    // 장착된 칭호 조회 (LEFT와 RIGHT 둘 다)
     public Optional<UserTitleResponse> getEquippedTitle(String userId) {
         return userTitleRepository.findEquippedByUserId(userId)
+            .map(UserTitleResponse::from);
+    }
+
+    // 포지션별 장착된 칭호 조회
+    public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position) {
+        return userTitleRepository.findEquippedByUserIdAndPosition(userId, position)
             .map(UserTitleResponse::from);
     }
 
@@ -70,50 +93,61 @@ public class TitleService {
             .build();
 
         UserTitle saved = userTitleRepository.save(userTitle);
-        log.info("칭호 획득: userId={}, title={}", userId, title.getName());
+        log.info("칭호 획득: userId={}, title={}, position={}", userId, title.getName(), title.getPositionType());
 
         return UserTitleResponse.from(saved);
     }
 
-    // 칭호 장착
+    // 칭호 장착 (포지션별로 장착)
     @Transactional
     public UserTitleResponse equipTitle(String userId, Long titleId) {
         UserTitle userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
             .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
 
-        // 기존 장착 해제
-        userTitleRepository.unequipAllByUserId(userId);
+        TitlePosition position = userTitle.getTitle().getPositionType();
+
+        // 같은 포지션의 기존 장착 해제
+        userTitleRepository.unequipByUserIdAndPosition(userId, position);
 
         // 새 칭호 장착
-        userTitle.equip();
-        log.info("칭호 장착: userId={}, title={}", userId, userTitle.getTitle().getName());
+        userTitle.equip(position);
+        log.info("칭호 장착: userId={}, title={}, position={}", userId, userTitle.getTitle().getName(), position);
 
         return UserTitleResponse.from(userTitle);
     }
 
-    // 칭호 해제
+    // 특정 포지션 칭호 해제
     @Transactional
-    public void unequipTitle(String userId) {
+    public void unequipTitle(String userId, TitlePosition position) {
+        userTitleRepository.unequipByUserIdAndPosition(userId, position);
+        log.info("칭호 해제: userId={}, position={}", userId, position);
+    }
+
+    // 모든 칭호 해제
+    @Transactional
+    public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
-        log.info("칭호 해제: userId={}", userId);
+        log.info("모든 칭호 해제: userId={}", userId);
     }
 
     // 칭호 생성 (관리자용)
     @Transactional
     public TitleResponse createTitle(String name, String description, TitleRarity rarity,
-                                      String prefix, String suffix, String iconUrl) {
+                                      TitlePosition positionType, TitleAcquisitionType acquisitionType,
+                                      String acquisitionCondition, String iconUrl) {
         Title title = Title.builder()
             .name(name)
             .description(description)
             .rarity(rarity)
-            .prefix(prefix)
-            .suffix(suffix)
+            .positionType(positionType)
+            .acquisitionType(acquisitionType)
+            .acquisitionCondition(acquisitionCondition)
             .colorCode(rarity.getColorCode())
             .iconUrl(iconUrl)
             .build();
 
         Title saved = titleRepository.save(title);
-        log.info("칭호 생성: name={}, rarity={}", name, rarity);
+        log.info("칭호 생성: name={}, rarity={}, position={}", name, rarity, positionType);
 
         return TitleResponse.from(saved);
     }
@@ -125,15 +159,31 @@ public class TitleService {
             return;
         }
 
-        createTitle("새내기", "처음 시작하는 모험가", TitleRarity.COMMON, null, null, null);
-        createTitle("성실한 자", "꾸준히 미션을 수행하는 자", TitleRarity.COMMON, null, null, null);
-        createTitle("미션 마니아", "미션을 사랑하는 자", TitleRarity.UNCOMMON, null, null, null);
-        createTitle("길드의 일원", "길드에 가입한 자", TitleRarity.COMMON, null, null, null);
-        createTitle("길드 마스터", "길드를 이끄는 자", TitleRarity.RARE, null, null, null);
-        createTitle("끈기의 달인", "7일 연속 미션 수행", TitleRarity.UNCOMMON, null, null, null);
-        createTitle("철인", "30일 연속 미션 수행", TitleRarity.RARE, null, null, null);
-        createTitle("전설의 시작", "100회 미션 완료", TitleRarity.EPIC, "[전설의]", null, null);
-        createTitle("불굴의 의지", "100일 연속 미션 수행", TitleRarity.LEGENDARY, null, "의 수호자", null);
+        // LEFT 칭호 (형용사/부사형)
+        createTitle("신입", "이제 막 시작한", TitleRarity.COMMON, TitlePosition.LEFT,
+            TitleAcquisitionType.LEVEL, "레벨 1 달성", null);
+        createTitle("성실한", "꾸준히 노력하는", TitleRarity.COMMON, TitlePosition.LEFT,
+            TitleAcquisitionType.ACHIEVEMENT, "7일 연속 출석", null);
+        createTitle("노력하는", "끊임없이 노력하는", TitleRarity.UNCOMMON, TitlePosition.LEFT,
+            TitleAcquisitionType.LEVEL, "레벨 10 달성", null);
+        createTitle("숙련된", "기술을 연마한", TitleRarity.RARE, TitlePosition.LEFT,
+            TitleAcquisitionType.LEVEL, "레벨 30 달성", null);
+        createTitle("전설적인", "전설로 기록될", TitleRarity.EPIC, TitlePosition.LEFT,
+            TitleAcquisitionType.LEVEL, "레벨 50 달성", null);
+        createTitle("궁극의", "최고 경지에 도달한", TitleRarity.LEGENDARY, TitlePosition.LEFT,
+            TitleAcquisitionType.LEVEL, "레벨 100 달성", null);
+
+        // RIGHT 칭호 (명사형)
+        createTitle("모험가", "모험을 시작한 자", TitleRarity.COMMON, TitlePosition.RIGHT,
+            TitleAcquisitionType.LEVEL, "레벨 1 달성", null);
+        createTitle("전사", "강인한 의지의 전사", TitleRarity.UNCOMMON, TitlePosition.RIGHT,
+            TitleAcquisitionType.LEVEL, "레벨 15 달성", null);
+        createTitle("영웅", "영웅의 자격을 가진 자", TitleRarity.RARE, TitlePosition.RIGHT,
+            TitleAcquisitionType.LEVEL, "레벨 40 달성", null);
+        createTitle("현자", "지혜로운 자", TitleRarity.EPIC, TitlePosition.RIGHT,
+            TitleAcquisitionType.LEVEL, "레벨 70 달성", null);
+        createTitle("레전드", "전설이 된 자", TitleRarity.LEGENDARY, TitlePosition.RIGHT,
+            TitleAcquisitionType.ACHIEVEMENT, "미션 500회 완료", null);
 
         log.info("기본 칭호 초기화 완료");
     }

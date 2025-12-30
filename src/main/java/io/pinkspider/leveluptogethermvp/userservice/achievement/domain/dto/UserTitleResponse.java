@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleAcquisitionType;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -23,10 +25,14 @@ public class UserTitleResponse {
     private String displayName;
     private String description;
     private TitleRarity rarity;
+    private TitlePosition positionType;
     private String colorCode;
     private String iconUrl;
+    private TitleAcquisitionType acquisitionType;
+    private String acquisitionCondition;
     private LocalDateTime acquiredAt;
     private Boolean isEquipped;
+    private TitlePosition equippedPosition;
 
     public static UserTitleResponse from(UserTitle userTitle) {
         var title = userTitle.getTitle();
@@ -37,10 +43,14 @@ public class UserTitleResponse {
             .displayName(title.getDisplayName())
             .description(title.getDescription())
             .rarity(title.getRarity())
+            .positionType(title.getPositionType())
             .colorCode(title.getColorCode())
             .iconUrl(title.getIconUrl())
+            .acquisitionType(title.getAcquisitionType())
+            .acquisitionCondition(title.getAcquisitionCondition())
             .acquiredAt(userTitle.getAcquiredAt())
             .isEquipped(userTitle.getIsEquipped())
+            .equippedPosition(userTitle.getEquippedPosition())
             .build();
     }
 }

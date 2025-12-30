@@ -27,6 +27,8 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserS
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementType;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleAcquisitionType;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -304,19 +306,25 @@ class AchievementControllerTest {
         List<TitleResponse> responses = List.of(
             TitleResponse.builder()
                 .id(1L)
-                .name("초보자")
-                .displayName("초보자")
-                .description("첫 번째 칭호")
+                .name("신입")
+                .displayName("신입")
+                .description("이제 막 시작한")
                 .rarity(TitleRarity.COMMON)
-                .colorCode("#FFFFFF")
+                .positionType(TitlePosition.LEFT)
+                .colorCode("#808080")
+                .acquisitionType(TitleAcquisitionType.LEVEL)
+                .acquisitionCondition("레벨 1 달성")
                 .build(),
             TitleResponse.builder()
-                .id(2L)
-                .name("도전자")
-                .displayName("도전자")
-                .description("미션 10개 완료")
-                .rarity(TitleRarity.RARE)
-                .colorCode("#0070DD")
+                .id(26L)
+                .name("모험가")
+                .displayName("모험가")
+                .description("모험을 시작한 자")
+                .rarity(TitleRarity.COMMON)
+                .positionType(TitlePosition.RIGHT)
+                .colorCode("#808080")
+                .acquisitionType(TitleAcquisitionType.LEVEL)
+                .acquisitionCondition("레벨 1 달성")
                 .build()
         );
 
@@ -333,7 +341,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("전체 칭호 목록 조회")
+                        .description("전체 칭호 목록 조회 (LEFT: 형용사형, RIGHT: 명사형)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -343,10 +351,11 @@ class AchievementControllerTest {
                             fieldWithPath("value[].display_name").type(JsonFieldType.STRING).description("표시 이름").optional(),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("칭호 설명").optional(),
                             fieldWithPath("value[].rarity").type(JsonFieldType.STRING).description("희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY)"),
-                            fieldWithPath("value[].prefix").type(JsonFieldType.STRING).description("접두사").optional(),
-                            fieldWithPath("value[].suffix").type(JsonFieldType.STRING).description("접미사").optional(),
+                            fieldWithPath("value[].position_type").type(JsonFieldType.STRING).description("위치 타입 (LEFT: 형용사형, RIGHT: 명사형)"),
                             fieldWithPath("value[].color_code").type(JsonFieldType.STRING).description("색상 코드").optional(),
-                            fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional()
+                            fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
+                            fieldWithPath("value[].acquisition_type").type(JsonFieldType.STRING).description("획득 방법 (LEVEL, ACHIEVEMENT, MISSION, GUILD, EVENT, SPECIAL)").optional(),
+                            fieldWithPath("value[].acquisition_condition").type(JsonFieldType.STRING).description("획득 조건 설명").optional()
                         )
                         .build()
                 )
@@ -365,10 +374,31 @@ class AchievementControllerTest {
             UserTitleResponse.builder()
                 .id(1L)
                 .titleId(1L)
-                .name("초보자")
-                .displayName("초보자")
+                .name("신입")
+                .displayName("신입")
+                .description("이제 막 시작한")
                 .rarity(TitleRarity.COMMON)
+                .positionType(TitlePosition.LEFT)
+                .colorCode("#808080")
+                .acquisitionType(TitleAcquisitionType.LEVEL)
+                .acquisitionCondition("레벨 1 달성")
                 .isEquipped(true)
+                .equippedPosition(TitlePosition.LEFT)
+                .acquiredAt(LocalDateTime.now())
+                .build(),
+            UserTitleResponse.builder()
+                .id(2L)
+                .titleId(26L)
+                .name("모험가")
+                .displayName("모험가")
+                .description("모험을 시작한 자")
+                .rarity(TitleRarity.COMMON)
+                .positionType(TitlePosition.RIGHT)
+                .colorCode("#808080")
+                .acquisitionType(TitleAcquisitionType.LEVEL)
+                .acquisitionCondition("레벨 1 달성")
+                .isEquipped(true)
+                .equippedPosition(TitlePosition.RIGHT)
                 .acquiredAt(LocalDateTime.now())
                 .build()
         );
@@ -387,7 +417,7 @@ class AchievementControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("내가 보유한 칭호 목록 (JWT 토큰 인증 필요)")
+                        .description("내가 보유한 칭호 목록 (LEFT: 형용사형, RIGHT: 명사형) (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -398,9 +428,13 @@ class AchievementControllerTest {
                             fieldWithPath("value[].display_name").type(JsonFieldType.STRING).description("표시 이름").optional(),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("설명").optional(),
                             fieldWithPath("value[].rarity").type(JsonFieldType.STRING).description("희귀도"),
+                            fieldWithPath("value[].position_type").type(JsonFieldType.STRING).description("위치 타입 (LEFT: 형용사형, RIGHT: 명사형)"),
                             fieldWithPath("value[].color_code").type(JsonFieldType.STRING).description("색상 코드").optional(),
                             fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
+                            fieldWithPath("value[].acquisition_type").type(JsonFieldType.STRING).description("획득 방법").optional(),
+                            fieldWithPath("value[].acquisition_condition").type(JsonFieldType.STRING).description("획득 조건").optional(),
                             fieldWithPath("value[].is_equipped").type(JsonFieldType.BOOLEAN).description("장착 여부"),
+                            fieldWithPath("value[].equipped_position").type(JsonFieldType.STRING).description("장착 위치 (LEFT, RIGHT)").optional(),
                             fieldWithPath("value[].acquired_at").type(JsonFieldType.STRING).description("획득 일시")
                         )
                         .build()
@@ -454,24 +488,24 @@ class AchievementControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/achievements/titles/unequip : 칭호 해제")
-    void unequipTitleTest() throws Exception {
+    @DisplayName("POST /api/v1/achievements/titles/unequip-all : 모든 칭호 해제")
+    void unequipAllTitlesTest() throws Exception {
         // given
-        doNothing().when(titleService).unequipTitle(anyString());
+        doNothing().when(titleService).unequipAllTitles(anyString());
 
         // when
         ResultActions resultActions = mockMvc.perform(
-            RestDocumentationRequestBuilders.post("/api/v1/achievements/titles/unequip")
+            RestDocumentationRequestBuilders.post("/api/v1/achievements/titles/unequip-all")
                 .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
-            MockMvcRestDocumentationWrapper.document("업적-08. 칭호 해제",
+            MockMvcRestDocumentationWrapper.document("업적-08. 모든 칭호 해제",
                 preprocessRequest(prettyPrint()),
                 preprocessResponse(prettyPrint()),
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Achievement - Title")
-                        .description("현재 장착된 칭호 해제 (JWT 토큰 인증 필요)")
+                        .description("현재 장착된 모든 칭호 해제 (LEFT, RIGHT 모두) (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")

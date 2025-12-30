@@ -5,11 +5,13 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Achi
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.EquippedTitlesResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.TitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -96,6 +99,14 @@ public class AchievementController {
         return ResponseEntity.ok(ApiResult.<List<TitleResponse>>builder().value(responses).build());
     }
 
+    // 포지션별 칭호 목록 (LEFT 또는 RIGHT)
+    @GetMapping("/titles/position/{position}")
+    public ResponseEntity<ApiResult<List<TitleResponse>>> getTitlesByPosition(
+        @PathVariable TitlePosition position) {
+        List<TitleResponse> responses = titleService.getTitlesByPosition(position);
+        return ResponseEntity.ok(ApiResult.<List<TitleResponse>>builder().value(responses).build());
+    }
+
     // 내 칭호 목록
     @GetMapping("/titles/my")
     public ResponseEntity<ApiResult<List<UserTitleResponse>>> getMyTitles(
@@ -104,16 +115,44 @@ public class AchievementController {
         return ResponseEntity.ok(ApiResult.<List<UserTitleResponse>>builder().value(responses).build());
     }
 
-    // 장착된 칭호
+    // 내 포지션별 칭호 목록
+    @GetMapping("/titles/my/position/{position}")
+    public ResponseEntity<ApiResult<List<UserTitleResponse>>> getMyTitlesByPosition(
+        @CurrentUser String userId,
+        @PathVariable TitlePosition position) {
+        List<UserTitleResponse> responses = titleService.getUserTitlesByPosition(userId, position);
+        return ResponseEntity.ok(ApiResult.<List<UserTitleResponse>>builder().value(responses).build());
+    }
+
+    // 장착된 칭호 (LEFT와 RIGHT 모두)
     @GetMapping("/titles/my/equipped")
-    public ResponseEntity<ApiResult<UserTitleResponse>> getEquippedTitle(
+    public ResponseEntity<ApiResult<EquippedTitlesResponse>> getEquippedTitles(
         @CurrentUser String userId) {
-        return titleService.getEquippedTitle(userId)
+        UserTitleResponse leftTitle = titleService.getEquippedTitleByPosition(userId, TitlePosition.LEFT)
+            .orElse(null);
+        UserTitleResponse rightTitle = titleService.getEquippedTitleByPosition(userId, TitlePosition.RIGHT)
+            .orElse(null);
+
+        EquippedTitlesResponse response = EquippedTitlesResponse.builder()
+            .leftTitle(leftTitle)
+            .rightTitle(rightTitle)
+            .combinedDisplayName(getCombinedDisplayName(leftTitle, rightTitle))
+            .build();
+
+        return ResponseEntity.ok(ApiResult.<EquippedTitlesResponse>builder().value(response).build());
+    }
+
+    // 포지션별 장착된 칭호
+    @GetMapping("/titles/my/equipped/{position}")
+    public ResponseEntity<ApiResult<UserTitleResponse>> getEquippedTitleByPosition(
+        @CurrentUser String userId,
+        @PathVariable TitlePosition position) {
+        return titleService.getEquippedTitleByPosition(userId, position)
             .map(response -> ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(response).build()))
             .orElse(ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(null).build()));
     }
 
-    // 칭호 장착
+    // 칭호 장착 (타이틀의 포지션 타입에 따라 자동으로 LEFT/RIGHT에 장착)
     @PostMapping("/titles/{titleId}/equip")
     public ResponseEntity<ApiResult<UserTitleResponse>> equipTitle(
         @CurrentUser String userId,
@@ -122,11 +161,20 @@ public class AchievementController {
         return ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(response).build());
     }
 
-    // 칭호 해제
-    @PostMapping("/titles/unequip")
-    public ResponseEntity<ApiResult<Void>> unequipTitle(
+    // 특정 포지션 칭호 해제
+    @PostMapping("/titles/unequip/{position}")
+    public ResponseEntity<ApiResult<Void>> unequipTitleByPosition(
+        @CurrentUser String userId,
+        @PathVariable TitlePosition position) {
+        titleService.unequipTitle(userId, position);
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    // 모든 칭호 해제
+    @PostMapping("/titles/unequip-all")
+    public ResponseEntity<ApiResult<Void>> unequipAllTitles(
         @CurrentUser String userId) {
-        titleService.unequipTitle(userId);
+        titleService.unequipAllTitles(userId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
@@ -138,5 +186,19 @@ public class AchievementController {
         @CurrentUser String userId) {
         UserStatsResponse response = userStatsService.getUserStats(userId);
         return ResponseEntity.ok(ApiResult.<UserStatsResponse>builder().value(response).build());
+    }
+
+    // Helper method
+    private String getCombinedDisplayName(UserTitleResponse leftTitle, UserTitleResponse rightTitle) {
+        if (leftTitle == null && rightTitle == null) {
+            return "";
+        }
+        if (leftTitle == null) {
+            return rightTitle.getName();
+        }
+        if (rightTitle == null) {
+            return leftTitle.getName();
+        }
+        return leftTitle.getName() + " " + rightTitle.getName();
     }
 }
