@@ -36,6 +36,7 @@ public class UserTitleListResponse {
         private String displayName;
         private String description;
         private String rarity;
+        private String positionType;  // 칭호 위치 타입 (LEFT: 형용사, RIGHT: 명사)
         private String colorCode;
         private String iconUrl;
         private Boolean isEquipped;
