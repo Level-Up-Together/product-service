@@ -414,7 +414,11 @@ class GuildControllerTest {
                             fieldWithPath("value[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value[].role").type(JsonFieldType.STRING).description("역할 (MASTER, MANAGER, MEMBER)"),
                             fieldWithPath("value[].status").type(JsonFieldType.STRING).description("상태 (ACTIVE, INACTIVE, BANNED)"),
-                            fieldWithPath("value[].joined_at").type(JsonFieldType.STRING).description("가입일시")
+                            fieldWithPath("value[].joined_at").type(JsonFieldType.STRING).description("가입일시"),
+                            fieldWithPath("value[].nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
+                            fieldWithPath("value[].equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional()
                         )
                         .build()
                 )
