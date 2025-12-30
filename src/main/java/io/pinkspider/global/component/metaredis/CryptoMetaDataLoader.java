@@ -33,12 +33,12 @@ public class CryptoMetaDataLoader {
     public static CryptoMetaData getCryptoMetaDataDto() {
         Object obj;
         // test code 실행시 redis에 cryptoMetaData가 없을 경우를 대비한다.
-        // TODO 테스트용으로 secretKey 설정할 수는 없는지
         if (environment.acceptsProfiles(Profiles.of("test"))) {
+            // 운영 키와 동일한 암호화 키 사용
             obj = CryptoMetaData.builder()
-                .secretKey("123457689bacdefghijklmnopqrtsuvw")
+                .secretKey("***REDACTED_KEY***=")
                 .cipher("AES/CBC/PKCS5Padding")
-                .iv("123457689bacdefg")
+                .iv("***REDACTED_IV***==")
                 .build();
         } else {
             obj = redisTemplateForObject.opsForValue().get(MetaServiceConstants.CRYPTO_META_DATA);
