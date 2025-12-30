@@ -351,6 +351,7 @@ public class MyPageService {
             .displayName(title.getDisplayName())
             .description(title.getDescription())
             .rarity(title.getRarity().name())
+            .positionType(title.getPositionType().name())
             .colorCode(title.getColorCode())
             .iconUrl(title.getIconUrl())
             .isEquipped(userTitle.getIsEquipped())
