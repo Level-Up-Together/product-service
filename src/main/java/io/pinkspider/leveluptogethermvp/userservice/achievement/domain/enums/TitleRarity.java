@@ -10,7 +10,8 @@ public enum TitleRarity {
     UNCOMMON("고급", "#1EFF00"),
     RARE("희귀", "#0070DD"),
     EPIC("영웅", "#A335EE"),
-    LEGENDARY("전설", "#FF8000");
+    LEGENDARY("전설", "#FF8000"),
+    MYTHIC("신화", "#FF55FF");
 
     private final String name;
     private final String colorCode;

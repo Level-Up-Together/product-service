@@ -141,8 +141,8 @@ Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
 - 테스트: JUnit 5 + Mockito
 
 ## 작업 완료 시 규칙
-- 작업이 끝나면 반드시 프로젝트별 커밋 메시지를 생성해줄 것(커밋은 내가 직접)
+- 작업이 끝나면 반드시 변경 있는 프로젝트의 커밋 메시지를 생성해줄 것(커밋은 내가 직접)
 - 커밋 메시지 형식: `feat|fix|refactor: 간단한 설명`
 - 한글로 커밋 메시지 작성
 - 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
-- 필요시 CLAUDE.md, READEME.md 업데이트
+- 필요시 CLAUDE.md, README.md 업데이트
