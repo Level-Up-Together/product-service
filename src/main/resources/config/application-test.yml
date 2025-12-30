@@ -8,6 +8,12 @@ eureka:
 encrypt:
   key: key-brian
 
+# Crypto 설정 (운영 키와 동일)
+crypto:
+  secret-key: IH6iH219wyxeCyCFrRmolOGhrtv8E0gys0nNx4K2Ilw=
+  iv: dlHxWdmF20IF8gCDyrLtqQ==
+  cipher: AES/CBC/PKCS5Padding
+
 spring:
   application:
     name: level-up-together-mvp
