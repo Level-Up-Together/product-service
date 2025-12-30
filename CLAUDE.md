@@ -122,3 +122,27 @@ Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
 - `application-test.yml` - H2 databases, test Kafka
 - `application-local.yml` - Config server integration
 - `application-dev.yml` / `application-prod.yml` - Environment-specific
+
+
+# Project Context
+## 프로젝트 구조
+- admin backend = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin
+- admin front = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend
+- product backend = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp 
+- product front = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend
+- sql = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries
+- config = /Users/pink-spider/Code/github/Level-Up-Together/config-repository
+
+## 코드 컨벤션
+- 프론트와 백엔드간의 통신은 필드들이 snake case 로 한다.
+- 들여쓰기: 4 spaces
+- DTO는 record 사용 권장
+- Controller → Service → Repository 레이어 구조
+- 테스트: JUnit 5 + Mockito
+
+## 작업 완료 시 규칙
+- 작업이 끝나면 반드시 프로젝트별 커밋 메시지를 생성해줄 것(커밋은 내가 직접)
+- 커밋 메시지 형식: `feat|fix|refactor: 간단한 설명`
+- 한글로 커밋 메시지 작성
+- 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
+- 필요시 CLAUDE.md, READEME.md 업데이트

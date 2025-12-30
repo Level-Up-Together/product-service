@@ -40,7 +40,6 @@ out/
 logs
 /src/main/generated/
 /src/test/generated_tests/
-/.claude/
 
 ### Claude Code ###
 *-command-message*.txt
