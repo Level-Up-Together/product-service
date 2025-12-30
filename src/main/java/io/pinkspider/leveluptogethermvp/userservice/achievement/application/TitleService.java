@@ -61,10 +61,11 @@ public class TitleService {
             .toList();
     }
 
-    // 장착된 칭호 조회 (LEFT와 RIGHT 둘 다)
-    public Optional<UserTitleResponse> getEquippedTitle(String userId) {
-        return userTitleRepository.findEquippedByUserId(userId)
-            .map(UserTitleResponse::from);
+    // 장착된 칭호 목록 조회 (LEFT와 RIGHT 모두)
+    public List<UserTitleResponse> getEquippedTitles(String userId) {
+        return userTitleRepository.findEquippedTitlesByUserId(userId).stream()
+            .map(UserTitleResponse::from)
+            .toList();
     }
 
     // 포지션별 장착된 칭호 조회

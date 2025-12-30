@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.oauth.application;
 import com.nimbusds.jwt.JWTClaimsSet;
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleOAuth2FeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.google.GoogleUserInfoFeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.KakaoOAuth2FeignClient;
@@ -243,9 +244,15 @@ public class Oauth2Service {
 
     @Transactional
     protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo) {
-        Optional<Users> existingUser = userRepository.findByEmailAndProvider(userInfo.getEmail(), userInfo.getProvider());
+        // 이메일을 암호화하여 기존 사용자 조회 (JPA @Convert는 쿼리 파라미터에 적용되지 않음)
+        String encryptedEmail = CryptoUtils.encryptAes(userInfo.getEmail());
+        Optional<Users> existingUser = userRepository.findByEncryptedEmailAndProvider(
+            encryptedEmail,
+            userInfo.getProvider()
+        );
 
         if (existingUser.isPresent()) {
+            log.info("기존 사용자 로그인: userId={}, provider={}", existingUser.get().getId(), userInfo.getProvider());
             return existingUser.get(); // 기존 사용자 로그인 처리
         }
 
@@ -263,15 +270,17 @@ public class Oauth2Service {
             }
         }
 
-        // 신규 사용자 저장
+        // 신규 사용자 저장 (provider는 소문자로 정규화)
         Users newUsers = Users.builder()
             .email(userInfo.getEmail())
             .nickname(nickname)
-            .provider(userInfo.getProvider())
+            .provider(userInfo.getProvider().toLowerCase())
             .nicknameSet(nicknameSet)
             .build();
 
-        return userRepository.save(newUsers);
+        Users savedUser = userRepository.save(newUsers);
+        log.info("신규 사용자 가입: userId={}, provider={}", savedUser.getId(), userInfo.getProvider());
+        return savedUser;
     }
 
     /**

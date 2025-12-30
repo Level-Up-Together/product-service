@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
@@ -92,10 +94,8 @@ public class HomeService {
                 .map(UserExperience::getCurrentLevel)
                 .orElse(1);
 
-            // 장착된 칭호 조회
-            String equippedTitle = userTitleRepository.findEquippedByUserId(odayUserId)
-                .map(ut -> ut.getTitle().getDisplayName())
-                .orElse(null);
+            // 장착된 칭호 조회 (LEFT + RIGHT 조합)
+            String equippedTitle = getCombinedEquippedTitleName(odayUserId);
 
             result.add(TodayPlayerResponse.of(
                 odayUserId,
@@ -183,5 +183,39 @@ public class HomeService {
         HomeBanner saved = homeBannerRepository.save(banner);
         log.info("Banner deactivated: id={}", saved.getId());
         return HomeBannerResponse.from(saved);
+    }
+
+    /**
+     * 사용자의 장착된 칭호 조합 이름 조회 (LEFT + RIGHT)
+     * 예: "용감한 전사", "전설적인 챔피언"
+     */
+    private String getCombinedEquippedTitleName(String userId) {
+        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
+        if (equippedTitles.isEmpty()) {
+            return null;
+        }
+
+        String leftTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        String rightTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        if (leftTitle == null && rightTitle == null) {
+            return null;
+        }
+        if (leftTitle == null) {
+            return rightTitle;
+        }
+        if (rightTitle == null) {
+            return leftTitle;
+        }
+        return leftTitle + " " + rightTitle;
     }
 }

@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.LevelRankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.RankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
@@ -81,9 +83,7 @@ public class RankingService {
             .map(exp -> exp.getCurrentLevel())
             .orElse(1);
 
-        String equippedTitleName = userTitleRepository.findEquippedByUserId(userId)
-            .map(ut -> ut.getTitle().getDisplayName())
-            .orElse(null);
+        String equippedTitleName = getCombinedEquippedTitleName(userId);
 
         return RankingResponse.from(stats, rank, null, userLevel, equippedTitleName);
     }
@@ -121,10 +121,8 @@ public class RankingService {
                 .map(exp -> exp.getCurrentLevel())
                 .orElse(1);
 
-            // 장착된 칭호 조회
-            String equippedTitleName = userTitleRepository.findEquippedByUserId(stats.getUserId())
-                .map(ut -> ut.getTitle().getDisplayName())
-                .orElse(null);
+            // 장착된 칭호 조회 (LEFT + RIGHT 조합)
+            String equippedTitleName = getCombinedEquippedTitleName(stats.getUserId());
 
             responses.add(RankingResponse.from(stats, startRank++, null, userLevel, equippedTitleName));
         }
@@ -171,13 +169,11 @@ public class RankingService {
         Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
             .collect(Collectors.toMap(Users::getId, u -> u));
 
-        // 장착된 칭호 일괄 조회
+        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
         Map<String, String> titleMap = userIds.stream()
             .collect(Collectors.toMap(
                 id -> id,
-                id -> userTitleRepository.findEquippedByUserId(id)
-                    .map(ut -> ut.getTitle().getDisplayName())
-                    .orElse(null)
+                id -> getCombinedEquippedTitleName(id)
             ));
 
         List<LevelRankingResponse> responses = new ArrayList<>();
@@ -231,13 +227,11 @@ public class RankingService {
                 id -> userExperienceRepository.findByUserId(id).orElse(null)
             ));
 
-        // 장착된 칭호 일괄 조회
+        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
         Map<String, String> titleMap = userIds.stream()
             .collect(Collectors.toMap(
                 id -> id,
-                id -> userTitleRepository.findEquippedByUserId(id)
-                    .map(ut -> ut.getTitle().getDisplayName())
-                    .orElse(null)
+                id -> getCombinedEquippedTitleName(id)
             ));
 
         List<LevelRankingResponse> responses = new ArrayList<>();
@@ -290,5 +284,39 @@ public class RankingService {
     private double calculatePercentile(long rank, long totalUsers) {
         if (totalUsers == 0) return 100.0;
         return Math.round((double) rank / totalUsers * 1000) / 10.0;
+    }
+
+    /**
+     * 사용자의 장착된 칭호 조합 이름 조회 (LEFT + RIGHT)
+     * 예: "용감한 전사", "전설적인 챔피언"
+     */
+    private String getCombinedEquippedTitleName(String userId) {
+        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
+        if (equippedTitles.isEmpty()) {
+            return null;
+        }
+
+        String leftTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        String rightTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        if (leftTitle == null && rightTitle == null) {
+            return null;
+        }
+        if (leftTitle == null) {
+            return rightTitle;
+        }
+        if (rightTitle == null) {
+            return leftTitle;
+        }
+        return leftTitle + " " + rightTitle;
     }
 }
