@@ -16,3 +16,10 @@ app:
   prod-config-server-ip: 0.0.0.0
   prod-discovery-server-ip: 0.0.0.0
   prod-db-server-ip: 0.0.0.0
+
+  upload:
+    profile-image:
+      path: ${user.dir}/uploads/profile
+      max-size: 5242880
+      allowed-extensions: jpg,jpeg,png,gif,webp
+      url-prefix: /uploads/profile

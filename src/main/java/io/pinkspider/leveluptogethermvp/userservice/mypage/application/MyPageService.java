@@ -19,6 +19,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse.UserTitleItem;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
+import org.springframework.web.multipart.MultipartFile;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -46,6 +47,7 @@ public class MyPageService {
     private final UserStatsRepository userStatsRepository;
     private final FriendshipRepository friendshipRepository;
     private final LevelConfigRepository levelConfigRepository;
+    private final ProfileImageStorageService profileImageStorageService;
 
     /**
      * MyPage 전체 데이터 조회
@@ -61,7 +63,7 @@ public class MyPageService {
     }
 
     /**
-     * 프로필 이미지 변경
+     * 프로필 이미지 변경 (URL 직접 지정)
      */
     @Transactional
     public ProfileInfo updateProfileImage(String userId, ProfileUpdateRequest request) {
@@ -71,6 +73,40 @@ public class MyPageService {
         userRepository.save(user);
 
         log.info("프로필 이미지 변경: userId={}", userId);
+
+        return buildProfileInfo(user, userId);
+    }
+
+    /**
+     * 프로필 이미지 업로드
+     *
+     * @param userId 사용자 ID
+     * @param imageFile 업로드할 이미지 파일
+     * @return 업데이트된 프로필 정보
+     */
+    @Transactional
+    public ProfileInfo uploadProfileImage(String userId, MultipartFile imageFile) {
+        Users user = findUserOrThrow(userId);
+
+        // 유효성 검증
+        if (!profileImageStorageService.isValidImage(imageFile)) {
+            throw new CustomException("PROFILE_002", "유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 5MB)");
+        }
+
+        // 기존 이미지 삭제 (로컬 저장 이미지만)
+        String oldImageUrl = user.getPicture();
+        if (oldImageUrl != null) {
+            profileImageStorageService.delete(oldImageUrl);
+        }
+
+        // 새 이미지 저장
+        String newImageUrl = profileImageStorageService.store(imageFile, userId);
+
+        // 사용자 정보 업데이트
+        user.updatePicture(newImageUrl);
+        userRepository.save(user);
+
+        log.info("프로필 이미지 업로드: userId={}, newImageUrl={}", userId, newImageUrl);
 
         return buildProfileInfo(user, userId);
     }
