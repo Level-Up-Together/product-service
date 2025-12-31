@@ -214,6 +214,11 @@ resilience4j:
         minimum-number-of-calls: 1
         wait-duration-in-open-state: 5000
 
+# 이미지 검증 설정 (테스트 환경은 비활성화)
+moderation:
+  image:
+    provider: none
+
 app:
   admin:
     api-url: http://localhost:8080
