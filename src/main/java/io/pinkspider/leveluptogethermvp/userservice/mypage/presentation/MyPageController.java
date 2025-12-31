@@ -14,13 +14,17 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/mypage")
@@ -44,7 +48,7 @@ public class MyPageController {
     }
 
     /**
-     * 프로필 이미지 변경
+     * 프로필 이미지 변경 (URL 직접 지정)
      *
      * @param userId 사용자 ID (JWT 토큰에서 추출)
      * @param request 프로필 업데이트 요청
@@ -56,6 +60,22 @@ public class MyPageController {
         @Valid @RequestBody ProfileUpdateRequest request) {
 
         ProfileInfo response = myPageService.updateProfileImage(userId, request);
+        return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
+    }
+
+    /**
+     * 프로필 이미지 업로드
+     *
+     * @param userId 사용자 ID (JWT 토큰에서 추출)
+     * @param image 업로드할 이미지 파일
+     * @return 업데이트된 프로필 정보
+     */
+    @PostMapping(value = "/profile/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResult<ProfileInfo>> uploadProfileImage(
+        @CurrentUser String userId,
+        @RequestPart("image") MultipartFile image) {
+
+        ProfileInfo response = myPageService.uploadProfileImage(userId, image);
         return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
     }
 
