@@ -83,6 +83,6 @@ jobs:
           ssh -i ~/.ssh/github_action $SERVER_USER@$DEPLOY_SERVER_IP << EOF
           cd /home/$SERVER_USER/levelUpTogether/backend
           chmod 700 /home/$SERVER_USER/levelUpTogether/backend/${PROJECT_NAME}*-exec.jar 
-          sh /home/$SERVER_USER/levelUpTogether/bin/deploy.sh $PROJECT_NAME dev /home/$SERVER_USER 512m
+          sh /home/$SERVER_USER/levelUpTogether/bin/deploy.sh $PROJECT_NAME dev /home/$SERVER_USER 2048m
           sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart ${PROJECT}-api.json
           EOF
