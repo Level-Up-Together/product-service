@@ -84,6 +84,10 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Comment("메모")
     private String note;
 
+    @Column(name = "image_url", length = 500)
+    @Comment("첨부 이미지 URL")
+    private String imageUrl;
+
     @Version
     @Column(name = "version")
     @Comment("낙관적 락 버전")
