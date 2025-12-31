@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.supportservice.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
-import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryType;
+import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryTypeOption;
 import io.pinkspider.leveluptogethermvp.supportservice.application.CustomerInquiryService;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
@@ -72,8 +72,8 @@ public class CustomerInquiryController {
      * 문의 유형 목록 조회
      */
     @GetMapping("/types")
-    public ResponseEntity<ApiResult<InquiryType[]>> getInquiryTypes() {
-        InquiryType[] types = customerInquiryService.getInquiryTypes();
-        return ResponseEntity.ok(ApiResult.<InquiryType[]>builder().value(types).build());
+    public ResponseEntity<ApiResult<InquiryTypeOption[]>> getInquiryTypes() {
+        InquiryTypeOption[] types = customerInquiryService.getInquiryTypeOptions();
+        return ResponseEntity.ok(ApiResult.<InquiryTypeOption[]>builder().value(types).build());
     }
 }

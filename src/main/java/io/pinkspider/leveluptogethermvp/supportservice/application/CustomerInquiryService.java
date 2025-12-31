@@ -4,6 +4,8 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryType;
+import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryTypeOption;
+import java.util.Arrays;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
@@ -90,7 +92,7 @@ public class CustomerInquiryService {
     }
 
     /**
-     * 문의 유형 목록 조회
+     * 문의 유형 목록 조회 (enum 배열)
      */
     public InquiryType[] getInquiryTypes() {
         try {
@@ -105,5 +107,14 @@ public class CustomerInquiryService {
             log.error("문의 유형 조회 실패", e);
             return InquiryType.values();
         }
+    }
+
+    /**
+     * 문의 유형 옵션 목록 조회 (value, label 포함)
+     */
+    public InquiryTypeOption[] getInquiryTypeOptions() {
+        return Arrays.stream(InquiryType.values())
+            .map(InquiryTypeOption::from)
+            .toArray(InquiryTypeOption[]::new);
     }
 }
