@@ -15,11 +15,10 @@ public interface FeaturedFeedRepository extends JpaRepository<FeaturedFeed, Long
 
     /**
      * 특정 카테고리의 활성화된 추천 피드 목록 조회 (현재 시간 기준)
-     * 글로벌 피드 (categoryId=null)도 포함
      */
     @Query("""
         SELECT ff FROM FeaturedFeed ff
-        WHERE (ff.categoryId = :categoryId OR ff.categoryId IS NULL)
+        WHERE ff.categoryId = :categoryId
         AND ff.isActive = true
         AND (ff.startAt IS NULL OR ff.startAt <= :now)
         AND (ff.endAt IS NULL OR ff.endAt > :now)
@@ -77,7 +76,7 @@ public interface FeaturedFeedRepository extends JpaRepository<FeaturedFeed, Long
      */
     @Query("""
         SELECT ff.feedId FROM FeaturedFeed ff
-        WHERE (ff.categoryId = :categoryId OR ff.categoryId IS NULL)
+        WHERE ff.categoryId = :categoryId
         AND ff.isActive = true
         AND (ff.startAt IS NULL OR ff.startAt <= :now)
         AND (ff.endAt IS NULL OR ff.endAt > :now)
