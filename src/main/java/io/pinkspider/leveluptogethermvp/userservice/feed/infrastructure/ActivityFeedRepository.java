@@ -68,4 +68,14 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         @Param("keyword") String keyword,
         @Param("types") List<ActivityType> types,
         Pageable pageable);
+
+    // 카테고리별 공개 피드 조회 (미션 카테고리 기준)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
+           "AND f.categoryId = :categoryId ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsByCategoryId(
+        @Param("categoryId") Long categoryId, Pageable pageable);
+
+    // ID 목록으로 피드 조회 (Featured Feed 조회용)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
+    List<ActivityFeed> findByIdIn(@Param("feedIds") List<Long> feedIds);
 }

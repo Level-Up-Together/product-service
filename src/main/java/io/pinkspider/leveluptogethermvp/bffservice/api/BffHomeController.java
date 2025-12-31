@@ -34,14 +34,15 @@ public class BffHomeController {
      * 홈 화면 데이터 조회 (BFF)
      * <p>
      * 다음 데이터를 한 번에 조회합니다:
-     * - 피드 목록 (페이징)
-     * - 오늘의 플레이어 랭킹
+     * - 피드 목록 (페이징, 카테고리 필터)
+     * - 오늘의 플레이어 랭킹 (카테고리 필터)
      * - 미션 카테고리 목록
      * - 내 길드 목록
-     * - 공개 길드 목록 (페이징)
+     * - 공개 길드 목록 (카테고리 필터)
      * - 활성 공지사항 목록
      *
      * @param userId 인증된 사용자 ID
+     * @param categoryId 카테고리 ID (선택적, null이면 전체)
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
@@ -50,11 +51,12 @@ public class BffHomeController {
     @GetMapping("/home")
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
         @CurrentUser String userId,
+        @RequestParam(required = false) Long categoryId,
         @RequestParam(defaultValue = "0") int feedPage,
         @RequestParam(defaultValue = "20") int feedSize,
         @RequestParam(defaultValue = "5") int publicGuildSize
     ) {
-        HomeDataResponse response = bffHomeService.getHomeData(userId, feedPage, feedSize, publicGuildSize);
+        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
 

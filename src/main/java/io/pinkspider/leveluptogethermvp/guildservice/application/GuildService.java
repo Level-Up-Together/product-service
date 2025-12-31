@@ -15,20 +15,26 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedGuild;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedGuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +52,7 @@ public class GuildService {
     private final ApplicationContext applicationContext;
     private final GuildHeadquartersService guildHeadquartersService;
     private final UserRepository userRepository;
+    private final FeaturedGuildRepository featuredGuildRepository;
 
     @Transactional
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -148,6 +155,57 @@ public class GuildService {
                 int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
                 return buildGuildResponseWithCategory(guild, memberCount);
             });
+    }
+
+    /**
+     * 카테고리별 공개 길드 목록 조회 (하이브리드 선정)
+     * 1. Admin이 설정한 Featured Guild 먼저 표시
+     * 2. 자동 선정 (해당 카테고리의 공개 길드, 멤버 수 순)
+     * 3. 중복 제거 후 최대 5개 반환
+     */
+    public List<GuildResponse> getPublicGuildsByCategory(Long categoryId) {
+        LocalDateTime now = LocalDateTime.now();
+        List<GuildResponse> result = new ArrayList<>();
+        Set<Long> addedGuildIds = new HashSet<>();
+        int maxGuilds = 5;
+
+        // 1. Admin Featured Guilds 먼저 조회
+        List<FeaturedGuild> featuredGuilds = featuredGuildRepository.findActiveFeaturedGuilds(categoryId, now);
+        for (FeaturedGuild fg : featuredGuilds) {
+            if (result.size() >= maxGuilds) break;
+
+            Long guildId = fg.getGuildId();
+            if (addedGuildIds.contains(guildId)) continue;
+
+            try {
+                Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId).orElse(null);
+                if (guild != null && guild.isPublic()) {
+                    int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+                    result.add(buildGuildResponseWithCategory(guild, memberCount));
+                    addedGuildIds.add(guildId);
+                }
+            } catch (Exception e) {
+                log.warn("Featured 길드 조회 실패: guildId={}", guildId, e);
+            }
+        }
+
+        // 2. 자동 선정: 해당 카테고리의 공개 길드 (멤버 수 순)
+        if (result.size() < maxGuilds) {
+            int remaining = maxGuilds - result.size();
+            List<Guild> autoGuilds = guildRepository.findPublicGuildsByCategoryOrderByMemberCount(
+                categoryId, PageRequest.of(0, remaining + addedGuildIds.size()));
+
+            for (Guild guild : autoGuilds) {
+                if (result.size() >= maxGuilds) break;
+                if (addedGuildIds.contains(guild.getId())) continue;
+
+                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+                result.add(buildGuildResponseWithCategory(guild, memberCount));
+                addedGuildIds.add(guild.getId());
+            }
+        }
+
+        return result;
     }
 
     public List<GuildResponse> getMyGuilds(String userId) {

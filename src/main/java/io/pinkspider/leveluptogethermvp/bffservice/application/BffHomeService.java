@@ -41,18 +41,26 @@ public class BffHomeService {
      * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다.
      *
      * @param userId 현재 로그인한 사용자 ID
+     * @param categoryId 카테고리 ID (선택적, null이면 전체)
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
      * @return HomeDataResponse 홈 화면 데이터
      */
-    public HomeDataResponse getHomeData(String userId, int feedPage, int feedSize, int publicGuildSize) {
-        log.info("BFF getHomeData called: userId={}, feedPage={}, feedSize={}", userId, feedPage, feedSize);
+    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize) {
+        log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}", userId, categoryId, feedPage, feedSize);
 
         // 병렬로 모든 데이터 조회
         CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Page<ActivityFeedResponse> feedPage1 = activityFeedService.getPublicFeeds(userId, feedPage, feedSize);
+                Page<ActivityFeedResponse> feedPage1;
+                if (categoryId != null) {
+                    // 카테고리별 피드 조회 (하이브리드)
+                    feedPage1 = activityFeedService.getPublicFeedsByCategory(categoryId, userId, feedPage, feedSize);
+                } else {
+                    // 전체 피드 조회
+                    feedPage1 = activityFeedService.getPublicFeeds(userId, feedPage, feedSize);
+                }
                 return FeedPageData.builder()
                     .content(feedPage1.getContent())
                     .page(feedPage1.getNumber())
@@ -74,7 +82,13 @@ public class BffHomeService {
 
         CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return homeService.getTodayPlayers();
+                if (categoryId != null) {
+                    // 카테고리별 오늘의 플레이어 조회 (하이브리드)
+                    return homeService.getTodayPlayersByCategory(categoryId);
+                } else {
+                    // 전체 오늘의 플레이어 조회
+                    return homeService.getTodayPlayers();
+                }
             } catch (Exception e) {
                 log.error("Failed to fetch rankings", e);
                 return Collections.emptyList();
@@ -101,14 +115,27 @@ public class BffHomeService {
 
         CompletableFuture<GuildPageData> publicGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Page<GuildResponse> guildPage = guildService.getPublicGuilds(PageRequest.of(0, publicGuildSize));
-                return GuildPageData.builder()
-                    .content(guildPage.getContent())
-                    .page(guildPage.getNumber())
-                    .size(guildPage.getSize())
-                    .totalElements(guildPage.getTotalElements())
-                    .totalPages(guildPage.getTotalPages())
-                    .build();
+                if (categoryId != null) {
+                    // 카테고리별 공개 길드 조회 (하이브리드)
+                    List<GuildResponse> guilds = guildService.getPublicGuildsByCategory(categoryId);
+                    return GuildPageData.builder()
+                        .content(guilds)
+                        .page(0)
+                        .size(guilds.size())
+                        .totalElements(guilds.size())
+                        .totalPages(1)
+                        .build();
+                } else {
+                    // 전체 공개 길드 조회
+                    Page<GuildResponse> guildPage = guildService.getPublicGuilds(PageRequest.of(0, publicGuildSize));
+                    return GuildPageData.builder()
+                        .content(guildPage.getContent())
+                        .page(guildPage.getNumber())
+                        .size(guildPage.getSize())
+                        .totalElements(guildPage.getTotalElements())
+                        .totalPages(guildPage.getTotalPages())
+                        .build();
+                }
             } catch (Exception e) {
                 log.error("Failed to fetch public guilds", e);
                 return GuildPageData.builder()
@@ -145,7 +172,7 @@ public class BffHomeService {
             .notices(noticesFuture.join())
             .build();
 
-        log.info("BFF getHomeData completed: userId={}", userId);
+        log.info("BFF getHomeData completed: userId={}, categoryId={}", userId, categoryId);
         return response;
     }
 }

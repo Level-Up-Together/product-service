@@ -66,4 +66,23 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         AND eh.expAmount > 0
         """)
     long countUsersByCategory(@Param("categoryName") String categoryName);
+
+    /**
+     * 특정 카테고리 + 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N)
+     * 카테고리별 오늘의 플레이어 기능에 사용
+     */
+    @Query("""
+        SELECT eh.userId, SUM(eh.expAmount) as totalExp
+        FROM ExperienceHistory eh
+        WHERE eh.categoryName = :categoryName
+        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.expAmount > 0
+        GROUP BY eh.userId
+        ORDER BY totalExp DESC
+        """)
+    List<Object[]> findTopExpGainersByCategoryAndPeriod(
+        @Param("categoryName") String categoryName,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        Pageable pageable);
 }

@@ -1,5 +1,9 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedPlayer;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedPlayerRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
@@ -17,7 +21,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +42,8 @@ public class HomeService {
     private final UserRepository userRepository;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
+    private final FeaturedPlayerRepository featuredPlayerRepository;
+    private final MissionCategoryRepository missionCategoryRepository;
 
     /**
      * 활성화된 배너 목록 조회
@@ -109,6 +117,98 @@ public class HomeService {
         }
 
         return result;
+    }
+
+    /**
+     * 카테고리별 오늘의 플레이어 목록 조회 (하이브리드 선정)
+     * 1. Admin이 설정한 Featured Player 먼저 표시
+     * 2. 자동 선정 (어제 해당 카테고리에서 가장 경험치를 많이 획득한 사람)
+     * 3. 중복 제거 후 최대 5명 반환
+     */
+    public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDateTime startDate = yesterday.atStartOfDay();
+        LocalDateTime endDate = yesterday.atTime(LocalTime.MAX);
+
+        List<TodayPlayerResponse> result = new ArrayList<>();
+        Set<String> addedUserIds = new HashSet<>();
+        int rank = 1;
+        int maxPlayers = 5;
+
+        // 1. Admin Featured Players 먼저 조회
+        List<FeaturedPlayer> featuredPlayers = featuredPlayerRepository.findActiveFeaturedPlayers(categoryId, now);
+        for (FeaturedPlayer fp : featuredPlayers) {
+            if (result.size() >= maxPlayers) break;
+
+            String userId = fp.getUserId();
+            if (addedUserIds.contains(userId)) continue;
+
+            TodayPlayerResponse player = buildTodayPlayerResponse(userId, 0L, rank);
+            if (player != null) {
+                result.add(player);
+                addedUserIds.add(userId);
+                rank++;
+            }
+        }
+
+        // 2. 자동 선정: 해당 카테고리에서 어제 가장 경험치 많이 획득한 사람
+        if (result.size() < maxPlayers) {
+            // 카테고리명 조회
+            String categoryName = missionCategoryRepository.findById(categoryId)
+                .map(MissionCategory::getName)
+                .orElse(null);
+
+            if (categoryName != null) {
+                int remaining = maxPlayers - result.size();
+                List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                    categoryName, startDate, endDate, PageRequest.of(0, remaining + addedUserIds.size()));
+
+                for (Object[] row : topGainers) {
+                    if (result.size() >= maxPlayers) break;
+
+                    String odayUserId = (String) row[0];
+                    Long earnedExp = ((Number) row[1]).longValue();
+
+                    if (addedUserIds.contains(odayUserId)) continue;
+
+                    TodayPlayerResponse player = buildTodayPlayerResponse(odayUserId, earnedExp, rank);
+                    if (player != null) {
+                        result.add(player);
+                        addedUserIds.add(odayUserId);
+                        rank++;
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * TodayPlayerResponse 생성 헬퍼 메서드
+     */
+    private TodayPlayerResponse buildTodayPlayerResponse(String userId, Long earnedExp, int rank) {
+        Users user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return null;
+        }
+
+        Integer level = userExperienceRepository.findByUserId(userId)
+            .map(UserExperience::getCurrentLevel)
+            .orElse(1);
+
+        String equippedTitle = getCombinedEquippedTitleName(userId);
+
+        return TodayPlayerResponse.of(
+            userId,
+            user.getNickname(),
+            user.getPicture(),
+            level,
+            equippedTitle,
+            earnedExp,
+            rank
+        );
     }
 
     /**

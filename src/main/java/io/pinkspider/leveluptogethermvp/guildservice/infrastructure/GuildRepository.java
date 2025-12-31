@@ -51,4 +51,19 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
            "AND g.baseLatitude IS NOT NULL AND g.baseLongitude IS NOT NULL " +
            "AND g.id != :excludeGuildId")
     List<Guild> findAllWithHeadquartersExcluding(@Param("excludeGuildId") Long excludeGuildId);
+
+    /**
+     * 카테고리별 공개 길드 조회 (멤버 수 기준 정렬)
+     * 서브쿼리로 멤버 수 계산하여 정렬
+     */
+    @Query("""
+        SELECT g FROM Guild g
+        WHERE g.categoryId = :categoryId
+        AND g.visibility = 'PUBLIC'
+        AND g.isActive = true
+        ORDER BY (SELECT COUNT(m) FROM GuildMember m
+                  WHERE m.guild = g AND m.status = 'ACTIVE') DESC
+        """)
+    List<Guild> findPublicGuildsByCategoryOrderByMemberCount(
+        @Param("categoryId") Long categoryId, Pageable pageable);
 }

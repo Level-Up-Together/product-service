@@ -27,11 +27,11 @@ public interface UserTitleRepository extends JpaRepository<UserTitle, Long> {
     @Query("SELECT ut FROM UserTitle ut JOIN FETCH ut.title WHERE ut.userId = :userId AND ut.isEquipped = true AND ut.equippedPosition = :position")
     Optional<UserTitle> findEquippedByUserIdAndPosition(@Param("userId") String userId, @Param("position") TitlePosition position);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserTitle ut SET ut.isEquipped = false, ut.equippedPosition = null WHERE ut.userId = :userId")
     void unequipAllByUserId(@Param("userId") String userId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserTitle ut SET ut.isEquipped = false, ut.equippedPosition = null WHERE ut.userId = :userId AND ut.equippedPosition = :position")
     void unequipByUserIdAndPosition(@Param("userId") String userId, @Param("position") TitlePosition position);
 

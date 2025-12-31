@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.application;
 
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedFeed;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedFeedRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
@@ -15,9 +17,13 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.Activity
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +43,7 @@ public class ActivityFeedService {
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
     private final FriendshipRepository friendshipRepository;
+    private final FeaturedFeedRepository featuredFeedRepository;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -107,6 +114,77 @@ public class ActivityFeedService {
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
         return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+    }
+
+    /**
+     * 카테고리별 공개 피드 조회 (하이브리드 선정)
+     * 1. Admin이 설정한 Featured Feed 먼저 표시
+     * 2. 자동 선정 (해당 카테고리의 최신 공개 피드)
+     * 3. 중복 제거 후 페이징
+     */
+    public Page<ActivityFeedResponse> getPublicFeedsByCategory(Long categoryId, String currentUserId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Admin Featured Feeds 먼저 조회
+        List<FeaturedFeed> featuredFeeds = featuredFeedRepository.findActiveFeaturedFeeds(categoryId, now);
+        List<Long> featuredFeedIds = featuredFeeds.stream()
+            .map(FeaturedFeed::getFeedId)
+            .toList();
+
+        List<ActivityFeed> featuredFeedList = new ArrayList<>();
+        if (!featuredFeedIds.isEmpty()) {
+            List<ActivityFeed> fetchedFeeds = activityFeedRepository.findByIdIn(featuredFeedIds);
+            // displayOrder 순서 유지를 위해 Map 사용
+            Map<Long, ActivityFeed> feedMap = fetchedFeeds.stream()
+                .filter(f -> f.getVisibility() == FeedVisibility.PUBLIC)
+                .collect(Collectors.toMap(ActivityFeed::getId, Function.identity()));
+            for (Long feedId : featuredFeedIds) {
+                ActivityFeed feed = feedMap.get(feedId);
+                if (feed != null) {
+                    featuredFeedList.add(feed);
+                }
+            }
+        }
+
+        // 2. 카테고리별 일반 피드 조회
+        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryId(categoryId, pageable);
+
+        // 3. Featured 피드와 합치기 (첫 페이지에만 Featured 추가)
+        List<ActivityFeed> combinedFeeds = new ArrayList<>();
+        Set<Long> addedFeedIds = new HashSet<>();
+
+        if (page == 0) {
+            for (ActivityFeed featured : featuredFeedList) {
+                if (!addedFeedIds.contains(featured.getId())) {
+                    combinedFeeds.add(featured);
+                    addedFeedIds.add(featured.getId());
+                }
+            }
+        }
+
+        for (ActivityFeed feed : categoryFeeds.getContent()) {
+            if (!addedFeedIds.contains(feed.getId())) {
+                combinedFeeds.add(feed);
+                addedFeedIds.add(feed.getId());
+            }
+        }
+
+        // 4. 사이즈 조정 (첫 페이지에 featured가 추가되므로)
+        if (combinedFeeds.size() > size) {
+            combinedFeeds = combinedFeeds.subList(0, size);
+        }
+
+        Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, combinedFeeds);
+        List<ActivityFeedResponse> responseList = combinedFeeds.stream()
+            .map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())))
+            .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+            responseList,
+            pageable,
+            categoryFeeds.getTotalElements() + (page == 0 ? featuredFeedList.size() : 0)
+        );
     }
 
     /**

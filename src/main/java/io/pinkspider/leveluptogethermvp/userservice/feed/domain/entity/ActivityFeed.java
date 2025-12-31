@@ -33,7 +33,8 @@ import org.hibernate.annotations.Comment;
         @Index(name = "idx_feed_user", columnList = "user_id"),
         @Index(name = "idx_feed_created", columnList = "created_at DESC"),
         @Index(name = "idx_feed_visibility", columnList = "visibility"),
-        @Index(name = "idx_feed_guild", columnList = "guild_id")
+        @Index(name = "idx_feed_guild", columnList = "guild_id"),
+        @Index(name = "idx_feed_category", columnList = "category_id")
     })
 @Comment("활동 피드")
 public class ActivityFeed extends LocalDateTimeBaseEntity {
@@ -87,6 +88,10 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Column(name = "guild_id")
     @Comment("관련 길드 ID")
     private Long guildId;
+
+    @Column(name = "category_id")
+    @Comment("미션 카테고리 ID")
+    private Long categoryId;
 
     @Column(name = "image_url", length = 500)
     @Comment("이미지 URL")

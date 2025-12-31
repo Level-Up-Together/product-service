@@ -3,7 +3,9 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
@@ -148,8 +150,8 @@ class BffHomeServiceTest {
             when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
-            // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            // when - categoryId = null (전체 조회)
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -159,6 +161,81 @@ class BffHomeServiceTest {
             assertThat(response.getMyGuilds()).hasSize(1);
             assertThat(response.getPublicGuilds().getContent()).hasSize(1);
             assertThat(response.getNotices()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("카테고리별 필터링 데이터를 정상적으로 조회한다")
+        void getHomeData_withCategoryFilter_success() {
+            // given
+            Long categoryId = 1L;
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 20), 1
+            );
+
+            when(activityFeedService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayersByCategory(categoryId)).thenReturn(List.of(testPlayerResponse));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuildsByCategory(categoryId)).thenReturn(List.of(testGuildResponse));
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getRankings()).hasSize(1);
+            assertThat(response.getCategories()).hasSize(1);
+            assertThat(response.getMyGuilds()).hasSize(1);
+            assertThat(response.getPublicGuilds().getContent()).hasSize(1);
+            assertThat(response.getNotices()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("카테고리별 오늘의 플레이어 조회 실패 시 빈 목록 반환")
+        void getHomeData_withCategory_rankingsFetchFailed() {
+            // given
+            Long categoryId = 1L;
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
+
+            when(activityFeedService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayersByCategory(categoryId)).thenThrow(new RuntimeException("랭킹 조회 실패"));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuildsByCategory(categoryId)).thenReturn(List.of(testGuildResponse));
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getRankings()).isEmpty();
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("카테고리별 공개 길드 조회 실패 시 빈 목록 반환")
+        void getHomeData_withCategory_publicGuildsFetchFailed() {
+            // given
+            Long categoryId = 1L;
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
+
+            when(activityFeedService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayersByCategory(categoryId)).thenReturn(List.of(testPlayerResponse));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuildsByCategory(categoryId)).thenThrow(new RuntimeException("길드 조회 실패"));
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getPublicGuilds().getContent()).isEmpty();
+            assertThat(response.getMyGuilds()).hasSize(1);
         }
 
         @Test
@@ -176,7 +253,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -200,7 +277,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -224,7 +301,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -248,7 +325,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -271,7 +348,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -295,7 +372,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenThrow(new RuntimeException("공지사항 조회 실패"));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -319,7 +396,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();
@@ -344,7 +421,7 @@ class BffHomeServiceTest {
             when(noticeService.getActiveNotices()).thenReturn(Collections.emptyList());
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, 0, 20, 5);
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5);
 
             // then
             assertThat(response).isNotNull();

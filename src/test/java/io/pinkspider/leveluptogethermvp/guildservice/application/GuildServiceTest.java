@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,10 +26,14 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedGuild;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedGuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +65,9 @@ class GuildServiceTest {
 
     @Mock
     private ApplicationContext applicationContext;
+
+    @Mock
+    private FeaturedGuildRepository featuredGuildRepository;
 
     @InjectMocks
     private GuildService guildService;
@@ -499,6 +507,165 @@ class GuildServiceTest {
             assertThatThrownBy(() -> guildService.transferMaster(1L, nonMasterId, newMasterId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("길드 마스터만 이 작업을 수행할 수 있습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("카테고리별 공개 길드 조회 테스트")
+    class GetPublicGuildsByCategoryTest {
+
+        @Test
+        @DisplayName("Featured 길드 우선 표시 후 자동 선정 길드를 조회한다")
+        void getPublicGuildsByCategory_hybridSelection() {
+            // given
+            Long guildId = 1L;
+            Long featuredGuildId = 2L;
+            Guild featuredGuild = Guild.builder()
+                .name("추천 길드")
+                .description("추천 길드 설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .masterId("featured-master")
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(featuredGuild, featuredGuildId);
+
+            FeaturedGuild fg = FeaturedGuild.builder()
+                .categoryId(testCategoryId)
+                .guildId(featuredGuildId)
+                .displayOrder(1)
+                .isActive(true)
+                .build();
+
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
+                .thenReturn(List.of(fg));
+            when(guildRepository.findByIdAndIsActiveTrue(featuredGuildId))
+                .thenReturn(Optional.of(featuredGuild));
+            when(guildMemberRepository.countActiveMembers(featuredGuildId)).thenReturn(10L);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // 자동 선정 길드
+            when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
+                .thenReturn(List.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+
+            // then
+            assertThat(result).hasSize(2);
+            // Featured 길드가 먼저
+            assertThat(result.get(0).getId()).isEqualTo(featuredGuildId);
+            assertThat(result.get(0).getName()).isEqualTo("추천 길드");
+            // 자동 선정 길드가 그 다음
+            assertThat(result.get(1).getId()).isEqualTo(guildId);
+        }
+
+        @Test
+        @DisplayName("Featured 길드가 없으면 자동 선정만 조회한다")
+        void getPublicGuildsByCategory_onlyAutoSelection() {
+            // given
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
+                .thenReturn(Collections.emptyList());
+            when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
+                .thenReturn(List.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(1L);
+            assertThat(result.get(0).getName()).isEqualTo("테스트 길드");
+        }
+
+        @Test
+        @DisplayName("중복된 길드는 제외된다")
+        void getPublicGuildsByCategory_noDuplicates() {
+            // given
+            Long guildId = 1L;
+            FeaturedGuild fg = FeaturedGuild.builder()
+                .categoryId(testCategoryId)
+                .guildId(guildId)  // 자동 선정과 동일한 길드
+                .displayOrder(1)
+                .isActive(true)
+                .build();
+
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
+                .thenReturn(List.of(fg));
+            when(guildRepository.findByIdAndIsActiveTrue(guildId))
+                .thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(10L);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // 자동 선정에도 동일한 길드
+            when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
+                .thenReturn(List.of(testGuild));
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+
+            // then
+            assertThat(result).hasSize(1);  // 중복 제거됨
+            assertThat(result.get(0).getId()).isEqualTo(guildId);
+        }
+
+        @Test
+        @DisplayName("카테고리가 null이면 빈 목록을 반환한다")
+        void getPublicGuildsByCategory_nullCategory() {
+            // given
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(null), any()))
+                .thenReturn(Collections.emptyList());
+            when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(null), any()))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("최대 5개까지만 반환한다")
+        void getPublicGuildsByCategory_maxFiveGuilds() {
+            // given
+            List<FeaturedGuild> manyFeaturedGuilds = new java.util.ArrayList<>();
+            for (int i = 1; i <= 6; i++) {
+                Long guildId = (long) (i + 10);  // 11, 12, 13, ...
+                FeaturedGuild fg = FeaturedGuild.builder()
+                    .categoryId(testCategoryId)
+                    .guildId(guildId)
+                    .displayOrder(i)
+                    .isActive(true)
+                    .build();
+                manyFeaturedGuilds.add(fg);
+
+                Guild guild = Guild.builder()
+                    .name("길드 " + i)
+                    .description("설명 " + i)
+                    .visibility(GuildVisibility.PUBLIC)
+                    .masterId("master-" + i)
+                    .maxMembers(50)
+                    .categoryId(testCategoryId)
+                    .build();
+                setGuildId(guild, guildId);
+
+                lenient().when(guildRepository.findByIdAndIsActiveTrue(guildId)).thenReturn(Optional.of(guild));
+                lenient().when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
+            }
+
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
+                .thenReturn(manyFeaturedGuilds);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+
+            // then
+            assertThat(result).hasSize(5);  // 최대 5개
         }
     }
 }

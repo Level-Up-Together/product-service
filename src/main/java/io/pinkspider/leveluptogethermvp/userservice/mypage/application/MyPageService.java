@@ -194,7 +194,18 @@ public class MyPageService {
             throw new CustomException("TITLE_001", "좌측과 우측에 같은 칭호를 설정할 수 없습니다.");
         }
 
-        // 좌측 칭호 조회
+        // 칭호 존재 여부 및 소유권 사전 검증
+        if (!userTitleRepository.existsById(request.getLeftUserTitleId())) {
+            throw new CustomException("TITLE_002", "좌측 칭호를 찾을 수 없습니다.");
+        }
+        if (!userTitleRepository.existsById(request.getRightUserTitleId())) {
+            throw new CustomException("TITLE_002", "우측 칭호를 찾을 수 없습니다.");
+        }
+
+        // 기존 장착 해제 (clearAutomatically=true로 영속성 컨텍스트 클리어됨)
+        userTitleRepository.unequipAllByUserId(userId);
+
+        // 영속성 컨텍스트가 클리어되었으므로 엔티티 다시 조회
         UserTitle leftUserTitle = userTitleRepository.findById(request.getLeftUserTitleId())
             .orElseThrow(() -> new CustomException("TITLE_002", "좌측 칭호를 찾을 수 없습니다."));
 
@@ -202,16 +213,12 @@ public class MyPageService {
             throw new CustomException("TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
         }
 
-        // 우측 칭호 조회
         UserTitle rightUserTitle = userTitleRepository.findById(request.getRightUserTitleId())
             .orElseThrow(() -> new CustomException("TITLE_002", "우측 칭호를 찾을 수 없습니다."));
 
         if (!rightUserTitle.getUserId().equals(userId)) {
             throw new CustomException("TITLE_003", "본인의 칭호만 장착할 수 있습니다.");
         }
-
-        // 기존 장착 해제
-        userTitleRepository.unequipAllByUserId(userId);
 
         // 새로운 칭호 장착
         leftUserTitle.equip(TitlePosition.LEFT);
