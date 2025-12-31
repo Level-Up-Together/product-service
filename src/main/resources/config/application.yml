@@ -23,3 +23,17 @@ app:
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
       url-prefix: /uploads/profile
+
+# 이미지 검증 설정
+# provider: none (기본값, 검증 비활성화), aws-rekognition (운영용)
+moderation:
+  image:
+    provider: none
+    min-confidence: 80.0
+    blocked-categories:
+      - Explicit Nudity
+      - Violence
+      - Visually Disturbing
+      - Hate Symbols
+    aws:
+      region: ap-northeast-2

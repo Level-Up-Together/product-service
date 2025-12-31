@@ -8,6 +8,8 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Us
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
+import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.EquippedTitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.ExperienceInfo;
@@ -48,6 +50,7 @@ public class MyPageService {
     private final FriendshipRepository friendshipRepository;
     private final LevelConfigRepository levelConfigRepository;
     private final ProfileImageStorageService profileImageStorageService;
+    private final ImageModerationService imageModerationService;
 
     /**
      * MyPage 전체 데이터 조회
@@ -91,6 +94,16 @@ public class MyPageService {
         // 유효성 검증
         if (!profileImageStorageService.isValidImage(imageFile)) {
             throw new CustomException("PROFILE_002", "유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 5MB)");
+        }
+
+        // 이미지 콘텐츠 검증 (부적절한 이미지 필터링)
+        if (imageModerationService.isEnabled()) {
+            ImageModerationResult moderationResult = imageModerationService.analyzeImage(imageFile);
+            if (!moderationResult.isSafe()) {
+                log.warn("부적절한 이미지 업로드 시도 차단: userId={}, 사유={}",
+                    userId, moderationResult.getRejectionReason());
+                throw new CustomException("PROFILE_006", "부적절한 이미지가 감지되었습니다. 다른 이미지를 사용해주세요.");
+            }
         }
 
         // 기존 이미지 삭제 (로컬 저장 이미지만)
