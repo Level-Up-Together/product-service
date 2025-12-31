@@ -25,6 +25,7 @@ public class MissionExecutionResponse {
     private Long participantId;
     private Long missionId;
     private String missionTitle;
+    private String missionCategoryName;
     private String userId;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
@@ -59,6 +60,7 @@ public class MissionExecutionResponse {
             .participantId(execution.getParticipant().getId())
             .missionId(execution.getParticipant().getMission().getId())
             .missionTitle(execution.getParticipant().getMission().getTitle())
+            .missionCategoryName(execution.getParticipant().getMission().getCategoryName())
             .userId(execution.getParticipant().getUserId())
             .executionDate(execution.getExecutionDate())
             .status(execution.getStatus())

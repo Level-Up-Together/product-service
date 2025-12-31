@@ -185,4 +185,31 @@ public class MissionExecutionController {
         MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(userId, year, month);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
+
+    /**
+     * 특정 날짜의 미션 실행 정보 조회
+     */
+    @GetMapping("/{missionId}/executions/{executionDate}")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> getExecution(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.getExecutionByDate(missionId, userId, executionDate);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 완료된 미션 실행의 노트(기록) 업데이트
+     */
+    @PatchMapping("/{missionId}/executions/{executionDate}/note")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> updateExecutionNote(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId,
+        @RequestParam(required = false) String note) {
+
+        MissionExecutionResponse response = executionService.updateExecutionNote(missionId, userId, executionDate, note);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
 }
