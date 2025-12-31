@@ -3,6 +3,7 @@ package io.pinkspider.global.config;
 import io.pinkspider.global.interceptor.JwtInterceptor;
 import io.pinkspider.global.interceptor.MultipartInterceptor;
 import io.pinkspider.leveluptogethermvp.userservice.core.resolver.CurrentUserArgumentResolver;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -26,11 +27,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final JwtInterceptor jwtInterceptor;
     private final MultipartInterceptor multipartInterceptor;
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
+    private final ProfileImageProperties profileImageProperties;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/");
+
+        // 프로필 이미지 업로드 디렉토리 매핑
+        String uploadPath = profileImageProperties.getPath();
+        String urlPrefix = profileImageProperties.getUrlPrefix();
+        registry.addResourceHandler(urlPrefix + "/**")
+                .addResourceLocations("file:" + uploadPath + "/");
     }
 
     @Override

@@ -4,6 +4,8 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.mock.web.MockMultipartFile;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
@@ -239,6 +241,62 @@ class MyPageControllerTest {
                         .requestFields(
                             fieldWithPath("profile_image_url").type(JsonFieldType.STRING).description("새 프로필 이미지 URL")
                         )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("업데이트된 프로필 정보"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL"),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/mypage/profile/image : 프로필 이미지 업로드")
+    void uploadProfileImageTest() throws Exception {
+        // given
+        MockMultipartFile imageFile = new MockMultipartFile(
+            "image",
+            "profile.jpg",
+            MediaType.IMAGE_JPEG_VALUE,
+            "test image content".getBytes()
+        );
+
+        ProfileInfo response = ProfileInfo.builder()
+            .userId(MOCK_USER_ID)
+            .nickname("테스트유저")
+            .profileImageUrl("/uploads/profile/" + MOCK_USER_ID + "/uuid-generated.jpg")
+            .followerCount(10)
+            .followingCount(10)
+            .build();
+
+        when(myPageService.uploadProfileImage(anyString(), any(MultipartFile.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.multipart("/api/v1/mypage/profile/image")
+                .file(imageFile)
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-05. 프로필 이미지 업로드",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("프로필 이미지 파일 업로드 (multipart/form-data) (JWT 토큰 인증 필요)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
