@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateReque
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildJoinRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
@@ -82,9 +83,10 @@ public class GuildService {
             .name(request.getName())
             .description(request.getDescription())
             .visibility(request.getVisibility())
+            .joinType(request.getJoinType() != null ? request.getJoinType() : GuildJoinType.OPEN)
             .masterId(userId)
             .categoryId(request.getCategoryId())
-            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 50)
+            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 10)
             .imageUrl(request.getImageUrl())
             .baseAddress(request.getBaseAddress())
             .baseLatitude(request.getBaseLatitude())
@@ -235,6 +237,9 @@ public class GuildService {
         if (request.getVisibility() != null) {
             guild.setVisibility(request.getVisibility());
         }
+        if (request.getJoinType() != null) {
+            guild.setJoinType(request.getJoinType());
+        }
         if (request.getMaxMembers() != null) {
             guild.setMaxMembers(request.getMaxMembers());
         }
@@ -283,7 +288,7 @@ public class GuildService {
         log.info("길드 마스터 이전: guildId={}, {} -> {}", guildId, currentMasterId, newMasterId);
     }
 
-    // 가입 신청 (공개 길드)
+    // 가입 신청 또는 바로 가입 (공개 길드)
     @Transactional
     public GuildJoinRequestResponse requestJoin(Long guildId, String userId, GuildJoinRequestDto request) {
         Guild guild = findActiveGuildById(guildId);
@@ -304,13 +309,41 @@ public class GuildService {
             throw new IllegalStateException("이미 길드 멤버입니다.");
         }
 
-        if (joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(guildId, userId, JoinRequestStatus.PENDING)) {
-            throw new IllegalStateException("이미 가입 신청이 진행 중입니다.");
-        }
-
         int currentMembers = (int) guildMemberRepository.countActiveMembers(guildId);
         if (currentMembers >= guild.getMaxMembers()) {
             throw new IllegalStateException("길드 인원이 가득 찼습니다.");
+        }
+
+        // OPEN 길드는 바로 가입 처리
+        if (guild.isOpenJoin()) {
+            GuildMember newMember = GuildMember.builder()
+                .guild(guild)
+                .userId(userId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            guildMemberRepository.save(newMember);
+
+            // 길드 가입 업적 체크
+            triggerGuildAchievements(userId, true, false);
+
+            log.info("길드 바로 가입 (OPEN): guildId={}, userId={}", guildId, userId);
+
+            // 바로 가입된 경우 APPROVED 상태의 응답 반환
+            return GuildJoinRequestResponse.builder()
+                .id(null)
+                .guildId(guildId)
+                .requesterId(userId)
+                .status(JoinRequestStatus.APPROVED)
+                .message("자동 가입되었습니다.")
+                .build();
+        }
+
+        // APPROVAL_REQUIRED 길드는 가입 신청 처리
+        if (joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(guildId, userId, JoinRequestStatus.PENDING)) {
+            throw new IllegalStateException("이미 가입 신청이 진행 중입니다.");
         }
 
         GuildJoinRequest joinRequest = GuildJoinRequest.builder()
@@ -320,7 +353,7 @@ public class GuildService {
             .build();
 
         GuildJoinRequest savedRequest = joinRequestRepository.save(joinRequest);
-        log.info("길드 가입 신청: guildId={}, requesterId={}", guildId, userId);
+        log.info("길드 가입 신청 (APPROVAL_REQUIRED): guildId={}, requesterId={}", guildId, userId);
 
         return GuildJoinRequestResponse.from(savedRequest);
     }

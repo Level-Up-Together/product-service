@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ public class GuildResponse {
     private String name;
     private String description;
     private GuildVisibility visibility;
+    private GuildJoinType joinType;
     private String masterId;
     private Integer maxMembers;
     private Integer currentMemberCount;
@@ -42,6 +44,7 @@ public class GuildResponse {
             .name(guild.getName())
             .description(guild.getDescription())
             .visibility(guild.getVisibility())
+            .joinType(guild.getJoinType())
             .masterId(guild.getMasterId())
             .maxMembers(guild.getMaxMembers())
             .imageUrl(guild.getImageUrl())
@@ -62,6 +65,7 @@ public class GuildResponse {
             .name(guild.getName())
             .description(guild.getDescription())
             .visibility(guild.getVisibility())
+            .joinType(guild.getJoinType())
             .masterId(guild.getMasterId())
             .maxMembers(guild.getMaxMembers())
             .currentMemberCount(memberCount)
@@ -83,6 +87,7 @@ public class GuildResponse {
             .name(guild.getName())
             .description(guild.getDescription())
             .visibility(guild.getVisibility())
+            .joinType(guild.getJoinType())
             .masterId(guild.getMasterId())
             .maxMembers(guild.getMaxMembers())
             .currentMemberCount(memberCount)
