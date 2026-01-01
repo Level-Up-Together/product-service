@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.Tit
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,7 @@ public class TitleService {
 
     private final TitleRepository titleRepository;
     private final UserTitleRepository userTitleRepository;
+    private final ActivityFeedRepository activityFeedRepository;
 
     // 전체 칭호 목록
     public List<TitleResponse> getAllTitles() {
@@ -66,6 +68,34 @@ public class TitleService {
         return userTitleRepository.findEquippedTitlesByUserId(userId).stream()
             .map(UserTitleResponse::from)
             .toList();
+    }
+
+    // 장착된 칭호의 조합된 이름 반환 (예: "신입 모험가")
+    public String getCombinedEquippedTitleName(String userId) {
+        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
+        if (equippedTitles.isEmpty()) {
+            return null;
+        }
+
+        String leftTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        String rightTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .map(ut -> ut.getTitle().getDisplayName())
+            .orElse(null);
+
+        if (leftTitle != null && rightTitle != null) {
+            return leftTitle + " " + rightTitle;
+        } else if (leftTitle != null) {
+            return leftTitle;
+        } else {
+            return rightTitle;
+        }
     }
 
     // 포지션별 장착된 칭호 조회
@@ -114,6 +144,9 @@ public class TitleService {
         userTitle.equip(position);
         log.info("칭호 장착: userId={}, title={}, position={}", userId, userTitle.getTitle().getName(), position);
 
+        // 피드의 칭호도 업데이트
+        updateUserFeedsTitle(userId);
+
         return UserTitleResponse.from(userTitle);
     }
 
@@ -122,6 +155,9 @@ public class TitleService {
     public void unequipTitle(String userId, TitlePosition position) {
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
         log.info("칭호 해제: userId={}, position={}", userId, position);
+
+        // 피드의 칭호도 업데이트
+        updateUserFeedsTitle(userId);
     }
 
     // 모든 칭호 해제
@@ -129,6 +165,16 @@ public class TitleService {
     public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
         log.info("모든 칭호 해제: userId={}", userId);
+
+        // 피드의 칭호도 업데이트
+        updateUserFeedsTitle(userId);
+    }
+
+    // 사용자의 모든 피드의 칭호 업데이트
+    private void updateUserFeedsTitle(String userId) {
+        String combinedTitle = getCombinedEquippedTitleName(userId);
+        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle);
+        log.info("피드 칭호 업데이트: userId={}, title={}, count={}", userId, combinedTitle, updatedCount);
     }
 
     // 칭호 생성 (관리자용)

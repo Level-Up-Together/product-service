@@ -5,6 +5,7 @@ import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
@@ -27,6 +28,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
     private final ActivityFeedService activityFeedService;
     private final UserService userService;
     private final UserExperienceService userExperienceService;
+    private final TitleService titleService;
 
     @Override
     public String getName() {
@@ -66,6 +68,10 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             Integer userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
             log.info("사용자 레벨 조회 완료: userId={}, level={}", userId, userLevel);
 
+            // 사용자 칭호 조회
+            String userTitle = titleService.getCombinedEquippedTitleName(userId);
+            log.info("사용자 칭호 조회 완료: userId={}, title={}", userId, userTitle);
+
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
             log.info("수행 시간: {}분, 획득 EXP: {}", durationMinutes, execution.getExpEarned());
@@ -81,6 +87,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 user.getNickname(),
                 user.getPicture(),
                 userLevel,
+                userTitle,
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),

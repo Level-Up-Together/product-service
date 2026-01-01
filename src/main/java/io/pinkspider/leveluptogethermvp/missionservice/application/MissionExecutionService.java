@@ -18,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionPar
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
@@ -57,6 +58,7 @@ public class MissionExecutionService {
     private final MissionImageStorageService missionImageStorageService;
     private final ActivityFeedService activityFeedService;
     private final UserService userService;
+    private final TitleService titleService;
 
     @Transactional
     public void generateExecutionsForParticipant(MissionParticipant participant) {
@@ -625,6 +627,9 @@ public class MissionExecutionService {
             // 사용자 레벨 조회
             Integer userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
 
+            // 사용자 칭호 조회
+            String userTitle = titleService.getCombinedEquippedTitleName(userId);
+
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
 
@@ -637,6 +642,7 @@ public class MissionExecutionService {
                 user.getNickname(),
                 user.getPicture(),
                 userLevel,
+                userTitle,
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),
