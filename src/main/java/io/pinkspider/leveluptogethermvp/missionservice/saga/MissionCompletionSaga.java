@@ -5,6 +5,7 @@ import io.pinkspider.global.saga.SagaOrchestrator;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecutionStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
@@ -29,7 +30,8 @@ import org.springframework.stereotype.Component;
  * 5. UpdateParticipantProgress - 참가자 진행도 업데이트
  * 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적)
  * 7. UpdateQuestProgress - 퀘스트 진행도 업데이트 (선택적)
- * 8. SendNotification - 알림 발송 (선택적)
+ * 8. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
+ * 9. SendNotification - 알림 발송 (선택적)
  */
 @Slf4j
 @Component
@@ -43,6 +45,7 @@ public class MissionCompletionSaga {
     private final UpdateParticipantProgressStep updateParticipantProgressStep;
     private final UpdateUserStatsStep updateUserStatsStep;
     private final UpdateQuestProgressStep updateQuestProgressStep;
+    private final CreateFeedFromMissionStep createFeedFromMissionStep;
     private final SendNotificationStep sendNotificationStep;
     private final SagaEventPublisher sagaEventPublisher;
 
@@ -55,10 +58,24 @@ public class MissionCompletionSaga {
      * @return Saga 실행 결과
      */
     public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note) {
-        log.info("Starting MissionCompletionSaga: executionId={}, userId={}", executionId, userId);
+        return execute(executionId, userId, note, false);
+    }
+
+    /**
+     * 미션 완료 Saga 실행 (피드 공유 옵션 포함)
+     *
+     * @param executionId 수행 기록 ID
+     * @param userId 사용자 ID
+     * @param note 메모
+     * @param shareToFeed 피드 공유 여부
+     * @return Saga 실행 결과
+     */
+    public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note, boolean shareToFeed) {
+        log.info("Starting MissionCompletionSaga: executionId={}, userId={}, shareToFeed={}",
+            executionId, userId, shareToFeed);
 
         // 컨텍스트 생성
-        MissionCompletionContext context = new MissionCompletionContext(executionId, userId, note);
+        MissionCompletionContext context = new MissionCompletionContext(executionId, userId, note, shareToFeed);
 
         // Saga Orchestrator 구성
         SagaOrchestrator<MissionCompletionContext> orchestrator =
@@ -73,7 +90,8 @@ public class MissionCompletionSaga {
             .addStep(updateParticipantProgressStep) // 5. 참가자 진행도
             .addStep(updateUserStatsStep)        // 6. 통계/업적 (선택적)
             .addStep(updateQuestProgressStep)    // 7. 퀘스트 (선택적)
-            .addStep(sendNotificationStep);      // 8. 알림 (선택적)
+            .addStep(createFeedFromMissionStep)  // 8. 피드 생성 (사용자 선택시)
+            .addStep(sendNotificationStep);      // 9. 알림 (선택적)
 
         // Saga 실행
         SagaResult<MissionCompletionContext> result = orchestrator.execute(context);

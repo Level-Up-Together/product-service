@@ -63,6 +63,8 @@ public class MissionExecutionController {
      * 미션의 특정 날짜 실행 완료 처리
      * 시작 시간 ~ 종료 시간을 분으로 계산하여 분당 1 EXP 획득
      * Rate Limit: 1분에 10회
+     *
+     * @param shareToFeed 피드에 공유 여부 (기본값 false)
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     @RateLimiter(name = "missionCompletion", fallbackMethod = "completeExecutionFallback")
@@ -70,16 +72,17 @@ public class MissionExecutionController {
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
-        @RequestParam(required = false) String note) {
+        @RequestParam(required = false) String note,
+        @RequestParam(required = false, defaultValue = "false") boolean shareToFeed) {
 
         MissionExecutionResponse response = executionService.completeExecution(
-            missionId, userId, executionDate, note);
+            missionId, userId, executionDate, note, shareToFeed);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     // Rate Limit 초과 시 fallback
     public ResponseEntity<ApiResult<MissionExecutionResponse>> completeExecutionFallback(
-        Long missionId, LocalDate executionDate, String userId, String note, Exception ex) {
+        Long missionId, LocalDate executionDate, String userId, String note, boolean shareToFeed, Exception ex) {
         log.warn("미션 완료 Rate Limit 초과: userId={}, missionId={}", userId, missionId);
         return ResponseEntity.status(429)
             .body(ApiResult.<MissionExecutionResponse>builder()

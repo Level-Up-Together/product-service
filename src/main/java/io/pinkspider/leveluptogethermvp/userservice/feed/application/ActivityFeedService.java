@@ -529,4 +529,54 @@ public class ActivityFeedService {
             "ATTENDANCE", (long) streakDays, streakDays + "일 연속 출석",
             FeedVisibility.PUBLIC, null, null, null);
     }
+
+    // ========== 사용자 공유 피드 생성 ==========
+
+    /**
+     * 사용자가 미션 완료 시 피드에 공유하는 경우 호출
+     * - 미션 실행 정보(note, imageUrl, duration, expEarned) 포함
+     * - 공개 피드로 생성
+     */
+    @Transactional
+    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
+                                                Long executionId, Long missionId, String missionTitle,
+                                                String missionDescription, Long categoryId,
+                                                String note, String imageUrl,
+                                                Integer durationMinutes, Integer expEarned) {
+        String title = missionTitle;
+
+        ActivityFeed feed = ActivityFeed.builder()
+            .userId(userId)
+            .userNickname(userNickname)
+            .userProfileImageUrl(userProfileImageUrl)
+            .activityType(ActivityType.MISSION_SHARED)
+            .title(title)
+            .description(note)
+            .referenceType("MISSION_EXECUTION")
+            .referenceId(executionId)
+            .referenceName(missionTitle)
+            .visibility(FeedVisibility.PUBLIC)
+            .categoryId(categoryId)
+            .imageUrl(imageUrl)
+            .executionId(executionId)
+            .durationMinutes(durationMinutes)
+            .expEarned(expEarned)
+            .likeCount(0)
+            .commentCount(0)
+            .build();
+
+        ActivityFeed saved = activityFeedRepository.save(feed);
+        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}",
+            userId, missionId, executionId, saved.getId());
+        return saved;
+    }
+
+    /**
+     * 피드 삭제 (ID로 직접 삭제 - 보상 처리용)
+     */
+    @Transactional
+    public void deleteFeedById(Long feedId) {
+        activityFeedRepository.deleteById(feedId);
+        log.info("Feed deleted by id: feedId={}", feedId);
+    }
 }

@@ -34,6 +34,10 @@ public class MissionCompletionContext extends SagaContext {
     private boolean isGuildMission;
     private Long guildId;
 
+    // === Feed Data ===
+    private boolean shareToFeed = false;  // 피드 공유 여부
+    private Long createdFeedId;           // 생성된 피드 ID
+
     // === Result Data ===
     private Integer userLevelBefore;
     private Integer userLevelAfter;
@@ -52,6 +56,14 @@ public class MissionCompletionContext extends SagaContext {
         this.executionId = executionId;
         this.userId = userId;
         this.note = note;
+    }
+
+    public MissionCompletionContext(Long executionId, String userId, String note, boolean shareToFeed) {
+        super(SAGA_TYPE, userId);
+        this.executionId = executionId;
+        this.userId = userId;
+        this.note = note;
+        this.shareToFeed = shareToFeed;
     }
 
     /**

@@ -39,6 +39,12 @@ public class ActivityFeedResponse {
     private boolean likedByMe;
     private LocalDateTime createdAt;
 
+    // 미션 공유 피드 관련 추가 필드
+    private Long executionId;
+    private Integer durationMinutes;
+    private Integer expEarned;
+    private Long categoryId;
+
     public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe) {
         return ActivityFeedResponse.builder()
             .id(feed.getId())
@@ -61,6 +67,10 @@ public class ActivityFeedResponse {
             .commentCount(feed.getCommentCount())
             .likedByMe(likedByMe)
             .createdAt(feed.getCreatedAt())
+            .executionId(feed.getExecutionId())
+            .durationMinutes(feed.getDurationMinutes())
+            .expEarned(feed.getExpEarned())
+            .categoryId(feed.getCategoryId())
             .build();
     }
 
