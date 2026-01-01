@@ -101,10 +101,24 @@ public class MissionExecutionService {
      * @return 미션 수행 응답
      */
     public MissionExecutionResponse completeExecution(Long executionId, String userId, String note) {
-        log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}", executionId, userId);
+        return completeExecution(executionId, userId, note, false);
+    }
+
+    /**
+     * Saga 패턴을 사용한 미션 수행 완료 처리 (피드 공유 옵션 포함)
+     *
+     * @param executionId 수행 기록 ID
+     * @param userId 사용자 ID
+     * @param note 메모
+     * @param shareToFeed 피드 공유 여부
+     * @return 미션 수행 응답
+     */
+    public MissionExecutionResponse completeExecution(Long executionId, String userId, String note, boolean shareToFeed) {
+        log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}, shareToFeed={}",
+            executionId, userId, shareToFeed);
 
         // Saga 실행
-        SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(executionId, userId, note);
+        SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(executionId, userId, note, shareToFeed);
 
         if (result.isSuccess()) {
             return missionCompletionSaga.toResponse(result);
@@ -334,13 +348,18 @@ public class MissionExecutionService {
 
     @Transactional
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note) {
+        return completeExecution(missionId, userId, executionDate, note, false);
+    }
+
+    @Transactional
+    public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, boolean shareToFeed) {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
-        return completeExecution(execution.getId(), userId, note);
+        return completeExecution(execution.getId(), userId, note, shareToFeed);
     }
 
     public List<MissionExecutionResponse> getExecutionsForMission(Long missionId, String userId) {

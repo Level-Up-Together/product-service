@@ -118,6 +118,18 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer commentCount = 0;
 
+    @Column(name = "execution_id")
+    @Comment("미션 실행 ID (사용자 공유 피드인 경우)")
+    private Long executionId;
+
+    @Column(name = "duration_minutes")
+    @Comment("미션 수행 시간 (분)")
+    private Integer durationMinutes;
+
+    @Column(name = "exp_earned")
+    @Comment("획득 경험치")
+    private Integer expEarned;
+
     public void incrementLikeCount() {
         this.likeCount++;
     }

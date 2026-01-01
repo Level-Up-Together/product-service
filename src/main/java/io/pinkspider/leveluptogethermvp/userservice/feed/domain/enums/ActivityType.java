@@ -10,6 +10,7 @@ public enum ActivityType {
     MISSION_JOINED("미션 참여", "MISSION"),
     MISSION_COMPLETED("미션 완료", "MISSION"),
     MISSION_FULL_COMPLETED("미션 전체 완료", "MISSION"),
+    MISSION_SHARED("미션 공유", "MISSION"),  // 사용자가 피드에 직접 공유한 미션
 
     // 업적 관련
     ACHIEVEMENT_UNLOCKED("업적 달성", "ACHIEVEMENT"),
