@@ -19,7 +19,9 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.FeedLike
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -115,24 +117,69 @@ public class ActivityFeedService {
 
     /**
      * 전체 공개 피드 조회
+     * 시간 필터: 전일 4시 ~ 당일 4시 (24시간 윈도우, 매일 4시에 리셋)
      */
     public Page<ActivityFeedResponse> getPublicFeeds(String currentUserId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeeds(pageable);
+
+        // 시간 범위 계산 (매일 04:00 기준)
+        LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
+        LocalDateTime startTime = timeRange[0];
+        LocalDateTime endTime = timeRange[1];
+
+        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsInTimeRange(startTime, endTime, pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> ActivityFeedResponse.from(
+            feed,
+            likedFeedIds.contains(feed.getId()),
+            currentUserId != null && feed.getUserId().equals(currentUserId)
+        ));
+    }
+
+    /**
+     * 피드 시간 범위 계산 (매일 04:00 기준)
+     * - 현재 시간이 04:00 이후: 당일 04:00 ~ 다음날 04:00
+     * - 현재 시간이 04:00 이전: 전일 04:00 ~ 당일 04:00
+     */
+    private LocalDateTime[] calculateDailyFeedTimeRange() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalTime resetTime = LocalTime.of(4, 0); // 04:00
+
+        LocalDate today = now.toLocalDate();
+        LocalDateTime todayReset = LocalDateTime.of(today, resetTime);
+
+        LocalDateTime startTime;
+        LocalDateTime endTime;
+
+        if (now.toLocalTime().isBefore(resetTime)) {
+            // 현재 시간이 04:00 이전 → 전일 04:00 ~ 당일 04:00
+            startTime = todayReset.minusDays(1);
+            endTime = todayReset;
+        } else {
+            // 현재 시간이 04:00 이후 → 당일 04:00 ~ 다음날 04:00
+            startTime = todayReset;
+            endTime = todayReset.plusDays(1);
+        }
+
+        log.debug("Feed time range: {} ~ {}", startTime, endTime);
+        return new LocalDateTime[]{startTime, endTime};
     }
 
     /**
      * 카테고리별 공개 피드 조회 (하이브리드 선정)
      * 1. Admin이 설정한 Featured Feed 먼저 표시
-     * 2. 자동 선정 (해당 카테고리의 최신 공개 피드)
+     * 2. 자동 선정 (해당 카테고리의 최신 공개 피드) - 시간 필터 적용
      * 3. 중복 제거 후 페이징
      */
     public Page<ActivityFeedResponse> getPublicFeedsByCategory(Long categoryId, String currentUserId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         LocalDateTime now = LocalDateTime.now();
+
+        // 시간 범위 계산 (매일 04:00 기준)
+        LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
+        LocalDateTime startTime = timeRange[0];
+        LocalDateTime endTime = timeRange[1];
 
         // 1. Admin Featured Feeds 먼저 조회
         List<FeaturedFeed> featuredFeeds = featuredFeedRepository.findActiveFeaturedFeeds(categoryId, now);
@@ -155,8 +202,9 @@ public class ActivityFeedService {
             }
         }
 
-        // 2. 카테고리별 일반 피드 조회
-        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryId(categoryId, pageable);
+        // 2. 카테고리별 일반 피드 조회 (시간 필터 적용)
+        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(
+            categoryId, startTime, endTime, pageable);
 
         // 3. Featured 피드와 합치기 (첫 페이지에만 Featured 추가)
         List<ActivityFeed> combinedFeeds = new ArrayList<>();
@@ -185,7 +233,11 @@ public class ActivityFeedService {
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, combinedFeeds);
         List<ActivityFeedResponse> responseList = combinedFeeds.stream()
-            .map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())))
+            .map(feed -> ActivityFeedResponse.from(
+                feed,
+                likedFeedIds.contains(feed.getId()),
+                currentUserId != null && feed.getUserId().equals(currentUserId)
+            ))
             .toList();
 
         return new org.springframework.data.domain.PageImpl<>(
@@ -302,7 +354,8 @@ public class ActivityFeedService {
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
 
         boolean likedByMe = currentUserId != null && feedLikeRepository.existsByFeedIdAndUserId(feedId, currentUserId);
-        return ActivityFeedResponse.from(feed, likedByMe);
+        boolean isMyFeed = currentUserId != null && feed.getUserId().equals(currentUserId);
+        return ActivityFeedResponse.from(feed, likedByMe, isMyFeed);
     }
 
     /**
@@ -312,6 +365,11 @@ public class ActivityFeedService {
     public boolean toggleLike(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+
+        // 작성자는 자신의 피드에 좋아요를 할 수 없음
+        if (feed.getUserId().equals(userId)) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "자신의 피드에는 좋아요를 할 수 없습니다");
+        }
 
         return feedLikeRepository.findByFeedIdAndUserId(feedId, userId)
             .map(like -> {

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -107,7 +108,7 @@ class MissionExecutionControllerTest {
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.completeExecution(anyLong(), anyString(), any(LocalDate.class), anyString()))
+        when(executionService.completeExecution(anyLong(), anyString(), any(LocalDate.class), anyString(), anyBoolean()))
             .thenReturn(response);
 
         // when
@@ -139,6 +140,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
                             fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
                             fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
                             fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (PENDING, COMPLETED, SKIPPED)"),
@@ -146,6 +149,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
@@ -189,6 +194,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("실행 ID"),
                             fieldWithPath("value[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
                             fieldWithPath("value[].mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value[].mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value[].mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
                             fieldWithPath("value[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value[].execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
                             fieldWithPath("value[].status").type(JsonFieldType.STRING).description("상태"),
@@ -196,6 +203,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value[].note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
@@ -295,6 +304,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("실행 ID"),
                             fieldWithPath("value[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
                             fieldWithPath("value[].mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value[].mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value[].mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
                             fieldWithPath("value[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value[].execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
                             fieldWithPath("value[].status").type(JsonFieldType.STRING).description("상태 (PENDING, COMPLETED)"),
@@ -302,6 +313,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value[].note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
