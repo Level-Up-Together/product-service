@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Ti
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
@@ -51,6 +52,7 @@ public class MyPageService {
     private final LevelConfigRepository levelConfigRepository;
     private final ProfileImageStorageService profileImageStorageService;
     private final ImageModerationService imageModerationService;
+    private final ActivityFeedRepository activityFeedRepository;
 
     /**
      * MyPage 전체 데이터 조회
@@ -276,8 +278,12 @@ public class MyPageService {
         userTitleRepository.save(leftUserTitle);
         userTitleRepository.save(rightUserTitle);
 
-        log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}",
-            userId, leftUserTitle.getTitle().getId(), rightUserTitle.getTitle().getId());
+        // 피드의 칭호도 업데이트
+        String combinedTitle = leftUserTitle.getTitle().getDisplayName() + " " + rightUserTitle.getTitle().getDisplayName();
+        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle);
+
+        log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}, feedsUpdated={}",
+            userId, leftUserTitle.getTitle().getId(), rightUserTitle.getTitle().getId(), updatedCount);
 
         return TitleChangeResponse.builder()
             .message("칭호가 변경되었습니다.")
