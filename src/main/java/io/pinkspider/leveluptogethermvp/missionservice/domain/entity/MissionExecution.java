@@ -88,6 +88,10 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Comment("첨부 이미지 URL")
     private String imageUrl;
 
+    @Column(name = "feed_id")
+    @Comment("공유된 피드 ID")
+    private Long feedId;
+
     @Version
     @Column(name = "version")
     @Comment("낙관적 락 버전")

@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetection
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import io.pinkspider.leveluptogethermvp.profanity.domain.dto.ProfanityDetectionResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.List;
@@ -93,6 +94,17 @@ public class ControllerTestConfig implements WebMvcConfigurer {
         properties.setMaxSize(5242880);
         properties.setAllowedExtensions("jpg,jpeg,png,gif,webp");
         properties.setUrlPrefix("/uploads/profile");
+        return properties;
+    }
+
+    // 미션 이미지 업로드 설정 Mock
+    @Bean
+    public MissionImageProperties missionImageProperties() {
+        MissionImageProperties properties = new MissionImageProperties();
+        properties.setPath("/tmp/test-uploads/missions");
+        properties.setMaxSize(5242880);
+        properties.setAllowedExtensions("jpg,jpeg,png,gif,webp");
+        properties.setUrlPrefix("/uploads/missions");
         return properties;
     }
 }

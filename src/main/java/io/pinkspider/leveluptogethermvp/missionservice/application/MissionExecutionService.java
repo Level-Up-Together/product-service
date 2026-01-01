@@ -611,6 +611,11 @@ public class MissionExecutionService {
             throw new IllegalStateException("완료된 미션만 피드에 공유할 수 있습니다.");
         }
 
+        // 이미 공유된 경우 확인
+        if (execution.getFeedId() != null) {
+            throw new IllegalStateException("이미 피드에 공유된 미션입니다.");
+        }
+
         Mission mission = participant.getMission();
 
         try {
@@ -626,8 +631,8 @@ public class MissionExecutionService {
             // 카테고리 ID 추출
             Long categoryId = (mission.getCategory() != null) ? mission.getCategory().getId() : null;
 
-            // 피드 생성
-            activityFeedService.createMissionSharedFeed(
+            // 피드 생성 및 feedId 저장
+            var createdFeed = activityFeedService.createMissionSharedFeed(
                 userId,
                 user.getNickname(),
                 user.getPicture(),
@@ -643,12 +648,52 @@ public class MissionExecutionService {
                 execution.getExpEarned()
             );
 
-            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}",
-                userId, missionId, executionDate);
+            // feedId를 execution에 저장
+            execution.setFeedId(createdFeed.getId());
+            executionRepository.save(execution);
+
+            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}, feedId={}",
+                userId, missionId, executionDate, createdFeed.getId());
 
         } catch (Exception e) {
             log.error("피드 공유 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
             throw new IllegalStateException("피드 공유에 실패했습니다: " + e.getMessage(), e);
+        }
+
+        return MissionExecutionResponse.from(execution);
+    }
+
+    /**
+     * 피드 공유 취소
+     * - 공유된 피드 삭제 및 feedId 초기화
+     */
+    @Transactional
+    public MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        if (execution.getFeedId() == null) {
+            throw new IllegalStateException("공유된 피드가 없습니다.");
+        }
+
+        try {
+            // 피드 삭제
+            activityFeedService.deleteFeedById(execution.getFeedId());
+
+            Long deletedFeedId = execution.getFeedId();
+            // feedId 초기화
+            execution.setFeedId(null);
+            executionRepository.save(execution);
+
+            log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, deletedFeedId={}",
+                userId, missionId, executionDate, deletedFeedId);
+
+        } catch (Exception e) {
+            log.error("피드 공유 취소 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
+            throw new IllegalStateException("피드 공유 취소에 실패했습니다: " + e.getMessage(), e);
         }
 
         return MissionExecutionResponse.from(execution);
