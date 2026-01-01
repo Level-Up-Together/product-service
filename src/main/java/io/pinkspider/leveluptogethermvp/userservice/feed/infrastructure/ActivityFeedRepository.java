@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,15 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     // 전체 공개 피드 조회
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeeds(Pageable pageable);
+
+    // 전체 공개 피드 조회 (시간 범위 필터)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
+           "AND f.createdAt >= :startTime AND f.createdAt < :endTime " +
+           "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsInTimeRange(
+        @Param("startTime") LocalDateTime startTime,
+        @Param("endTime") LocalDateTime endTime,
+        Pageable pageable);
 
     // 사용자의 피드 조회
     @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :userId ORDER BY f.createdAt DESC")
@@ -75,6 +85,17 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
            "AND f.categoryId = :categoryId ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByCategoryId(
         @Param("categoryId") Long categoryId, Pageable pageable);
+
+    // 카테고리별 공개 피드 조회 (시간 범위 필터)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
+           "AND f.categoryId = :categoryId " +
+           "AND f.createdAt >= :startTime AND f.createdAt < :endTime " +
+           "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsByCategoryIdInTimeRange(
+        @Param("categoryId") Long categoryId,
+        @Param("startTime") LocalDateTime startTime,
+        @Param("endTime") LocalDateTime endTime,
+        Pageable pageable);
 
     // ID 목록으로 피드 조회 (Featured Feed 조회용)
     @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
