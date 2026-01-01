@@ -617,6 +617,9 @@ public class MissionExecutionService {
             // 사용자 정보 조회
             Users user = userService.findByUserId(userId);
 
+            // 사용자 레벨 조회
+            Integer userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
+
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
 
@@ -628,6 +631,7 @@ public class MissionExecutionService {
                 userId,
                 user.getNickname(),
                 user.getPicture(),
+                userLevel,
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),

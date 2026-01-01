@@ -58,6 +58,11 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Comment("사용자 프로필 이미지")
     private String userProfileImageUrl;
 
+    @Column(name = "user_level")
+    @Comment("사용자 레벨 (피드 생성 시점)")
+    @Builder.Default
+    private Integer userLevel = 1;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "activity_type", nullable = false, length = 30)

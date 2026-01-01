@@ -22,6 +22,7 @@ public class ActivityFeedResponse {
     private String userId;
     private String userNickname;
     private String userProfileImageUrl;
+    private Integer userLevel;
     private ActivityType activityType;
     private String activityTypeDisplayName;
     private String category;
@@ -51,6 +52,7 @@ public class ActivityFeedResponse {
             .userId(feed.getUserId())
             .userNickname(feed.getUserNickname())
             .userProfileImageUrl(feed.getUserProfileImageUrl())
+            .userLevel(feed.getUserLevel() != null ? feed.getUserLevel() : 1)
             .activityType(feed.getActivityType())
             .activityTypeDisplayName(feed.getActivityType().getDisplayName())
             .category(feed.getActivityType().getCategory())
