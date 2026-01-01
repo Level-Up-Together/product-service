@@ -75,6 +75,8 @@ public class SecurityConfig {
                     // 공개 엔드포인트
                     .requestMatchers(new AntPathRequestMatcher(ACTUATOR_PATH + "/**")).permitAll()
                     .requestMatchers("/favicon.ico", "/error").permitAll()
+                    // 정적 리소스 (이미지 업로드)
+                    .requestMatchers("/uploads/**").permitAll()
 
                     // 인증 관련 API (로그인, 회원가입, OAuth)
                     .requestMatchers("/api/v1/auth/**").permitAll()

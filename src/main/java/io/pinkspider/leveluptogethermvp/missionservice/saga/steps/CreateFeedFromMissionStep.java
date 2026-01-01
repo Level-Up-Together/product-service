@@ -39,9 +39,12 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     @Override
     public SagaStepResult execute(MissionCompletionContext context) {
+        log.info("CreateFeedFromMissionStep 시작: userId={}, shareToFeed={}",
+            context.getUserId(), context.isShareToFeed());
+
         // shareToFeed가 false면 스킵
         if (!context.isShareToFeed()) {
-            log.debug("Feed sharing not requested, skipping: userId={}", context.getUserId());
+            log.info("피드 공유 미요청으로 스킵: userId={}", context.getUserId());
             return SagaStepResult.success("피드 공유 미요청");
         }
 
@@ -55,12 +58,16 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         try {
             // 사용자 정보 조회
             Users user = userService.findByUserId(userId);
+            log.info("사용자 정보 조회 완료: userId={}, nickname={}", userId, user.getNickname());
 
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
+            log.info("수행 시간: {}분, 획득 EXP: {}", durationMinutes, execution.getExpEarned());
 
             // 카테고리 ID 추출
             Long categoryId = (mission.getCategory() != null) ? mission.getCategory().getId() : null;
+            log.info("피드 생성 정보: missionTitle={}, note={}, imageUrl={}, categoryId={}",
+                mission.getTitle(), execution.getNote(), execution.getImageUrl(), categoryId);
 
             // 피드 생성
             ActivityFeed feed = activityFeedService.createMissionSharedFeed(

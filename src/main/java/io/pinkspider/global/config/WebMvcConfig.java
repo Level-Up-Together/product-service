@@ -5,25 +5,27 @@ import io.pinkspider.global.interceptor.MultipartInterceptor;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.core.resolver.CurrentUserArgumentResolver;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
+import jakarta.annotation.PostConstruct;
+import java.io.File;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] JWT_EXCLUDE_PATTERNS = {
-//        "/error",
-//        "/healthCheck/_check",
-//        "/favicon.ico",
-//        Constant.API_EXTERNAL_PATH + Constant.API_V1_0_PATH + "/user/login",
-//        Constant.API_EXTERNAL_PATH + Constant.API_V1_0_PATH + "/user/signup",
-//        Constant.API_EXTERNAL_PATH + Constant.API_V1_0_PATH + "/user/signup/complete"
+        // 정적 리소스 (이미지 업로드 등)
+        "/uploads/**",
+        "/favicon.ico",
+        "/error"
     };
     private final JwtInterceptor jwtInterceptor;
     private final MultipartInterceptor multipartInterceptor;
@@ -31,22 +33,44 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final ProfileImageProperties profileImageProperties;
     private final MissionImageProperties missionImageProperties;
 
+    @PostConstruct
+    public void init() {
+        String missionPath = missionImageProperties.getPath();
+        String profilePath = profileImageProperties.getPath();
+        File missionDir = new File(missionPath);
+        File profileDir = new File(profilePath);
+
+        log.info("=== 이미지 업로드 설정 ===");
+        log.info("미션 이미지 경로: {} (절대경로: {}, 존재: {})",
+            missionPath, missionDir.getAbsolutePath(), missionDir.exists());
+        log.info("프로필 이미지 경로: {} (절대경로: {}, 존재: {})",
+            profilePath, profileDir.getAbsolutePath(), profileDir.exists());
+        log.info("미션 이미지 URL 접두어: {}", missionImageProperties.getUrlPrefix());
+        log.info("프로필 이미지 URL 접두어: {}", profileImageProperties.getUrlPrefix());
+        log.info("===========================");
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/static/");
-
-        // 프로필 이미지 업로드 디렉토리 매핑
-        String profileUploadPath = profileImageProperties.getPath();
+        // 프로필 이미지 업로드 디렉토리 매핑 (더 구체적인 패턴 먼저 등록)
+        String profileUploadPath = new File(profileImageProperties.getPath()).getAbsolutePath();
         String profileUrlPrefix = profileImageProperties.getUrlPrefix();
+        String profileResourceLocation = "file:" + profileUploadPath + "/";
+        log.info("프로필 이미지 리소스 핸들러: {} -> {}", profileUrlPrefix + "/**", profileResourceLocation);
         registry.addResourceHandler(profileUrlPrefix + "/**")
-                .addResourceLocations("file:" + profileUploadPath + "/");
+                .addResourceLocations(profileResourceLocation);
 
         // 미션 이미지 업로드 디렉토리 매핑
-        String missionUploadPath = missionImageProperties.getPath();
+        String missionUploadPath = new File(missionImageProperties.getPath()).getAbsolutePath();
         String missionUrlPrefix = missionImageProperties.getUrlPrefix();
+        String missionResourceLocation = "file:" + missionUploadPath + "/";
+        log.info("미션 이미지 리소스 핸들러: {} -> {}", missionUrlPrefix + "/**", missionResourceLocation);
         registry.addResourceHandler(missionUrlPrefix + "/**")
-                .addResourceLocations("file:" + missionUploadPath + "/");
+                .addResourceLocations(missionResourceLocation);
+
+        // 정적 리소스 핸들러는 마지막에 등록 (catch-all)
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/");
     }
 
     @Override

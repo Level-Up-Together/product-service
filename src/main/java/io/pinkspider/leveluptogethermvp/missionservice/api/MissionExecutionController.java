@@ -247,4 +247,18 @@ public class MissionExecutionController {
         MissionExecutionResponse response = executionService.deleteExecutionImage(missionId, userId, executionDate);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
+
+    /**
+     * 완료된 미션 실행을 피드에 공유
+     * 이미 완료된 미션을 나중에 피드에 공유할 때 사용
+     */
+    @PostMapping("/{missionId}/executions/{executionDate}/share")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> shareExecutionToFeed(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.shareExecutionToFeed(missionId, userId, executionDate);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
 }

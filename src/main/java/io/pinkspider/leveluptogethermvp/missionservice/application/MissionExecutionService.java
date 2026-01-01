@@ -20,10 +20,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSag
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -52,6 +55,8 @@ public class MissionExecutionService {
     private final NotificationService notificationService;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionImageStorageService missionImageStorageService;
+    private final ActivityFeedService activityFeedService;
+    private final UserService userService;
 
     @Transactional
     public void generateExecutionsForParticipant(MissionParticipant participant) {
@@ -584,6 +589,62 @@ public class MissionExecutionService {
             execution.setImageUrl(null);
             executionRepository.save(execution);
             log.info("미션 이미지 삭제: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+        }
+
+        return MissionExecutionResponse.from(execution);
+    }
+
+    /**
+     * 이미 완료된 미션 실행을 피드에 공유
+     * - 완료된 미션만 공유 가능
+     * - 미션 기록(note, imageUrl, duration, expEarned) 포함하여 공개 피드 생성
+     */
+    @Transactional
+    public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        if (execution.getStatus() != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 미션만 피드에 공유할 수 있습니다.");
+        }
+
+        Mission mission = participant.getMission();
+
+        try {
+            // 사용자 정보 조회
+            Users user = userService.findByUserId(userId);
+
+            // 수행 시간 계산
+            Integer durationMinutes = execution.calculateExpByDuration();
+
+            // 카테고리 ID 추출
+            Long categoryId = (mission.getCategory() != null) ? mission.getCategory().getId() : null;
+
+            // 피드 생성
+            activityFeedService.createMissionSharedFeed(
+                userId,
+                user.getNickname(),
+                user.getPicture(),
+                execution.getId(),
+                mission.getId(),
+                mission.getTitle(),
+                mission.getDescription(),
+                categoryId,
+                execution.getNote(),
+                execution.getImageUrl(),
+                durationMinutes,
+                execution.getExpEarned()
+            );
+
+            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}",
+                userId, missionId, executionDate);
+
+        } catch (Exception e) {
+            log.error("피드 공유 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
+            throw new IllegalStateException("피드 공유에 실패했습니다: " + e.getMessage(), e);
         }
 
         return MissionExecutionResponse.from(execution);
