@@ -20,6 +20,7 @@ public class FeedCommentResponse {
     private Long feedId;
     private String userId;
     private String userNickname;
+    private String userProfileImageUrl;
     private String content;
     private boolean isDeleted;
     private LocalDateTime createdAt;
@@ -30,6 +31,7 @@ public class FeedCommentResponse {
             .feedId(comment.getFeed().getId())
             .userId(comment.getUserId())
             .userNickname(comment.getUserNickname())
+            .userProfileImageUrl(comment.getUserProfileImageUrl())
             .content(comment.getContent())
             .isDeleted(comment.getIsDeleted())
             .createdAt(comment.getCreatedAt())

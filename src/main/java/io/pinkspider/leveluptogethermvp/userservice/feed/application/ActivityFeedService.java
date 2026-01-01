@@ -17,6 +17,8 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.Activity
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,6 +46,7 @@ public class ActivityFeedService {
     private final FeedCommentRepository feedCommentRepository;
     private final FriendshipRepository friendshipRepository;
     private final FeaturedFeedRepository featuredFeedRepository;
+    private final UserRepository userRepository;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -83,12 +86,15 @@ public class ActivityFeedService {
      * 사용자가 직접 생성하는 피드
      */
     @Transactional
-    public ActivityFeedResponse createFeed(String userId, String userNickname, String userProfileImageUrl,
-                                           CreateFeedRequest request) {
+    public ActivityFeedResponse createFeed(String userId, CreateFeedRequest request) {
+        // 사용자 정보 조회
+        Users user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
+
         ActivityFeed feed = ActivityFeed.builder()
             .userId(userId)
-            .userNickname(userNickname)
-            .userProfileImageUrl(userProfileImageUrl)
+            .userNickname(user.getDisplayName())
+            .userProfileImageUrl(user.getPicture())
             .activityType(request.getActivityType())
             .title(request.getTitle())
             .description(request.getDescription())
@@ -334,15 +340,19 @@ public class ActivityFeedService {
      * 댓글 작성
      */
     @Transactional
-    public FeedCommentResponse addComment(Long feedId, String userId, String userNickname,
-                                          FeedCommentRequest request) {
+    public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+
+        // 사용자 정보 조회
+        Users user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
 
         FeedComment comment = FeedComment.builder()
             .feed(feed)
             .userId(userId)
-            .userNickname(userNickname)
+            .userNickname(user.getDisplayName())
+            .userProfileImageUrl(user.getPicture())
             .content(request.getContent())
             .isDeleted(false)
             .build();

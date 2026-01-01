@@ -58,6 +58,10 @@ public class FeedComment extends LocalDateTimeBaseEntity {
     @Comment("사용자 닉네임")
     private String userNickname;
 
+    @Column(name = "user_profile_image_url", length = 500)
+    @Comment("사용자 프로필 이미지 URL")
+    private String userProfileImageUrl;
+
     @NotNull
     @Column(name = "content", nullable = false, length = 500)
     @Comment("댓글 내용")
