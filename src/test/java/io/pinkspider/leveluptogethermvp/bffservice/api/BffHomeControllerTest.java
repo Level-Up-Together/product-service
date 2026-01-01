@@ -24,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.GuildPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
@@ -711,6 +712,95 @@ class BffHomeControllerTest {
                             fieldWithPath("value.completed_count").type(JsonFieldType.NUMBER).description("오늘 완료한 미션 수"),
                             fieldWithPath("value.in_progress_count").type(JsonFieldType.NUMBER).description("진행 중인 미션 수"),
                             fieldWithPath("value.pending_count").type(JsonFieldType.NUMBER).description("미완료 미션 수")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/bff/home/search : 통합 검색")
+    void searchTest() throws Exception {
+        // given
+        UnifiedSearchResponse mockResponse = UnifiedSearchResponse.builder()
+            .feeds(List.of(UnifiedSearchResponse.FeedSearchItem.builder()
+                .id(1L)
+                .title("미션 완료!")
+                .userNickname("테스터")
+                .build()))
+            .missions(List.of(UnifiedSearchResponse.MissionSearchItem.builder()
+                .id(1L)
+                .title("테스트 미션")
+                .categoryName("자기계발")
+                .build()))
+            .users(List.of(UnifiedSearchResponse.UserSearchItem.builder()
+                .id("user-1")
+                .nickname("테스터")
+                .profileImageUrl("https://example.com/profile.jpg")
+                .build()))
+            .guilds(List.of(UnifiedSearchResponse.GuildSearchItem.builder()
+                .id("1")
+                .name("테스트 길드")
+                .memberCount(10)
+                .build()))
+            .totalCount(4)
+            .build();
+
+        when(bffSearchService.search(anyString(), anyInt()))
+            .thenReturn(mockResponse);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/bff/search")
+                .with(user(MOCK_USER_ID))
+                .param("keyword", "테스트")
+                .param("limit", "5")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("BFF-05. 통합 검색",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("BFF")
+                        .description("피드, 미션, 사용자, 길드를 통합 검색")
+                        .queryParameters(
+                            parameterWithName("keyword").type(SimpleType.STRING)
+                                .description("검색 키워드 (2자 이상)"),
+                            parameterWithName("limit").type(SimpleType.INTEGER)
+                                .description("각 타입별 최대 조회 개수 (기본: 5)").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value.feeds[]").type(JsonFieldType.ARRAY).description("피드 검색 결과"),
+                            fieldWithPath("value.feeds[].id").type(JsonFieldType.NUMBER).description("피드 ID"),
+                            fieldWithPath("value.feeds[].title").type(JsonFieldType.STRING).description("피드 제목"),
+                            fieldWithPath("value.feeds[].description").type(JsonFieldType.STRING).description("피드 설명").optional(),
+                            fieldWithPath("value.feeds[].user_nickname").type(JsonFieldType.STRING).description("작성자 닉네임"),
+                            fieldWithPath("value.feeds[].image_url").type(JsonFieldType.STRING).description("피드 이미지 URL").optional(),
+                            fieldWithPath("value.feeds[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.missions[]").type(JsonFieldType.ARRAY).description("미션 검색 결과"),
+                            fieldWithPath("value.missions[].id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.missions[].title").type(JsonFieldType.STRING).description("미션 제목"),
+                            fieldWithPath("value.missions[].description").type(JsonFieldType.STRING).description("미션 설명").optional(),
+                            fieldWithPath("value.missions[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
+                            fieldWithPath("value.missions[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.users[]").type(JsonFieldType.ARRAY).description("사용자 검색 결과"),
+                            fieldWithPath("value.users[].id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.users[].nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.users[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.guilds[]").type(JsonFieldType.ARRAY).description("길드 검색 결과"),
+                            fieldWithPath("value.guilds[].id").type(JsonFieldType.STRING).description("길드 ID"),
+                            fieldWithPath("value.guilds[].name").type(JsonFieldType.STRING).description("길드명"),
+                            fieldWithPath("value.guilds[].description").type(JsonFieldType.STRING).description("길드 설명").optional(),
+                            fieldWithPath("value.guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("멤버 수"),
+                            fieldWithPath("value.total_count").type(JsonFieldType.NUMBER).description("전체 검색 결과 수")
                         )
                         .build()
                 )
