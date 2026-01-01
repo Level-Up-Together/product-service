@@ -24,26 +24,16 @@ import io.pinkspider.leveluptogethermvp.userservice.notification.application.Not
 import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
-import io.pinkspider.global.exception.CustomException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -61,6 +51,7 @@ public class MissionExecutionService {
     private final QuestService questService;
     private final NotificationService notificationService;
     private final MissionCompletionSaga missionCompletionSaga;
+    private final MissionImageStorageService missionImageStorageService;
 
     @Transactional
     public void generateExecutionsForParticipant(MissionParticipant participant) {
@@ -524,11 +515,6 @@ public class MissionExecutionService {
         return MissionExecutionResponse.from(execution);
     }
 
-    private static final String MISSION_IMAGE_PATH = "./uploads/missions";
-    private static final String MISSION_IMAGE_URL_PREFIX = "/uploads/missions";
-    private static final long MAX_IMAGE_SIZE = 5242880; // 5MB
-    private static final List<String> ALLOWED_EXTENSIONS = Arrays.asList("jpg", "jpeg", "png", "gif", "webp");
-
     /**
      * 완료된 미션 실행에 이미지 업로드
      */
@@ -544,67 +530,18 @@ public class MissionExecutionService {
             throw new IllegalStateException("완료된 미션만 이미지를 추가할 수 있습니다.");
         }
 
-        // 이미지 유효성 검사
-        validateImage(image);
-
-        try {
-            // 저장 디렉토리 생성 (missions/{userId}/{missionId})
-            Path uploadDir = Paths.get(MISSION_IMAGE_PATH, userId, String.valueOf(missionId));
-            Files.createDirectories(uploadDir);
-
-            // 파일 이름 생성 (executionDate_UUID.확장자)
-            String originalFilename = StringUtils.cleanPath(image.getOriginalFilename());
-            String extension = getExtension(originalFilename);
-            String newFilename = executionDate.toString() + "_" + UUID.randomUUID().toString() + "." + extension;
-
-            // 파일 저장
-            Path targetPath = uploadDir.resolve(newFilename);
-            Files.copy(image.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-
-            // URL 생성
-            String imageUrl = MISSION_IMAGE_URL_PREFIX + "/" + userId + "/" + missionId + "/" + newFilename;
-            execution.setImageUrl(imageUrl);
-            executionRepository.save(execution);
-
-            log.info("미션 이미지 업로드: missionId={}, userId={}, executionDate={}, path={}", missionId, userId, executionDate, targetPath);
-            return MissionExecutionResponse.from(execution);
-
-        } catch (IOException e) {
-            log.error("미션 이미지 저장 실패: missionId={}, userId={}", missionId, userId, e);
-            throw new CustomException("MISSION_IMAGE_001", "이미지 저장에 실패했습니다.");
-        }
-    }
-
-    private void validateImage(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new CustomException("MISSION_IMAGE_002", "업로드할 이미지 파일이 없습니다.");
+        // 기존 이미지가 있으면 삭제
+        if (execution.getImageUrl() != null) {
+            missionImageStorageService.delete(execution.getImageUrl());
         }
 
-        if (file.getSize() > MAX_IMAGE_SIZE) {
-            throw new CustomException("MISSION_IMAGE_003", "파일 크기가 5MB를 초과합니다.");
-        }
+        // 새 이미지 저장
+        String imageUrl = missionImageStorageService.store(image, userId, missionId, executionDate.toString());
+        execution.setImageUrl(imageUrl);
+        executionRepository.save(execution);
 
-        String filename = file.getOriginalFilename();
-        if (filename == null || filename.isEmpty()) {
-            throw new CustomException("MISSION_IMAGE_004", "파일 이름이 유효하지 않습니다.");
-        }
-
-        String extension = getExtension(filename).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new CustomException("MISSION_IMAGE_005", "허용되지 않은 파일 형식입니다. (jpg, jpeg, png, gif, webp만 허용)");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new CustomException("MISSION_IMAGE_006", "이미지 파일만 업로드할 수 있습니다.");
-        }
-    }
-
-    private String getExtension(String filename) {
-        if (filename == null || !filename.contains(".")) {
-            return "";
-        }
-        return filename.substring(filename.lastIndexOf(".") + 1);
+        log.info("미션 이미지 업로드: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+        return MissionExecutionResponse.from(execution);
     }
 
     private MissionExecution findExecutionById(Long executionId) {
