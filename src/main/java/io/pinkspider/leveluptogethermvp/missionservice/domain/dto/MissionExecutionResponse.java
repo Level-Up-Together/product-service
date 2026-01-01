@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,7 @@ public class MissionExecutionResponse {
     private Long missionId;
     private String missionTitle;
     private String missionCategoryName;
+    private MissionType missionType;
     private String userId;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
@@ -62,6 +64,7 @@ public class MissionExecutionResponse {
             .missionId(execution.getParticipant().getMission().getId())
             .missionTitle(execution.getParticipant().getMission().getTitle())
             .missionCategoryName(execution.getParticipant().getMission().getCategoryName())
+            .missionType(execution.getParticipant().getMission().getType())
             .userId(execution.getParticipant().getUserId())
             .executionDate(execution.getExecutionDate())
             .status(execution.getStatus())

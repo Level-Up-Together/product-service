@@ -1,6 +1,11 @@
 spring:
   application:
     name: level-up-together-mvp
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 server:
   port: 8443
@@ -23,6 +28,11 @@ app:
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
       url-prefix: /uploads/profile
+    mission-image:
+      path: ${user.dir}/uploads/missions
+      max-size: 5242880
+      allowed-extensions: jpg,jpeg,png,gif,webp
+      url-prefix: /uploads/missions
 
 # 이미지 검증 설정
 # provider: none (기본값, 검증 비활성화), aws-rekognition (운영용)
