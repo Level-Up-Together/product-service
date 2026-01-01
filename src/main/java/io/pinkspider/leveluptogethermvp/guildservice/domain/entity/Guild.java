@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -56,6 +57,12 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Comment("공개 여부")
     private GuildVisibility visibility;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "join_type", nullable = false, length = 20)
+    @Comment("가입 유형 (OPEN: 자동 가입, APPROVAL_REQUIRED: 승인 필요)")
+    @Builder.Default
+    private GuildJoinType joinType = GuildJoinType.OPEN;
+
     @NotNull
     @Column(name = "master_id", nullable = false)
     @Comment("길드 마스터 ID")
@@ -64,7 +71,7 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Column(name = "max_members")
     @Comment("최대 멤버 수")
     @Builder.Default
-    private Integer maxMembers = 50;
+    private Integer maxMembers = 10;
 
     @Column(name = "image_url")
     @Comment("길드 이미지 URL")
@@ -117,6 +124,14 @@ public class Guild extends LocalDateTimeBaseEntity {
 
     public boolean isPrivate() {
         return this.visibility == GuildVisibility.PRIVATE;
+    }
+
+    public boolean isOpenJoin() {
+        return this.joinType == GuildJoinType.OPEN;
+    }
+
+    public boolean requiresApproval() {
+        return this.joinType == GuildJoinType.APPROVAL_REQUIRED;
     }
 
     public boolean isMaster(String userId) {
