@@ -18,6 +18,7 @@
     "duration_days": 30,
     "exp_per_completion": 10,
     "bonus_exp_on_full_completion": 50,
+    "is_pinned": false,
     "created_at": "2024-12-05 10:00:00",
     "modified_at": "2024-12-05 10:00:00"
   },
@@ -40,6 +41,7 @@
     "duration_days": 30,
     "exp_per_completion": 20,
     "bonus_exp_on_full_completion": 100,
+    "is_pinned": true,
     "created_at": "2024-12-04 09:00:00",
     "modified_at": "2024-12-04 09:00:00"
   }

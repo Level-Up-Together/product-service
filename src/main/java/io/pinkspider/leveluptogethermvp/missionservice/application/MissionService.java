@@ -69,6 +69,7 @@ public class MissionService {
             .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
             .category(category)
             .customCategory(customCategory)
+            .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
             .build();
 
         Mission saved = missionRepository.save(mission);

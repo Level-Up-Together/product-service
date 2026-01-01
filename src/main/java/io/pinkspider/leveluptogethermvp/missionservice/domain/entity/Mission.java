@@ -98,6 +98,11 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isCustomizable = true;
 
+    @Column(name = "is_pinned", nullable = false)
+    @Comment("고정 미션 여부 (삭제할 때까지 목록에 유지)")
+    @Builder.Default
+    private Boolean isPinned = false;
+
     @NotNull
     @Column(name = "creator_id", nullable = false)
     @Comment("생성자 ID")

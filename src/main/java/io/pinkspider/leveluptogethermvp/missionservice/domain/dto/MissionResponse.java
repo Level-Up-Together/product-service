@@ -34,6 +34,7 @@ public class MissionResponse {
     private MissionSource source;
     private MissionParticipationType participationType;
     private Boolean isCustomizable;
+    private Boolean isPinned;
     private String creatorId;
     private String guildId;
     private Integer maxParticipants;
@@ -71,6 +72,7 @@ public class MissionResponse {
             .source(mission.getSource())
             .participationType(mission.getParticipationType())
             .isCustomizable(mission.getIsCustomizable())
+            .isPinned(mission.getIsPinned())
             .creatorId(mission.getCreatorId())
             .guildId(mission.getGuildId())
             .maxParticipants(mission.getMaxParticipants())

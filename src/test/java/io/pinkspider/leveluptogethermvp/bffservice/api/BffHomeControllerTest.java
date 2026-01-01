@@ -200,6 +200,7 @@ class BffHomeControllerTest {
             .expPerCompletion(100)
             .bonusExpOnFullCompletion(500)
             .categoryName("운동")
+            .isPinned(false)
             .createdAt(LocalDateTime.now())
             .build();
     }
@@ -677,6 +678,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_missions[].source").type(JsonFieldType.STRING).description("미션 출처"),
                             fieldWithPath("value.my_missions[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.my_missions[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
+                            fieldWithPath("value.my_missions[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.my_missions[].creator_id").type(JsonFieldType.STRING).description("생성자 ID"),
                             fieldWithPath("value.my_missions[].guild_id").type(JsonFieldType.STRING).description("길드 ID").optional(),
                             fieldWithPath("value.my_missions[].max_participants").type(JsonFieldType.NUMBER).description("최대 참여자 수").optional(),

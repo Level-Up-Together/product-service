@@ -69,4 +69,8 @@ public class MissionCreateRequest {
     @Size(max = 50, message = "사용자 정의 카테고리는 50자 이하여야 합니다.")
     @NoProfanity(fieldName = "커스텀 카테고리")
     private String customCategory;
+
+    // 고정 미션 여부 (삭제할 때까지 목록에 유지)
+    @Builder.Default
+    private Boolean isPinned = false;
 }
