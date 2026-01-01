@@ -261,4 +261,18 @@ public class MissionExecutionController {
         MissionExecutionResponse response = executionService.shareExecutionToFeed(missionId, userId, executionDate);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
+
+    /**
+     * 피드 공유 취소
+     * 공유된 피드를 삭제하고 공유 상태를 초기화
+     */
+    @DeleteMapping("/{missionId}/executions/{executionDate}/share")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> unshareExecutionFromFeed(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.unshareExecutionFromFeed(missionId, userId, executionDate);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
 }

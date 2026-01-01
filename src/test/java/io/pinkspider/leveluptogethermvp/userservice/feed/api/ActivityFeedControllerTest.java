@@ -434,7 +434,7 @@ class ActivityFeedControllerTest {
         FeedCommentResponse response = MockUtil.readJsonFileToClass(
             "fixture/feed/feedCommentResponse.json", FeedCommentResponse.class);
 
-        when(activityFeedService.addComment(anyLong(), anyString(), anyString(), any(FeedCommentRequest.class)))
+        when(activityFeedService.addComment(anyLong(), anyString(), any(FeedCommentRequest.class)))
             .thenReturn(response);
 
         // when

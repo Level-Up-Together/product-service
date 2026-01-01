@@ -47,6 +47,7 @@ public class MissionExecutionResponse {
     private Integer expEarned;
     private String note;
     private String imageUrl;
+    private Long feedId;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -74,6 +75,7 @@ public class MissionExecutionResponse {
             .expEarned(execution.getExpEarned())
             .note(execution.getNote())
             .imageUrl(execution.getImageUrl())
+            .feedId(execution.getFeedId())
             .createdAt(execution.getCreatedAt())
             .build();
     }
