@@ -61,4 +61,13 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
 
     @Query("SELECT m FROM Mission m WHERE m.visibility = 'PUBLIC' AND m.status = 'OPEN' ORDER BY m.createdAt DESC")
     Page<Mission> findOpenPublicMissions(Pageable pageable);
+
+    /**
+     * 공개 미션 검색 (제목, 설명에서 키워드 검색)
+     */
+    @Query("SELECT m FROM Mission m WHERE m.visibility = 'PUBLIC' AND m.status = 'OPEN' " +
+           "AND (LOWER(m.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(m.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "ORDER BY m.createdAt DESC")
+    Page<Mission> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }

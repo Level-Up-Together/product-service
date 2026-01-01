@@ -5,9 +5,11 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataRespon
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
+import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,7 @@ public class BffHomeController {
     private final BffHomeService bffHomeService;
     private final BffGuildService bffGuildService;
     private final BffMissionService bffMissionService;
+    private final BffSearchService bffSearchService;
 
     /**
      * 홈 화면 데이터 조회 (BFF)
@@ -127,5 +130,27 @@ public class BffHomeController {
     ) {
         MissionTodayDataResponse response = bffMissionService.getTodayMissions(userId);
         return ResponseEntity.ok(ApiResult.<MissionTodayDataResponse>builder().value(response).build());
+    }
+
+    /**
+     * 통합 검색 (BFF)
+     * <p>
+     * 다음 항목들을 한 번에 검색합니다:
+     * - 피드 (제목 기준)
+     * - 미션 (제목, 설명 기준)
+     * - 사용자 (닉네임 기준)
+     * - 길드 (이름, 설명 기준)
+     *
+     * @param keyword 검색 키워드 (2자 이상)
+     * @param limit 각 타입별 최대 결과 수 (기본: 5)
+     * @return UnifiedSearchResponse
+     */
+    @GetMapping("/search")
+    public ResponseEntity<ApiResult<UnifiedSearchResponse>> search(
+        @RequestParam String keyword,
+        @RequestParam(defaultValue = "5") int limit
+    ) {
+        UnifiedSearchResponse response = bffSearchService.search(keyword, limit);
+        return ResponseEntity.ok(ApiResult.<UnifiedSearchResponse>builder().value(response).build());
     }
 }

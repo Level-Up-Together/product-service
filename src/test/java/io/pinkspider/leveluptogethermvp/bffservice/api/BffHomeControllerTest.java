@@ -27,6 +27,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataRespo
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
+import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
@@ -99,6 +100,9 @@ class BffHomeControllerTest {
 
     @MockitoBean
     private BffMissionService bffMissionService;
+
+    @MockitoBean
+    private BffSearchService bffSearchService;
 
     // ========== Mock 데이터 생성 헬퍼 메서드 ==========
 
