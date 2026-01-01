@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
@@ -39,6 +40,10 @@ public class ActivityFeedResponse {
     private int likeCount;
     private int commentCount;
     private boolean likedByMe;
+
+    @JsonProperty("is_my_feed")
+    private boolean myFeed;
+
     private LocalDateTime createdAt;
 
     // 미션 공유 피드 관련 추가 필드
@@ -47,7 +52,7 @@ public class ActivityFeedResponse {
     private Integer expEarned;
     private Long categoryId;
 
-    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe) {
+    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe, boolean isMyFeed) {
         return ActivityFeedResponse.builder()
             .id(feed.getId())
             .userId(feed.getUserId())
@@ -70,6 +75,7 @@ public class ActivityFeedResponse {
             .likeCount(feed.getLikeCount())
             .commentCount(feed.getCommentCount())
             .likedByMe(likedByMe)
+            .myFeed(isMyFeed)
             .createdAt(feed.getCreatedAt())
             .executionId(feed.getExecutionId())
             .durationMinutes(feed.getDurationMinutes())
@@ -78,7 +84,11 @@ public class ActivityFeedResponse {
             .build();
     }
 
+    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe) {
+        return from(feed, likedByMe, false);
+    }
+
     public static ActivityFeedResponse from(ActivityFeed feed) {
-        return from(feed, false);
+        return from(feed, false, false);
     }
 }
