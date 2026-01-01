@@ -50,6 +50,7 @@ public class ActivityFeedService {
      */
     @Transactional
     public ActivityFeed createActivityFeed(String userId, String userNickname, String userProfileImageUrl,
+                                           Integer userLevel,
                                            ActivityType activityType, String title, String description,
                                            String referenceType, Long referenceId, String referenceName,
                                            FeedVisibility visibility, Long guildId,
@@ -58,6 +59,7 @@ public class ActivityFeedService {
             .userId(userId)
             .userNickname(userNickname)
             .userProfileImageUrl(userProfileImageUrl)
+            .userLevel(userLevel != null ? userLevel : 1)
             .activityType(activityType)
             .title(title)
             .description(description)
@@ -420,9 +422,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyMissionJoined(String userId, String userNickname, String userProfileImageUrl,
-                                    Long missionId, String missionTitle) {
+                                    Integer userLevel, Long missionId, String missionTitle) {
         String title = String.format("%s 미션에 참여했습니다!", missionTitle);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.MISSION_JOINED, title, null,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
@@ -430,10 +432,10 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyMissionCompleted(String userId, String userNickname, String userProfileImageUrl,
-                                       Long missionId, String missionTitle, int completionRate) {
+                                       Integer userLevel, Long missionId, String missionTitle, int completionRate) {
         String title = String.format("%s 미션 인터벌을 완료했습니다!", missionTitle);
         String description = String.format("달성률: %d%%", completionRate);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.MISSION_COMPLETED, title, description,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
@@ -441,9 +443,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyMissionFullCompleted(String userId, String userNickname, String userProfileImageUrl,
-                                           Long missionId, String missionTitle) {
+                                           Integer userLevel, Long missionId, String missionTitle) {
         String title = String.format("%s 미션을 100%% 완료했습니다!", missionTitle);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.MISSION_FULL_COMPLETED, title, null,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
@@ -451,9 +453,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyAchievementUnlocked(String userId, String userNickname, String userProfileImageUrl,
-                                          Long achievementId, String achievementName, String achievementDescription) {
+                                          Integer userLevel, Long achievementId, String achievementName, String achievementDescription) {
         String title = String.format("[%s] 업적을 달성했습니다!", achievementName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.ACHIEVEMENT_UNLOCKED, title, achievementDescription,
             "ACHIEVEMENT", achievementId, achievementName,
             FeedVisibility.PUBLIC, null, null, null);
@@ -461,9 +463,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyTitleAcquired(String userId, String userNickname, String userProfileImageUrl,
-                                    Long titleId, String titleName) {
+                                    Integer userLevel, Long titleId, String titleName) {
         String title = String.format("[%s] 칭호를 획득했습니다!", titleName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.TITLE_ACQUIRED, title, null,
             "TITLE", titleId, titleName,
             FeedVisibility.PUBLIC, null, null, null);
@@ -474,7 +476,7 @@ public class ActivityFeedService {
                               int newLevel, int totalExp) {
         String title = String.format("레벨 %d 달성!", newLevel);
         String description = String.format("누적 경험치: %,d", totalExp);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, newLevel,
             ActivityType.LEVEL_UP, title, description,
             "LEVEL", (long) newLevel, "레벨 " + newLevel,
             FeedVisibility.PUBLIC, null, null, null);
@@ -482,9 +484,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyGuildCreated(String userId, String userNickname, String userProfileImageUrl,
-                                   Long guildId, String guildName) {
+                                   Integer userLevel, Long guildId, String guildName) {
         String title = String.format("[%s] 길드를 창설했습니다!", guildName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.GUILD_CREATED, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.PUBLIC, guildId, null, null);
@@ -492,9 +494,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyGuildJoined(String userId, String userNickname, String userProfileImageUrl,
-                                  Long guildId, String guildName) {
+                                  Integer userLevel, Long guildId, String guildName) {
         String title = String.format("[%s] 길드에 가입했습니다!", guildName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.GUILD_JOINED, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.PUBLIC, guildId, null, null);
@@ -502,9 +504,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyGuildLevelUp(String userId, String userNickname, String userProfileImageUrl,
-                                   Long guildId, String guildName, int newLevel) {
-        String title = String.format("[%s] 길드가 레벨 %d로 성장했습니다!", guildName, newLevel);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+                                   Integer userLevel, Long guildId, String guildName, int newGuildLevel) {
+        String title = String.format("[%s] 길드가 레벨 %d로 성장했습니다!", guildName, newGuildLevel);
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.GUILD_LEVEL_UP, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.GUILD, guildId, null, null);
@@ -512,9 +514,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyFriendAdded(String userId, String userNickname, String userProfileImageUrl,
-                                  String friendId, String friendNickname) {
+                                  Integer userLevel, String friendId, String friendNickname) {
         String title = String.format("%s님과 친구가 되었습니다!", friendNickname);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.FRIEND_ADDED, title, null,
             "USER", null, friendNickname,
             FeedVisibility.FRIENDS, null, null, null);
@@ -522,9 +524,9 @@ public class ActivityFeedService {
 
     @Transactional
     public void notifyAttendanceStreak(String userId, String userNickname, String userProfileImageUrl,
-                                       int streakDays) {
+                                       Integer userLevel, int streakDays) {
         String title = String.format("%d일 연속 출석 달성!", streakDays);
-        createActivityFeed(userId, userNickname, userProfileImageUrl,
+        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
             ActivityType.ATTENDANCE_STREAK, title, null,
             "ATTENDANCE", (long) streakDays, streakDays + "일 연속 출석",
             FeedVisibility.PUBLIC, null, null, null);
@@ -539,6 +541,7 @@ public class ActivityFeedService {
      */
     @Transactional
     public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
+                                                Integer userLevel,
                                                 Long executionId, Long missionId, String missionTitle,
                                                 String missionDescription, Long categoryId,
                                                 String note, String imageUrl,
@@ -549,6 +552,7 @@ public class ActivityFeedService {
             .userId(userId)
             .userNickname(userNickname)
             .userProfileImageUrl(userProfileImageUrl)
+            .userLevel(userLevel != null ? userLevel : 1)
             .activityType(ActivityType.MISSION_SHARED)
             .title(title)
             .description(note)
