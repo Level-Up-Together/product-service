@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -78,4 +79,9 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     // ID 목록으로 피드 조회 (Featured Feed 조회용)
     @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
     List<ActivityFeed> findByIdIn(@Param("feedIds") List<Long> feedIds);
+
+    // 사용자의 모든 피드의 userTitle 업데이트
+    @Modifying
+    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle WHERE f.userId = :userId")
+    int updateUserTitleByUserId(@Param("userId") String userId, @Param("userTitle") String userTitle);
 }

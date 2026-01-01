@@ -551,7 +551,7 @@ public class ActivityFeedService {
      */
     @Transactional
     public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
-                                                Integer userLevel,
+                                                Integer userLevel, String userTitle,
                                                 Long executionId, Long missionId, String missionTitle,
                                                 String missionDescription, Long categoryId,
                                                 String note, String imageUrl,
@@ -563,6 +563,7 @@ public class ActivityFeedService {
             .userNickname(userNickname)
             .userProfileImageUrl(userProfileImageUrl)
             .userLevel(userLevel != null ? userLevel : 1)
+            .userTitle(userTitle)
             .activityType(ActivityType.MISSION_SHARED)
             .title(title)
             .description(note)
