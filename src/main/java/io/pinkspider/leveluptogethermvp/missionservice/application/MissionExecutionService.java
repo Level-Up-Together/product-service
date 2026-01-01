@@ -563,6 +563,32 @@ public class MissionExecutionService {
         return MissionExecutionResponse.from(execution);
     }
 
+    /**
+     * 완료된 미션 실행의 이미지 삭제
+     */
+    @Transactional
+    public MissionExecutionResponse deleteExecutionImage(Long missionId, String userId, LocalDate executionDate) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        if (execution.getStatus() != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 미션만 이미지를 삭제할 수 있습니다.");
+        }
+
+        // 이미지가 있으면 삭제
+        if (execution.getImageUrl() != null) {
+            missionImageStorageService.delete(execution.getImageUrl());
+            execution.setImageUrl(null);
+            executionRepository.save(execution);
+            log.info("미션 이미지 삭제: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+        }
+
+        return MissionExecutionResponse.from(execution);
+    }
+
     private MissionExecution findExecutionById(Long executionId) {
         return executionRepository.findById(executionId)
             .orElseThrow(() -> new IllegalArgumentException("수행 기록을 찾을 수 없습니다: " + executionId));

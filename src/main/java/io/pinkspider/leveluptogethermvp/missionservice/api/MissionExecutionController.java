@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -231,6 +232,19 @@ public class MissionExecutionController {
         @RequestPart("image") MultipartFile image) {
 
         MissionExecutionResponse response = executionService.uploadExecutionImage(missionId, userId, executionDate, image);
+        return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
+    }
+
+    /**
+     * 완료된 미션 실행의 이미지 삭제
+     */
+    @DeleteMapping("/{missionId}/executions/{executionDate}/image")
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> deleteExecutionImage(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @CurrentUser String userId) {
+
+        MissionExecutionResponse response = executionService.deleteExecutionImage(missionId, userId, executionDate);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 }
