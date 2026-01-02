@@ -59,7 +59,7 @@ public class FriendService {
                 "새로운 친구 요청이 도착했습니다.",
                 "FRIEND_REQUEST",
                 saved.getId(),
-                "/friends/requests"
+                "/mypage/friends/requests"
             );
         } catch (Exception e) {
             log.warn("친구 요청 알림 발송 실패: {}", e.getMessage());
