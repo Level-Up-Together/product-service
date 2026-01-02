@@ -71,6 +71,30 @@ public class MissionController {
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
+    /**
+     * 시스템 미션 목록 조회 (미션북용)
+     * 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
+     */
+    @GetMapping("/system")
+    public ResponseEntity<ApiResult<Page<MissionResponse>>> getSystemMissions(
+        @PageableDefault(size = 20) Pageable pageable) {
+
+        Page<MissionResponse> responses = missionService.getSystemMissions(pageable);
+        return ResponseEntity.ok(ApiResult.<Page<MissionResponse>>builder().value(responses).build());
+    }
+
+    /**
+     * 카테고리별 시스템 미션 목록 조회
+     */
+    @GetMapping("/system/category/{categoryId}")
+    public ResponseEntity<ApiResult<Page<MissionResponse>>> getSystemMissionsByCategory(
+        @PathVariable Long categoryId,
+        @PageableDefault(size = 20) Pageable pageable) {
+
+        Page<MissionResponse> responses = missionService.getSystemMissionsByCategory(categoryId, pageable);
+        return ResponseEntity.ok(ApiResult.<Page<MissionResponse>>builder().value(responses).build());
+    }
+
     @PutMapping("/{missionId}")
     public ResponseEntity<ApiResult<MissionResponse>> updateMission(
         @PathVariable Long missionId,

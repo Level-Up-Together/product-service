@@ -111,6 +111,27 @@ public class MissionService {
             .toList();
     }
 
+    /**
+     * 시스템 미션 목록 조회 (미션북용)
+     * 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
+     */
+    public Page<MissionResponse> getSystemMissions(Pageable pageable) {
+        return missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable)
+            .map(MissionResponse::from);
+    }
+
+    /**
+     * 카테고리별 시스템 미션 목록 조회
+     */
+    public Page<MissionResponse> getSystemMissionsByCategory(Long categoryId, Pageable pageable) {
+        return missionRepository.findBySourceAndStatusAndCategoryId(
+            MissionSource.SYSTEM,
+            MissionStatus.OPEN,
+            categoryId,
+            pageable
+        ).map(MissionResponse::from);
+    }
+
     @Transactional
     public MissionResponse updateMission(Long missionId, String userId, MissionUpdateRequest request) {
         Mission mission = findMissionById(missionId);
