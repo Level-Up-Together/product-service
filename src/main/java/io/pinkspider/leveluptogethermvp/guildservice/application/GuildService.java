@@ -23,6 +23,8 @@ import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedGuild
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -57,6 +59,7 @@ public class GuildService {
     private final GuildHeadquartersService guildHeadquartersService;
     private final UserRepository userRepository;
     private final FeaturedGuildRepository featuredGuildRepository;
+    private final TitleService titleService;
 
     @Transactional
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -501,9 +504,18 @@ public class GuildService {
                 if (user != null) {
                     response.setNickname(user.getDisplayName());
                     response.setProfileImageUrl(user.getPicture());
-                    // TODO: userLevel과 equippedTitleName은 별도 서비스에서 조회 필요
+                    // TODO: userLevel은 별도 서비스에서 조회 필요
                     response.setUserLevel(1);
-                    response.setEquippedTitleName(null);
+                    // 칭호 정보 조회
+                    try {
+                        TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(member.getUserId());
+                        response.setEquippedTitleName(titleInfo.name());
+                        response.setEquippedTitleRarity(titleInfo.rarity());
+                    } catch (Exception e) {
+                        log.warn("칭호 정보 조회 실패: userId={}, error={}", member.getUserId(), e.getMessage());
+                        response.setEquippedTitleName(null);
+                        response.setEquippedTitleRarity(null);
+                    }
                 }
                 return response;
             })

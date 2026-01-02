@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,6 +36,8 @@ public class GuildMemberResponse {
     private Integer userLevel;
     @Setter
     private String equippedTitleName;
+    @Setter
+    private TitleRarity equippedTitleRarity;
 
     public static GuildMemberResponse from(GuildMember member) {
         return GuildMemberResponse.builder()
