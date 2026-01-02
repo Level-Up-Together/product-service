@@ -35,6 +35,9 @@ public class PublicProfileResponse {
     private Integer clearedMissionsCount;
     private Integer acquiredTitlesCount;
 
+    // 소속 길드 목록
+    private java.util.List<GuildInfo> guilds;
+
     // 본인 여부
     @JsonProperty("is_owner")
     private Boolean isOwner;
@@ -51,5 +54,18 @@ public class PublicProfileResponse {
         private String rarity;
         private String colorCode;
         private String iconUrl;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class GuildInfo {
+        private Long guildId;
+        private String name;
+        private String imageUrl;
+        private Integer level;
+        private Integer memberCount;
     }
 }

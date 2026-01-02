@@ -8,6 +8,9 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Us
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
@@ -54,6 +57,7 @@ public class MyPageService {
     private final ProfileImageStorageService profileImageStorageService;
     private final ImageModerationService imageModerationService;
     private final ActivityFeedRepository activityFeedRepository;
+    private final GuildMemberRepository guildMemberRepository;
 
     /**
      * MyPage 전체 데이터 조회
@@ -110,6 +114,12 @@ public class MyPageService {
         // 보유 칭호 수
         long titlesCount = userTitleRepository.countByUserId(targetUserId);
 
+        // 소속 길드 목록 조회
+        List<GuildMember> guildMemberships = guildMemberRepository.findAllActiveGuildMemberships(targetUserId);
+        List<PublicProfileResponse.GuildInfo> guilds = guildMemberships.stream()
+            .map(this::toGuildInfo)
+            .collect(Collectors.toList());
+
         // 본인 여부
         boolean isOwner = targetUserId.equals(currentUserId);
         log.debug("getPublicProfile: targetUserId={}, currentUserId={}, isOwner={}",
@@ -127,6 +137,7 @@ public class MyPageService {
             .daysSinceJoined(daysSinceJoined)
             .clearedMissionsCount(stats.getTotalMissionCompletions())
             .acquiredTitlesCount((int) titlesCount)
+            .guilds(guilds)
             .isOwner(isOwner)
             .build();
     }
@@ -502,6 +513,18 @@ public class MyPageService {
             .rarity(title.getRarity().name())
             .colorCode(title.getColorCode())
             .iconUrl(title.getIconUrl())
+            .build();
+    }
+
+    private PublicProfileResponse.GuildInfo toGuildInfo(GuildMember guildMember) {
+        Guild guild = guildMember.getGuild();
+        long memberCount = guildMemberRepository.countActiveMembers(guild.getId());
+        return PublicProfileResponse.GuildInfo.builder()
+            .guildId(guild.getId())
+            .name(guild.getName())
+            .imageUrl(guild.getImageUrl())
+            .level(guild.getCurrentLevel())
+            .memberCount((int) memberCount)
             .build();
     }
 
