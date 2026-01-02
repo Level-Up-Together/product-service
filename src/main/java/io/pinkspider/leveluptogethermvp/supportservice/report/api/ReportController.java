@@ -3,13 +3,16 @@ package io.pinkspider.leveluptogethermvp.supportservice.report.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResponse;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,6 +32,18 @@ public class ReportController {
 
         return ApiResult.<ReportResponse>builder()
             .value(response)
+            .build();
+    }
+
+    @GetMapping("/check")
+    public ApiResult<Boolean> checkUnderReview(
+        @RequestParam ReportTargetType targetType,
+        @RequestParam String targetId) {
+
+        boolean underReview = reportService.isUnderReview(targetType, targetId);
+
+        return ApiResult.<Boolean>builder()
+            .value(underReview)
             .build();
     }
 }

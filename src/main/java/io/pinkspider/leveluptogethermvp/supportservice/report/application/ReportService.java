@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResp
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportApiResponse;
+import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
@@ -79,6 +80,19 @@ public class ReportService {
         } catch (Exception e) {
             log.error("신고 생성 중 오류 발생", e);
             throw new CustomException("REPORT_001", "신고 접수 중 오류가 발생했습니다.");
+        }
+    }
+
+    public boolean isUnderReview(ReportTargetType targetType, String targetId) {
+        try {
+            AdminReportCheckResponse response = adminReportFeignClient.checkUnderReview(
+                targetType.name(),
+                targetId
+            );
+            return response.getValue() != null && response.getValue();
+        } catch (Exception e) {
+            log.warn("신고 상태 확인 중 오류 발생: targetType={}, targetId={}", targetType, targetId, e);
+            return false;
         }
     }
 }
