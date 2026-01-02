@@ -48,6 +48,7 @@ public class MissionResponse {
 
     private MissionInterval missionInterval;
     private Integer durationDays;
+    private Integer durationMinutes;
     private Integer expPerCompletion;
     private Integer bonusExpOnFullCompletion;
 
@@ -80,6 +81,7 @@ public class MissionResponse {
             .endAt(mission.getEndAt())
             .missionInterval(mission.getMissionInterval())
             .durationDays(mission.getDurationDays())
+            .durationMinutes(mission.getDurationMinutes())
             .expPerCompletion(mission.getExpPerCompletion())
             .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
             .categoryId(mission.getCategory() != null ? mission.getCategory().getId() : null)
