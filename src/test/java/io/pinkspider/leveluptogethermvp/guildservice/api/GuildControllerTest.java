@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.TransferMasterRe
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -93,6 +94,7 @@ class GuildControllerTest {
             .description("테스트 길드입니다.")
             .masterId(MOCK_USER_ID)
             .visibility(GuildVisibility.PUBLIC)
+            .joinType(GuildJoinType.OPEN)
             .maxMembers(50)
             .currentMemberCount(10)
             .currentLevel(5)
@@ -141,6 +143,7 @@ class GuildControllerTest {
                             fieldWithPath("name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("visibility").type(JsonFieldType.STRING).description("공개 여부 (PUBLIC, PRIVATE)"),
+                            fieldWithPath("join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("category_id").type(JsonFieldType.NUMBER).description("카테고리 ID (필수)"),
                             fieldWithPath("max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수").optional(),
                             fieldWithPath("image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
@@ -157,6 +160,7 @@ class GuildControllerTest {
                             fieldWithPath("value.description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.master_id").type(JsonFieldType.STRING).description("마스터 ID"),
                             fieldWithPath("value.visibility").type(JsonFieldType.STRING).description("공개 여부"),
+                            fieldWithPath("value.join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수"),
                             fieldWithPath("value.current_member_count").type(JsonFieldType.NUMBER).description("현재 멤버 수").optional(),
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
@@ -348,12 +352,37 @@ class GuildControllerTest {
                             fieldWithPath("name").type(JsonFieldType.STRING).description("길드 이름").optional(),
                             fieldWithPath("description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("visibility").type(JsonFieldType.STRING).description("공개 여부").optional(),
+                            fieldWithPath("join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수").optional(),
                             fieldWithPath("image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
                             fieldWithPath("base_address").type(JsonFieldType.STRING).description("거점 주소").optional(),
                             fieldWithPath("base_latitude").type(JsonFieldType.NUMBER).description("거점 위도").optional(),
                             fieldWithPath("base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("길드 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.name").type(JsonFieldType.STRING).description("길드 이름"),
+                            fieldWithPath("value.description").type(JsonFieldType.STRING).description("길드 설명").optional(),
+                            fieldWithPath("value.master_id").type(JsonFieldType.STRING).description("마스터 ID"),
+                            fieldWithPath("value.visibility").type(JsonFieldType.STRING).description("공개 여부"),
+                            fieldWithPath("value.join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
+                            fieldWithPath("value.max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수"),
+                            fieldWithPath("value.current_member_count").type(JsonFieldType.NUMBER).description("현재 멤버 수").optional(),
+                            fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
+                            fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
+                            fieldWithPath("value.base_address").type(JsonFieldType.STRING).description("거점 주소").optional(),
+                            fieldWithPath("value.base_latitude").type(JsonFieldType.NUMBER).description("거점 위도").optional(),
+                            fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시")
                         )
                         .build()
                 )

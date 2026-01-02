@@ -103,6 +103,7 @@ class MyPageControllerTest {
             .userId(MOCK_USER_ID)
             .nickname("테스트유저")
             .profileImageUrl("https://example.com/profile.jpg")
+            .bio("안녕하세요! 반갑습니다.")
             .leftTitle(leftTitle)
             .rightTitle(rightTitle)
             .followerCount(10)
@@ -159,6 +160,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.profile.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.profile.nickname").type(JsonFieldType.STRING).description("닉네임"),
                             fieldWithPath("value.profile.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.profile.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
                             fieldWithPath("value.profile.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.profile.left_title.user_title_id").type(JsonFieldType.NUMBER).description("사용자 칭호 ID").optional(),
                             fieldWithPath("value.profile.left_title.title_id").type(JsonFieldType.NUMBER).description("칭호 ID").optional(),
@@ -218,6 +220,7 @@ class MyPageControllerTest {
             .userId(MOCK_USER_ID)
             .nickname("테스트유저")
             .profileImageUrl("https://example.com/new-profile.jpg")
+            .bio("안녕하세요!")
             .followerCount(10)
             .followingCount(10)
             .build();
@@ -249,6 +252,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
                             fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL"),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
@@ -278,6 +282,7 @@ class MyPageControllerTest {
             .userId(MOCK_USER_ID)
             .nickname("테스트유저")
             .profileImageUrl("/uploads/profile/" + MOCK_USER_ID + "/uuid-generated.jpg")
+            .bio("안녕하세요!")
             .followerCount(10)
             .followingCount(10)
             .build();
@@ -305,6 +310,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
                             fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL"),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
@@ -513,6 +519,14 @@ class MyPageControllerTest {
         // given
         String targetUserId = MOCK_USER_ID;
 
+        PublicProfileResponse.GuildInfo guild1 = PublicProfileResponse.GuildInfo.builder()
+            .guildId(1L)
+            .name("테스트 길드")
+            .imageUrl("https://example.com/guild.jpg")
+            .level(3)
+            .memberCount(8)
+            .build();
+
         PublicProfileResponse response = PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname("테스트유저")
@@ -523,6 +537,7 @@ class MyPageControllerTest {
             .daysSinceJoined(365L)
             .clearedMissionsCount(50)
             .acquiredTitlesCount(10)
+            .guilds(List.of(guild1))
             .isOwner(true)  // 본인이므로 true
             .build();
 
@@ -556,6 +571,12 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
+                            fieldWithPath("value.guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID").optional(),
+                            fieldWithPath("value.guilds[].name").type(JsonFieldType.STRING).description("길드 이름").optional(),
+                            fieldWithPath("value.guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
+                            fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
                         )
                         .build()
@@ -575,6 +596,14 @@ class MyPageControllerTest {
         // given
         String targetUserId = "other-user-456";
 
+        PublicProfileResponse.GuildInfo guild1 = PublicProfileResponse.GuildInfo.builder()
+            .guildId(2L)
+            .name("다른 길드")
+            .imageUrl("https://example.com/other-guild.jpg")
+            .level(5)
+            .memberCount(10)
+            .build();
+
         PublicProfileResponse response = PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname("다른유저")
@@ -585,6 +614,7 @@ class MyPageControllerTest {
             .daysSinceJoined(500L)
             .clearedMissionsCount(100)
             .acquiredTitlesCount(20)
+            .guilds(List.of(guild1))
             .isOwner(false)  // 타인이므로 false
             .build();
 
@@ -618,6 +648,12 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
+                            fieldWithPath("value.guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID").optional(),
+                            fieldWithPath("value.guilds[].name").type(JsonFieldType.STRING).description("길드 이름").optional(),
+                            fieldWithPath("value.guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
+                            fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
                         )
                         .build()

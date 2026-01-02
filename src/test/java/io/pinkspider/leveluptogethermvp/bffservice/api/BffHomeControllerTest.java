@@ -113,6 +113,7 @@ class BffHomeControllerTest {
             .name("테스트 길드")
             .description("테스트 길드 설명입니다.")
             .visibility(GuildVisibility.PUBLIC)
+            .joinType(io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType.OPEN)
             .masterId("user-1")
             .maxMembers(50)
             .currentMemberCount(10)
@@ -314,6 +315,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_guilds[].name").type(JsonFieldType.STRING).description("길드명"),
                             fieldWithPath("value.my_guilds[].description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.my_guilds[].visibility").type(JsonFieldType.STRING).description("공개 설정"),
+                            fieldWithPath("value.my_guilds[].join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.my_guilds[].master_id").type(JsonFieldType.STRING).description("길드장 ID"),
                             fieldWithPath("value.my_guilds[].max_members").type(JsonFieldType.NUMBER).description("최대 인원"),
                             fieldWithPath("value.my_guilds[].current_member_count").type(JsonFieldType.NUMBER).description("현재 인원"),
@@ -334,6 +336,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.public_guilds.content[].name").type(JsonFieldType.STRING).description("길드명"),
                             fieldWithPath("value.public_guilds.content[].description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.public_guilds.content[].visibility").type(JsonFieldType.STRING).description("공개 설정"),
+                            fieldWithPath("value.public_guilds.content[].join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.public_guilds.content[].master_id").type(JsonFieldType.STRING).description("길드장 ID"),
                             fieldWithPath("value.public_guilds.content[].max_members").type(JsonFieldType.NUMBER).description("최대 인원"),
                             fieldWithPath("value.public_guilds.content[].current_member_count").type(JsonFieldType.NUMBER).description("현재 인원"),
@@ -434,6 +437,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.guild.name").type(JsonFieldType.STRING).description("길드명"),
                             fieldWithPath("value.guild.description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.guild.visibility").type(JsonFieldType.STRING).description("공개 설정"),
+                            fieldWithPath("value.guild.join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.guild.master_id").type(JsonFieldType.STRING).description("길드장 ID"),
                             fieldWithPath("value.guild.max_members").type(JsonFieldType.NUMBER).description("최대 인원"),
                             fieldWithPath("value.guild.current_member_count").type(JsonFieldType.NUMBER).description("현재 인원"),
@@ -542,6 +546,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_guilds[].name").type(JsonFieldType.STRING).description("길드명"),
                             fieldWithPath("value.my_guilds[].description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.my_guilds[].visibility").type(JsonFieldType.STRING).description("공개 설정"),
+                            fieldWithPath("value.my_guilds[].join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.my_guilds[].master_id").type(JsonFieldType.STRING).description("길드장 ID"),
                             fieldWithPath("value.my_guilds[].max_members").type(JsonFieldType.NUMBER).description("최대 인원"),
                             fieldWithPath("value.my_guilds[].current_member_count").type(JsonFieldType.NUMBER).description("현재 인원"),
@@ -562,6 +567,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.recommended_guilds.content[].name").type(JsonFieldType.STRING).description("길드명"),
                             fieldWithPath("value.recommended_guilds.content[].description").type(JsonFieldType.STRING).description("길드 설명").optional(),
                             fieldWithPath("value.recommended_guilds.content[].visibility").type(JsonFieldType.STRING).description("공개 설정"),
+                            fieldWithPath("value.recommended_guilds.content[].join_type").type(JsonFieldType.STRING).description("가입 방식 (OPEN, APPROVAL, INVITE_ONLY)").optional(),
                             fieldWithPath("value.recommended_guilds.content[].master_id").type(JsonFieldType.STRING).description("길드장 ID"),
                             fieldWithPath("value.recommended_guilds.content[].max_members").type(JsonFieldType.NUMBER).description("최대 인원"),
                             fieldWithPath("value.recommended_guilds.content[].current_member_count").type(JsonFieldType.NUMBER).description("현재 인원"),

@@ -18,14 +18,18 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberRespo
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildJoinRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildLevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedGuild;
 import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedGuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
@@ -58,6 +62,9 @@ class GuildServiceTest {
     private GuildJoinRequestRepository joinRequestRepository;
 
     @Mock
+    private GuildLevelConfigRepository levelConfigRepository;
+
+    @Mock
     private ProfanityValidationService profanityValidationService;
 
     @Mock
@@ -65,6 +72,12 @@ class GuildServiceTest {
 
     @Mock
     private ApplicationContext applicationContext;
+
+    @Mock
+    private GuildHeadquartersService guildHeadquartersService;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private FeaturedGuildRepository featuredGuildRepository;
@@ -96,6 +109,7 @@ class GuildServiceTest {
             .name("테스트 길드")
             .description("테스트 길드 설명")
             .visibility(GuildVisibility.PUBLIC)
+            .joinType(GuildJoinType.APPROVAL_REQUIRED)  // 승인 필요 길드로 설정
             .masterId(testMasterId)
             .maxMembers(50)
             .categoryId(testCategoryId)
@@ -150,6 +164,8 @@ class GuildServiceTest {
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
+            when(levelConfigRepository.findByLevel(1)).thenReturn(Optional.of(
+                GuildLevelConfig.builder().level(1).maxMembers(20).build()));
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
                 setGuildId(guild, 1L);
@@ -319,7 +335,6 @@ class GuildServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
-            when(joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(1L, testUserId, JoinRequestStatus.PENDING)).thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L); // maxMembers = 50
 
             // when & then
