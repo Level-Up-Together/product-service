@@ -36,6 +36,7 @@ public class MyPageResponse {
         private String userId;
         private String nickname;
         private String profileImageUrl;
+        private String bio;
         private EquippedTitleInfo leftTitle;
         private EquippedTitleInfo rightTitle;
         private Integer followerCount;

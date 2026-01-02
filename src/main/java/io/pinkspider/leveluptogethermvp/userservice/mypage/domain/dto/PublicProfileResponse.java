@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDate;
@@ -35,6 +36,7 @@ public class PublicProfileResponse {
     private Integer acquiredTitlesCount;
 
     // 본인 여부
+    @JsonProperty("is_owner")
     private Boolean isOwner;
 
     @Getter

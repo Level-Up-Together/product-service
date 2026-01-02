@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResp
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.ProfileInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.ProfileUpdateRequest;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.PublicProfileResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
@@ -504,5 +505,129 @@ class MyPageControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 본인")
+    void getPublicProfileOwnerTest() throws Exception {
+        // given
+        String targetUserId = MOCK_USER_ID;
+
+        PublicProfileResponse response = PublicProfileResponse.builder()
+            .userId(targetUserId)
+            .nickname("테스트유저")
+            .profileImageUrl("https://example.com/profile.jpg")
+            .bio("안녕하세요! 반갑습니다.")
+            .level(5)
+            .startDate(LocalDate.of(2024, 1, 1))
+            .daysSinceJoined(365L)
+            .clearedMissionsCount(50)
+            .acquiredTitlesCount(10)
+            .isOwner(true)  // 본인이므로 true
+            .build();
+
+        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/profile/{userId}", targetUserId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-06. 공개 프로필 조회 (본인)",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개 프로필 조회 - 본인 프로필 조회 시 is_owner: true")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("공개 프로필 데이터"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
+                            fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
+                            fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
+                            fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.is_owner").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 타인")
+    void getPublicProfileOtherTest() throws Exception {
+        // given
+        String targetUserId = "other-user-456";
+
+        PublicProfileResponse response = PublicProfileResponse.builder()
+            .userId(targetUserId)
+            .nickname("다른유저")
+            .profileImageUrl("https://example.com/other-profile.jpg")
+            .bio("다른 사람의 자기소개")
+            .level(10)
+            .startDate(LocalDate.of(2023, 6, 1))
+            .daysSinceJoined(500L)
+            .clearedMissionsCount(100)
+            .acquiredTitlesCount(20)
+            .isOwner(false)  // 타인이므로 false
+            .build();
+
+        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/profile/{userId}", targetUserId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-07. 공개 프로필 조회 (타인)",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개 프로필 조회 - 타인 프로필 조회 시 is_owner: false")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("공개 프로필 데이터"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
+                            fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
+                            fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
+                            fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.is_owner").value(false));
     }
 }

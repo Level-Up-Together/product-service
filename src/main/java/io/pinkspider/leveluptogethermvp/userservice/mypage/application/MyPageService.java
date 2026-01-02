@@ -112,6 +112,8 @@ public class MyPageService {
 
         // 본인 여부
         boolean isOwner = targetUserId.equals(currentUserId);
+        log.debug("getPublicProfile: targetUserId={}, currentUserId={}, isOwner={}",
+            targetUserId, currentUserId, isOwner);
 
         return PublicProfileResponse.builder()
             .userId(targetUserId)
@@ -407,6 +409,7 @@ public class MyPageService {
             .userId(userId)
             .nickname(user.getDisplayName())
             .profileImageUrl(user.getPicture())
+            .bio(user.getBio())
             .leftTitle(leftTitle)
             .rightTitle(rightTitle)
             .followerCount(friendCount)
