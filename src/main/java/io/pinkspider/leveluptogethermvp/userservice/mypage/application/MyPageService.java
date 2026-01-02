@@ -130,10 +130,15 @@ public class MyPageService {
         // 친구 관계 상태 조회 (본인이 아니고 로그인한 경우에만)
         String friendshipStatusStr = "NONE";
         Long friendRequestId = null;
+        log.debug("getPublicProfile 친구 상태 조회: isOwner={}, currentUserId={}, targetUserId={}",
+            isOwner, currentUserId, targetUserId);
         if (!isOwner && currentUserId != null) {
             Optional<Friendship> friendshipOpt = friendshipRepository.findFriendship(currentUserId, targetUserId);
+            log.debug("findFriendship 결과: present={}", friendshipOpt.isPresent());
             if (friendshipOpt.isPresent()) {
                 Friendship friendship = friendshipOpt.get();
+                log.debug("Friendship 정보: id={}, userId={}, friendId={}, status={}",
+                    friendship.getId(), friendship.getUserId(), friendship.getFriendId(), friendship.getStatus());
                 if (friendship.getStatus() == FriendshipStatus.ACCEPTED) {
                     friendshipStatusStr = "ACCEPTED";
                 } else if (friendship.getStatus() == FriendshipStatus.PENDING) {
@@ -146,7 +151,11 @@ public class MyPageService {
                     }
                 }
             }
+        } else {
+            log.debug("친구 상태 조회 건너뜀: isOwner={}, currentUserId is null={}",
+                isOwner, currentUserId == null);
         }
+        log.debug("최종 friendshipStatus={}, friendRequestId={}", friendshipStatusStr, friendRequestId);
 
         return PublicProfileResponse.builder()
             .userId(targetUserId)
