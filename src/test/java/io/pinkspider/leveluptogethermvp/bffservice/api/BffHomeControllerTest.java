@@ -48,6 +48,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.domain.enums.NoticeType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -168,6 +169,18 @@ class BffHomeControllerTest {
             .build();
     }
 
+    private MvpGuildResponse createMockMvpGuildResponse(int rank) {
+        return MvpGuildResponse.builder()
+            .guildId((long) rank)
+            .name("MVP 길드 " + rank)
+            .imageUrl("https://example.com/guild.jpg")
+            .level(5)
+            .memberCount(10)
+            .earnedExp(5000L)
+            .rank(rank)
+            .build();
+    }
+
     private NoticeResponse createMockNoticeResponse() {
         return NoticeResponse.builder()
             .id(1L)
@@ -253,6 +266,7 @@ class BffHomeControllerTest {
                 .totalPages(0)
                 .build())
             .rankings(List.of(createMockTodayPlayerResponse(1)))
+            .mvpGuilds(List.of(createMockMvpGuildResponse(1)))
             .categories(Collections.emptyList())
             .myGuilds(List.of(createMockGuildResponse()))
             .publicGuilds(HomeDataResponse.GuildPageData.builder()
@@ -309,6 +323,14 @@ class BffHomeControllerTest {
                             fieldWithPath("value.rankings[].title").type(JsonFieldType.STRING).description("칭호").optional(),
                             fieldWithPath("value.rankings[].earned_exp").type(JsonFieldType.NUMBER).description("획득 경험치"),
                             fieldWithPath("value.rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.mvp_guilds[]").type(JsonFieldType.ARRAY).description("MVP 길드 랭킹 (금일 EXP 획득 기준 상위 5개)"),
+                            fieldWithPath("value.mvp_guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.mvp_guilds[].name").type(JsonFieldType.STRING).description("길드명"),
+                            fieldWithPath("value.mvp_guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.mvp_guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨"),
+                            fieldWithPath("value.mvp_guilds[].member_count").type(JsonFieldType.NUMBER).description("멤버 수"),
+                            fieldWithPath("value.mvp_guilds[].earned_exp").type(JsonFieldType.NUMBER).description("금일 획득 경험치"),
+                            fieldWithPath("value.mvp_guilds[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.categories[]").type(JsonFieldType.ARRAY).description("미션 카테고리 목록"),
                             fieldWithPath("value.my_guilds[]").type(JsonFieldType.ARRAY).description("내 길드 목록"),
                             fieldWithPath("value.my_guilds[].id").type(JsonFieldType.NUMBER).description("길드 ID"),

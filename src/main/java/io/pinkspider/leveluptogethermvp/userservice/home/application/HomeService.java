@@ -1,5 +1,9 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedPlayer;
 import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedPlayerRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
@@ -8,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Us
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.domain.entity.HomeBanner;
 import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
@@ -44,6 +49,9 @@ public class HomeService {
     private final UserTitleRepository userTitleRepository;
     private final FeaturedPlayerRepository featuredPlayerRepository;
     private final MissionCategoryRepository missionCategoryRepository;
+    private final GuildExperienceHistoryRepository guildExperienceHistoryRepository;
+    private final GuildRepository guildRepository;
+    private final GuildMemberRepository guildMemberRepository;
 
     /**
      * 활성화된 배너 목록 조회
@@ -68,13 +76,13 @@ public class HomeService {
     }
 
     /**
-     * 오늘의 플레이어 목록 조회 (어제 가장 경험치를 많이 획득한 사람 5명)
+     * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명)
      */
     public List<TodayPlayerResponse> getTodayPlayers() {
-        // 어제 00:00 ~ 23:59:59
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDateTime startDate = yesterday.atStartOfDay();
-        LocalDateTime endDate = yesterday.atTime(LocalTime.MAX);
+        // 오늘 00:00 ~ 23:59:59
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDate = today.atStartOfDay();
+        LocalDateTime endDate = today.atTime(LocalTime.MAX);
 
         // 상위 5명 조회
         List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
@@ -120,16 +128,16 @@ public class HomeService {
     }
 
     /**
-     * 카테고리별 오늘의 플레이어 목록 조회 (하이브리드 선정)
+     * 카테고리별 MVP 목록 조회 (하이브리드 선정)
      * 1. Admin이 설정한 Featured Player 먼저 표시
-     * 2. 자동 선정 (어제 해당 카테고리에서 가장 경험치를 많이 획득한 사람)
+     * 2. 자동 선정 (금일 해당 카테고리에서 가장 경험치를 많이 획득한 사람)
      * 3. 중복 제거 후 최대 5명 반환
      */
     public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDateTime startDate = yesterday.atStartOfDay();
-        LocalDateTime endDate = yesterday.atTime(LocalTime.MAX);
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDate = today.atStartOfDay();
+        LocalDateTime endDate = today.atTime(LocalTime.MAX);
 
         List<TodayPlayerResponse> result = new ArrayList<>();
         Set<String> addedUserIds = new HashSet<>();
@@ -180,6 +188,53 @@ public class HomeService {
                     }
                 }
             }
+        }
+
+        return result;
+    }
+
+    /**
+     * MVP 길드 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 길드 5개)
+     */
+    public List<MvpGuildResponse> getMvpGuilds() {
+        // 오늘 00:00 ~ 23:59:59
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDate = today.atStartOfDay();
+        LocalDateTime endDate = today.atTime(LocalTime.MAX);
+
+        // 상위 5개 길드 조회
+        List<Object[]> topGuilds = guildExperienceHistoryRepository.findTopExpGuildsByPeriod(
+            startDate, endDate, PageRequest.of(0, 5));
+
+        if (topGuilds.isEmpty()) {
+            return List.of();
+        }
+
+        List<MvpGuildResponse> result = new ArrayList<>();
+        int rank = 1;
+
+        for (Object[] row : topGuilds) {
+            Long guildId = ((Number) row[0]).longValue();
+            Long earnedExp = ((Number) row[1]).longValue();
+
+            // 길드 정보 조회
+            Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId).orElse(null);
+            if (guild == null) {
+                continue;
+            }
+
+            // 멤버 수 조회
+            int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+
+            result.add(MvpGuildResponse.of(
+                guildId,
+                guild.getName(),
+                guild.getImageUrl(),
+                guild.getCurrentLevel(),
+                memberCount,
+                earnedExp,
+                rank++
+            ));
         }
 
         return result;

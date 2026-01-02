@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.application.NoticeService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
 import java.util.Collections;
@@ -83,14 +84,23 @@ public class BffHomeService {
         CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 if (categoryId != null) {
-                    // 카테고리별 오늘의 플레이어 조회 (하이브리드)
+                    // 카테고리별 MVP 조회 (하이브리드)
                     return homeService.getTodayPlayersByCategory(categoryId);
                 } else {
-                    // 전체 오늘의 플레이어 조회
+                    // 전체 MVP 조회
                     return homeService.getTodayPlayers();
                 }
             } catch (Exception e) {
                 log.error("Failed to fetch rankings", e);
+                return Collections.emptyList();
+            }
+        });
+
+        CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return homeService.getMvpGuilds();
+            } catch (Exception e) {
+                log.error("Failed to fetch MVP guilds", e);
                 return Collections.emptyList();
             }
         });
@@ -159,13 +169,14 @@ public class BffHomeService {
 
         // 모든 결과 취합
         CompletableFuture.allOf(
-            feedsFuture, rankingsFuture, categoriesFuture,
+            feedsFuture, rankingsFuture, mvpGuildsFuture, categoriesFuture,
             myGuildsFuture, publicGuildsFuture, noticesFuture
         ).join();
 
         HomeDataResponse response = HomeDataResponse.builder()
             .feeds(feedsFuture.join())
             .rankings(rankingsFuture.join())
+            .mvpGuilds(mvpGuildsFuture.join())
             .categories(categoriesFuture.join())
             .myGuilds(myGuildsFuture.join())
             .publicGuilds(publicGuildsFuture.join())

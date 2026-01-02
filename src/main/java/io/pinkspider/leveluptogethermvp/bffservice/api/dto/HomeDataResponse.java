@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -30,9 +31,14 @@ public class HomeDataResponse {
     private FeedPageData feeds;
 
     /**
-     * 오늘의 플레이어 랭킹
+     * MVP 유저 랭킹 (금일 EXP 획득 기준 상위 5명)
      */
     private List<TodayPlayerResponse> rankings;
+
+    /**
+     * MVP 길드 랭킹 (금일 EXP 획득 기준 상위 5개)
+     */
+    private List<MvpGuildResponse> mvpGuilds;
 
     /**
      * 미션 카테고리 목록
