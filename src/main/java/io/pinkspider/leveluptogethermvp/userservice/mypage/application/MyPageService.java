@@ -1,17 +1,19 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.application;
 
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
@@ -28,9 +30,6 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse.UserTitleItem;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
-import org.springframework.web.multipart.MultipartFile;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
@@ -44,6 +43,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Slf4j
@@ -78,7 +78,7 @@ public class MyPageService {
     /**
      * 공개 프로필 조회 (타인이 볼 수 있는 정보)
      *
-     * @param targetUserId 조회할 사용자 ID
+     * @param targetUserId  조회할 사용자 ID
      * @param currentUserId 현재 로그인한 사용자 ID (null 가능)
      * @return 공개 프로필 정보
      */
@@ -172,7 +172,7 @@ public class MyPageService {
      * 자기소개 수정
      *
      * @param userId 사용자 ID
-     * @param bio 새 자기소개
+     * @param bio    새 자기소개
      * @return 업데이트된 프로필 정보
      */
     @Transactional
@@ -210,7 +210,7 @@ public class MyPageService {
     /**
      * 프로필 이미지 업로드
      *
-     * @param userId 사용자 ID
+     * @param userId    사용자 ID
      * @param imageFile 업로드할 이미지 파일
      * @return 업데이트된 프로필 정보
      */
@@ -286,7 +286,7 @@ public class MyPageService {
      * 닉네임 중복 확인
      *
      * @param nickname 확인할 닉네임
-     * @param userId 현재 사용자 ID (자신은 제외, null이면 전체 검사)
+     * @param userId   현재 사용자 ID (자신은 제외, null이면 전체 검사)
      * @return 사용 가능 여부
      */
     public boolean isNicknameAvailable(String nickname, String userId) {
@@ -306,7 +306,7 @@ public class MyPageService {
     /**
      * 닉네임 변경
      *
-     * @param userId 사용자 ID
+     * @param userId   사용자 ID
      * @param nickname 새 닉네임
      * @return 업데이트된 프로필 정보
      */
@@ -330,8 +330,7 @@ public class MyPageService {
     }
 
     /**
-     * 닉네임 설정 필요 여부 확인
-     * OAuth 가입 시 닉네임이 중복되어 자동 생성된 경우 true 반환
+     * 닉네임 설정 필요 여부 확인 OAuth 가입 시 닉네임이 중복되어 자동 생성된 경우 true 반환
      *
      * @param userId 사용자 ID
      * @return 닉네임 설정 필요 여부
@@ -596,8 +595,12 @@ public class MyPageService {
      * 두 등급 중 더 높은 등급 반환
      */
     private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
-        if (r1 == null) return r2;
-        if (r2 == null) return r1;
+        if (r1 == null) {
+            return r2;
+        }
+        if (r2 == null) {
+            return r1;
+        }
         return r1.ordinal() > r2.ordinal() ? r1 : r2;
     }
 }

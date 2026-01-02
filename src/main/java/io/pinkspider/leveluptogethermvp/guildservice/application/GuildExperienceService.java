@@ -33,7 +33,7 @@ public class GuildExperienceService {
 
     @Transactional
     public GuildExperienceResponse addExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                  Long sourceId, String contributorId, String description) {
+                                                 Long sourceId, String contributorId, String description) {
         Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId)
             .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
 
@@ -83,8 +83,7 @@ public class GuildExperienceService {
     }
 
     /**
-     * 길드 레벨업에 필요한 경험치 계산
-     * 공식: 길드 인원수 * 해당 레벨의 유저 레벨업 필요 경험치
+     * 길드 레벨업에 필요한 경험치 계산 공식: 길드 인원수 * 해당 레벨의 유저 레벨업 필요 경험치
      */
     public int calculateGuildRequiredExp(Long guildId, int level) {
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
@@ -108,17 +107,17 @@ public class GuildExperienceService {
     /**
      * 길드 경험치 차감 (Saga 보상 트랜잭션용)
      *
-     * @param guildId 길드 ID
-     * @param expAmount 차감할 경험치
-     * @param sourceType 출처 유형
-     * @param sourceId 출처 ID
+     * @param guildId       길드 ID
+     * @param expAmount     차감할 경험치
+     * @param sourceType    출처 유형
+     * @param sourceId      출처 ID
      * @param contributorId 기여자 ID
-     * @param description 설명
+     * @param description   설명
      * @return 업데이트된 길드 경험치 정보
      */
     @Transactional
     public GuildExperienceResponse subtractExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
-                                                       Long sourceId, String contributorId, String description) {
+                                                      Long sourceId, String contributorId, String description) {
         Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId)
             .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
 
@@ -205,8 +204,8 @@ public class GuildExperienceService {
 
     @Transactional
     public GuildLevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
-                                                       Integer cumulativeExp, Integer maxMembers,
-                                                       String title, String description) {
+                                                      Integer cumulativeExp, Integer maxMembers,
+                                                      String title, String description) {
         GuildLevelConfig config = guildLevelConfigRepository.findByLevel(level)
             .orElse(GuildLevelConfig.builder().level(level).build());
 
@@ -220,8 +219,7 @@ public class GuildExperienceService {
     }
 
     /**
-     * 길드 레벨업 처리
-     * 레벨업 조건: 인원수 * 유저 레벨 필요 경험치
+     * 길드 레벨업 처리 레벨업 조건: 인원수 * 유저 레벨 필요 경험치
      */
     private void processLevelUp(Guild guild) {
         List<GuildLevelConfig> guildLevelConfigs = guildLevelConfigRepository.findAllByOrderByLevelAsc();
