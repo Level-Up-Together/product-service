@@ -13,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedRes
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedLike;
@@ -377,7 +378,7 @@ public class ActivityFeedService {
      * 좋아요 토글
      */
     @Transactional
-    public boolean toggleLike(Long feedId, String userId) {
+    public FeedLikeResponse toggleLike(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
 
@@ -386,7 +387,7 @@ public class ActivityFeedService {
             throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "자신의 피드에는 좋아요를 할 수 없습니다");
         }
 
-        return feedLikeRepository.findByFeedIdAndUserId(feedId, userId)
+        boolean isLiked = feedLikeRepository.findByFeedIdAndUserId(feedId, userId)
             .map(like -> {
                 // 이미 좋아요 상태 -> 취소
                 feedLikeRepository.delete(like);
@@ -407,6 +408,8 @@ public class ActivityFeedService {
                 log.info("Feed liked: feedId={}, userId={}", feedId, userId);
                 return true;
             });
+
+        return new FeedLikeResponse(isLiked, feed.getLikeCount());
     }
 
     /**

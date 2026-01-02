@@ -44,3 +44,4 @@ logs
 ### Claude Code ###
 *-command-message*.txt
 /src/main/resources/restdocs/
+/uploads/

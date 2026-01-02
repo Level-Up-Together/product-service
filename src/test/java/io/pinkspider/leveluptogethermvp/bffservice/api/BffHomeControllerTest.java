@@ -486,6 +486,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.members[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value.members[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value.members[].equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional(),
+                            fieldWithPath("value.members[].equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional(),
                             fieldWithPath("value.posts").type(JsonFieldType.OBJECT).description("게시글 목록 (페이징)"),
                             fieldWithPath("value.posts.content[]").type(JsonFieldType.ARRAY).description("게시글 목록"),
                             fieldWithPath("value.posts.content[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
