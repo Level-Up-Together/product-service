@@ -1,5 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -32,6 +35,7 @@ public class FriendService {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final UserExperienceRepository userExperienceRepository;
+    private final UserTitleRepository userTitleRepository;
 
     // 친구 요청 보내기
     @Transactional
@@ -173,15 +177,93 @@ public class FriendService {
 
     // 친구 목록 조회
     public Page<FriendResponse> getFriends(String userId, Pageable pageable) {
-        return friendshipRepository.findFriends(userId, pageable)
-            .map(f -> FriendResponse.simpleFrom(f, userId));
+        Page<Friendship> friendships = friendshipRepository.findFriends(userId, pageable);
+
+        // 친구 ID 목록 추출
+        List<String> friendIds = friendships.getContent().stream()
+            .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
+            .toList();
+
+        // 사용자 정보, 레벨, 칭호 조회
+        Map<String, Users> userMap = getUserMap(friendIds);
+        Map<String, Integer> levelMap = getLevelMap(friendIds);
+        Map<String, String> titleMap = getTitleMap(friendIds);
+
+        return friendships.map(friendship -> {
+            String friendId = friendship.getUserId().equals(userId)
+                ? friendship.getFriendId()
+                : friendship.getUserId();
+            Users friend = userMap.get(friendId);
+            return FriendResponse.from(
+                friendship,
+                userId,
+                friend != null ? friend.getNickname() : null,
+                friend != null ? friend.getPicture() : null,
+                levelMap.getOrDefault(friendId, 1),
+                titleMap.get(friendId)
+            );
+        });
     }
 
     // 전체 친구 목록 조회
     public List<FriendResponse> getAllFriends(String userId) {
-        return friendshipRepository.findAllFriends(userId).stream()
-            .map(f -> FriendResponse.simpleFrom(f, userId))
+        List<Friendship> friendships = friendshipRepository.findAllFriends(userId);
+
+        // 친구 ID 목록 추출
+        List<String> friendIds = friendships.stream()
+            .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
             .toList();
+
+        // 사용자 정보, 레벨, 칭호 조회
+        Map<String, Users> userMap = getUserMap(friendIds);
+        Map<String, Integer> levelMap = getLevelMap(friendIds);
+        Map<String, String> titleMap = getTitleMap(friendIds);
+
+        return friendships.stream()
+            .map(friendship -> {
+                String friendId = friendship.getUserId().equals(userId)
+                    ? friendship.getFriendId()
+                    : friendship.getUserId();
+                Users friend = userMap.get(friendId);
+                return FriendResponse.from(
+                    friendship,
+                    userId,
+                    friend != null ? friend.getNickname() : null,
+                    friend != null ? friend.getPicture() : null,
+                    levelMap.getOrDefault(friendId, 1),
+                    titleMap.get(friendId)
+                );
+            })
+            .toList();
+    }
+
+    // 사용자 정보 조회 헬퍼 메서드
+    private Map<String, Users> getUserMap(List<String> userIds) {
+        return userRepository.findAllById(userIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+    }
+
+    // 레벨 정보 조회 헬퍼 메서드
+    private Map<String, Integer> getLevelMap(List<String> userIds) {
+        return userIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userExperienceRepository.findByUserId(id)
+                    .map(UserExperience::getCurrentLevel)
+                    .orElse(1)
+            ));
+    }
+
+    // 칭호 정보 조회 헬퍼 메서드 (LEFT 포지션의 칭호를 대표 칭호로 사용)
+    private Map<String, String> getTitleMap(List<String> userIds) {
+        return userIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userTitleRepository.findEquippedByUserIdAndPosition(id, TitlePosition.LEFT)
+                    .map(UserTitle::getTitle)
+                    .map(title -> title.getDisplayName())
+                    .orElse(null)
+            ));
     }
 
     // 받은 친구 요청 목록
