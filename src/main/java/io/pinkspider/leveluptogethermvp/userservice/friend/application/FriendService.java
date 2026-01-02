@@ -49,6 +49,8 @@ public class FriendService {
 
         Friendship friendship = Friendship.createRequest(userId, friendId, message);
         Friendship saved = friendshipRepository.save(friendship);
+        log.debug("친구 요청 저장 완료: id={}, userId={}, friendId={}, status={}",
+            saved.getId(), saved.getUserId(), saved.getFriendId(), saved.getStatus());
 
         // 알림 발송
         try {
