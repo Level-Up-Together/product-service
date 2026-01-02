@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.JoinRequestProcessRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.TransferMasterRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -216,5 +217,12 @@ public class GuildController {
         GuildHeadquartersValidationResponse response = guildHeadquartersService.validateHeadquartersLocation(
             null, request.getLatitude(), request.getLongitude());
         return ResponseEntity.ok(ApiResult.<GuildHeadquartersValidationResponse>builder().value(response).build());
+    }
+
+    // 길드 레벨 설정 조회 (길드 생성 시 최대 인원 확인용)
+    @GetMapping("/level-configs")
+    public ResponseEntity<ApiResult<List<GuildLevelConfig>>> getLevelConfigs() {
+        List<GuildLevelConfig> configs = guildExperienceService.getAllLevelConfigs();
+        return ResponseEntity.ok(ApiResult.<List<GuildLevelConfig>>builder().value(configs).build());
     }
 }
