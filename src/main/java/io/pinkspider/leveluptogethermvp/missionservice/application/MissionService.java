@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "missionTransactionManager", readOnly = true)
 public class MissionService {
 
     private final MissionRepository missionRepository;
@@ -30,7 +30,7 @@ public class MissionService {
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
         if (request.getType() == MissionType.GUILD && request.getGuildId() == null) {
             throw new IllegalArgumentException("길드 미션은 길드 ID가 필요합니다.");
@@ -134,7 +134,7 @@ public class MissionService {
         ).map(MissionResponse::from);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse updateMission(Long missionId, String userId, MissionUpdateRequest request) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
@@ -203,7 +203,7 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse openMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
@@ -214,7 +214,7 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse startMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
@@ -225,7 +225,7 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse completeMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
@@ -236,7 +236,7 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse cancelMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
@@ -247,17 +247,29 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public void deleteMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
-        validateMissionOwner(mission, userId);
 
-        if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
+        // 미션 생성자인 경우: 미션 자체를 삭제
+        if (mission.getCreatorId().equals(userId)) {
+            if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
+                throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
+            }
+            missionRepository.delete(mission);
+            log.info("미션 삭제: id={}", missionId);
+            return;
         }
 
-        missionRepository.delete(mission);
-        log.info("미션 삭제: id={}", missionId);
+        // 시스템 미션의 참여자인 경우: 참여 철회로 처리
+        if (mission.getSource() == MissionSource.SYSTEM) {
+            missionParticipantService.withdrawFromMission(missionId, userId);
+            log.info("시스템 미션 참여 철회: missionId={}, userId={}", missionId, userId);
+            return;
+        }
+
+        // 그 외의 경우: 권한 없음
+        throw new IllegalStateException("미션 생성자만 이 작업을 수행할 수 있습니다.");
     }
 
     private Mission findMissionById(Long missionId) {

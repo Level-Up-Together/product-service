@@ -17,14 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "missionTransactionManager", readOnly = true)
 public class MissionParticipantService {
 
     private final MissionRepository missionRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionExecutionService missionExecutionService;
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse joinMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
 
@@ -56,7 +56,7 @@ public class MissionParticipantService {
     /**
      * 미션 생성자를 자동으로 참여자로 등록 (상태 체크 없이)
      */
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public void addCreatorAsParticipant(Mission mission, String creatorId) {
         MissionParticipant participant = MissionParticipant.builder()
             .mission(mission)
@@ -73,7 +73,7 @@ public class MissionParticipantService {
         missionExecutionService.generateExecutionsForParticipant(saved);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse acceptParticipant(Long missionId, Long participantId, String ownerId) {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, ownerId);
@@ -90,7 +90,7 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(participant);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse startProgress(Long missionId, String userId) {
         MissionParticipant participant = findParticipantByMissionAndUser(missionId, userId);
 
@@ -100,7 +100,7 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(participant);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse updateProgress(Long missionId, String userId, int progress) {
         MissionParticipant participant = findParticipantByMissionAndUser(missionId, userId);
 
@@ -110,7 +110,7 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(participant);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse completeParticipant(Long missionId, String userId) {
         MissionParticipant participant = findParticipantByMissionAndUser(missionId, userId);
 
@@ -120,7 +120,7 @@ public class MissionParticipantService {
         return MissionParticipantResponse.from(participant);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse withdrawFromMission(Long missionId, String userId) {
         MissionParticipant participant = findParticipantByMissionAndUser(missionId, userId);
 
