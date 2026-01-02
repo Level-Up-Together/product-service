@@ -134,6 +134,10 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("미션 기간 (일수)")
     private Integer durationDays;
 
+    @Column(name = "duration_minutes")
+    @Comment("1회 수행시 필요 시간 (분)")
+    private Integer durationMinutes;
+
     @Column(name = "exp_per_completion")
     @Comment("1회 완료시 경험치")
     @Builder.Default

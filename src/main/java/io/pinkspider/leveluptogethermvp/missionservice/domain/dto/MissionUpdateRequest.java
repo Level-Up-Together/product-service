@@ -44,6 +44,10 @@ public class MissionUpdateRequest {
     @Max(value = 365, message = "미션 기간은 최대 365일까지 가능합니다.")
     private Integer durationDays;
 
+    @Min(value = 1, message = "수행 시간은 최소 1분 이상이어야 합니다.")
+    @Max(value = 480, message = "수행 시간은 최대 480분(8시간)까지 가능합니다.")
+    private Integer durationMinutes;
+
     @Min(value = 1, message = "경험치는 최소 1 이상이어야 합니다.")
     private Integer expPerCompletion;
 

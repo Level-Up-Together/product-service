@@ -65,6 +65,7 @@ public class MissionService {
             .endAt(request.getEndAt())
             .missionInterval(request.getMissionInterval())
             .durationDays(request.getDurationDays())
+            .durationMinutes(request.getDurationMinutes())
             .expPerCompletion(request.getExpPerCompletion())
             .bonusExpOnFullCompletion(request.getBonusExpOnFullCompletion())
             .category(category)
@@ -164,6 +165,9 @@ public class MissionService {
         }
         if (request.getDurationDays() != null) {
             mission.setDurationDays(request.getDurationDays());
+        }
+        if (request.getDurationMinutes() != null) {
+            mission.setDurationMinutes(request.getDurationMinutes());
         }
         if (request.getExpPerCompletion() != null) {
             mission.setExpPerCompletion(request.getExpPerCompletion());
