@@ -20,6 +20,9 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
 
     boolean existsByMissionIdAndUserId(Long missionId, String userId);
 
+    @Query("SELECT COUNT(mp) > 0 FROM MissionParticipant mp WHERE mp.mission.id = :missionId AND mp.userId = :userId AND mp.status NOT IN ('WITHDRAWN', 'FAILED')")
+    boolean existsActiveParticipation(@Param("missionId") Long missionId, @Param("userId") String userId);
+
     List<MissionParticipant> findByMissionIdAndStatus(Long missionId, ParticipantStatus status);
 
     @Query("SELECT COUNT(mp) FROM MissionParticipant mp WHERE mp.mission.id = :missionId AND mp.status NOT IN ('WITHDRAWN', 'FAILED')")
