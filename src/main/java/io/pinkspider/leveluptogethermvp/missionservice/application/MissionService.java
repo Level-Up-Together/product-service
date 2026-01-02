@@ -90,8 +90,9 @@ public class MissionService {
     }
 
     public List<MissionResponse> getMyMissions(String userId) {
+        // 사용자가 참여중인 미션 목록 (ACCEPTED 상태)
         // 고정미션 > 길드미션 > 일반미션 순으로 정렬된 목록 반환
-        return missionRepository.findMyMissionsSorted(userId).stream()
+        return missionRepository.findByParticipantUserIdSorted(userId).stream()
             .map(MissionResponse::from)
             .toList();
     }
