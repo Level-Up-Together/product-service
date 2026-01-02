@@ -55,4 +55,20 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         @Param("userId") String userId,
         @Param("types") List<NotificationType> types,
         Pageable pageable);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.userId = :userId " +
+           "AND n.referenceType = :referenceType " +
+           "AND n.referenceId = :referenceId")
+    int deleteByUserIdAndReference(
+        @Param("userId") String userId,
+        @Param("referenceType") String referenceType,
+        @Param("referenceId") Long referenceId);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.referenceType = :referenceType " +
+           "AND n.referenceId = :referenceId")
+    int deleteByReference(
+        @Param("referenceType") String referenceType,
+        @Param("referenceId") Long referenceId);
 }

@@ -93,6 +93,13 @@ public class FriendService {
 
         friendship.accept();
 
+        // 친구 요청 알림 삭제
+        try {
+            notificationService.deleteByReference("FRIEND_REQUEST", requestId);
+        } catch (Exception e) {
+            log.warn("친구 요청 알림 삭제 실패: {}", e.getMessage());
+        }
+
         // 요청자에게 알림 발송
         try {
             notificationService.createNotification(
@@ -102,7 +109,7 @@ public class FriendService {
                 "친구 요청이 수락되었습니다!",
                 "FRIEND",
                 friendship.getId(),
-                "/friends"
+                "/mypage/friends"
             );
         } catch (Exception e) {
             log.warn("친구 수락 알림 발송 실패: {}", e.getMessage());
@@ -123,6 +130,14 @@ public class FriendService {
         }
 
         friendship.reject();
+
+        // 친구 요청 알림 삭제
+        try {
+            notificationService.deleteByReference("FRIEND_REQUEST", requestId);
+        } catch (Exception e) {
+            log.warn("친구 요청 알림 삭제 실패: {}", e.getMessage());
+        }
+
         log.info("친구 요청 거절: {} rejected {}", userId, friendship.getUserId());
     }
 

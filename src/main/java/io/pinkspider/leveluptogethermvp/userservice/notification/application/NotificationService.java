@@ -119,6 +119,17 @@ public class NotificationService {
         log.info("알림 삭제: userId={}, notificationId={}", userId, notificationId);
     }
 
+    // 참조 정보로 알림 삭제 (친구 요청 등 처리 후 알림 제거용)
+    @Transactional
+    public int deleteByReference(String referenceType, Long referenceId) {
+        int count = notificationRepository.deleteByReference(referenceType, referenceId);
+        if (count > 0) {
+            log.info("참조 정보로 알림 삭제: referenceType={}, referenceId={}, count={}",
+                referenceType, referenceId, count);
+        }
+        return count;
+    }
+
     // 알림 설정 조회
     public NotificationPreferenceResponse getPreferences(String userId) {
         NotificationPreference pref = getOrCreatePreference(userId);
