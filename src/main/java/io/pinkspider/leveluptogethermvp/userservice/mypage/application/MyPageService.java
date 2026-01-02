@@ -11,6 +11,8 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.Activity
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
+import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
@@ -125,6 +127,27 @@ public class MyPageService {
         log.debug("getPublicProfile: targetUserId={}, currentUserId={}, isOwner={}",
             targetUserId, currentUserId, isOwner);
 
+        // 친구 관계 상태 조회 (본인이 아니고 로그인한 경우에만)
+        String friendshipStatusStr = "NONE";
+        Long friendRequestId = null;
+        if (!isOwner && currentUserId != null) {
+            Optional<Friendship> friendshipOpt = friendshipRepository.findFriendship(currentUserId, targetUserId);
+            if (friendshipOpt.isPresent()) {
+                Friendship friendship = friendshipOpt.get();
+                if (friendship.getStatus() == FriendshipStatus.ACCEPTED) {
+                    friendshipStatusStr = "ACCEPTED";
+                } else if (friendship.getStatus() == FriendshipStatus.PENDING) {
+                    // 내가 보낸 요청인지, 받은 요청인지 구분
+                    if (friendship.getUserId().equals(currentUserId)) {
+                        friendshipStatusStr = "PENDING_SENT";
+                    } else {
+                        friendshipStatusStr = "PENDING_RECEIVED";
+                        friendRequestId = friendship.getId();
+                    }
+                }
+            }
+        }
+
         return PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname(user.getDisplayName())
@@ -139,6 +162,8 @@ public class MyPageService {
             .acquiredTitlesCount((int) titlesCount)
             .guilds(guilds)
             .isOwner(isOwner)
+            .friendshipStatus(friendshipStatusStr)
+            .friendRequestId(friendRequestId)
             .build();
     }
 

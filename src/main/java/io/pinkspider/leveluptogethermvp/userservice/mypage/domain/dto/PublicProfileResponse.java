@@ -42,6 +42,12 @@ public class PublicProfileResponse {
     @JsonProperty("is_owner")
     private Boolean isOwner;
 
+    // 친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)
+    private String friendshipStatus;
+
+    // 친구 요청 ID (PENDING_RECEIVED일 때 수락/거절에 사용)
+    private Long friendRequestId;
+
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
