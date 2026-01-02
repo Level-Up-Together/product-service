@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -70,4 +71,28 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "OR LOWER(m.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "ORDER BY m.createdAt DESC")
     Page<Mission> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * 시스템 미션 목록 조회 (미션북용)
+     * - source = SYSTEM
+     * - status = OPEN (사용자가 참여 가능한 상태)
+     */
+    @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
+           "ORDER BY m.category.displayOrder ASC, m.createdAt DESC")
+    Page<Mission> findBySourceAndStatus(
+        @Param("source") MissionSource source,
+        @Param("status") MissionStatus status,
+        Pageable pageable);
+
+    /**
+     * 카테고리별 시스템 미션 목록 조회
+     */
+    @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
+           "AND m.category.id = :categoryId " +
+           "ORDER BY m.createdAt DESC")
+    Page<Mission> findBySourceAndStatusAndCategoryId(
+        @Param("source") MissionSource source,
+        @Param("status") MissionStatus status,
+        @Param("categoryId") Long categoryId,
+        Pageable pageable);
 }
