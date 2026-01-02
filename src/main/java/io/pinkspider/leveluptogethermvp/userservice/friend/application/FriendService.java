@@ -7,8 +7,14 @@ import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.Friendsh
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.notification.domain.enums.NotificationType;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +30,8 @@ public class FriendService {
 
     private final FriendshipRepository friendshipRepository;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
+    private final UserExperienceRepository userExperienceRepository;
 
     // 친구 요청 보내기
     @Transactional
@@ -178,8 +186,34 @@ public class FriendService {
 
     // 받은 친구 요청 목록
     public List<FriendRequestResponse> getPendingRequestsReceived(String userId) {
-        return friendshipRepository.findPendingRequestsReceived(userId).stream()
-            .map(FriendRequestResponse::simpleFrom)
+        List<Friendship> friendships = friendshipRepository.findPendingRequestsReceived(userId);
+
+        // 요청자 ID 목록 추출
+        List<String> requesterIds = friendships.stream()
+            .map(Friendship::getUserId)
+            .toList();
+
+        // 사용자 정보 조회
+        Map<String, Users> userMap = userRepository.findAllById(requesterIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+
+        // 레벨 정보 조회
+        Map<String, Integer> levelMap = requesterIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> userExperienceRepository.findByUserId(id)
+                    .map(UserExperience::getCurrentLevel)
+                    .orElse(1)
+            ));
+
+        return friendships.stream()
+            .map(friendship -> {
+                Users requester = userMap.get(friendship.getUserId());
+                String nickname = requester != null ? requester.getNickname() : null;
+                String profileImageUrl = requester != null ? requester.getPicture() : null;
+                Integer level = levelMap.getOrDefault(friendship.getUserId(), 1);
+                return FriendRequestResponse.from(friendship, nickname, profileImageUrl, level);
+            })
             .toList();
     }
 
