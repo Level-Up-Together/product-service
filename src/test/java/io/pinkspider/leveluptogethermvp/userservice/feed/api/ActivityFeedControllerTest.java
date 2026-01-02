@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedRes
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.util.MockUtil;
 import java.util.List;
@@ -337,9 +338,10 @@ class ActivityFeedControllerTest {
     void toggleLikeTest() throws Exception {
         // given
         Long feedId = 1L;
+        FeedLikeResponse mockResponse = new FeedLikeResponse(true, 5);
 
         when(activityFeedService.toggleLike(anyLong(), anyString()))
-            .thenReturn(true);
+            .thenReturn(mockResponse);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -361,7 +363,8 @@ class ActivityFeedControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("좋아요 결과"),
-                            fieldWithPath("value.liked").type(JsonFieldType.BOOLEAN).description("좋아요 상태 (true: 좋아요, false: 좋아요 취소)")
+                            fieldWithPath("value.is_liked").type(JsonFieldType.BOOLEAN).description("좋아요 상태 (true: 좋아요, false: 좋아요 취소)"),
+                            fieldWithPath("value.like_count").type(JsonFieldType.NUMBER).description("현재 좋아요 수")
                         )
                         .build()
                 )

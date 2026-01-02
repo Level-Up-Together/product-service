@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedRes
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -166,12 +167,12 @@ public class ActivityFeedController {
      * 좋아요 토글
      */
     @PostMapping("/{feedId}/like")
-    public ResponseEntity<ApiResult<Map<String, Boolean>>> toggleLike(
+    public ResponseEntity<ApiResult<FeedLikeResponse>> toggleLike(
         @PathVariable Long feedId,
         @CurrentUser String userId
     ) {
-        boolean liked = activityFeedService.toggleLike(feedId, userId);
-        return ResponseEntity.ok(ApiResult.<Map<String, Boolean>>builder().value(Map.of("liked", liked)).build());
+        FeedLikeResponse response = activityFeedService.toggleLike(feedId, userId);
+        return ResponseEntity.ok(ApiResult.<FeedLikeResponse>builder().value(response).build());
     }
 
     /**
