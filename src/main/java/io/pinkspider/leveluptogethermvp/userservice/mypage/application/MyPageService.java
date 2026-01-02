@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResp
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.ProfileInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.ProfileUpdateRequest;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.PublicProfileResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
@@ -65,6 +66,91 @@ public class MyPageService {
             .experience(buildExperienceInfo(userId))
             .userInfo(buildUserInfo(user, userId))
             .build();
+    }
+
+    /**
+     * 공개 프로필 조회 (타인이 볼 수 있는 정보)
+     *
+     * @param targetUserId 조회할 사용자 ID
+     * @param currentUserId 현재 로그인한 사용자 ID (null 가능)
+     * @return 공개 프로필 정보
+     */
+    public PublicProfileResponse getPublicProfile(String targetUserId, String currentUserId) {
+        Users user = findUserOrThrow(targetUserId);
+
+        // 장착된 칭호 조회
+        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(targetUserId);
+        PublicProfileResponse.EquippedTitleInfo leftTitle = null;
+        PublicProfileResponse.EquippedTitleInfo rightTitle = null;
+
+        for (UserTitle ut : equippedTitles) {
+            if (ut.getEquippedPosition() == TitlePosition.LEFT) {
+                leftTitle = toPublicEquippedTitleInfo(ut);
+            } else if (ut.getEquippedPosition() == TitlePosition.RIGHT) {
+                rightTitle = toPublicEquippedTitleInfo(ut);
+            }
+        }
+
+        // 레벨 정보
+        UserExperience userExp = userExperienceRepository.findByUserId(targetUserId)
+            .orElse(UserExperience.builder().currentLevel(1).build());
+
+        // 통계 정보
+        UserStats stats = userStatsRepository.findByUserId(targetUserId)
+            .orElse(UserStats.builder()
+                .totalMissionCompletions(0)
+                .totalTitlesAcquired(0)
+                .build());
+
+        LocalDate startDate = user.getCreatedAt() != null
+            ? user.getCreatedAt().toLocalDate()
+            : LocalDate.now();
+        long daysSinceJoined = ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+
+        // 보유 칭호 수
+        long titlesCount = userTitleRepository.countByUserId(targetUserId);
+
+        // 본인 여부
+        boolean isOwner = targetUserId.equals(currentUserId);
+
+        return PublicProfileResponse.builder()
+            .userId(targetUserId)
+            .nickname(user.getDisplayName())
+            .profileImageUrl(user.getPicture())
+            .bio(user.getBio())
+            .leftTitle(leftTitle)
+            .rightTitle(rightTitle)
+            .level(userExp.getCurrentLevel())
+            .startDate(startDate)
+            .daysSinceJoined(daysSinceJoined)
+            .clearedMissionsCount(stats.getTotalMissionCompletions())
+            .acquiredTitlesCount((int) titlesCount)
+            .isOwner(isOwner)
+            .build();
+    }
+
+    /**
+     * 자기소개 수정
+     *
+     * @param userId 사용자 ID
+     * @param bio 새 자기소개
+     * @return 업데이트된 프로필 정보
+     */
+    @Transactional
+    public ProfileInfo updateBio(String userId, String bio) {
+        Users user = findUserOrThrow(userId);
+
+        // 길이 검증
+        if (bio != null && bio.length() > 200) {
+            throw new CustomException("BIO_001", "자기소개는 200자 이하여야 합니다.");
+        }
+
+        user.updateBio(bio);
+        userRepository.save(user);
+
+        log.info("자기소개 변경: userId={}", userId);
+
+        return buildProfileInfo(user, userId);
     }
 
     /**
@@ -395,6 +481,18 @@ public class MyPageService {
         Title title = userTitle.getTitle();
         return EquippedTitleInfo.builder()
             .userTitleId(userTitle.getId())
+            .titleId(title.getId())
+            .name(title.getName())
+            .displayName(title.getDisplayName())
+            .rarity(title.getRarity().name())
+            .colorCode(title.getColorCode())
+            .iconUrl(title.getIconUrl())
+            .build();
+    }
+
+    private PublicProfileResponse.EquippedTitleInfo toPublicEquippedTitleInfo(UserTitle userTitle) {
+        Title title = userTitle.getTitle();
+        return PublicProfileResponse.EquippedTitleInfo.builder()
             .titleId(title.getId())
             .name(title.getName())
             .displayName(title.getDisplayName())

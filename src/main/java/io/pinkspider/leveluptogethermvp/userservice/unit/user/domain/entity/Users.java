@@ -50,6 +50,9 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "nickname_set", nullable = false)
     private boolean nicknameSet = false;
 
+    @Column(name = "bio", length = 200)
+    private String bio;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -68,6 +71,10 @@ public class Users extends LocalDateTimeBaseEntity {
     public void updateNickname(String nickname) {
         this.nickname = nickname;
         this.nicknameSet = true;
+    }
+
+    public void updateBio(String bio) {
+        this.bio = bio;
     }
 
     public boolean isNicknameSet() {
