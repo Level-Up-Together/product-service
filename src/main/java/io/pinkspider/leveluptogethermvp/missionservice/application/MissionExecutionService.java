@@ -627,8 +627,8 @@ public class MissionExecutionService {
             // 사용자 레벨 조회
             Integer userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
 
-            // 사용자 칭호 조회
-            String userTitle = titleService.getCombinedEquippedTitleName(userId);
+            // 사용자 칭호 조회 (이름과 등급)
+            TitleService.TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(userId);
 
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
@@ -642,7 +642,8 @@ public class MissionExecutionService {
                 user.getNickname(),
                 user.getPicture(),
                 userLevel,
-                userTitle,
+                titleInfo.name(),
+                titleInfo.rarity(),
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),
