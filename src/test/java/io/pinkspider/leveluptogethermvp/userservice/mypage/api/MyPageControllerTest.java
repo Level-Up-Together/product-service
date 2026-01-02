@@ -539,6 +539,8 @@ class MyPageControllerTest {
             .acquiredTitlesCount(10)
             .guilds(List.of(guild1))
             .isOwner(true)  // 본인이므로 true
+            .friendshipStatus(null)  // 본인 조회시 친구 상태 불필요
+            .friendRequestId(null)
             .build();
 
         when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
@@ -577,7 +579,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
                             fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
-                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
+                            fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (본인 조회 시 null)").optional(),
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional()
                         )
                         .build()
                 )
@@ -591,7 +595,7 @@ class MyPageControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 타인")
+    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 타인 (친구 아님)")
     void getPublicProfileOtherTest() throws Exception {
         // given
         String targetUserId = "other-user-456";
@@ -616,6 +620,8 @@ class MyPageControllerTest {
             .acquiredTitlesCount(20)
             .guilds(List.of(guild1))
             .isOwner(false)  // 타인이므로 false
+            .friendshipStatus("NONE")  // 친구 관계 없음
+            .friendRequestId(null)
             .build();
 
         when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
@@ -626,13 +632,13 @@ class MyPageControllerTest {
                 .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
-            MockMvcRestDocumentationWrapper.document("마이페이지-07. 공개 프로필 조회 (타인)",
+            MockMvcRestDocumentationWrapper.document("마이페이지-07. 공개 프로필 조회 (타인-친구아님)",
                 preprocessRequest(prettyPrint()),
                 preprocessResponse(prettyPrint()),
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("MyPage")
-                        .description("공개 프로필 조회 - 타인 프로필 조회 시 is_owner: false")
+                        .description("공개 프로필 조회 - 타인 프로필, 친구 관계 없음 (friendshipStatus: NONE)")
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
@@ -654,7 +660,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
                             fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
-                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)")
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
+                            fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)").optional(),
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional()
                         )
                         .build()
                 )
@@ -664,6 +672,144 @@ class MyPageControllerTest {
         // then
         resultActions
             .andExpect(MockMvcResultMatchers.status().isOk())
-            .andExpect(MockMvcResultMatchers.jsonPath("$.value.is_owner").value(false));
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.is_owner").value(false))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.friendship_status").value("NONE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 친구 요청 받음")
+    void getPublicProfilePendingReceivedTest() throws Exception {
+        // given
+        String targetUserId = "requester-user-789";
+
+        PublicProfileResponse response = PublicProfileResponse.builder()
+            .userId(targetUserId)
+            .nickname("요청한유저")
+            .profileImageUrl("https://example.com/requester-profile.jpg")
+            .bio("팔로우 신청을 보낸 사용자")
+            .level(8)
+            .startDate(LocalDate.of(2024, 3, 1))
+            .daysSinceJoined(300L)
+            .clearedMissionsCount(75)
+            .acquiredTitlesCount(15)
+            .guilds(List.of())
+            .isOwner(false)
+            .friendshipStatus("PENDING_RECEIVED")  // 상대방이 나에게 친구 요청을 보냄
+            .friendRequestId(123L)  // 수락/거절에 사용할 요청 ID
+            .build();
+
+        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/profile/{userId}", targetUserId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-08. 공개 프로필 조회 (친구요청받음)",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개 프로필 조회 - 상대방에게 친구 요청을 받은 상태 (friendshipStatus: PENDING_RECEIVED)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("공개 프로필 데이터"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
+                            fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
+                            fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
+                            fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
+                            fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (PENDING_RECEIVED)"),
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.friendship_status").value("PENDING_RECEIVED"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.friend_request_id").value(123));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/profile/{userId} : 공개 프로필 조회 - 이미 친구")
+    void getPublicProfileAcceptedTest() throws Exception {
+        // given
+        String targetUserId = "friend-user-999";
+
+        PublicProfileResponse response = PublicProfileResponse.builder()
+            .userId(targetUserId)
+            .nickname("친구유저")
+            .profileImageUrl("https://example.com/friend-profile.jpg")
+            .bio("이미 친구인 사용자")
+            .level(12)
+            .startDate(LocalDate.of(2023, 1, 1))
+            .daysSinceJoined(730L)
+            .clearedMissionsCount(200)
+            .acquiredTitlesCount(30)
+            .guilds(List.of())
+            .isOwner(false)
+            .friendshipStatus("ACCEPTED")  // 이미 친구
+            .friendRequestId(null)
+            .build();
+
+        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/profile/{userId}", targetUserId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-09. 공개 프로필 조회 (친구)",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개 프로필 조회 - 이미 친구 상태 (friendshipStatus: ACCEPTED)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("공개 프로필 데이터"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
+                            fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
+                            fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
+                            fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
+                            fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
+                            fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (ACCEPTED)"),
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.friendship_status").value("ACCEPTED"));
     }
 }
