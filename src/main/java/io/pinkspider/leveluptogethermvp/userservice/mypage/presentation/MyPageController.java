@@ -3,12 +3,14 @@ package io.pinkspider.leveluptogethermvp.userservice.mypage.presentation;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.BioUpdateRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.ProfileInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.NicknameCheckResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.NicknameStatusResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.NicknameUpdateRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.ProfileUpdateRequest;
+import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.PublicProfileResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
@@ -17,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,6 +48,38 @@ public class MyPageController {
 
         MyPageResponse response = myPageService.getMyPage(userId);
         return ResponseEntity.ok(ApiResult.<MyPageResponse>builder().value(response).build());
+    }
+
+    /**
+     * 공개 프로필 조회 (타인의 프로필 조회 가능)
+     *
+     * @param targetUserId 조회할 사용자 ID
+     * @param currentUserId 현재 로그인한 사용자 ID (선택적)
+     * @return 공개 프로필 정보
+     */
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<ApiResult<PublicProfileResponse>> getPublicProfile(
+        @PathVariable("userId") String targetUserId,
+        @CurrentUser(required = false) String currentUserId) {
+
+        PublicProfileResponse response = myPageService.getPublicProfile(targetUserId, currentUserId);
+        return ResponseEntity.ok(ApiResult.<PublicProfileResponse>builder().value(response).build());
+    }
+
+    /**
+     * 자기소개 수정
+     *
+     * @param userId 사용자 ID (JWT 토큰에서 추출)
+     * @param request 자기소개 수정 요청
+     * @return 업데이트된 프로필 정보
+     */
+    @PutMapping("/bio")
+    public ResponseEntity<ApiResult<ProfileInfo>> updateBio(
+        @CurrentUser String userId,
+        @Valid @RequestBody BioUpdateRequest request) {
+
+        ProfileInfo response = myPageService.updateBio(userId, request.getBio());
+        return ResponseEntity.ok(ApiResult.<ProfileInfo>builder().value(response).build());
     }
 
     /**
