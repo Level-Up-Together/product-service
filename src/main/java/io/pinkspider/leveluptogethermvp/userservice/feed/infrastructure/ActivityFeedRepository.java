@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure;
 
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
@@ -101,8 +102,11 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
     List<ActivityFeed> findByIdIn(@Param("feedIds") List<Long> feedIds);
 
-    // 사용자의 모든 피드의 userTitle 업데이트
+    // 사용자의 모든 피드의 userTitle과 userTitleRarity 업데이트
     @Modifying
-    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle WHERE f.userId = :userId")
-    int updateUserTitleByUserId(@Param("userId") String userId, @Param("userTitle") String userTitle);
+    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity = :userTitleRarity WHERE f.userId = :userId")
+    int updateUserTitleByUserId(
+        @Param("userId") String userId,
+        @Param("userTitle") String userTitle,
+        @Param("userTitleRarity") TitleRarity userTitleRarity);
 }

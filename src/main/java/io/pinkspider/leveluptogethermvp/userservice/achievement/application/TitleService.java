@@ -72,31 +72,62 @@ public class TitleService {
 
     // 장착된 칭호의 조합된 이름 반환 (예: "신입 모험가")
     public String getCombinedEquippedTitleName(String userId) {
+        return getCombinedEquippedTitleInfo(userId).name();
+    }
+
+    /**
+     * 장착된 칭호의 조합된 정보 반환 (이름과 가장 높은 등급)
+     */
+    public TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return null;
+            return new TitleInfo(null, null);
         }
 
-        String leftTitle = equippedTitles.stream()
+        UserTitle leftUserTitle = equippedTitles.stream()
             .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
             .findFirst()
-            .map(ut -> ut.getTitle().getDisplayName())
             .orElse(null);
 
-        String rightTitle = equippedTitles.stream()
+        UserTitle rightUserTitle = equippedTitles.stream()
             .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
             .findFirst()
-            .map(ut -> ut.getTitle().getDisplayName())
             .orElse(null);
 
+        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
+        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+
+        // 가장 높은 등급 선택
+        TitleRarity highestRarity = getHighestRarity(
+            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
+            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
+        );
+
+        String combinedTitle;
         if (leftTitle != null && rightTitle != null) {
-            return leftTitle + " " + rightTitle;
+            combinedTitle = leftTitle + " " + rightTitle;
         } else if (leftTitle != null) {
-            return leftTitle;
+            combinedTitle = leftTitle;
         } else {
-            return rightTitle;
+            combinedTitle = rightTitle;
         }
+
+        return new TitleInfo(combinedTitle, highestRarity);
     }
+
+    /**
+     * 두 등급 중 더 높은 등급 반환
+     */
+    private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
+        if (r1 == null) return r2;
+        if (r2 == null) return r1;
+        return r1.ordinal() > r2.ordinal() ? r1 : r2;
+    }
+
+    /**
+     * 칭호 정보 (이름과 등급)
+     */
+    public record TitleInfo(String name, TitleRarity rarity) {}
 
     // 포지션별 장착된 칭호 조회
     public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position) {
@@ -172,9 +203,10 @@ public class TitleService {
 
     // 사용자의 모든 피드의 칭호 업데이트
     private void updateUserFeedsTitle(String userId) {
-        String combinedTitle = getCombinedEquippedTitleName(userId);
-        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle);
-        log.info("피드 칭호 업데이트: userId={}, title={}, count={}", userId, combinedTitle, updatedCount);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, titleInfo.name(), titleInfo.rarity());
+        log.info("피드 칭호 업데이트: userId={}, title={}, rarity={}, count={}",
+            userId, titleInfo.name(), titleInfo.rarity(), updatedCount);
     }
 
     // 칭호 생성 (관리자용)

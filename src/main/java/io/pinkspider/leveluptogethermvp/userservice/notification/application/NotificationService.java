@@ -172,7 +172,7 @@ public class NotificationService {
         createNotification(userId, NotificationType.MISSION_COMPLETED,
             "미션 완료!",
             "'" + missionTitle + "' 미션을 완료했습니다.",
-            "MISSION", missionId, "/missions/" + missionId);
+            "MISSION", missionId, "/mission");
     }
 
     @Transactional

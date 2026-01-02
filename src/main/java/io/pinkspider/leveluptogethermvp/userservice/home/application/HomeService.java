@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCate
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
@@ -111,14 +112,15 @@ public class HomeService {
                 .orElse(1);
 
             // 장착된 칭호 조회 (LEFT + RIGHT 조합)
-            String equippedTitle = getCombinedEquippedTitleName(odayUserId);
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(odayUserId);
 
             result.add(TodayPlayerResponse.of(
                 odayUserId,
                 user.getNickname(),
                 user.getPicture(),
                 level,
-                equippedTitle,
+                titleInfo.name(),
+                titleInfo.rarity(),
                 earnedExp,
                 rank++
             ));
@@ -253,14 +255,15 @@ public class HomeService {
             .map(UserExperience::getCurrentLevel)
             .orElse(1);
 
-        String equippedTitle = getCombinedEquippedTitleName(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
 
         return TodayPlayerResponse.of(
             userId,
             user.getNickname(),
             user.getPicture(),
             level,
-            equippedTitle,
+            titleInfo.name(),
+            titleInfo.rarity(),
             earnedExp,
             rank
         );
@@ -341,36 +344,59 @@ public class HomeService {
     }
 
     /**
-     * 사용자의 장착된 칭호 조합 이름 조회 (LEFT + RIGHT)
+     * 사용자의 장착된 칭호 조합 정보 조회 (LEFT + RIGHT)
      * 예: "용감한 전사", "전설적인 챔피언"
      */
-    private String getCombinedEquippedTitleName(String userId) {
+    private TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return null;
+            return new TitleInfo(null, null);
         }
 
-        String leftTitle = equippedTitles.stream()
+        UserTitle leftUserTitle = equippedTitles.stream()
             .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
             .findFirst()
-            .map(ut -> ut.getTitle().getDisplayName())
             .orElse(null);
 
-        String rightTitle = equippedTitles.stream()
+        UserTitle rightUserTitle = equippedTitles.stream()
             .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
             .findFirst()
-            .map(ut -> ut.getTitle().getDisplayName())
             .orElse(null);
 
+        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
+        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+
+        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용)
+        TitleRarity highestRarity = getHighestRarity(
+            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
+            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
+        );
+
+        String combinedTitle;
         if (leftTitle == null && rightTitle == null) {
-            return null;
+            combinedTitle = null;
+        } else if (leftTitle == null) {
+            combinedTitle = rightTitle;
+        } else if (rightTitle == null) {
+            combinedTitle = leftTitle;
+        } else {
+            combinedTitle = leftTitle + " " + rightTitle;
         }
-        if (leftTitle == null) {
-            return rightTitle;
-        }
-        if (rightTitle == null) {
-            return leftTitle;
-        }
-        return leftTitle + " " + rightTitle;
+
+        return new TitleInfo(combinedTitle, highestRarity);
     }
+
+    /**
+     * 두 등급 중 더 높은 등급 반환
+     */
+    private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
+        if (r1 == null) return r2;
+        if (r2 == null) return r1;
+        return r1.ordinal() > r2.ordinal() ? r1 : r2;
+    }
+
+    /**
+     * 칭호 정보 (이름과 등급)
+     */
+    private record TitleInfo(String name, TitleRarity rarity) {}
 }

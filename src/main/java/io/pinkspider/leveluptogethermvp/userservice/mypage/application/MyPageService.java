@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRe
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
@@ -404,7 +405,8 @@ public class MyPageService {
 
         // 피드의 칭호도 업데이트
         String combinedTitle = leftUserTitle.getTitle().getDisplayName() + " " + rightUserTitle.getTitle().getDisplayName();
-        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle);
+        TitleRarity highestRarity = getHighestRarity(leftUserTitle.getTitle().getRarity(), rightUserTitle.getTitle().getRarity());
+        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle, highestRarity);
 
         log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}, feedsUpdated={}",
             userId, leftUserTitle.getTitle().getId(), rightUserTitle.getTitle().getId(), updatedCount);
@@ -588,5 +590,14 @@ public class MyPageService {
         long rank = userStatsRepository.calculateRank(rankingPoints);
         // 상위 X% = (순위 / 전체 사용자 수) * 100
         return Math.round((double) rank / totalUsers * 1000) / 10.0;
+    }
+
+    /**
+     * 두 등급 중 더 높은 등급 반환
+     */
+    private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
+        if (r1 == null) return r2;
+        if (r2 == null) return r1;
+        return r1.ordinal() > r2.ordinal() ? r1 : r2;
     }
 }
