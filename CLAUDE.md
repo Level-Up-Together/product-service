@@ -45,7 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
-- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db) with Hikari pooling
+- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, saga_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
 - **Caching**: Redis with Lettuce client
 - **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
@@ -53,6 +53,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Encryption**: `CryptoConverter` for sensitive field encryption
 - **Tracing**: Zipkin/Brave distributed tracing
 - **Monitoring**: Actuator at `/showmethemoney`
+- **Saga Pattern**: `io.pinkspider.global.saga` - 분산 트랜잭션 관리 (MSA 전환 대비)
+
+### Transaction Manager 주의사항
+
+멀티 데이터소스 환경에서 `userTransactionManager`가 `@Primary`로 설정되어 있으므로, **각 서비스의 `@Transactional`에 명시적으로 트랜잭션 매니저를 지정해야 함**:
+
+```java
+// GuildService 예시
+@Transactional(transactionManager = "guildTransactionManager")
+public void updateGuild(...) { ... }
+
+// MissionService 예시
+@Transactional(transactionManager = "missionTransactionManager")
+public void updateMission(...) { ... }
+```
+
+트랜잭션 매니저 매핑:
+| Service | Transaction Manager |
+|---------|---------------------|
+| userservice | `userTransactionManager` (Primary) |
+| missionservice | `missionTransactionManager` |
+| guildservice | `guildTransactionManager` |
+| metaservice | `metaTransactionManager` |
+| saga | `sagaTransactionManager` |
 
 ### Service Layer Pattern
 
@@ -109,6 +133,30 @@ Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
 @ActiveProfiles("test")
 ```
 
+### Unit Tests (Service Layer)
+Use `@ExtendWith(MockitoExtension.class)` for service layer unit testing:
+```java
+@ExtendWith(MockitoExtension.class)
+class YourServiceTest {
+    @Mock
+    private YourRepository repository;
+
+    @InjectMocks
+    private YourService service;
+
+    // Reflection을 사용하여 엔티티 ID 설정 (JPA 엔티티는 ID가 auto-generated)
+    private void setEntityId(Entity entity, Long id) {
+        try {
+            Field idField = Entity.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
 ## CI/CD
 
 - Push to `main` → Production deployment with tests
@@ -146,3 +194,14 @@ Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
 - 한글로 커밋 메시지 작성
 - 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
 - 필요시 CLAUDE.md, README.md 업데이트
+
+## 자주 발생하는 이슈
+
+### QueryDSL 빌드 오류
+`Attempt to recreate a file for type Q*` 오류 발생 시:
+```bash
+./gradlew clean compileJava
+```
+
+### 트랜잭션 매니저 미지정 오류
+데이터가 저장되지 않거나 조회되지 않는 경우, `@Transactional`에 올바른 트랜잭션 매니저가 지정되어 있는지 확인
