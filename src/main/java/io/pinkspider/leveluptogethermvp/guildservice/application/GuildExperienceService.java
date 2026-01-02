@@ -7,7 +7,10 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildExperien
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildLevelConfigRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class GuildExperienceService {
 
     private final GuildRepository guildRepository;
-    private final GuildLevelConfigRepository levelConfigRepository;
+    private final GuildLevelConfigRepository guildLevelConfigRepository;
     private final GuildExperienceHistoryRepository historyRepository;
+    private final GuildMemberRepository guildMemberRepository;
+    private final LevelConfigRepository userLevelConfigRepository;
 
     @Transactional
     public GuildExperienceResponse addExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
@@ -74,7 +79,30 @@ public class GuildExperienceService {
     }
 
     public List<GuildLevelConfig> getAllLevelConfigs() {
-        return levelConfigRepository.findAllByOrderByLevelAsc();
+        return guildLevelConfigRepository.findAllByOrderByLevelAsc();
+    }
+
+    /**
+     * 길드 레벨업에 필요한 경험치 계산
+     * 공식: 길드 인원수 * 해당 레벨의 유저 레벨업 필요 경험치
+     */
+    public int calculateGuildRequiredExp(Long guildId, int level) {
+        int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+        // 최소 1명으로 계산 (마스터만 있는 경우)
+        memberCount = Math.max(1, memberCount);
+
+        int userRequiredExp = userLevelConfigRepository.findByLevel(level)
+            .map(LevelConfig::getRequiredExp)
+            .orElse(calculateDefaultUserRequiredExp(level));
+
+        return memberCount * userRequiredExp;
+    }
+
+    /**
+     * 유저 레벨업 기본 공식 (설정이 없을 경우)
+     */
+    private int calculateDefaultUserRequiredExp(int level) {
+        return 100 + (level - 1) * 50;
     }
 
     /**
@@ -126,7 +154,7 @@ public class GuildExperienceService {
         if (levelAfter < levelBefore) {
             log.info("길드 레벨 다운: guildId={}, {} -> {}", guildId, levelBefore, levelAfter);
             // 레벨 다운 시 맥스 멤버 수 조정
-            GuildLevelConfig newLevelConfig = levelConfigRepository.findByLevel(levelAfter).orElse(null);
+            GuildLevelConfig newLevelConfig = guildLevelConfigRepository.findByLevel(levelAfter).orElse(null);
             if (newLevelConfig != null) {
                 guild.updateMaxMembersByLevel(newLevelConfig.getMaxMembers());
             }
@@ -142,7 +170,7 @@ public class GuildExperienceService {
      * 레벨 다운 처리 (경험치 차감으로 인한)
      */
     private void processLevelDown(Guild guild, int targetTotalExp) {
-        List<GuildLevelConfig> levelConfigs = levelConfigRepository.findAllByOrderByLevelAsc();
+        List<GuildLevelConfig> levelConfigs = guildLevelConfigRepository.findAllByOrderByLevelAsc();
 
         if (targetTotalExp <= 0) {
             guild.setCurrentLevel(1);
@@ -179,7 +207,7 @@ public class GuildExperienceService {
     public GuildLevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
                                                        Integer cumulativeExp, Integer maxMembers,
                                                        String title, String description) {
-        GuildLevelConfig config = levelConfigRepository.findByLevel(level)
+        GuildLevelConfig config = guildLevelConfigRepository.findByLevel(level)
             .orElse(GuildLevelConfig.builder().level(level).build());
 
         config.setRequiredExp(requiredExp);
@@ -188,77 +216,65 @@ public class GuildExperienceService {
         config.setTitle(title);
         config.setDescription(description);
 
-        return levelConfigRepository.save(config);
+        return guildLevelConfigRepository.save(config);
     }
 
+    /**
+     * 길드 레벨업 처리
+     * 레벨업 조건: 인원수 * 유저 레벨 필요 경험치
+     */
     private void processLevelUp(Guild guild) {
-        List<GuildLevelConfig> levelConfigs = levelConfigRepository.findAllByOrderByLevelAsc();
-        if (levelConfigs.isEmpty()) {
-            processLevelUpWithDefaultFormula(guild);
-            return;
-        }
+        List<GuildLevelConfig> guildLevelConfigs = guildLevelConfigRepository.findAllByOrderByLevelAsc();
 
         while (true) {
             int currentLevel = guild.getCurrentLevel();
-            GuildLevelConfig currentLevelConfig = levelConfigs.stream()
-                .filter(lc -> lc.getLevel().equals(currentLevel))
-                .findFirst()
-                .orElse(null);
 
-            if (currentLevelConfig == null) {
-                break;
-            }
+            // 길드 레벨업에 필요한 경험치 = 인원수 * 유저 레벨 필요 경험치
+            int requiredExp = calculateGuildRequiredExp(guild.getId(), currentLevel);
 
-            int requiredExp = currentLevelConfig.getRequiredExp();
             if (guild.getCurrentExp() >= requiredExp) {
                 guild.levelUp(requiredExp);
 
-                GuildLevelConfig newLevelConfig = levelConfigs.stream()
+                // 레벨업 시 최대 인원수 업데이트 (guild_level_config에서 조회)
+                GuildLevelConfig newLevelConfig = guildLevelConfigs.stream()
                     .filter(lc -> lc.getLevel().equals(guild.getCurrentLevel()))
                     .findFirst()
                     .orElse(null);
 
                 if (newLevelConfig != null) {
                     guild.updateMaxMembersByLevel(newLevelConfig.getMaxMembers());
+                } else {
+                    // 길드 레벨 설정이 없으면 기본 공식 사용
+                    int newMaxMembers = calculateDefaultMaxMembers(guild.getCurrentLevel());
+                    guild.updateMaxMembersByLevel(newMaxMembers);
                 }
+
+                log.info("길드 레벨업 조건: guildId={}, level={}, memberCount={}, requiredExp={}",
+                    guild.getId(), currentLevel, guildMemberRepository.countActiveMembers(guild.getId()), requiredExp);
             } else {
                 break;
             }
 
-            Integer maxLevel = levelConfigRepository.findMaxLevel();
-            if (maxLevel != null && guild.getCurrentLevel() >= maxLevel) {
+            // 최대 레벨 체크 (유저 레벨 기준)
+            Integer maxUserLevel = userLevelConfigRepository.findMaxLevel();
+            if (maxUserLevel != null && guild.getCurrentLevel() >= maxUserLevel) {
                 break;
             }
         }
     }
 
-    private void processLevelUpWithDefaultFormula(Guild guild) {
-        while (true) {
-            int requiredExp = calculateDefaultRequiredExp(guild.getCurrentLevel());
-            if (guild.getCurrentExp() >= requiredExp) {
-                guild.levelUp(requiredExp);
-                int newMaxMembers = calculateDefaultMaxMembers(guild.getCurrentLevel());
-                guild.updateMaxMembersByLevel(newMaxMembers);
-            } else {
-                break;
-            }
-        }
-    }
-
-    private int calculateDefaultRequiredExp(int level) {
-        return 500 + (level - 1) * 300;
-    }
-
+    /**
+     * 기본 최대 인원 공식 (guild_level_config 설정이 없을 경우)
+     */
     private int calculateDefaultMaxMembers(int level) {
-        return 20 + (level - 1) * 10;
+        return 10 + (level - 1) * 5;
     }
 
     private GuildExperienceResponse getGuildExperienceInfo(Guild guild) {
-        Integer requiredExp = levelConfigRepository.findByLevel(guild.getCurrentLevel())
-            .map(GuildLevelConfig::getRequiredExp)
-            .orElse(calculateDefaultRequiredExp(guild.getCurrentLevel()));
+        // 길드 레벨업에 필요한 경험치 = 인원수 * 유저 레벨 필요 경험치
+        int requiredExp = calculateGuildRequiredExp(guild.getId(), guild.getCurrentLevel());
 
-        String levelTitle = levelConfigRepository.findByLevel(guild.getCurrentLevel())
+        String levelTitle = guildLevelConfigRepository.findByLevel(guild.getCurrentLevel())
             .map(GuildLevelConfig::getTitle)
             .orElse("Lv." + guild.getCurrentLevel());
 
