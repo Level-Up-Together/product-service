@@ -95,4 +95,25 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("status") MissionStatus status,
         @Param("categoryId") Long categoryId,
         Pageable pageable);
+
+    /**
+     * 사용자가 참여중인 미션 목록 조회 (ACCEPTED 상태인 참여자)
+     * 정렬 우선순위:
+     * 1. 고정미션: source = SYSTEM AND isCustomizable = false
+     * 2. 길드미션: type = GUILD
+     * 3. 일반미션: 나머지
+     */
+    @Query("SELECT m FROM Mission m " +
+           "JOIN MissionParticipant mp ON mp.mission = m " +
+           "WHERE mp.userId = :userId " +
+           "AND mp.status = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED " +
+           "ORDER BY " +
+           "CASE " +
+           "  WHEN m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
+           "       AND m.isCustomizable = false THEN 1 " +
+           "  WHEN m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD THEN 2 " +
+           "  ELSE 3 " +
+           "END ASC, " +
+           "m.createdAt DESC")
+    List<Mission> findByParticipantUserIdSorted(@Param("userId") String userId);
 }
