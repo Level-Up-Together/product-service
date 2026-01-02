@@ -167,7 +167,7 @@ public class MissionParticipantService {
             throw new IllegalStateException("모집중인 미션에만 참여할 수 있습니다.");
         }
 
-        if (participantRepository.existsByMissionIdAndUserId(mission.getId(), userId)) {
+        if (participantRepository.existsActiveParticipation(mission.getId(), userId)) {
             throw new IllegalStateException("이미 참여한 미션입니다.");
         }
 
