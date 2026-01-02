@@ -241,6 +241,7 @@ class HomeControllerTest {
                             fieldWithPath("value[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value[].level").type(JsonFieldType.NUMBER).description("레벨"),
                             fieldWithPath("value[].title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
+                            fieldWithPath("value[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
                             fieldWithPath("value[].earned_exp").type(JsonFieldType.NUMBER).description("어제 획득한 경험치"),
                             fieldWithPath("value[].rank").type(JsonFieldType.NUMBER).description("순위")
                         )
