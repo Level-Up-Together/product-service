@@ -73,11 +73,13 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     Page<Mission> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     /**
-     * 시스템 미션 목록 조회 (미션북용)
+     * 시스템 개인 미션 목록 조회 (미션북용)
      * - source = SYSTEM
      * - status = OPEN (사용자가 참여 가능한 상태)
+     * - type = PERSONAL (개인 미션만, 길드 미션 제외)
      */
     @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
+           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
            "ORDER BY m.category.displayOrder ASC, m.createdAt DESC")
     Page<Mission> findBySourceAndStatus(
         @Param("source") MissionSource source,
@@ -85,9 +87,11 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         Pageable pageable);
 
     /**
-     * 카테고리별 시스템 미션 목록 조회
+     * 카테고리별 시스템 개인 미션 목록 조회
+     * - type = PERSONAL (개인 미션만, 길드 미션 제외)
      */
     @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
+           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
            "AND m.category.id = :categoryId " +
            "ORDER BY m.createdAt DESC")
     Page<Mission> findBySourceAndStatusAndCategoryId(

@@ -47,7 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "guildTransactionManager", readOnly = true)
 public class GuildService {
 
     private final GuildRepository guildRepository;
@@ -61,7 +61,7 @@ public class GuildService {
     private final FeaturedGuildRepository featuredGuildRepository;
     private final TitleService titleService;
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
         // 카테고리 유효성 검증
         MissionCategoryResponse category = missionCategoryService.getCategory(request.getCategoryId());
@@ -231,7 +231,7 @@ public class GuildService {
             .toList();
     }
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse updateGuild(Long guildId, String userId, GuildUpdateRequest request) {
         Guild guild = findActiveGuildById(guildId);
         validateMaster(guild, userId);
@@ -277,7 +277,7 @@ public class GuildService {
         return buildGuildResponseWithCategory(guild, memberCount);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public void transferMaster(Long guildId, String currentMasterId, String newMasterId) {
         Guild guild = findActiveGuildById(guildId);
         validateMaster(guild, currentMasterId);
@@ -300,7 +300,7 @@ public class GuildService {
     }
 
     // 가입 신청 또는 바로 가입 (공개 길드)
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildJoinRequestResponse requestJoin(Long guildId, String userId, GuildJoinRequestDto request) {
         Guild guild = findActiveGuildById(guildId);
 
@@ -377,7 +377,7 @@ public class GuildService {
             .map(GuildJoinRequestResponse::from);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse approveJoinRequest(Long requestId, String masterId) {
         GuildJoinRequest request = joinRequestRepository.findById(requestId)
             .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
@@ -420,7 +420,7 @@ public class GuildService {
         return GuildMemberResponse.from(savedMember);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildJoinRequestResponse rejectJoinRequest(Long requestId, String masterId, String reason) {
         GuildJoinRequest request = joinRequestRepository.findById(requestId)
             .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
@@ -439,7 +439,7 @@ public class GuildService {
     }
 
     // 초대를 통한 가입 (비공개 길드용)
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse inviteMember(Long guildId, String masterId, String inviteeId) {
         Guild guild = findActiveGuildById(guildId);
         validateMaster(guild, masterId);
@@ -522,7 +522,7 @@ public class GuildService {
             .toList();
     }
 
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public void leaveGuild(Long guildId, String userId) {
         Guild guild = findActiveGuildById(guildId);
 
