@@ -8,12 +8,14 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildJoinRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildLevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedGuild;
@@ -49,6 +51,7 @@ public class GuildService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
+    private final GuildLevelConfigRepository levelConfigRepository;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationContext applicationContext;
     private final GuildHeadquartersService guildHeadquartersService;
@@ -79,6 +82,11 @@ public class GuildService {
                     null, request.getBaseLatitude(), request.getBaseLongitude());
         }
 
+        // 레벨 1 설정에서 maxMembers 가져오기 (Admin에서 설정한 값 사용)
+        int defaultMaxMembers = levelConfigRepository.findByLevel(1)
+            .map(GuildLevelConfig::getMaxMembers)
+            .orElse(10); // 설정이 없으면 기본값 10
+
         Guild guild = Guild.builder()
             .name(request.getName())
             .description(request.getDescription())
@@ -86,7 +94,7 @@ public class GuildService {
             .joinType(request.getJoinType() != null ? request.getJoinType() : GuildJoinType.OPEN)
             .masterId(userId)
             .categoryId(request.getCategoryId())
-            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 10)
+            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : defaultMaxMembers)
             .imageUrl(request.getImageUrl())
             .baseAddress(request.getBaseAddress())
             .baseLatitude(request.getBaseLatitude())
