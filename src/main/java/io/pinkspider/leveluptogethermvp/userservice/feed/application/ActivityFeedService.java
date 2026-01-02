@@ -4,6 +4,7 @@ import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedFeed;
 import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedFeedRepository;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
@@ -609,7 +610,7 @@ public class ActivityFeedService {
      */
     @Transactional
     public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
-                                                Integer userLevel, String userTitle,
+                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
                                                 Long executionId, Long missionId, String missionTitle,
                                                 String missionDescription, Long categoryId,
                                                 String note, String imageUrl,
@@ -622,6 +623,7 @@ public class ActivityFeedService {
             .userProfileImageUrl(userProfileImageUrl)
             .userLevel(userLevel != null ? userLevel : 1)
             .userTitle(userTitle)
+            .userTitleRarity(userTitleRarity)
             .activityType(ActivityType.MISSION_SHARED)
             .title(title)
             .description(note)

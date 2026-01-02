@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
@@ -25,6 +26,7 @@ public class ActivityFeedResponse {
     private String userProfileImageUrl;
     private Integer userLevel;
     private String userTitle;
+    private TitleRarity userTitleRarity;
     private ActivityType activityType;
     private String activityTypeDisplayName;
     private String category;
@@ -60,6 +62,7 @@ public class ActivityFeedResponse {
             .userProfileImageUrl(feed.getUserProfileImageUrl())
             .userLevel(feed.getUserLevel() != null ? feed.getUserLevel() : 1)
             .userTitle(feed.getUserTitle())
+            .userTitleRarity(feed.getUserTitleRarity())
             .activityType(feed.getActivityType())
             .activityTypeDisplayName(feed.getActivityType().getDisplayName())
             .category(feed.getActivityType().getCategory())
