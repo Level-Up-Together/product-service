@@ -498,4 +498,206 @@ class FriendControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/friends/all : 전체 친구 목록 조회")
+    void getAllFriendsTest() throws Exception {
+        // given
+        List<FriendResponse> responses = MockUtil.readJsonFileToClassList(
+            "fixture/friend/friendResponseList.json",
+            new TypeReference<List<FriendResponse>>() {});
+
+        when(friendService.getAllFriends(anyString()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/friends/all")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("친구-10. 전체 친구 목록 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Friend")
+                        .description("전체 친구 목록 조회 (페이징 없이 전체) (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("친구 목록"),
+                            fieldWithPath("value[].friendship_id").type(JsonFieldType.NUMBER).description("친구관계 ID"),
+                            fieldWithPath("value[].friend_id").type(JsonFieldType.STRING).description("친구 사용자 ID"),
+                            fieldWithPath("value[].friend_nickname").type(JsonFieldType.STRING).description("친구 닉네임"),
+                            fieldWithPath("value[].friend_profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value[].friend_level").type(JsonFieldType.NUMBER).description("친구 레벨").optional(),
+                            fieldWithPath("value[].friend_title").type(JsonFieldType.STRING).description("친구 칭호").optional(),
+                            fieldWithPath("value[].status").type(JsonFieldType.STRING).description("친구관계 상태"),
+                            fieldWithPath("value[].friends_since").type(JsonFieldType.STRING).description("친구가 된 일시"),
+                            fieldWithPath("value[].is_online").type(JsonFieldType.BOOLEAN).description("온라인 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/friends/count : 친구 수 조회")
+    void getFriendCountTest() throws Exception {
+        // given
+        when(friendService.getFriendCount(anyString()))
+            .thenReturn(5);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/friends/count")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("친구-11. 친구 수 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Friend")
+                        .description("현재 친구 수 조회 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.NUMBER).description("친구 수")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/friends/requests/sent : 보낸 친구 요청 목록 조회")
+    void getPendingRequestsSentTest() throws Exception {
+        // given
+        List<FriendRequestResponse> responses = MockUtil.readJsonFileToClassList(
+            "fixture/friend/friendRequestResponseList.json",
+            new TypeReference<List<FriendRequestResponse>>() {});
+
+        when(friendService.getPendingRequestsSent(anyString()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/friends/requests/sent")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("친구-12. 보낸 친구 요청 목록 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Friend")
+                        .description("보낸 친구 요청 목록 조회 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("친구 요청 목록"),
+                            fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("요청 ID"),
+                            fieldWithPath("value[].requester_id").type(JsonFieldType.STRING).description("요청자 ID"),
+                            fieldWithPath("value[].requester_nickname").type(JsonFieldType.STRING).description("요청자 닉네임"),
+                            fieldWithPath("value[].requester_profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value[].requester_level").type(JsonFieldType.NUMBER).description("요청자 레벨").optional(),
+                            fieldWithPath("value[].message").type(JsonFieldType.STRING).description("요청 메시지").optional(),
+                            fieldWithPath("value[].requested_at").type(JsonFieldType.STRING).description("요청 일시")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/friends/requests/{requestId} : 친구 요청 취소")
+    void cancelFriendRequestTest() throws Exception {
+        // given
+        Long requestId = 1L;
+
+        doNothing().when(friendService).cancelFriendRequest(anyString(), anyLong());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete("/api/v1/friends/requests/{requestId}", requestId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("친구-13. 친구 요청 취소",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Friend")
+                        .description("보낸 친구 요청 취소 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("requestId").type(SimpleType.NUMBER).description("취소할 요청 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/friends/check/{friendId} : 친구 여부 확인")
+    void areFriendsTest() throws Exception {
+        // given
+        String friendId = "friend-user-123";
+
+        when(friendService.areFriends(anyString(), anyString()))
+            .thenReturn(true);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/friends/check/{friendId}", friendId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("친구-14. 친구 여부 확인",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Friend")
+                        .description("특정 사용자와 친구 관계인지 확인 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("friendId").type(SimpleType.STRING).description("확인할 사용자 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.BOOLEAN).description("친구 여부 (true: 친구, false: 친구 아님)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
 }
