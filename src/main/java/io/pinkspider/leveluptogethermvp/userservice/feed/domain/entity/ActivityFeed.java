@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
 import jakarta.persistence.Column;
@@ -66,6 +67,11 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Column(name = "user_title", length = 100)
     @Comment("사용자 칭호 (피드 생성 시점)")
     private String userTitle;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_title_rarity", length = 20)
+    @Comment("사용자 칭호 등급 (피드 생성 시점)")
+    private TitleRarity userTitleRarity;
 
     @NotNull
     @Enumerated(EnumType.STRING)

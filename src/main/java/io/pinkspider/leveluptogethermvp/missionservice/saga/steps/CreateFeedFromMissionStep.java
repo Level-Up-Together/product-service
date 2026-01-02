@@ -69,8 +69,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             log.info("사용자 레벨 조회 완료: userId={}, level={}", userId, userLevel);
 
             // 사용자 칭호 조회
-            String userTitle = titleService.getCombinedEquippedTitleName(userId);
-            log.info("사용자 칭호 조회 완료: userId={}, title={}", userId, userTitle);
+            TitleService.TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(userId);
+            log.info("사용자 칭호 조회 완료: userId={}, title={}, rarity={}",
+                userId, titleInfo.name(), titleInfo.rarity());
 
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
@@ -87,7 +88,8 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 user.getNickname(),
                 user.getPicture(),
                 userLevel,
-                userTitle,
+                titleInfo.name(),
+                titleInfo.rarity(),
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),

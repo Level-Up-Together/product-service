@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.home.api.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +20,7 @@ public class TodayPlayerResponse {
     private String profileImageUrl;
     private Integer level;
     private String title;
+    private TitleRarity titleRarity;
     private Long earnedExp;
     private Integer rank;
 
@@ -28,6 +30,7 @@ public class TodayPlayerResponse {
         String profileImageUrl,
         Integer level,
         String title,
+        TitleRarity titleRarity,
         Long earnedExp,
         Integer rank
     ) {
@@ -37,6 +40,7 @@ public class TodayPlayerResponse {
             .profileImageUrl(profileImageUrl)
             .level(level)
             .title(title)
+            .titleRarity(titleRarity)
             .earnedExp(earnedExp)
             .rank(rank)
             .build();
