@@ -143,12 +143,9 @@ public class NotificationService {
         NotificationPreference pref = getOrCreatePreference(userId);
 
         if (request.getPushEnabled() != null) pref.setPushEnabled(request.getPushEnabled());
-        if (request.getMissionNotifications() != null) pref.setMissionNotifications(request.getMissionNotifications());
-        if (request.getAchievementNotifications() != null) pref.setAchievementNotifications(request.getAchievementNotifications());
+        if (request.getFriendNotifications() != null) pref.setFriendNotifications(request.getFriendNotifications());
         if (request.getGuildNotifications() != null) pref.setGuildNotifications(request.getGuildNotifications());
-        if (request.getQuestNotifications() != null) pref.setQuestNotifications(request.getQuestNotifications());
-        if (request.getAttendanceNotifications() != null) pref.setAttendanceNotifications(request.getAttendanceNotifications());
-        if (request.getRankingNotifications() != null) pref.setRankingNotifications(request.getRankingNotifications());
+        if (request.getSocialNotifications() != null) pref.setSocialNotifications(request.getSocialNotifications());
         if (request.getSystemNotifications() != null) pref.setSystemNotifications(request.getSystemNotifications());
         if (request.getQuietHoursEnabled() != null) pref.setQuietHoursEnabled(request.getQuietHoursEnabled());
         if (request.getQuietHoursStart() != null) pref.setQuietHoursStart(request.getQuietHoursStart());
@@ -178,67 +175,84 @@ public class NotificationService {
 
     // ==================== 편의 메서드 ====================
 
+    // 친구 요청 알림
     @Transactional
-    public void notifyMissionCompleted(String userId, String missionTitle, Long missionId) {
-        createNotification(userId, NotificationType.MISSION_COMPLETED,
-            "미션 완료!",
-            "'" + missionTitle + "' 미션을 완료했습니다.",
-            "MISSION", missionId, "/mission");
+    public void notifyFriendRequest(String userId, String requesterNickname, Long friendshipId) {
+        createNotification(userId, NotificationType.FRIEND_REQUEST,
+            "새 친구 요청",
+            requesterNickname + "님이 친구 요청을 보냈습니다.",
+            "FRIEND_REQUEST", friendshipId, "/mypage/friends/requests");
     }
 
+    // 친구 수락 알림
     @Transactional
-    public void notifyAchievementUnlocked(String userId, String achievementName, Long achievementId) {
-        createNotification(userId, NotificationType.ACHIEVEMENT_UNLOCKED,
-            "업적 달성!",
-            "'" + achievementName + "' 업적을 달성했습니다!",
-            "ACHIEVEMENT", achievementId, "/achievements");
+    public void notifyFriendAccepted(String userId, String accepterNickname, Long friendshipId) {
+        createNotification(userId, NotificationType.FRIEND_ACCEPTED,
+            "친구 요청 수락",
+            accepterNickname + "님이 친구 요청을 수락했습니다.",
+            "FRIEND", friendshipId, "/mypage/friends");
     }
 
+    // 친구 거절 알림
     @Transactional
-    public void notifyTitleAcquired(String userId, String titleName, Long titleId) {
-        createNotification(userId, NotificationType.TITLE_ACQUIRED,
-            "새 칭호 획득!",
-            "'" + titleName + "' 칭호를 획득했습니다!",
-            "TITLE", titleId, "/achievements/titles");
+    public void notifyFriendRejected(String userId, String rejecterNickname, Long friendshipId) {
+        createNotification(userId, NotificationType.FRIEND_REJECTED,
+            "친구 요청 거절",
+            rejecterNickname + "님이 친구 요청을 거절했습니다.",
+            "FRIEND_REQUEST", friendshipId, "/mypage/friends");
     }
 
-    @Transactional
-    public void notifyLevelUp(String userId, int newLevel) {
-        createNotification(userId, NotificationType.LEVEL_UP,
-            "레벨 업!",
-            "레벨 " + newLevel + "에 도달했습니다!",
-            "LEVEL", null, "/profile");
-    }
-
-    @Transactional
-    public void notifyQuestCompleted(String userId, String questName, Long questId) {
-        createNotification(userId, NotificationType.QUEST_COMPLETED,
-            "퀘스트 완료!",
-            "'" + questName + "' 퀘스트를 완료했습니다. 보상을 수령하세요!",
-            "QUEST", questId, "/quests");
-    }
-
+    // 길드 초대 알림
     @Transactional
     public void notifyGuildInvite(String userId, String guildName, Long guildId) {
         createNotification(userId, NotificationType.GUILD_INVITE,
             "길드 초대",
             "'" + guildName + "' 길드에 초대되었습니다.",
-            "GUILD", guildId, "/guilds/" + guildId);
+            "GUILD", guildId, "/guild/" + guildId);
     }
 
+    // 길드 가입 신청 알림 (길드장에게)
+    @Transactional
+    public void notifyGuildJoinRequest(String guildLeaderId, String applicantNickname, Long guildId) {
+        createNotification(guildLeaderId, NotificationType.GUILD_JOIN_REQUEST,
+            "길드 가입 신청",
+            applicantNickname + "님이 길드 가입을 신청했습니다.",
+            "GUILD", guildId, "/guild/" + guildId + "/members");
+    }
+
+    // 길드 가입 승인 알림
     @Transactional
     public void notifyGuildJoinApproved(String userId, String guildName, Long guildId) {
         createNotification(userId, NotificationType.GUILD_JOIN_APPROVED,
             "길드 가입 승인",
             "'" + guildName + "' 길드에 가입되었습니다!",
-            "GUILD", guildId, "/guilds/" + guildId);
+            "GUILD", guildId, "/guild/" + guildId);
     }
 
+    // 길드 가입 거절 알림
     @Transactional
-    public void notifyAttendanceStreak(String userId, int streak) {
-        createNotification(userId, NotificationType.ATTENDANCE_STREAK,
-            streak + "일 연속 출석!",
-            "대단해요! " + streak + "일 연속 출석을 달성했습니다!",
-            "ATTENDANCE", null, "/attendance");
+    public void notifyGuildJoinRejected(String userId, String guildName, Long guildId) {
+        createNotification(userId, NotificationType.GUILD_JOIN_REJECTED,
+            "길드 가입 거절",
+            "'" + guildName + "' 길드 가입이 거절되었습니다.",
+            "GUILD", guildId, "/guild");
+    }
+
+    // 길드 미션 도착 알림
+    @Transactional
+    public void notifyGuildMissionArrived(String userId, String missionTitle, Long missionId) {
+        createNotification(userId, NotificationType.GUILD_MISSION_ARRIVED,
+            "새 길드 미션",
+            "'" + missionTitle + "' 길드 미션이 도착했습니다.",
+            "MISSION", missionId, "/mission");
+    }
+
+    // 내 글에 댓글 알림
+    @Transactional
+    public void notifyCommentOnMyFeed(String feedOwnerId, String commenterNickname, Long feedId) {
+        createNotification(feedOwnerId, NotificationType.COMMENT_ON_MY_FEED,
+            "새 댓글",
+            commenterNickname + "님이 회원님의 글에 댓글을 남겼습니다.",
+            "FEED", feedId, "/feed/" + feedId);
     }
 }

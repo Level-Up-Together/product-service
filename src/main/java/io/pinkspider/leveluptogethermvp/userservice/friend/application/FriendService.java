@@ -9,7 +9,6 @@ import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friends
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
@@ -64,15 +63,9 @@ public class FriendService {
 
         // 알림 발송
         try {
-            notificationService.createNotification(
-                friendId,
-                NotificationType.SYSTEM,
-                "새 친구 요청",
-                "새로운 친구 요청이 도착했습니다.",
-                "FRIEND_REQUEST",
-                saved.getId(),
-                "/mypage/friends/requests"
-            );
+            Users requester = userRepository.findById(userId).orElse(null);
+            String requesterNickname = requester != null ? requester.getNickname() : "사용자";
+            notificationService.notifyFriendRequest(friendId, requesterNickname, saved.getId());
         } catch (Exception e) {
             log.warn("친구 요청 알림 발송 실패: {}", e.getMessage());
         }
@@ -102,15 +95,9 @@ public class FriendService {
 
         // 요청자에게 알림 발송
         try {
-            notificationService.createNotification(
-                friendship.getUserId(),
-                NotificationType.SYSTEM,
-                "친구 요청 수락",
-                "친구 요청이 수락되었습니다!",
-                "FRIEND",
-                friendship.getId(),
-                "/mypage/friends"
-            );
+            Users accepter = userRepository.findById(userId).orElse(null);
+            String accepterNickname = accepter != null ? accepter.getNickname() : "사용자";
+            notificationService.notifyFriendAccepted(friendship.getUserId(), accepterNickname, friendship.getId());
         } catch (Exception e) {
             log.warn("친구 수락 알림 발송 실패: {}", e.getMessage());
         }
@@ -136,6 +123,15 @@ public class FriendService {
             notificationService.deleteByReference("FRIEND_REQUEST", requestId);
         } catch (Exception e) {
             log.warn("친구 요청 알림 삭제 실패: {}", e.getMessage());
+        }
+
+        // 요청자에게 거절 알림 발송
+        try {
+            Users rejecter = userRepository.findById(userId).orElse(null);
+            String rejecterNickname = rejecter != null ? rejecter.getNickname() : "사용자";
+            notificationService.notifyFriendRejected(friendship.getUserId(), rejecterNickname, friendship.getId());
+        } catch (Exception e) {
+            log.warn("친구 거절 알림 발송 실패: {}", e.getMessage());
         }
 
         log.info("친구 요청 거절: {} rejected {}", userId, friendship.getUserId());

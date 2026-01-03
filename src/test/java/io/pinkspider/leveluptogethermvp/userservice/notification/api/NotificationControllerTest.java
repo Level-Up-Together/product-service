@@ -92,8 +92,8 @@ class NotificationControllerTest {
     void getNotificationsTest() throws Exception {
         // given
         List<NotificationResponse> notifications = List.of(
-            createMockNotification(1L, NotificationType.MISSION_COMPLETED, false),
-            createMockNotification(2L, NotificationType.ACHIEVEMENT_UNLOCKED, true)
+            createMockNotification(1L, NotificationType.FRIEND_REQUEST, false),
+            createMockNotification(2L, NotificationType.GUILD_INVITE, true)
         );
         Page<NotificationResponse> page = new PageImpl<>(notifications, PageRequest.of(0, 20), 2);
 
@@ -132,7 +132,7 @@ class NotificationControllerTest {
     void getUnreadNotificationsTest() throws Exception {
         // given
         List<NotificationResponse> notifications = List.of(
-            createMockNotification(1L, NotificationType.MISSION_COMPLETED, false)
+            createMockNotification(1L, NotificationType.FRIEND_REQUEST, false)
         );
 
         when(notificationService.getUnreadNotifications(anyString())).thenReturn(notifications);
@@ -220,7 +220,7 @@ class NotificationControllerTest {
     @DisplayName("POST /api/v1/notifications/{notificationId}/read : 알림 읽음 처리")
     void markAsReadTest() throws Exception {
         // given
-        NotificationResponse response = createMockNotification(1L, NotificationType.MISSION_COMPLETED, true);
+        NotificationResponse response = createMockNotification(1L, NotificationType.FRIEND_REQUEST, true);
 
         when(notificationService.markAsRead(anyString(), anyLong())).thenReturn(response);
 
@@ -323,12 +323,9 @@ class NotificationControllerTest {
         // given
         NotificationPreferenceResponse response = NotificationPreferenceResponse.builder()
             .pushEnabled(true)
-            .missionNotifications(true)
-            .achievementNotifications(true)
+            .friendNotifications(true)
             .guildNotifications(true)
-            .questNotifications(true)
-            .attendanceNotifications(true)
-            .rankingNotifications(false)
+            .socialNotifications(true)
             .systemNotifications(true)
             .quietHoursEnabled(true)
             .quietHoursStart("22:00")
@@ -355,12 +352,9 @@ class NotificationControllerTest {
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("알림 설정"),
                             fieldWithPath("value.push_enabled").type(JsonFieldType.BOOLEAN).description("푸시 알림 활성화"),
-                            fieldWithPath("value.mission_notifications").type(JsonFieldType.BOOLEAN).description("미션 알림"),
-                            fieldWithPath("value.achievement_notifications").type(JsonFieldType.BOOLEAN).description("업적 알림"),
+                            fieldWithPath("value.friend_notifications").type(JsonFieldType.BOOLEAN).description("친구 알림"),
                             fieldWithPath("value.guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림"),
-                            fieldWithPath("value.quest_notifications").type(JsonFieldType.BOOLEAN).description("퀘스트 알림"),
-                            fieldWithPath("value.attendance_notifications").type(JsonFieldType.BOOLEAN).description("출석 알림"),
-                            fieldWithPath("value.ranking_notifications").type(JsonFieldType.BOOLEAN).description("랭킹 알림"),
+                            fieldWithPath("value.social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림"),
                             fieldWithPath("value.system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림"),
                             fieldWithPath("value.quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화"),
                             fieldWithPath("value.quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),
@@ -381,12 +375,9 @@ class NotificationControllerTest {
         // given
         NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
             .pushEnabled(true)
-            .missionNotifications(true)
-            .achievementNotifications(true)
+            .friendNotifications(true)
             .guildNotifications(true)
-            .questNotifications(true)
-            .attendanceNotifications(true)
-            .rankingNotifications(false)
+            .socialNotifications(true)
             .systemNotifications(true)
             .quietHoursEnabled(true)
             .quietHoursStart("22:00")
@@ -395,12 +386,9 @@ class NotificationControllerTest {
 
         NotificationPreferenceResponse response = NotificationPreferenceResponse.builder()
             .pushEnabled(true)
-            .missionNotifications(true)
-            .achievementNotifications(true)
+            .friendNotifications(true)
             .guildNotifications(true)
-            .questNotifications(true)
-            .attendanceNotifications(true)
-            .rankingNotifications(false)
+            .socialNotifications(true)
             .systemNotifications(true)
             .quietHoursEnabled(true)
             .quietHoursStart("22:00")
@@ -426,12 +414,9 @@ class NotificationControllerTest {
                         .description("알림 설정 수정 (JWT 토큰 인증 필요)")
                         .requestFields(
                             fieldWithPath("push_enabled").type(JsonFieldType.BOOLEAN).description("푸시 알림 활성화").optional(),
-                            fieldWithPath("mission_notifications").type(JsonFieldType.BOOLEAN).description("미션 알림").optional(),
-                            fieldWithPath("achievement_notifications").type(JsonFieldType.BOOLEAN).description("업적 알림").optional(),
+                            fieldWithPath("friend_notifications").type(JsonFieldType.BOOLEAN).description("친구 알림").optional(),
                             fieldWithPath("guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림").optional(),
-                            fieldWithPath("quest_notifications").type(JsonFieldType.BOOLEAN).description("퀘스트 알림").optional(),
-                            fieldWithPath("attendance_notifications").type(JsonFieldType.BOOLEAN).description("출석 알림").optional(),
-                            fieldWithPath("ranking_notifications").type(JsonFieldType.BOOLEAN).description("랭킹 알림").optional(),
+                            fieldWithPath("social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림").optional(),
                             fieldWithPath("system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림").optional(),
                             fieldWithPath("quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화").optional(),
                             fieldWithPath("quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),

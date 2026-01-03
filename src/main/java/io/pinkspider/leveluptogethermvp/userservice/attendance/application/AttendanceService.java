@@ -9,7 +9,6 @@ import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.enums.Atte
 import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRecordRepository;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRewardConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
@@ -109,16 +108,6 @@ public class AttendanceService {
             }
         } catch (Exception e) {
             log.warn("퀘스트 진행도 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-        }
-
-        // 연속 출석 보너스 알림
-        if (consecutiveDays == 7 || consecutiveDays == 14 || consecutiveDays == 30) {
-            try {
-                NotificationService notificationService = applicationContext.getBean(NotificationService.class);
-                notificationService.notifyAttendanceStreak(userId, consecutiveDays);
-            } catch (Exception e) {
-                log.warn("알림 발송 실패: userId={}, error={}", userId, e.getMessage());
-            }
         }
 
         return AttendanceCheckInResponse.success(

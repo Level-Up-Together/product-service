@@ -22,7 +22,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFrom
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.SendNotificationStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateQuestProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
@@ -60,8 +59,6 @@ class MissionCompletionSagaTest {
     private UpdateQuestProgressStep updateQuestProgressStep;
     @Mock
     private CreateFeedFromMissionStep createFeedFromMissionStep;
-    @Mock
-    private SendNotificationStep sendNotificationStep;
     @Mock
     private SagaEventPublisher sagaEventPublisher;
 
@@ -152,12 +149,6 @@ class MissionCompletionSagaTest {
         when(createFeedFromMissionStep.isMandatory()).thenReturn(false);
         when(createFeedFromMissionStep.getMaxRetries()).thenReturn(0);
         when(createFeedFromMissionStep.getRetryDelayMs()).thenReturn(1000L);
-
-        when(sendNotificationStep.getName()).thenReturn("SendNotification");
-        when(sendNotificationStep.shouldExecute()).thenReturn(ctx -> true);
-        when(sendNotificationStep.isMandatory()).thenReturn(false);
-        when(sendNotificationStep.getMaxRetries()).thenReturn(0);
-        when(sendNotificationStep.getRetryDelayMs()).thenReturn(1000L);
     }
 
     private void setId(Object entity, Long id) {
@@ -194,7 +185,6 @@ class MissionCompletionSagaTest {
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
             when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트 업데이트됨"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
-            when(sendNotificationStep.execute(any())).thenReturn(SagaStepResult.success("알림 전송됨"));
 
             // when
             SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
@@ -213,7 +203,6 @@ class MissionCompletionSagaTest {
             verify(updateUserStatsStep).execute(any());
             verify(updateQuestProgressStep).execute(any());
             verify(createFeedFromMissionStep).execute(any());
-            verify(sendNotificationStep).execute(any());
         }
     }
 
@@ -300,7 +289,6 @@ class MissionCompletionSagaTest {
 
             when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트 업데이트됨"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
-            when(sendNotificationStep.execute(any())).thenReturn(SagaStepResult.success("알림 전송됨"));
 
             // when
             SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
@@ -311,7 +299,6 @@ class MissionCompletionSagaTest {
             // 실패한 선택적 Step 이후에도 계속 실행됨
             verify(updateQuestProgressStep).execute(any());
             verify(createFeedFromMissionStep).execute(any());
-            verify(sendNotificationStep).execute(any());
         }
     }
 
@@ -338,7 +325,6 @@ class MissionCompletionSagaTest {
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
             when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
-            when(sendNotificationStep.execute(any())).thenReturn(SagaStepResult.success("알림"));
 
             SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
 
