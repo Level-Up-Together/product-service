@@ -8,9 +8,14 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
@@ -19,6 +24,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +50,12 @@ class MissionServiceTest {
 
     @Mock
     private MissionParticipantService missionParticipantService;
+
+    @Mock
+    private GuildMemberRepository guildMemberRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private MissionService missionService;
@@ -293,6 +306,166 @@ class MissionServiceTest {
 
             // then
             verify(missionRepository).delete(mission);
+        }
+    }
+
+    @Nested
+    @DisplayName("미션 오픈 테스트")
+    class OpenMissionTest {
+
+        private Guild createTestGuild(Long guildId) {
+            try {
+                Guild guild = Guild.builder()
+                    .name("테스트 길드")
+                    .description("테스트")
+                    .categoryId(1L)
+                    .masterId(TEST_USER_ID)
+                    .build();
+                java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(guild, guildId);
+                return guild;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private GuildMember createTestGuildMember(Guild guild, String userId) {
+            return GuildMember.builder()
+                .guild(guild)
+                .userId(userId)
+                .build();
+        }
+
+        @Test
+        @DisplayName("길드 미션 오픈 시 길드원에게 알림이 전송되고 참여자로 등록된다")
+        void openMission_guildMission_notifiesAndRegistersMembers() {
+            // given
+            Long missionId = 1L;
+            Long guildId = 100L;
+            String member1Id = "member-1";
+            String member2Id = "member-2";
+
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("길드 미션 설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId.toString())
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+            setMissionSource(mission, MissionSource.USER);
+
+            Guild guild = createTestGuild(guildId);
+            List<GuildMember> guildMembers = List.of(
+                createTestGuildMember(guild, TEST_USER_ID),  // 생성자
+                createTestGuildMember(guild, member1Id),
+                createTestGuildMember(guild, member2Id)
+            );
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(guildMemberRepository.findActiveMembers(guildId)).thenReturn(guildMembers);
+
+            // when
+            MissionResponse response = missionService.openMission(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(MissionStatus.OPEN);
+
+            // 알림 전송 확인 (생성자 제외 2명에게)
+            verify(notificationService).notifyGuildMissionArrived(member1Id, "길드 미션", missionId);
+            verify(notificationService).notifyGuildMissionArrived(member2Id, "길드 미션", missionId);
+            verify(notificationService, never()).notifyGuildMissionArrived(eq(TEST_USER_ID), anyString(), anyLong());
+
+            // 참여자 등록 확인 (생성자 제외 2명)
+            verify(missionParticipantService).addGuildMemberAsParticipant(mission, member1Id);
+            verify(missionParticipantService).addGuildMemberAsParticipant(mission, member2Id);
+            verify(missionParticipantService, never()).addGuildMemberAsParticipant(eq(mission), eq(TEST_USER_ID));
+        }
+
+        @Test
+        @DisplayName("개인 미션 오픈 시 길드원 알림/등록 로직이 호출되지 않는다")
+        void openMission_personalMission_noGuildNotification() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("개인 미션")
+                .description("개인 미션 설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+            setMissionSource(mission, MissionSource.USER);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            MissionResponse response = missionService.openMission(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(MissionStatus.OPEN);
+
+            // 길드 관련 로직이 호출되지 않음
+            verify(guildMemberRepository, never()).findActiveMembers(anyLong());
+            verify(notificationService, never()).notifyGuildMissionArrived(anyString(), anyString(), anyLong());
+            verify(missionParticipantService, never()).addGuildMemberAsParticipant(any(), anyString());
+        }
+
+        @Test
+        @DisplayName("미션 생성자가 아닌 사용자가 미션을 오픈하면 예외가 발생한다")
+        void openMission_notCreator_throwsException() {
+            // given
+            Long missionId = 1L;
+            String otherUserId = "other-user-789";
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(otherUserId)
+                .build();
+            setMissionId(mission, missionId);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+
+            // when & then
+            assertThatThrownBy(() -> missionService.openMission(missionId, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("미션 생성자만 이 작업을 수행할 수 있습니다.");
+        }
+
+        @Test
+        @DisplayName("길드 미션이지만 guildId가 null이면 알림/등록 로직이 호출되지 않는다")
+        void openMission_guildMissionWithNullGuildId_noNotification() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(null)  // guildId가 null
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            MissionResponse response = missionService.openMission(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildMemberRepository, never()).findActiveMembers(anyLong());
+            verify(notificationService, never()).notifyGuildMissionArrived(anyString(), anyString(), anyLong());
         }
     }
 }

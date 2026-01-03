@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
@@ -11,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,8 @@ public class MissionService {
     private final MissionParticipantRepository participantRepository;
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
+    private final GuildMemberRepository guildMemberRepository;
+    private final NotificationService notificationService;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
@@ -211,7 +216,42 @@ public class MissionService {
         mission.open();
         log.info("미션 오픈: id={}", missionId);
 
+        // 길드 미션인 경우 길드원에게 알림 전송 및 참여자로 등록
+        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
+            notifyAndRegisterGuildMembers(mission, userId);
+        }
+
         return MissionResponse.from(mission);
+    }
+
+    /**
+     * 길드원에게 미션 알림 전송 및 참여자로 자동 등록
+     */
+    private void notifyAndRegisterGuildMembers(Mission mission, String creatorId) {
+        try {
+            Long guildId = Long.parseLong(mission.getGuildId());
+            List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
+
+            for (GuildMember member : activeMembers) {
+                String memberId = member.getUserId();
+
+                // 생성자는 제외 (이미 참여자로 등록됨)
+                if (memberId.equals(creatorId)) {
+                    continue;
+                }
+
+                // 알림 전송
+                notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
+
+                // 참여자로 자동 등록
+                missionParticipantService.addGuildMemberAsParticipant(mission, memberId);
+            }
+
+            log.info("길드 미션 알림 및 참여자 등록 완료: missionId={}, guildId={}, memberCount={}",
+                mission.getId(), guildId, activeMembers.size() - 1);
+        } catch (NumberFormatException e) {
+            log.error("길드 ID 파싱 실패: guildId={}", mission.getGuildId(), e);
+        }
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

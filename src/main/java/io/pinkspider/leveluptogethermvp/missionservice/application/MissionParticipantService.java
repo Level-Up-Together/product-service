@@ -85,6 +85,33 @@ public class MissionParticipantService {
         missionExecutionService.generateExecutionsForParticipant(saved);
     }
 
+    /**
+     * 길드원을 길드 미션 참여자로 자동 등록
+     * (이미 참여 중인 경우 건너뜀)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void addGuildMemberAsParticipant(Mission mission, String userId) {
+        // 이미 참여 중인지 확인
+        if (participantRepository.existsActiveParticipation(mission.getId(), userId)) {
+            log.debug("이미 미션에 참여 중인 길드원: missionId={}, userId={}", mission.getId(), userId);
+            return;
+        }
+
+        MissionParticipant participant = MissionParticipant.builder()
+            .mission(mission)
+            .userId(userId)
+            .status(ParticipantStatus.ACCEPTED)
+            .progress(0)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        MissionParticipant saved = participantRepository.save(participant);
+        log.info("길드원 미션 참여 등록: missionId={}, userId={}", mission.getId(), userId);
+
+        // 실행 스케줄 생성
+        missionExecutionService.generateExecutionsForParticipant(saved);
+    }
+
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse acceptParticipant(Long missionId, Long participantId, String ownerId) {
         Mission mission = findMissionById(missionId);
