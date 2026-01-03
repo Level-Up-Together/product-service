@@ -2,6 +2,7 @@ package io.pinkspider.global.config;
 
 import io.pinkspider.global.interceptor.JwtInterceptor;
 import io.pinkspider.global.interceptor.MultipartInterceptor;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.core.resolver.CurrentUserArgumentResolver;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.ProfileImageProperties;
@@ -32,21 +33,27 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
     private final ProfileImageProperties profileImageProperties;
     private final MissionImageProperties missionImageProperties;
+    private final GuildImageProperties guildImageProperties;
 
     @PostConstruct
     public void init() {
         String missionPath = missionImageProperties.getPath();
         String profilePath = profileImageProperties.getPath();
+        String guildPath = guildImageProperties.getPath();
         File missionDir = new File(missionPath);
         File profileDir = new File(profilePath);
+        File guildDir = new File(guildPath);
 
         log.info("=== 이미지 업로드 설정 ===");
         log.info("미션 이미지 경로: {} (절대경로: {}, 존재: {})",
             missionPath, missionDir.getAbsolutePath(), missionDir.exists());
         log.info("프로필 이미지 경로: {} (절대경로: {}, 존재: {})",
             profilePath, profileDir.getAbsolutePath(), profileDir.exists());
+        log.info("길드 이미지 경로: {} (절대경로: {}, 존재: {})",
+            guildPath, guildDir.getAbsolutePath(), guildDir.exists());
         log.info("미션 이미지 URL 접두어: {}", missionImageProperties.getUrlPrefix());
         log.info("프로필 이미지 URL 접두어: {}", profileImageProperties.getUrlPrefix());
+        log.info("길드 이미지 URL 접두어: {}", guildImageProperties.getUrlPrefix());
         log.info("===========================");
     }
 
@@ -67,6 +74,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
         log.info("미션 이미지 리소스 핸들러: {} -> {}", missionUrlPrefix + "/**", missionResourceLocation);
         registry.addResourceHandler(missionUrlPrefix + "/**")
                 .addResourceLocations(missionResourceLocation);
+
+        // 길드 이미지 업로드 디렉토리 매핑
+        String guildUploadPath = new File(guildImageProperties.getPath()).getAbsolutePath();
+        String guildUrlPrefix = guildImageProperties.getUrlPrefix();
+        String guildResourceLocation = "file:" + guildUploadPath + "/";
+        log.info("길드 이미지 리소스 핸들러: {} -> {}", guildUrlPrefix + "/**", guildResourceLocation);
+        registry.addResourceHandler(guildUrlPrefix + "/**")
+                .addResourceLocations(guildResourceLocation);
 
         // 정적 리소스 핸들러는 마지막에 등록 (catch-all)
         registry.addResourceHandler("/**")

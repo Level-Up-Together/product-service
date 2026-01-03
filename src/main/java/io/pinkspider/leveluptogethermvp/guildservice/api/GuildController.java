@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +35,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/guilds")
@@ -95,6 +98,16 @@ public class GuildController {
         @Valid @RequestBody GuildUpdateRequest request) {
 
         GuildResponse response = guildService.updateGuild(guildId, userId, request);
+        return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
+    }
+
+    @PostMapping(value = "/{guildId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResult<GuildResponse>> uploadGuildImage(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @RequestPart("image") MultipartFile image) {
+
+        GuildResponse response = guildService.uploadGuildImage(guildId, userId, image);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
     }
 

@@ -27,6 +27,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -60,6 +61,7 @@ public class GuildService {
     private final UserRepository userRepository;
     private final FeaturedGuildRepository featuredGuildRepository;
     private final TitleService titleService;
+    private final GuildImageStorageService guildImageStorageService;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -273,6 +275,35 @@ public class GuildService {
         }
 
         log.info("길드 수정 완료: id={}", guildId);
+        int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+        return buildGuildResponseWithCategory(guild, memberCount);
+    }
+
+    /**
+     * 길드 이미지 업로드
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildResponse uploadGuildImage(Long guildId, String userId, MultipartFile imageFile) {
+        Guild guild = findActiveGuildById(guildId);
+        validateMaster(guild, userId);
+
+        // 유효성 검증
+        if (!guildImageStorageService.isValidImage(imageFile)) {
+            throw new IllegalArgumentException("유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 10MB)");
+        }
+
+        // 기존 이미지 삭제
+        String oldImageUrl = guild.getImageUrl();
+        if (oldImageUrl != null) {
+            guildImageStorageService.delete(oldImageUrl);
+        }
+
+        // 새 이미지 저장
+        String newImageUrl = guildImageStorageService.store(imageFile, guildId);
+        guild.setImageUrl(newImageUrl);
+
+        log.info("길드 이미지 업로드: guildId={}, imageUrl={}", guildId, newImageUrl);
+
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
         return buildGuildResponseWithCategory(guild, memberCount);
     }
