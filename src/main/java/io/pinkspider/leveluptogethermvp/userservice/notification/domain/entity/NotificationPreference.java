@@ -45,35 +45,20 @@ public class NotificationPreference extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean pushEnabled = true;
 
-    @Column(name = "mission_notifications")
-    @Comment("미션 알림")
+    @Column(name = "friend_notifications")
+    @Comment("친구 알림")
     @Builder.Default
-    private Boolean missionNotifications = true;
-
-    @Column(name = "achievement_notifications")
-    @Comment("업적 알림")
-    @Builder.Default
-    private Boolean achievementNotifications = true;
+    private Boolean friendNotifications = true;
 
     @Column(name = "guild_notifications")
     @Comment("길드 알림")
     @Builder.Default
     private Boolean guildNotifications = true;
 
-    @Column(name = "quest_notifications")
-    @Comment("퀘스트 알림")
+    @Column(name = "social_notifications")
+    @Comment("소셜 알림 (댓글)")
     @Builder.Default
-    private Boolean questNotifications = true;
-
-    @Column(name = "attendance_notifications")
-    @Comment("출석 알림")
-    @Builder.Default
-    private Boolean attendanceNotifications = true;
-
-    @Column(name = "ranking_notifications")
-    @Comment("랭킹 알림")
-    @Builder.Default
-    private Boolean rankingNotifications = true;
+    private Boolean socialNotifications = true;
 
     @Column(name = "system_notifications")
     @Comment("시스템 알림")
@@ -101,12 +86,9 @@ public class NotificationPreference extends LocalDateTimeBaseEntity {
 
     public boolean isCategoryEnabled(String category) {
         return switch (category) {
-            case "MISSION" -> missionNotifications;
-            case "ACHIEVEMENT" -> achievementNotifications;
+            case "FRIEND" -> friendNotifications;
             case "GUILD" -> guildNotifications;
-            case "QUEST" -> questNotifications;
-            case "ATTENDANCE" -> attendanceNotifications;
-            case "RANKING" -> rankingNotifications;
+            case "SOCIAL" -> socialNotifications;
             case "SYSTEM" -> systemNotifications;
             default -> true;
         };

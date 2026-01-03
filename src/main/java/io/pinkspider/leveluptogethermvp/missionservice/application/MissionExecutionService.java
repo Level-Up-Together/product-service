@@ -22,7 +22,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
@@ -53,7 +52,6 @@ public class MissionExecutionService {
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
     private final QuestService questService;
-    private final NotificationService notificationService;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionImageStorageService missionImageStorageService;
     private final ActivityFeedService activityFeedService;
@@ -219,13 +217,6 @@ public class MissionExecutionService {
             questService.updateQuestProgress(userId, QuestActionType.GAIN_EXP, expEarned);
         } catch (Exception e) {
             log.warn("퀘스트 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-        }
-
-        // 미션 완료 알림
-        try {
-            notificationService.notifyMissionCompleted(userId, mission.getTitle(), mission.getId());
-        } catch (Exception e) {
-            log.warn("알림 발송 실패: userId={}, error={}", userId, e.getMessage());
         }
 
         log.info("미션 수행 완료: executionId={}, userId={}, exp={}", executionId, userId, expEarned);

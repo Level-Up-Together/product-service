@@ -9,7 +9,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFrom
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.SendNotificationStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateQuestProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Component;
  * 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적)
  * 7. UpdateQuestProgress - 퀘스트 진행도 업데이트 (선택적)
  * 8. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
- * 9. SendNotification - 알림 발송 (선택적)
  */
 @Slf4j
 @Component
@@ -46,7 +44,6 @@ public class MissionCompletionSaga {
     private final UpdateUserStatsStep updateUserStatsStep;
     private final UpdateQuestProgressStep updateQuestProgressStep;
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
-    private final SendNotificationStep sendNotificationStep;
     private final SagaEventPublisher sagaEventPublisher;
 
     /**
@@ -90,8 +87,7 @@ public class MissionCompletionSaga {
             .addStep(updateParticipantProgressStep) // 5. 참가자 진행도
             .addStep(updateUserStatsStep)        // 6. 통계/업적 (선택적)
             .addStep(updateQuestProgressStep)    // 7. 퀘스트 (선택적)
-            .addStep(createFeedFromMissionStep)  // 8. 피드 생성 (사용자 선택시)
-            .addStep(sendNotificationStep);      // 9. 알림 (선택적)
+            .addStep(createFeedFromMissionStep); // 8. 피드 생성 (사용자 선택시)
 
         // Saga 실행
         SagaResult<MissionCompletionContext> result = orchestrator.execute(context);
