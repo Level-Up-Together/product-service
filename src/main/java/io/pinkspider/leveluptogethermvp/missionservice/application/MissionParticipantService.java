@@ -34,16 +34,28 @@ public class MissionParticipantService {
             ? ParticipantStatus.ACCEPTED
             : ParticipantStatus.PENDING;
 
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(userId)
-            .status(initialStatus)
-            .progress(0)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        // 기존 참여 기록이 있는지 확인 (탈퇴/실패 상태 포함)
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .map(existing -> {
+                // 탈퇴/실패 상태인 경우 재참여 처리
+                existing.rejoin(initialStatus);
+                log.info("미션 재참여: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
+                return existing;
+            })
+            .orElseGet(() -> {
+                // 신규 참여
+                MissionParticipant newParticipant = MissionParticipant.builder()
+                    .mission(mission)
+                    .userId(userId)
+                    .status(initialStatus)
+                    .progress(0)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+                log.info("미션 참여 신청: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
+                return newParticipant;
+            });
 
         MissionParticipant saved = participantRepository.save(participant);
-        log.info("미션 참여 신청: missionId={}, userId={}, status={}", missionId, userId, initialStatus);
 
         // 공개 미션은 바로 수락되므로 실행 스케줄 생성
         if (initialStatus == ParticipantStatus.ACCEPTED) {

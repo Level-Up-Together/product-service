@@ -23,7 +23,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExpe
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateQuestProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,8 +54,6 @@ class MissionCompletionSagaTest {
     private UpdateParticipantProgressStep updateParticipantProgressStep;
     @Mock
     private UpdateUserStatsStep updateUserStatsStep;
-    @Mock
-    private UpdateQuestProgressStep updateQuestProgressStep;
     @Mock
     private CreateFeedFromMissionStep createFeedFromMissionStep;
     @Mock
@@ -138,12 +135,6 @@ class MissionCompletionSagaTest {
         when(updateUserStatsStep.getMaxRetries()).thenReturn(0);
         when(updateUserStatsStep.getRetryDelayMs()).thenReturn(1000L);
 
-        when(updateQuestProgressStep.getName()).thenReturn("UpdateQuestProgress");
-        when(updateQuestProgressStep.shouldExecute()).thenReturn(ctx -> true);
-        when(updateQuestProgressStep.isMandatory()).thenReturn(false);
-        when(updateQuestProgressStep.getMaxRetries()).thenReturn(0);
-        when(updateQuestProgressStep.getRetryDelayMs()).thenReturn(1000L);
-
         when(createFeedFromMissionStep.getName()).thenReturn("CreateFeedFromMission");
         when(createFeedFromMissionStep.shouldExecute()).thenReturn(ctx -> true);
         when(createFeedFromMissionStep.isMandatory()).thenReturn(false);
@@ -183,7 +174,6 @@ class MissionCompletionSagaTest {
             when(grantGuildExperienceStep.execute(any())).thenReturn(SagaStepResult.success("길드 경험치 스킵"));
             when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
-            when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트 업데이트됨"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
 
             // when
@@ -201,7 +191,6 @@ class MissionCompletionSagaTest {
             verify(grantGuildExperienceStep).execute(any());
             verify(updateParticipantProgressStep).execute(any());
             verify(updateUserStatsStep).execute(any());
-            verify(updateQuestProgressStep).execute(any());
             verify(createFeedFromMissionStep).execute(any());
         }
     }
@@ -287,7 +276,6 @@ class MissionCompletionSagaTest {
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.failure("통계 업데이트 실패"));
             when(updateUserStatsStep.isMandatory()).thenReturn(false);
 
-            when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트 업데이트됨"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
 
             // when
@@ -297,7 +285,6 @@ class MissionCompletionSagaTest {
             assertThat(result.isSuccess()).isTrue();
 
             // 실패한 선택적 Step 이후에도 계속 실행됨
-            verify(updateQuestProgressStep).execute(any());
             verify(createFeedFromMissionStep).execute(any());
         }
     }
@@ -323,7 +310,6 @@ class MissionCompletionSagaTest {
             when(grantGuildExperienceStep.execute(any())).thenReturn(SagaStepResult.success("길드"));
             when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
-            when(updateQuestProgressStep.execute(any())).thenReturn(SagaStepResult.success("퀘스트"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
 
             SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, null);
