@@ -22,8 +22,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
-import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
-import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -51,7 +49,6 @@ public class MissionExecutionService {
     private final GuildExperienceService guildExperienceService;
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
-    private final QuestService questService;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionImageStorageService missionImageStorageService;
     private final ActivityFeedService activityFeedService;
@@ -204,19 +201,6 @@ public class MissionExecutionService {
             achievementService.checkStreakAchievements(userId, userStats.getCurrentStreak());
         } catch (Exception e) {
             log.warn("업적 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-        }
-
-        // 퀘스트 진행도 업데이트
-        try {
-            questService.incrementQuestProgress(userId, QuestActionType.COMPLETE_MISSION);
-            questService.updateQuestProgress(userId, QuestActionType.COMPLETE_MISSIONS,
-                userStatsService.getOrCreateUserStats(userId).getTotalMissionCompletions());
-            if (isGuildMission) {
-                questService.incrementQuestProgress(userId, QuestActionType.COMPLETE_GUILD_MISSION);
-            }
-            questService.updateQuestProgress(userId, QuestActionType.GAIN_EXP, expEarned);
-        } catch (Exception e) {
-            log.warn("퀘스트 업데이트 실패: userId={}, error={}", userId, e.getMessage());
         }
 
         log.info("미션 수행 완료: executionId={}, userId={}, exp={}", executionId, userId, expEarned);

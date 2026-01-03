@@ -10,7 +10,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExpe
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateQuestProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,8 +27,7 @@ import org.springframework.stereotype.Component;
  * 4. GrantGuildExperience - 길드 경험치 지급 (길드 미션인 경우)
  * 5. UpdateParticipantProgress - 참가자 진행도 업데이트
  * 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적)
- * 7. UpdateQuestProgress - 퀘스트 진행도 업데이트 (선택적)
- * 8. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
+ * 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
  */
 @Slf4j
 @Component
@@ -42,7 +40,6 @@ public class MissionCompletionSaga {
     private final GrantGuildExperienceStep grantGuildExperienceStep;
     private final UpdateParticipantProgressStep updateParticipantProgressStep;
     private final UpdateUserStatsStep updateUserStatsStep;
-    private final UpdateQuestProgressStep updateQuestProgressStep;
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
     private final SagaEventPublisher sagaEventPublisher;
 
@@ -86,8 +83,7 @@ public class MissionCompletionSaga {
             .addStep(grantGuildExperienceStep)   // 4. 길드 경험치 (조건부)
             .addStep(updateParticipantProgressStep) // 5. 참가자 진행도
             .addStep(updateUserStatsStep)        // 6. 통계/업적 (선택적)
-            .addStep(updateQuestProgressStep)    // 7. 퀘스트 (선택적)
-            .addStep(createFeedFromMissionStep); // 8. 피드 생성 (사용자 선택시)
+            .addStep(createFeedFromMissionStep); // 7. 피드 생성 (사용자 선택시)
 
         // Saga 실행
         SagaResult<MissionCompletionContext> result = orchestrator.execute(context);

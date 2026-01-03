@@ -9,8 +9,6 @@ import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.enums.Atte
 import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRecordRepository;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRewardConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
-import io.pinkspider.leveluptogethermvp.userservice.quest.domain.enums.QuestActionType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -23,7 +21,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +34,6 @@ public class AttendanceService {
     private final AttendanceRewardConfigRepository rewardConfigRepository;
     private final UserExperienceService userExperienceService;
     private final UserRepository userRepository;
-    private final ApplicationContext applicationContext;
 
     private static final int DEFAULT_DAILY_EXP = 10;
 
@@ -98,17 +94,6 @@ public class AttendanceService {
 
         log.info("출석 체크 완료: userId={}, consecutiveDays={}, totalExp={}",
             userId, consecutiveDays, totalExp);
-
-        // 퀘스트 진행도 업데이트
-        try {
-            QuestService questService = applicationContext.getBean(QuestService.class);
-            questService.incrementQuestProgress(userId, QuestActionType.CHECK_IN);
-            if (consecutiveDays >= 3) {
-                questService.updateQuestProgress(userId, QuestActionType.CONSECUTIVE_ATTENDANCE, consecutiveDays);
-            }
-        } catch (Exception e) {
-            log.warn("퀘스트 진행도 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-        }
 
         return AttendanceCheckInResponse.success(
             AttendanceResponse.from(savedRecord),
