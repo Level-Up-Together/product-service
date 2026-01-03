@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -71,21 +73,35 @@ public class MissionExecutionService {
             ? mission.getMissionInterval()
             : MissionInterval.DAILY;
 
+        // 기존 실행 날짜 조회 (재참여 시 중복 방지)
+        Set<LocalDate> existingDates = executionRepository.findByParticipantId(participant.getId())
+            .stream()
+            .map(MissionExecution::getExecutionDate)
+            .collect(Collectors.toSet());
+
         List<MissionExecution> executions = new ArrayList<>();
         LocalDate currentDate = startDate;
 
         while (!currentDate.isAfter(endDate)) {
-            MissionExecution execution = MissionExecution.builder()
-                .participant(participant)
-                .executionDate(currentDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            executions.add(execution);
+            // 이미 존재하는 날짜는 건너뛰기
+            if (!existingDates.contains(currentDate)) {
+                MissionExecution execution = MissionExecution.builder()
+                    .participant(participant)
+                    .executionDate(currentDate)
+                    .status(ExecutionStatus.PENDING)
+                    .build();
+                executions.add(execution);
+            }
             currentDate = currentDate.plusDays(interval.getDays());
         }
 
-        executionRepository.saveAll(executions);
-        log.info("미션 수행 일정 생성: participantId={}, 총 {}개", participant.getId(), executions.size());
+        if (!executions.isEmpty()) {
+            executionRepository.saveAll(executions);
+            log.info("미션 수행 일정 생성: participantId={}, 신규 {}개 (기존 {}개 제외)",
+                participant.getId(), executions.size(), existingDates.size());
+        } else {
+            log.info("미션 수행 일정 생성 건너뜀: participantId={}, 모든 날짜 기존재", participant.getId());
+        }
     }
 
     /**
