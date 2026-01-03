@@ -101,7 +101,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         Pageable pageable);
 
     /**
-     * 사용자가 참여중인 미션 목록 조회 (ACCEPTED 상태인 참여자)
+     * 사용자가 참여중인 미션 목록 조회 (활성 상태인 참여자)
+     * 활성 상태: PENDING, ACCEPTED, IN_PROGRESS (WITHDRAWN, FAILED, COMPLETED 제외)
      * 정렬 우선순위:
      * 1. 고정미션: source = SYSTEM AND isCustomizable = false
      * 2. 길드미션: type = GUILD
@@ -110,7 +111,9 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     @Query("SELECT m FROM Mission m " +
            "JOIN MissionParticipant mp ON mp.mission = m " +
            "WHERE mp.userId = :userId " +
-           "AND mp.status = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED " +
+           "AND mp.status IN (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.PENDING, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS) " +
            "ORDER BY " +
            "CASE " +
            "  WHEN m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +

@@ -23,7 +23,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Achi
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.userservice.quest.application.QuestService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -56,9 +55,6 @@ class MissionExecutionServiceTest {
 
     @Mock
     private AchievementService achievementService;
-
-    @Mock
-    private QuestService questService;
 
     @Mock
     private NotificationService notificationService;

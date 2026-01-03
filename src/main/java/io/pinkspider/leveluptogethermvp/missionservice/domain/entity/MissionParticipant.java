@@ -129,4 +129,14 @@ public class MissionParticipant extends LocalDateTimeBaseEntity {
         }
         this.status = ParticipantStatus.WITHDRAWN;
     }
+
+    public void rejoin(ParticipantStatus newStatus) {
+        if (this.status != ParticipantStatus.WITHDRAWN && this.status != ParticipantStatus.FAILED) {
+            throw new IllegalStateException("탈퇴 또는 실패 상태에서만 재참여할 수 있습니다.");
+        }
+        this.status = newStatus;
+        this.progress = 0;
+        this.joinedAt = LocalDateTime.now();
+        this.completedAt = null;
+    }
 }

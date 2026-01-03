@@ -105,6 +105,7 @@ class MissionParticipantServiceTest {
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(Optional.empty());
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
@@ -145,21 +146,30 @@ class MissionParticipantServiceTest {
             Long missionId = 1L;
             Mission mission = createOpenPublicMission(missionId);
 
+            // 이전에 참여했다가 탈퇴한 참여자 레코드
+            MissionParticipant withdrawnParticipant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.WITHDRAWN)
+                .progress(0)
+                .joinedAt(LocalDateTime.now().minusDays(7))
+                .build();
+            setParticipantId(withdrawnParticipant, 1L);
+
             // existsActiveParticipation은 WITHDRAWN 상태를 제외하므로 false 반환
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(withdrawnParticipant));
             when(participantRepository.save(any(MissionParticipant.class)))
-                .thenAnswer(invocation -> {
-                    MissionParticipant saved = invocation.getArgument(0);
-                    setParticipantId(saved, 2L);  // 새로운 참여 ID
-                    return saved;
-                });
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             MissionParticipantResponse response = missionParticipantService.joinMission(missionId, TEST_USER_ID);
 
             // then
             assertThat(response.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            assertThat(response.getId()).isEqualTo(1L);  // 기존 ID 유지
 
             ArgumentCaptor<MissionParticipant> captor = ArgumentCaptor.forClass(MissionParticipant.class);
             verify(participantRepository).save(captor.capture());
@@ -167,6 +177,7 @@ class MissionParticipantServiceTest {
             MissionParticipant savedParticipant = captor.getValue();
             assertThat(savedParticipant.getUserId()).isEqualTo(TEST_USER_ID);
             assertThat(savedParticipant.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            assertThat(savedParticipant.getProgress()).isEqualTo(0);  // 진행률 리셋
         }
 
         @Test
@@ -211,6 +222,7 @@ class MissionParticipantServiceTest {
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(Optional.empty());
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
