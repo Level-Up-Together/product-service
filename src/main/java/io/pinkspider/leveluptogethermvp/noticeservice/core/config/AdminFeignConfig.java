@@ -2,9 +2,12 @@ package io.pinkspider.leveluptogethermvp.noticeservice.core.config;
 
 import feign.Client;
 import feign.Logger;
+import feign.RequestInterceptor;
 import feign.Retryer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -14,6 +17,8 @@ import java.security.cert.X509Certificate;
 @Configuration
 public class AdminFeignConfig {
 
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+
     @Bean
     public Logger.Level adminFeignLoggerLevel() {
         return Logger.Level.BASIC;
@@ -22,6 +27,23 @@ public class AdminFeignConfig {
     @Bean
     public Retryer adminFeignRetryer() {
         return new Retryer.Default(1000, 2000, 3);
+    }
+
+    /**
+     * 현재 요청의 Authorization 헤더를 Admin API 호출에 전달
+     */
+    @Bean
+    public RequestInterceptor adminAuthorizationInterceptor() {
+        return requestTemplate -> {
+            ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                String authHeader = attributes.getRequest().getHeader(AUTHORIZATION_HEADER);
+                if (authHeader != null && !authHeader.isEmpty()) {
+                    requestTemplate.header(AUTHORIZATION_HEADER, authHeader);
+                }
+            }
+        };
     }
 
     /**

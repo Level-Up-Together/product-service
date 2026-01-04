@@ -214,20 +214,20 @@ public class MissionService {
         validateMissionOwner(mission, userId);
 
         mission.open();
-        log.info("미션 오픈: id={}", missionId);
+        log.info("미션 모집 시작: id={}", missionId);
 
-        // 길드 미션인 경우 길드원에게 알림 전송 및 참여자로 등록
+        // 길드 미션인 경우 길드원에게 모집 알림 전송 (참여는 직접 신청)
         if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
-            notifyAndRegisterGuildMembers(mission, userId);
+            notifyGuildMembersAboutRecruitment(mission, userId);
         }
 
         return MissionResponse.from(mission);
     }
 
     /**
-     * 길드원에게 미션 알림 전송 및 참여자로 자동 등록
+     * 길드원에게 미션 모집 시작 알림 전송 (참여는 길드원이 직접 신청)
      */
-    private void notifyAndRegisterGuildMembers(Mission mission, String creatorId) {
+    private void notifyGuildMembersAboutRecruitment(Mission mission, String creatorId) {
         try {
             Long guildId = Long.parseLong(mission.getGuildId());
             List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
@@ -238,31 +238,23 @@ public class MissionService {
             for (GuildMember member : activeMembers) {
                 String memberId = member.getUserId();
 
-                // 생성자는 제외 (이미 참여자로 등록됨)
+                // 생성자는 제외
                 if (memberId.equals(creatorId)) {
                     continue;
                 }
 
                 try {
-                    // 참여자로 자동 등록 (먼저 등록)
-                    missionParticipantService.addGuildMemberAsParticipant(mission, memberId);
+                    // 알림만 전송 (참여는 길드원이 직접 신청)
+                    notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
                     successCount++;
-
-                    // 알림 전송 (실패해도 참여 등록에 영향 없음)
-                    try {
-                        notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
-                    } catch (Exception notifyEx) {
-                        log.warn("길드 미션 알림 전송 실패 (참여 등록은 완료됨): memberId={}, missionId={}, error={}",
-                            memberId, mission.getId(), notifyEx.getMessage());
-                    }
                 } catch (Exception e) {
                     failCount++;
-                    log.error("길드원 미션 참여 등록 실패: memberId={}, missionId={}, error={}",
+                    log.warn("길드 미션 모집 알림 전송 실패: memberId={}, missionId={}, error={}",
                         memberId, mission.getId(), e.getMessage());
                 }
             }
 
-            log.info("길드 미션 참여자 등록 완료: missionId={}, guildId={}, success={}, fail={}",
+            log.info("길드 미션 모집 알림 전송 완료: missionId={}, guildId={}, success={}, fail={}",
                 mission.getId(), guildId, successCount, failCount);
         } catch (NumberFormatException e) {
             log.error("길드 ID 파싱 실패: guildId={}", mission.getGuildId(), e);
