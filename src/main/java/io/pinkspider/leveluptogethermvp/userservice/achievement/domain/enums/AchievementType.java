@@ -36,6 +36,13 @@ public enum AchievementType {
     STREAK_30_DAYS("30일 연속 미션 수행", AchievementCategory.STREAK, 30),
     STREAK_100_DAYS("100일 연속 미션 수행", AchievementCategory.STREAK, 100),
 
+    // 소셜 관련
+    FIRST_FRIEND("첫 친구", AchievementCategory.SOCIAL, 1),
+    FRIENDS_10("친구 10명", AchievementCategory.SOCIAL, 10),
+    FRIENDS_50("친구 50명", AchievementCategory.SOCIAL, 50),
+    FIRST_LIKE("첫 좋아요", AchievementCategory.SOCIAL, 1),
+    LIKES_100("좋아요 100개", AchievementCategory.SOCIAL, 100),
+
     // 특별 업적
     EARLY_ADOPTER("얼리 어답터", AchievementCategory.SPECIAL, 1),
     PERFECTIONIST("완벽주의자", AchievementCategory.SPECIAL, 1);
