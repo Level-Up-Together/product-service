@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
@@ -35,6 +36,7 @@ public class FriendService {
     private final UserRepository userRepository;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
+    private final AchievementService achievementService;
 
     // 친구 요청 보내기
     @Transactional
@@ -100,6 +102,16 @@ public class FriendService {
             notificationService.notifyFriendAccepted(friendship.getUserId(), accepterNickname, friendship.getId());
         } catch (Exception e) {
             log.warn("친구 수락 알림 발송 실패: {}", e.getMessage());
+        }
+
+        // 양쪽 모두 친구 업적 체크
+        try {
+            int accepterFriendCount = friendshipRepository.countFriends(userId);
+            int requesterFriendCount = friendshipRepository.countFriends(friendship.getUserId());
+            achievementService.checkFriendAchievements(userId, accepterFriendCount);
+            achievementService.checkFriendAchievements(friendship.getUserId(), requesterFriendCount);
+        } catch (Exception e) {
+            log.warn("친구 업적 체크 실패: {}", e.getMessage());
         }
 
         log.info("친구 요청 수락: {} accepted {}", userId, friendship.getUserId());
