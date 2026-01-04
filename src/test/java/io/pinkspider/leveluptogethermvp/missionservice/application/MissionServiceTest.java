@@ -338,8 +338,8 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("길드 미션 오픈 시 길드원에게 알림이 전송되고 참여자로 등록된다")
-        void openMission_guildMission_notifiesAndRegistersMembers() {
+        @DisplayName("길드 미션 오픈 시 길드원에게 알림이 전송된다")
+        void openMission_guildMission_notifiesMembers() {
             // given
             Long missionId = 1L;
             Long guildId = 100L;
@@ -380,10 +380,8 @@ class MissionServiceTest {
             verify(notificationService).notifyGuildMissionArrived(member2Id, "길드 미션", missionId);
             verify(notificationService, never()).notifyGuildMissionArrived(eq(TEST_USER_ID), anyString(), anyLong());
 
-            // 참여자 등록 확인 (생성자 제외 2명)
-            verify(missionParticipantService).addGuildMemberAsParticipant(mission, member1Id);
-            verify(missionParticipantService).addGuildMemberAsParticipant(mission, member2Id);
-            verify(missionParticipantService, never()).addGuildMemberAsParticipant(eq(mission), eq(TEST_USER_ID));
+            // 참여자 자동 등록은 하지 않음 (길드원이 직접 참여 신청)
+            verify(missionParticipantService, never()).addGuildMemberAsParticipant(any(), anyString());
         }
 
         @Test
