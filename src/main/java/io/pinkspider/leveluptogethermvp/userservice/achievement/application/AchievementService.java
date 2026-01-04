@@ -199,6 +199,20 @@ public class AchievementService {
         incrementAchievementProgress(userId, AchievementType.GUILD_MASTER);
     }
 
+    // 소셜 관련 업적 체크
+    @Transactional
+    public void checkFriendAchievements(String userId, int totalFriends) {
+        checkAndUpdateAchievement(userId, AchievementType.FIRST_FRIEND, totalFriends);
+        checkAndUpdateAchievement(userId, AchievementType.FRIENDS_10, totalFriends);
+        checkAndUpdateAchievement(userId, AchievementType.FRIENDS_50, totalFriends);
+    }
+
+    @Transactional
+    public void checkLikeAchievements(String userId, int totalLikes) {
+        checkAndUpdateAchievement(userId, AchievementType.FIRST_LIKE, totalLikes);
+        checkAndUpdateAchievement(userId, AchievementType.LIKES_100, totalLikes);
+    }
+
     private void checkAndUpdateAchievement(String userId, AchievementType type, int count) {
         updateAchievementProgress(userId, type, count);
     }
