@@ -232,6 +232,9 @@ public class MissionService {
             Long guildId = Long.parseLong(mission.getGuildId());
             List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
 
+            int successCount = 0;
+            int failCount = 0;
+
             for (GuildMember member : activeMembers) {
                 String memberId = member.getUserId();
 
@@ -240,17 +243,31 @@ public class MissionService {
                     continue;
                 }
 
-                // 알림 전송
-                notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
+                try {
+                    // 참여자로 자동 등록 (먼저 등록)
+                    missionParticipantService.addGuildMemberAsParticipant(mission, memberId);
+                    successCount++;
 
-                // 참여자로 자동 등록
-                missionParticipantService.addGuildMemberAsParticipant(mission, memberId);
+                    // 알림 전송 (실패해도 참여 등록에 영향 없음)
+                    try {
+                        notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
+                    } catch (Exception notifyEx) {
+                        log.warn("길드 미션 알림 전송 실패 (참여 등록은 완료됨): memberId={}, missionId={}, error={}",
+                            memberId, mission.getId(), notifyEx.getMessage());
+                    }
+                } catch (Exception e) {
+                    failCount++;
+                    log.error("길드원 미션 참여 등록 실패: memberId={}, missionId={}, error={}",
+                        memberId, mission.getId(), e.getMessage());
+                }
             }
 
-            log.info("길드 미션 알림 및 참여자 등록 완료: missionId={}, guildId={}, memberCount={}",
-                mission.getId(), guildId, activeMembers.size() - 1);
+            log.info("길드 미션 참여자 등록 완료: missionId={}, guildId={}, success={}, fail={}",
+                mission.getId(), guildId, successCount, failCount);
         } catch (NumberFormatException e) {
             log.error("길드 ID 파싱 실패: guildId={}", mission.getGuildId(), e);
+        } catch (Exception e) {
+            log.error("길드원 조회 실패: guildId={}, error={}", mission.getGuildId(), e.getMessage(), e);
         }
     }
 
