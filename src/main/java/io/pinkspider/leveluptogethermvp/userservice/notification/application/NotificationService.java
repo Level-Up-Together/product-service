@@ -39,6 +39,14 @@ public class NotificationService {
                                                     String title, String message,
                                                     String referenceType, Long referenceId,
                                                     String actionUrl) {
+        return createNotification(userId, type, title, message, referenceType, referenceId, actionUrl, null);
+    }
+
+    @Transactional
+    public NotificationResponse createNotification(String userId, NotificationType type,
+                                                    String title, String message,
+                                                    String referenceType, Long referenceId,
+                                                    String actionUrl, String iconUrl) {
         // 알림 설정 확인
         NotificationPreference pref = getOrCreatePreference(userId);
         if (!pref.isCategoryEnabled(type.getCategory())) {
@@ -54,6 +62,7 @@ public class NotificationService {
             .referenceType(referenceType)
             .referenceId(referenceId)
             .actionUrl(actionUrl)
+            .iconUrl(iconUrl)
             .build();
 
         Notification saved = notificationRepository.save(notification);
@@ -254,5 +263,25 @@ public class NotificationService {
             "새 댓글",
             commenterNickname + "님이 회원님의 글에 댓글을 남겼습니다.",
             "FEED", feedId, "/feed/" + feedId);
+    }
+
+    // 칭호 획득 알림
+    @Transactional
+    public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
+        // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
+        String rarityMetadata = "rarity:" + titleRarity;
+        createNotification(userId, NotificationType.TITLE_ACQUIRED,
+            "🏆 새로운 칭호 획득!",
+            "'" + titleName + "' 칭호를 획득했습니다!",
+            "TITLE", titleId, "/mypage/titles", rarityMetadata);
+    }
+
+    // 업적 달성 알림
+    @Transactional
+    public void notifyAchievementCompleted(String userId, Long achievementId, String achievementName) {
+        createNotification(userId, NotificationType.ACHIEVEMENT_COMPLETED,
+            "🎯 업적 달성!",
+            "'" + achievementName + "' 업적을 달성했습니다!",
+            "ACHIEVEMENT", achievementId, "/mypage/achievements");
     }
 }
