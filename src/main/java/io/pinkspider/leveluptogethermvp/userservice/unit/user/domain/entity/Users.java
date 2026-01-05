@@ -2,13 +2,17 @@ package io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity;
 
 import io.pinkspider.global.converter.CryptoConverter;
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import lombok.AccessLevel;
@@ -53,6 +57,23 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "bio", length = 200)
     private String bio;
 
+    @lombok.Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "last_login_ip", length = 45)
+    private String lastLoginIp;
+
+    @Column(name = "last_login_country", length = 50)
+    private String lastLoginCountry;
+
+    @Column(name = "last_login_country_code", length = 2)
+    private String lastLoginCountryCode;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -75,6 +96,13 @@ public class Users extends LocalDateTimeBaseEntity {
 
     public void updateBio(String bio) {
         this.bio = bio;
+    }
+
+    public void updateLastLoginInfo(String ip, String country, String countryCode) {
+        this.lastLoginIp = ip;
+        this.lastLoginCountry = country;
+        this.lastLoginCountryCode = countryCode;
+        this.lastLoginAt = LocalDateTime.now();
     }
 
     public boolean isNicknameSet() {

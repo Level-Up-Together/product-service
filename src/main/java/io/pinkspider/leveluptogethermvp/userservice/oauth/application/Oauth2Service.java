@@ -18,6 +18,8 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJ
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.kakao.KakaoUserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
+import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,6 +56,7 @@ public class Oauth2Service {
     private final DeviceIdentifier deviceIdentifier;
     private final OAuth2Properties oAuth2Properties;
     private final TitleService titleService;
+    private final GeoIpService geoIpService;
 
     public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
@@ -152,6 +155,9 @@ public class Oauth2Service {
             OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
             Users users = dbProcessOAuth2User(userInfo);
 
+            // Update login info with IP and country
+            updateLoginInfo(httpRequest, users);
+
             deviceType = deviceType == null ? "mobile" : deviceType;
             if (deviceId == null || deviceId.trim().isEmpty()) {
                 deviceId = deviceIdentifier.generateDeviceId(httpRequest, deviceType);
@@ -204,6 +210,9 @@ public class Oauth2Service {
 
         OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
         Users users = dbProcessOAuth2User(userInfo);
+
+        // Update login info with IP and country
+        updateLoginInfo(httpRequest, users);
 
         deviceType = deviceType == null ? "web" : deviceType;
         if (deviceId == null || deviceId.trim().isEmpty()) {
@@ -373,10 +382,34 @@ public class Oauth2Service {
                 yield new KakaoUserInfo(userInfo);
             }
             case "apple" -> {
-                JWTClaimsSet claims = jwtUtil.decodeIdToken(providerToken); // 🔥 Apple `id_token` 디코딩
-                yield new AppleUserInfo(claims); // 🔥 Apple `id_token` 디코딩
+                JWTClaimsSet claims = jwtUtil.decodeIdToken(providerToken);
+                yield new AppleUserInfo(claims);
             }
             default -> throw new IllegalArgumentException("Unsupported provider: " + provider);
         };
+    }
+
+    /**
+     * 로그인 시 IP와 국가 정보를 업데이트합니다.
+     */
+    @Transactional
+    protected void updateLoginInfo(HttpServletRequest request, Users users) {
+        try {
+            String clientIp = geoIpService.extractClientIp(request);
+            GeoIpResult geoResult = geoIpService.lookupCountry(clientIp);
+
+            users.updateLastLoginInfo(
+                clientIp,
+                geoResult.country(),
+                geoResult.countryCode()
+            );
+            userRepository.save(users);
+
+            log.info("로그인 정보 업데이트 - userId: {}, IP: {}, country: {}",
+                users.getId(), clientIp, geoResult.country());
+        } catch (Exception e) {
+            log.warn("로그인 정보 업데이트 실패 - userId: {}, error: {}", users.getId(), e.getMessage());
+            // 로그인 정보 업데이트 실패가 로그인 자체를 실패시키지 않도록 함
+        }
     }
 }
