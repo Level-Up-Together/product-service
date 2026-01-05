@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
@@ -54,7 +55,14 @@ public class ActivityFeedResponse {
     private Integer expEarned;
     private Long categoryId;
 
+    // 번역 정보 (다국어 지원)
+    private TranslationInfo translation;
+
     public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe, boolean isMyFeed) {
+        return from(feed, likedByMe, isMyFeed, null);
+    }
+
+    public static ActivityFeedResponse from(ActivityFeed feed, boolean likedByMe, boolean isMyFeed, TranslationInfo translation) {
         return ActivityFeedResponse.builder()
             .id(feed.getId())
             .userId(feed.getUserId())
@@ -84,6 +92,7 @@ public class ActivityFeedResponse {
             .durationMinutes(feed.getDurationMinutes())
             .expEarned(feed.getExpEarned())
             .categoryId(feed.getCategoryId())
+            .translation(translation)
             .build();
     }
 

@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedComment;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -25,7 +26,14 @@ public class FeedCommentResponse {
     private boolean isDeleted;
     private LocalDateTime createdAt;
 
+    // 번역 정보 (다국어 지원)
+    private TranslationInfo translation;
+
     public static FeedCommentResponse from(FeedComment comment) {
+        return from(comment, null);
+    }
+
+    public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation) {
         return FeedCommentResponse.builder()
             .id(comment.getId())
             .feedId(comment.getFeed().getId())
@@ -35,6 +43,7 @@ public class FeedCommentResponse {
             .content(comment.getContent())
             .isDeleted(comment.getIsDeleted())
             .createdAt(comment.getCreatedAt())
+            .translation(translation)
             .build();
     }
 }

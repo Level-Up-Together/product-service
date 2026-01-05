@@ -81,7 +81,7 @@ class ActivityFeedControllerTest {
         Page<ActivityFeedResponse> responses = new PageImpl<>(
             List.of(feedResponse), PageRequest.of(0, 20), 1);
 
-        when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt()))
+        when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
             .thenReturn(responses);
 
         // when
@@ -136,6 +136,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -177,7 +178,7 @@ class ActivityFeedControllerTest {
         Page<ActivityFeedResponse> responses = new PageImpl<>(
             List.of(feedResponse), PageRequest.of(0, 20), 1);
 
-        when(activityFeedService.getTimelineFeeds(anyString(), anyInt(), anyInt()))
+        when(activityFeedService.getTimelineFeeds(anyString(), anyInt(), anyInt(), any()))
             .thenReturn(responses);
 
         // when
@@ -232,6 +233,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -272,7 +274,7 @@ class ActivityFeedControllerTest {
         ActivityFeedResponse response = MockUtil.readJsonFileToClass(
             "fixture/feed/activityFeedResponse.json", ActivityFeedResponse.class);
 
-        when(activityFeedService.getFeed(anyLong(), anyString()))
+        when(activityFeedService.getFeed(anyLong(), anyString(), any()))
             .thenReturn(response);
 
         // when
@@ -322,7 +324,8 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.execution_id").type(JsonFieldType.NUMBER).description("미션 실행 ID").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
-                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional()
+                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
                         )
                         .build()
                 )
@@ -385,7 +388,7 @@ class ActivityFeedControllerTest {
         Page<FeedCommentResponse> responses = new PageImpl<>(
             List.of(commentResponse), PageRequest.of(0, 20), 1);
 
-        when(activityFeedService.getComments(anyLong(), anyInt(), anyInt()))
+        when(activityFeedService.getComments(anyLong(), anyInt(), anyInt(), any()))
             .thenReturn(responses);
 
         // when
@@ -422,6 +425,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("댓글 내용"),
                             fieldWithPath("value.content[].deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("작성 일시"),
+                            fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -496,7 +500,8 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.content").type(JsonFieldType.STRING).description("댓글 내용"),
                             fieldWithPath("value.deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
-                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성 일시")
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성 일시"),
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
                         )
                         .build()
                 )
@@ -593,7 +598,7 @@ class ActivityFeedControllerTest {
         Page<ActivityFeedResponse> responses = new PageImpl<>(
             List.of(feedResponse), PageRequest.of(0, 20), 1);
 
-        when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt()))
+        when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any()))
             .thenReturn(responses);
 
         // when
@@ -651,6 +656,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),

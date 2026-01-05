@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
@@ -55,9 +56,27 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("미션 제목")
     private String title;
 
+    @Size(max = 200)
+    @Column(name = "title_en", length = 200)
+    @Comment("미션 제목 (영어)")
+    private String titleEn;
+
+    @Size(max = 200)
+    @Column(name = "title_ar", length = 200)
+    @Comment("미션 제목 (아랍어)")
+    private String titleAr;
+
     @Column(name = "description", columnDefinition = "TEXT")
     @Comment("미션 설명")
     private String description;
+
+    @Column(name = "description_en", columnDefinition = "TEXT")
+    @Comment("미션 설명 (영어)")
+    private String descriptionEn;
+
+    @Column(name = "description_ar", columnDefinition = "TEXT")
+    @Comment("미션 설명 (아랍어)")
+    private String descriptionAr;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -220,5 +239,19 @@ public class Mission extends LocalDateTimeBaseEntity {
 
     public boolean isPublic() {
         return this.visibility == MissionVisibility.PUBLIC;
+    }
+
+    /**
+     * locale에 따라 미션 제목을 반환합니다.
+     */
+    public String getLocalizedTitle(String locale) {
+        return LocaleUtils.getLocalizedText(title, titleEn, titleAr, locale);
+    }
+
+    /**
+     * locale에 따라 미션 설명을 반환합니다.
+     */
+    public String getLocalizedDescription(String locale) {
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
     }
 }

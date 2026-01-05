@@ -2,6 +2,10 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.application;
 
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.translation.TranslationService;
+import io.pinkspider.global.translation.dto.TranslationInfo;
+import io.pinkspider.global.translation.enums.ContentType;
+import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedFeed;
 import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedFeedRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
@@ -56,6 +60,7 @@ public class ActivityFeedService {
     private final FeaturedFeedRepository featuredFeedRepository;
     private final UserRepository userRepository;
     private final UserTitleRepository userTitleRepository;
+    private final TranslationService translationService;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -136,7 +141,15 @@ public class ActivityFeedService {
      * 시간 필터: 전일 4시 ~ 당일 4시 (24시간 윈도우, 매일 4시에 리셋)
      */
     public Page<ActivityFeedResponse> getPublicFeeds(String currentUserId, int page, int size) {
+        return getPublicFeeds(currentUserId, page, size, null);
+    }
+
+    /**
+     * 전체 공개 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getPublicFeeds(String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         // 시간 범위 계산 (매일 04:00 기준)
         LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
@@ -146,11 +159,15 @@ public class ActivityFeedService {
         Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsInTimeRange(startTime, endTime, pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(
-            feed,
-            likedFeedIds.contains(feed.getId()),
-            currentUserId != null && feed.getUserId().equals(currentUserId)
-        ));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(
+                feed,
+                likedFeedIds.contains(feed.getId()),
+                currentUserId != null && feed.getUserId().equals(currentUserId),
+                translation
+            );
+        });
     }
 
     /**
@@ -189,8 +206,16 @@ public class ActivityFeedService {
      * 3. 중복 제거 후 페이징
      */
     public Page<ActivityFeedResponse> getPublicFeedsByCategory(Long categoryId, String currentUserId, int page, int size) {
+        return getPublicFeedsByCategory(categoryId, currentUserId, page, size, null);
+    }
+
+    /**
+     * 카테고리별 공개 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getPublicFeedsByCategory(Long categoryId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         LocalDateTime now = LocalDateTime.now();
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         // 시간 범위 계산 (매일 04:00 기준)
         LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
@@ -249,11 +274,15 @@ public class ActivityFeedService {
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, combinedFeeds);
         List<ActivityFeedResponse> responseList = combinedFeeds.stream()
-            .map(feed -> ActivityFeedResponse.from(
-                feed,
-                likedFeedIds.contains(feed.getId()),
-                currentUserId != null && feed.getUserId().equals(currentUserId)
-            ))
+            .map(feed -> {
+                TranslationInfo translation = translateFeed(feed, targetLocale);
+                return ActivityFeedResponse.from(
+                    feed,
+                    likedFeedIds.contains(feed.getId()),
+                    currentUserId != null && feed.getUserId().equals(currentUserId),
+                    translation
+                );
+            })
             .toList();
 
         return new org.springframework.data.domain.PageImpl<>(
@@ -267,8 +296,16 @@ public class ActivityFeedService {
      * 내 타임라인 피드 조회 (내 피드 + 친구 피드)
      */
     public Page<ActivityFeedResponse> getTimelineFeeds(String userId, int page, int size) {
+        return getTimelineFeeds(userId, page, size, null);
+    }
+
+    /**
+     * 내 타임라인 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getTimelineFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         List<String> friendIds = friendshipRepository.findFriendIds(userId);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Page<ActivityFeed> feeds;
         if (friendIds.isEmpty()) {
@@ -278,15 +315,26 @@ public class ActivityFeedService {
         }
 
         Set<Long> likedFeedIds = getLikedFeedIds(userId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+        });
     }
 
     /**
      * 특정 사용자의 피드 조회
      */
     public Page<ActivityFeedResponse> getUserFeeds(String targetUserId, String currentUserId, int page, int size) {
+        return getUserFeeds(targetUserId, currentUserId, page, size, null);
+    }
+
+    /**
+     * 특정 사용자의 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getUserFeeds(String targetUserId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ActivityFeed> feeds = activityFeedRepository.findByUserId(targetUserId, pageable);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
@@ -296,14 +344,15 @@ public class ActivityFeedService {
 
         return feeds
             .map(feed -> {
+                TranslationInfo translation = translateFeed(feed, targetLocale);
                 // 본인 피드이면 모두 표시
                 if (isSelf) {
-                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()));
+                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), true, translation);
                 }
                 // 공개 피드만 표시 (친구면 FRIENDS까지)
                 if (feed.getVisibility() == FeedVisibility.PUBLIC ||
                     (isFriend && feed.getVisibility() == FeedVisibility.FRIENDS)) {
-                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()));
+                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
                 }
                 return null;
             });
@@ -313,19 +362,38 @@ public class ActivityFeedService {
      * 길드 피드 조회
      */
     public Page<ActivityFeedResponse> getGuildFeeds(Long guildId, String currentUserId, int page, int size) {
+        return getGuildFeeds(guildId, currentUserId, page, size, null);
+    }
+
+    /**
+     * 길드 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getGuildFeeds(Long guildId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeeds(guildId, pageable);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+        });
     }
 
     /**
      * 카테고리별 피드 조회
      */
     public Page<ActivityFeedResponse> getFeedsByCategory(String category, String currentUserId, int page, int size) {
+        return getFeedsByCategory(category, currentUserId, page, size, null);
+    }
+
+    /**
+     * 카테고리별 피드 조회 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> getFeedsByCategory(String category, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         List<ActivityType> types = ActivityType.getByCategory(category);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         if (types.isEmpty()) {
             return Page.empty(pageable);
@@ -333,25 +401,48 @@ public class ActivityFeedService {
 
         Page<ActivityFeed> feeds = activityFeedRepository.findByCategoryTypes(types, pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+        });
     }
 
     /**
      * 피드 검색 (제목/미션명 기준, 전체 카테고리)
      */
     public Page<ActivityFeedResponse> searchFeeds(String keyword, String currentUserId, int page, int size) {
+        return searchFeeds(keyword, currentUserId, page, size, null);
+    }
+
+    /**
+     * 피드 검색 (다국어 지원)
+     */
+    public Page<ActivityFeedResponse> searchFeeds(String keyword, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ActivityFeed> feeds = activityFeedRepository.searchByKeyword(keyword, pageable);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+        });
     }
 
     /**
      * 피드 검색 (제목/미션명 기준, 카테고리 내 검색)
      */
     public Page<ActivityFeedResponse> searchFeedsByCategory(String keyword, String category, String currentUserId, int page, int size) {
+        return searchFeedsByCategory(keyword, category, currentUserId, page, size, null);
+    }
+
+    /**
+     * 피드 검색 (카테고리별, 다국어 지원)
+     */
+    public Page<ActivityFeedResponse> searchFeedsByCategory(String keyword, String category, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         List<ActivityType> types = ActivityType.getByCategory(category);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         if (types.isEmpty()) {
             return Page.empty(pageable);
@@ -359,19 +450,31 @@ public class ActivityFeedService {
 
         Page<ActivityFeed> feeds = activityFeedRepository.searchByKeywordAndCategory(keyword, types, pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
-        return feeds.map(feed -> ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId())));
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+        });
     }
 
     /**
      * 피드 상세 조회
      */
     public ActivityFeedResponse getFeed(Long feedId, String currentUserId) {
+        return getFeed(feedId, currentUserId, null);
+    }
+
+    /**
+     * 피드 상세 조회 (다국어 지원)
+     */
+    public ActivityFeedResponse getFeed(Long feedId, String currentUserId, String acceptLanguage) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         boolean likedByMe = currentUserId != null && feedLikeRepository.existsByFeedIdAndUserId(feedId, currentUserId);
         boolean isMyFeed = currentUserId != null && feed.getUserId().equals(currentUserId);
-        return ActivityFeedResponse.from(feed, likedByMe, isMyFeed);
+        TranslationInfo translation = translateFeed(feed, targetLocale);
+        return ActivityFeedResponse.from(feed, likedByMe, isMyFeed, translation);
     }
 
     /**
@@ -445,9 +548,21 @@ public class ActivityFeedService {
      * 댓글 목록 조회
      */
     public Page<FeedCommentResponse> getComments(Long feedId, int page, int size) {
+        return getComments(feedId, page, size, null);
+    }
+
+    /**
+     * 댓글 목록 조회 (다국어 지원)
+     */
+    public Page<FeedCommentResponse> getComments(Long feedId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         Page<FeedComment> comments = feedCommentRepository.findByFeedId(feedId, pageable);
-        return comments.map(FeedCommentResponse::from);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+
+        return comments.map(comment -> {
+            TranslationInfo translation = translateComment(comment, targetLocale);
+            return FeedCommentResponse.from(comment, translation);
+        });
     }
 
     /**
@@ -502,6 +617,46 @@ public class ActivityFeedService {
             .map(ActivityFeed::getId)
             .collect(Collectors.toList());
         return new HashSet<>(feedLikeRepository.findLikedFeedIds(userId, feedIds));
+    }
+
+    /**
+     * 피드 번역 (제목 + 설명)
+     */
+    private TranslationInfo translateFeed(ActivityFeed feed, String targetLocale) {
+        // 기본 언어(한국어)면 번역 불필요
+        if (SupportedLocale.DEFAULT.getCode().equals(targetLocale)) {
+            return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
+        }
+
+        return translationService.translateContent(
+            ContentType.FEED,
+            feed.getId(),
+            feed.getTitle(),
+            feed.getDescription(),
+            targetLocale
+        );
+    }
+
+    /**
+     * 댓글 번역
+     */
+    private TranslationInfo translateComment(FeedComment comment, String targetLocale) {
+        // 기본 언어(한국어)면 번역 불필요
+        if (SupportedLocale.DEFAULT.getCode().equals(targetLocale)) {
+            return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
+        }
+
+        // 삭제된 댓글은 번역하지 않음
+        if (comment.getIsDeleted()) {
+            return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
+        }
+
+        return translationService.translateContent(
+            ContentType.FEED_COMMENT,
+            comment.getId(),
+            comment.getContent(),
+            targetLocale
+        );
     }
 
     /**
