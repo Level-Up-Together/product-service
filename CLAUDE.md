@@ -180,6 +180,7 @@ class YourServiceTest {
 - product front = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend
 - sql = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries
 - config = /Users/pink-spider/Code/github/Level-Up-Together/config-repository
+- hybrid app = /Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative
 
 ## 코드 컨벤션
 - 프론트와 백엔드간의 통신은 필드들이 snake case 로 한다.

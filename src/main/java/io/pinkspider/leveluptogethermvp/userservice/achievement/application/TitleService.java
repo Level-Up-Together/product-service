@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.TitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title;
@@ -10,12 +11,12 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.Tit
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,7 @@ public class TitleService {
     private final TitleRepository titleRepository;
     private final UserTitleRepository userTitleRepository;
     private final ActivityFeedRepository activityFeedRepository;
-    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 전체 칭호 목록
     public List<TitleResponse> getAllTitles() {
@@ -165,14 +166,14 @@ public class TitleService {
         UserTitle saved = userTitleRepository.save(userTitle);
         log.info("칭호 획득: userId={}, title={}, position={}", userId, title.getName(), title.getPositionType());
 
-        // 알림 생성 (신규 획득 시에만)
+        // 이벤트 발행 (신규 획득 시에만) - 트랜잭션 커밋 후 비동기로 알림 생성
         if (notify) {
-            notificationService.notifyTitleAcquired(
+            eventPublisher.publishEvent(new TitleAcquiredEvent(
                 userId,
                 title.getId(),
                 title.getDisplayName(),
                 title.getRarity().name()
-            );
+            ));
         }
 
         return UserTitleResponse.from(saved);
