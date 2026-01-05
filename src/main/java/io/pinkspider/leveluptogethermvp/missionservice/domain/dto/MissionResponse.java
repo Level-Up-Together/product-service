@@ -27,7 +27,11 @@ public class MissionResponse {
 
     private Long id;
     private String title;
+    private String titleEn;
+    private String titleAr;
     private String description;
+    private String descriptionEn;
+    private String descriptionAr;
     private MissionStatus status;
     private MissionVisibility visibility;
     private MissionType type;
@@ -66,7 +70,11 @@ public class MissionResponse {
         return MissionResponse.builder()
             .id(mission.getId())
             .title(mission.getTitle())
+            .titleEn(mission.getTitleEn())
+            .titleAr(mission.getTitleAr())
             .description(mission.getDescription())
+            .descriptionEn(mission.getDescriptionEn())
+            .descriptionAr(mission.getDescriptionAr())
             .status(mission.getStatus())
             .visibility(mission.getVisibility())
             .type(mission.getType())
