@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.MissionStateChangedEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
@@ -82,6 +83,9 @@ public class MissionService {
         Mission saved = missionRepository.save(mission);
         log.info("미션 생성 완료: id={}, title={}, creator={}, category={}",
             saved.getId(), saved.getTitle(), creatorId, saved.getCategoryName());
+
+        // 상태 히스토리 이벤트 발행
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofCreation(creatorId, saved.getId(), saved.getStatus()));
 
         // 생성자를 자동으로 참여자로 등록하고 실행 스케줄 생성
         missionParticipantService.addCreatorAsParticipant(saved, creatorId);
@@ -214,8 +218,12 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
+        MissionStatus fromStatus = mission.getStatus();
         mission.open();
         log.info("미션 모집 시작: id={}", missionId);
+
+        // 상태 히스토리 이벤트 발행
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofOpen(userId, missionId, fromStatus));
 
         // 길드 미션인 경우 길드원에게 모집 알림 전송 (참여는 직접 신청)
         if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
@@ -263,8 +271,12 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
+        MissionStatus fromStatus = mission.getStatus();
         mission.start();
         log.info("미션 시작: id={}", missionId);
+
+        // 상태 히스토리 이벤트 발행
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofStart(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
@@ -274,8 +286,12 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
+        MissionStatus fromStatus = mission.getStatus();
         mission.complete();
         log.info("미션 완료: id={}", missionId);
+
+        // 상태 히스토리 이벤트 발행
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofComplete(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
@@ -285,8 +301,12 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
+        MissionStatus fromStatus = mission.getStatus();
         mission.cancel();
         log.info("미션 취소: id={}", missionId);
+
+        // 상태 히스토리 이벤트 발행
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofCancel(userId, missionId, fromStatus));
 
         return MissionResponse.from(mission);
     }
