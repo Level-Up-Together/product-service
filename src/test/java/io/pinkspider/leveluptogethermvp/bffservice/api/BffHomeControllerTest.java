@@ -650,6 +650,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.guild_activity_feeds.content[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.guild_activity_feeds.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.guild_activity_feeds.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
                             fieldWithPath("value.guild_activity_feeds.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
                             fieldWithPath("value.guild_activity_feeds.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),

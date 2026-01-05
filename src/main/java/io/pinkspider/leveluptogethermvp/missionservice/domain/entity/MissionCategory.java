@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.global.translation.LocaleUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -39,10 +40,30 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
     @Comment("카테고리 이름")
     private String name;
 
+    @Size(max = 50)
+    @Column(name = "name_en", length = 50)
+    @Comment("카테고리 이름 (영어)")
+    private String nameEn;
+
+    @Size(max = 50)
+    @Column(name = "name_ar", length = 50)
+    @Comment("카테고리 이름 (아랍어)")
+    private String nameAr;
+
     @Size(max = 200)
     @Column(name = "description", length = 200)
     @Comment("카테고리 설명")
     private String description;
+
+    @Size(max = 200)
+    @Column(name = "description_en", length = 200)
+    @Comment("카테고리 설명 (영어)")
+    private String descriptionEn;
+
+    @Size(max = 200)
+    @Column(name = "description_ar", length = 200)
+    @Comment("카테고리 설명 (아랍어)")
+    private String descriptionAr;
 
     @Size(max = 50)
     @Column(name = "icon", length = 50)
@@ -64,5 +85,19 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    /**
+     * locale에 따라 카테고리 이름을 반환합니다.
+     */
+    public String getLocalizedName(String locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+    }
+
+    /**
+     * locale에 따라 카테고리 설명을 반환합니다.
+     */
+    public String getLocalizedDescription(String locale) {
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
     }
 }

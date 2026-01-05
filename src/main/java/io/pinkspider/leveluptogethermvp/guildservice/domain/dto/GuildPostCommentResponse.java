@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPostComment;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +28,9 @@ public class GuildPostCommentResponse {
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
+
+    // 번역 정보 (다국어 지원)
+    private TranslationInfo translation;
 
     public static GuildPostCommentResponse from(GuildPostComment comment) {
         return GuildPostCommentResponse.builder()

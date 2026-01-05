@@ -175,7 +175,8 @@ public class TestDataSourceConfig {
     @EnableJpaRepositories(
         basePackages = {
             "io.pinkspider.leveluptogethermvp.metaservice",
-            "io.pinkspider.leveluptogethermvp.profanity.infrastructure"
+            "io.pinkspider.leveluptogethermvp.profanity.infrastructure",
+            "io.pinkspider.global.translation.repository"
         },
         entityManagerFactoryRef = "metaEntityManagerFactory",
         transactionManagerRef = "metaTransactionManager"
@@ -195,7 +196,8 @@ public class TestDataSourceConfig {
             em.setDataSource(dataSource);
             em.setPackagesToScan(
                 "io.pinkspider.leveluptogethermvp.metaservice",
-                "io.pinkspider.leveluptogethermvp.profanity.domain.entity"
+                "io.pinkspider.leveluptogethermvp.profanity.domain.entity",
+                "io.pinkspider.global.translation.entity"
             );
             em.setPersistenceUnitName("meta");
             HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();

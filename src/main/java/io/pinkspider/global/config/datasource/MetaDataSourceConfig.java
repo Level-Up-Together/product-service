@@ -25,7 +25,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableJpaRepositories(
     basePackages = {
         "io.pinkspider.leveluptogethermvp.metaservice",
-        "io.pinkspider.leveluptogethermvp.profanity.infrastructure"
+        "io.pinkspider.leveluptogethermvp.profanity.infrastructure",
+        "io.pinkspider.global.translation.repository"
     },
     entityManagerFactoryRef = "metaEntityManagerFactory",
     transactionManagerRef = "metaTransactionManager"
@@ -74,7 +75,8 @@ public class MetaDataSourceConfig {
         em.setDataSource(dataSource);
         em.setPackagesToScan(
             "io.pinkspider.leveluptogethermvp.metaservice",
-            "io.pinkspider.leveluptogethermvp.profanity.domain.entity"
+            "io.pinkspider.leveluptogethermvp.profanity.domain.entity",
+            "io.pinkspider.global.translation.entity"
         );
         em.setPersistenceUnitName("meta");
         HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();

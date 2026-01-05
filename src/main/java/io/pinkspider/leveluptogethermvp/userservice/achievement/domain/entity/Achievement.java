@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementType;
 import jakarta.persistence.Column;
@@ -54,9 +55,25 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Comment("업적 이름")
     private String name;
 
+    @Column(name = "name_en", length = 100)
+    @Comment("업적 이름 (영어)")
+    private String nameEn;
+
+    @Column(name = "name_ar", length = 100)
+    @Comment("업적 이름 (아랍어)")
+    private String nameAr;
+
     @Column(name = "description", length = 500)
     @Comment("업적 설명")
     private String description;
+
+    @Column(name = "description_en", length = 500)
+    @Comment("업적 설명 (영어)")
+    private String descriptionEn;
+
+    @Column(name = "description_ar", length = 500)
+    @Comment("업적 설명 (아랍어)")
+    private String descriptionAr;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -99,4 +116,18 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Comment("활성 여부")
     @Builder.Default
     private Boolean isActive = true;
+
+    /**
+     * locale에 따라 업적명을 반환합니다.
+     */
+    public String getLocalizedName(String locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+    }
+
+    /**
+     * locale에 따라 업적 설명을 반환합니다.
+     */
+    public String getLocalizedDescription(String locale) {
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+    }
 }

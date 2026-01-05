@@ -47,3 +47,13 @@ moderation:
       - Hate Symbols
     aws:
       region: ap-northeast-2
+
+# Google Cloud Translation API 설정
+# enabled: true로 설정하면 번역 기능 활성화
+# api.key: Google Cloud Console에서 발급받은 API Key
+google:
+  translation:
+    enabled: false
+    api:
+      url: https://translation.googleapis.com
+      key: ${GOOGLE_TRANSLATION_API_KEY:}

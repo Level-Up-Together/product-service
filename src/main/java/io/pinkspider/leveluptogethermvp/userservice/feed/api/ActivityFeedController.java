@@ -12,12 +12,14 @@ import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,9 +38,10 @@ public class ActivityFeedController {
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
         @CurrentUser(required = false) String userId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getPublicFeeds(userId, page, size);
+        Page<ActivityFeedResponse> feeds = activityFeedService.getPublicFeeds(userId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -49,9 +52,10 @@ public class ActivityFeedController {
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getTimelineFeeds(
         @CurrentUser String userId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getTimelineFeeds(userId, page, size);
+        Page<ActivityFeedResponse> feeds = activityFeedService.getTimelineFeeds(userId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -63,9 +67,10 @@ public class ActivityFeedController {
         @PathVariable String targetUserId,
         @CurrentUser String currentUserId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getUserFeeds(targetUserId, currentUserId, page, size);
+        Page<ActivityFeedResponse> feeds = activityFeedService.getUserFeeds(targetUserId, currentUserId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -77,9 +82,10 @@ public class ActivityFeedController {
         @PathVariable Long guildId,
         @CurrentUser String currentUserId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getGuildFeeds(guildId, currentUserId, page, size);
+        Page<ActivityFeedResponse> feeds = activityFeedService.getGuildFeeds(guildId, currentUserId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -91,9 +97,10 @@ public class ActivityFeedController {
         @PathVariable String category,
         @CurrentUser(required = false) String currentUserId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getFeedsByCategory(category, currentUserId, page, size);
+        Page<ActivityFeedResponse> feeds = activityFeedService.getFeedsByCategory(category, currentUserId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
@@ -109,7 +116,8 @@ public class ActivityFeedController {
         @RequestParam(required = false) String category,
         @CurrentUser(required = false) String currentUserId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
         // 검색어 2글자 이상 검증
         if (keyword == null || keyword.trim().length() < 2) {
@@ -120,9 +128,9 @@ public class ActivityFeedController {
 
         Page<ActivityFeedResponse> feeds;
         if (category != null && !category.isEmpty() && !category.equals("전체")) {
-            feeds = activityFeedService.searchFeedsByCategory(keyword.trim(), category, currentUserId, page, size);
+            feeds = activityFeedService.searchFeedsByCategory(keyword.trim(), category, currentUserId, page, size, acceptLanguage);
         } else {
-            feeds = activityFeedService.searchFeeds(keyword.trim(), currentUserId, page, size);
+            feeds = activityFeedService.searchFeeds(keyword.trim(), currentUserId, page, size, acceptLanguage);
         }
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
@@ -133,9 +141,10 @@ public class ActivityFeedController {
     @GetMapping("/{feedId}")
     public ResponseEntity<ApiResult<ActivityFeedResponse>> getFeed(
         @PathVariable Long feedId,
-        @CurrentUser(required = false) String currentUserId
+        @CurrentUser(required = false) String currentUserId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        ActivityFeedResponse feed = activityFeedService.getFeed(feedId, currentUserId);
+        ActivityFeedResponse feed = activityFeedService.getFeed(feedId, currentUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
     }
 
@@ -182,9 +191,10 @@ public class ActivityFeedController {
     public ResponseEntity<ApiResult<Page<FeedCommentResponse>>> getComments(
         @PathVariable Long feedId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<FeedCommentResponse> comments = activityFeedService.getComments(feedId, page, size);
+        Page<FeedCommentResponse> comments = activityFeedService.getComments(feedId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<FeedCommentResponse>>builder().value(comments).build());
     }
 

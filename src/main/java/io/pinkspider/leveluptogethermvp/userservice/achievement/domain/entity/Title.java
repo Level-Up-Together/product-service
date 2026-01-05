@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleAcquisitionType;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
@@ -42,6 +43,14 @@ public class Title extends LocalDateTimeBaseEntity {
     @Column(name = "name", nullable = false, length = 50)
     @Comment("칭호 이름")
     private String name;
+
+    @Column(name = "name_en", length = 50)
+    @Comment("칭호 이름 (영어)")
+    private String nameEn;
+
+    @Column(name = "name_ar", length = 50)
+    @Comment("칭호 이름 (아랍어)")
+    private String nameAr;
 
     @Column(name = "description", length = 200)
     @Comment("칭호 설명")
@@ -94,22 +103,42 @@ public class Title extends LocalDateTimeBaseEntity {
     }
 
     /**
+     * locale에 따라 칭호명을 반환합니다.
+     * @param locale Accept-Language 헤더 값
+     * @return 해당 locale의 칭호명 (없으면 기본값)
+     */
+    public String getLocalizedName(String locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+    }
+
+    /**
      * 두 칭호를 조합하여 표시명을 생성합니다.
      * @param leftTitle LEFT 칭호 (형용사/부사형)
      * @param rightTitle RIGHT 칭호 (명사형)
      * @return 조합된 칭호명 (예: "용감한 전사")
      */
     public static String getCombinedDisplayName(Title leftTitle, Title rightTitle) {
+        return getCombinedDisplayName(leftTitle, rightTitle, null);
+    }
+
+    /**
+     * 두 칭호를 조합하여 locale에 맞는 표시명을 생성합니다.
+     * @param leftTitle LEFT 칭호 (형용사/부사형)
+     * @param rightTitle RIGHT 칭호 (명사형)
+     * @param locale Accept-Language 헤더 값
+     * @return 조합된 칭호명 (예: "Brave Warrior")
+     */
+    public static String getCombinedDisplayName(Title leftTitle, Title rightTitle, String locale) {
         if (leftTitle == null && rightTitle == null) {
             return "";
         }
         if (leftTitle == null) {
-            return rightTitle.getName();
+            return rightTitle.getLocalizedName(locale);
         }
         if (rightTitle == null) {
-            return leftTitle.getName();
+            return leftTitle.getLocalizedName(locale);
         }
-        return leftTitle.getName() + " " + rightTitle.getName();
+        return leftTitle.getLocalizedName(locale) + " " + rightTitle.getLocalizedName(locale);
     }
 
     /**
