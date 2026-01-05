@@ -315,7 +315,7 @@ public class MissionService {
             try {
                 Long guildId = Long.parseLong(mission.getGuildId());
                 GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isAdminOrMaster()) {
+                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
                     isGuildAdmin = true;
                 }
             } catch (NumberFormatException e) {
@@ -352,7 +352,7 @@ public class MissionService {
             try {
                 Long guildId = Long.parseLong(mission.getGuildId());
                 GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isAdminOrMaster()) {
+                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
                     return;
                 }
             } catch (NumberFormatException e) {

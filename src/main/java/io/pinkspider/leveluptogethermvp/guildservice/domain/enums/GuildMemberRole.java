@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum GuildMemberRole {
     MASTER("길드 마스터"),
-    ADMIN("관리자"),
+    SUB_MASTER("부길드 마스터"),
     MEMBER("길드원");
 
     private final String description;

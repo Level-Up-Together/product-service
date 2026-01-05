@@ -48,12 +48,12 @@ public class GuildPostService {
         GuildMember member = validateMembership(guildId, userId);
 
         // 공지글은 마스터 또는 부길드마스터만 작성 가능
-        if (request.getPostType() == GuildPostType.NOTICE && !member.isAdminOrMaster()) {
+        if (request.getPostType() == GuildPostType.NOTICE && !member.isMasterOrSubMaster()) {
             throw new IllegalStateException("공지글은 길드 마스터 또는 부길드마스터만 작성할 수 있습니다.");
         }
 
         // 상단 고정은 마스터 또는 부길드마스터만 가능
-        boolean isPinned = Boolean.TRUE.equals(request.getIsPinned()) && member.isAdminOrMaster();
+        boolean isPinned = Boolean.TRUE.equals(request.getIsPinned()) && member.isMasterOrSubMaster();
 
         GuildPost post = GuildPost.builder()
             .guild(guild)
@@ -166,7 +166,7 @@ public class GuildPostService {
         validatePostBelongsToGuild(post, guildId);
 
         // 작성자이거나 마스터/부길드마스터인 경우에만 삭제 가능
-        if (!post.isAuthor(userId) && !member.isAdminOrMaster()) {
+        if (!post.isAuthor(userId) && !member.isMasterOrSubMaster()) {
             throw new IllegalStateException("게시글을 삭제할 권한이 없습니다.");
         }
 
@@ -182,7 +182,7 @@ public class GuildPostService {
         findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
 
-        if (!member.isAdminOrMaster()) {
+        if (!member.isMasterOrSubMaster()) {
             throw new IllegalStateException("게시글 상단 고정은 길드 마스터 또는 부길드마스터만 할 수 있습니다.");
         }
 
@@ -316,7 +316,7 @@ public class GuildPostService {
         }
 
         // 작성자이거나 마스터/부길드마스터인 경우에만 삭제 가능
-        if (!comment.isAuthor(userId) && !member.isAdminOrMaster()) {
+        if (!comment.isAuthor(userId) && !member.isMasterOrSubMaster()) {
             throw new IllegalStateException("댓글을 삭제할 권한이 없습니다.");
         }
 

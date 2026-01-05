@@ -401,7 +401,7 @@ class GuildServiceTest {
 
         @Test
         @DisplayName("길드 마스터 또는 부길드마스터만 가입 신청을 승인할 수 있다")
-        void approveJoinRequest_failWhenNotMasterOrAdmin() {
+        void approveJoinRequest_failWhenNotMasterOrSubMaster() {
             // given
             GuildJoinRequest joinRequest = GuildJoinRequest.builder()
                 .guild(testGuild)
@@ -537,11 +537,11 @@ class GuildServiceTest {
 
     @Nested
     @DisplayName("부길드마스터 승격 테스트")
-    class PromoteToAdminTest {
+    class PromoteToSubMasterTest {
 
         @Test
         @DisplayName("길드 마스터가 멤버를 부길드마스터로 승격시킨다")
-        void promoteToAdmin_success() {
+        void promoteToSubMaster_success() {
             // given
             GuildMember targetMember = GuildMember.builder()
                 .guild(testGuild)
@@ -556,43 +556,43 @@ class GuildServiceTest {
             when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
 
             // when
-            GuildMemberResponse response = guildService.promoteToAdmin(1L, testMasterId, testUserId);
+            GuildMemberResponse response = guildService.promoteToSubMaster(1L, testMasterId, testUserId);
 
             // then
-            assertThat(targetMember.getRole()).isEqualTo(GuildMemberRole.ADMIN);
-            assertThat(response.getRole()).isEqualTo(GuildMemberRole.ADMIN);
+            assertThat(targetMember.getRole()).isEqualTo(GuildMemberRole.SUB_MASTER);
+            assertThat(response.getRole()).isEqualTo(GuildMemberRole.SUB_MASTER);
         }
 
         @Test
         @DisplayName("길드 마스터가 아닌 사람은 승격시킬 수 없다")
-        void promoteToAdmin_failWhenNotMaster() {
+        void promoteToSubMaster_failWhenNotMaster() {
             // given
             String nonMasterId = "non-master-id";
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
 
             // when & then
-            assertThatThrownBy(() -> guildService.promoteToAdmin(1L, nonMasterId, testUserId))
+            assertThatThrownBy(() -> guildService.promoteToSubMaster(1L, nonMasterId, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("길드 마스터만");
         }
 
         @Test
         @DisplayName("이미 부길드마스터인 멤버는 승격할 수 없다")
-        void promoteToAdmin_failWhenAlreadyAdmin() {
+        void promoteToSubMaster_failWhenAlreadySubMaster() {
             // given
-            GuildMember adminMember = GuildMember.builder()
+            GuildMember subMasterMember = GuildMember.builder()
                 .guild(testGuild)
                 .userId(testUserId)
-                .role(GuildMemberRole.ADMIN)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(adminMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(subMasterMember));
 
             // when & then
-            assertThatThrownBy(() -> guildService.promoteToAdmin(1L, testMasterId, testUserId))
+            assertThatThrownBy(() -> guildService.promoteToSubMaster(1L, testMasterId, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 부길드마스터입니다");
         }
@@ -600,35 +600,35 @@ class GuildServiceTest {
 
     @Nested
     @DisplayName("부길드마스터 강등 테스트")
-    class DemoteFromAdminTest {
+    class DemoteFromSubMasterTest {
 
         @Test
         @DisplayName("길드 마스터가 부길드마스터를 일반 멤버로 강등시킨다")
-        void demoteFromAdmin_success() {
+        void demoteFromSubMaster_success() {
             // given
-            GuildMember adminMember = GuildMember.builder()
+            GuildMember subMasterMember = GuildMember.builder()
                 .guild(testGuild)
                 .userId(testUserId)
-                .role(GuildMemberRole.ADMIN)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(adminMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(subMasterMember));
             when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
 
             // when
-            GuildMemberResponse response = guildService.demoteFromAdmin(1L, testMasterId, testUserId);
+            GuildMemberResponse response = guildService.demoteFromSubMaster(1L, testMasterId, testUserId);
 
             // then
-            assertThat(adminMember.getRole()).isEqualTo(GuildMemberRole.MEMBER);
+            assertThat(subMasterMember.getRole()).isEqualTo(GuildMemberRole.MEMBER);
             assertThat(response.getRole()).isEqualTo(GuildMemberRole.MEMBER);
         }
 
         @Test
         @DisplayName("부길드마스터가 아닌 멤버는 강등할 수 없다")
-        void demoteFromAdmin_failWhenNotAdmin() {
+        void demoteFromSubMaster_failWhenNotSubMaster() {
             // given
             GuildMember normalMember = GuildMember.builder()
                 .guild(testGuild)
@@ -642,7 +642,7 @@ class GuildServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(normalMember));
 
             // when & then
-            assertThatThrownBy(() -> guildService.demoteFromAdmin(1L, testMasterId, testUserId))
+            assertThatThrownBy(() -> guildService.demoteFromSubMaster(1L, testMasterId, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("부길드마스터만 강등할 수 있습니다");
         }
@@ -677,13 +677,13 @@ class GuildServiceTest {
 
         @Test
         @DisplayName("부길드마스터가 일반 멤버를 추방한다")
-        void kickMember_byAdmin_success() {
+        void kickMember_bySubMaster_success() {
             // given
-            String adminId = "admin-id";
-            GuildMember adminMember = GuildMember.builder()
+            String subMasterId = "sub-master-id";
+            GuildMember subMasterMember = GuildMember.builder()
                 .guild(testGuild)
-                .userId(adminId)
-                .role(GuildMemberRole.ADMIN)
+                .userId(subMasterId)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
@@ -697,11 +697,11 @@ class GuildServiceTest {
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, adminId)).thenReturn(Optional.of(adminMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, subMasterId)).thenReturn(Optional.of(subMasterMember));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
 
             // when
-            guildService.kickMember(1L, adminId, testUserId);
+            guildService.kickMember(1L, subMasterId, testUserId);
 
             // then
             assertThat(targetMember.getStatus()).isEqualTo(GuildMemberStatus.KICKED);
@@ -709,32 +709,32 @@ class GuildServiceTest {
 
         @Test
         @DisplayName("부길드마스터는 다른 부길드마스터를 추방할 수 없다")
-        void kickMember_adminCannotKickAdmin() {
+        void kickMember_subMasterCannotKickSubMaster() {
             // given
-            String adminId1 = "admin-id-1";
-            String adminId2 = "admin-id-2";
-            GuildMember adminMember1 = GuildMember.builder()
+            String subMasterId1 = "sub-master-id-1";
+            String subMasterId2 = "sub-master-id-2";
+            GuildMember subMasterMember1 = GuildMember.builder()
                 .guild(testGuild)
-                .userId(adminId1)
-                .role(GuildMemberRole.ADMIN)
+                .userId(subMasterId1)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
 
-            GuildMember adminMember2 = GuildMember.builder()
+            GuildMember subMasterMember2 = GuildMember.builder()
                 .guild(testGuild)
-                .userId(adminId2)
-                .role(GuildMemberRole.ADMIN)
+                .userId(subMasterId2)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, adminId1)).thenReturn(Optional.of(adminMember1));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, adminId2)).thenReturn(Optional.of(adminMember2));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, subMasterId1)).thenReturn(Optional.of(subMasterMember1));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, subMasterId2)).thenReturn(Optional.of(subMasterMember2));
 
             // when & then
-            assertThatThrownBy(() -> guildService.kickMember(1L, adminId1, adminId2))
+            assertThatThrownBy(() -> guildService.kickMember(1L, subMasterId1, subMasterId2))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("부길드마스터는 다른 부길드마스터나 길드 마스터를 추방할 수 없습니다");
         }
@@ -776,17 +776,17 @@ class GuildServiceTest {
 
     @Nested
     @DisplayName("부길드마스터 가입 승인 테스트")
-    class ApproveJoinRequestByAdminTest {
+    class ApproveJoinRequestBySubMasterTest {
 
         @Test
         @DisplayName("부길드마스터도 가입 신청을 승인할 수 있다")
-        void approveJoinRequest_byAdmin_success() {
+        void approveJoinRequest_bySubMaster_success() {
             // given
-            String adminId = "admin-id";
-            GuildMember adminMember = GuildMember.builder()
+            String subMasterId = "sub-master-id";
+            GuildMember subMasterMember = GuildMember.builder()
                 .guild(testGuild)
-                .userId(adminId)
-                .role(GuildMemberRole.ADMIN)
+                .userId(subMasterId)
+                .role(GuildMemberRole.SUB_MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
@@ -799,13 +799,13 @@ class GuildServiceTest {
             setJoinRequestId(joinRequest, 1L);
 
             when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, adminId)).thenReturn(Optional.of(adminMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, subMasterId)).thenReturn(Optional.of(subMasterMember));
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            GuildMemberResponse response = guildService.approveJoinRequest(1L, adminId);
+            GuildMemberResponse response = guildService.approveJoinRequest(1L, subMasterId);
 
             // then
             assertThat(response).isNotNull();
