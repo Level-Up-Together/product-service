@@ -1,5 +1,9 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import io.pinkspider.global.event.FriendRequestAcceptedEvent;
+import io.pinkspider.global.event.FriendRequestEvent;
+import io.pinkspider.global.event.FriendRequestProcessedEvent;
+import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
@@ -9,7 +13,6 @@ import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResp
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
@@ -20,6 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FriendService {
 
     private final FriendshipRepository friendshipRepository;
-    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
@@ -63,14 +67,12 @@ public class FriendService {
         Friendship friendship = Friendship.createRequest(userId, friendId, message);
         Friendship saved = friendshipRepository.save(friendship);
 
-        // 알림 발송
-        try {
-            Users requester = userRepository.findById(userId).orElse(null);
-            String requesterNickname = requester != null ? requester.getNickname() : "사용자";
-            notificationService.notifyFriendRequest(friendId, requesterNickname, saved.getId());
-        } catch (Exception e) {
-            log.warn("친구 요청 알림 발송 실패: {}", e.getMessage());
-        }
+        // 친구 요청 이벤트 발행
+        Users requester = userRepository.findById(userId).orElse(null);
+        String requesterNickname = requester != null ? requester.getNickname() : "사용자";
+        eventPublisher.publishEvent(new FriendRequestEvent(
+            userId, friendId, requesterNickname, saved.getId()
+        ));
 
         log.info("친구 요청 전송: {} -> {}", userId, friendId);
         return FriendRequestResponse.simpleFrom(saved);
@@ -88,21 +90,15 @@ public class FriendService {
 
         friendship.accept();
 
-        // 친구 요청 알림 삭제
-        try {
-            notificationService.deleteByReference("FRIEND_REQUEST", requestId);
-        } catch (Exception e) {
-            log.warn("친구 요청 알림 삭제 실패: {}", e.getMessage());
-        }
+        // 친구 요청 처리 완료 이벤트 발행 (알림 삭제용)
+        eventPublisher.publishEvent(new FriendRequestProcessedEvent(userId, requestId));
 
-        // 요청자에게 알림 발송
-        try {
-            Users accepter = userRepository.findById(userId).orElse(null);
-            String accepterNickname = accepter != null ? accepter.getNickname() : "사용자";
-            notificationService.notifyFriendAccepted(friendship.getUserId(), accepterNickname, friendship.getId());
-        } catch (Exception e) {
-            log.warn("친구 수락 알림 발송 실패: {}", e.getMessage());
-        }
+        // 친구 요청 수락 이벤트 발행
+        Users accepter = userRepository.findById(userId).orElse(null);
+        String accepterNickname = accepter != null ? accepter.getNickname() : "사용자";
+        eventPublisher.publishEvent(new FriendRequestAcceptedEvent(
+            userId, friendship.getUserId(), accepterNickname, friendship.getId()
+        ));
 
         // 양쪽 모두 친구 업적 체크
         try {
@@ -130,21 +126,15 @@ public class FriendService {
 
         friendship.reject();
 
-        // 친구 요청 알림 삭제
-        try {
-            notificationService.deleteByReference("FRIEND_REQUEST", requestId);
-        } catch (Exception e) {
-            log.warn("친구 요청 알림 삭제 실패: {}", e.getMessage());
-        }
+        // 친구 요청 처리 완료 이벤트 발행 (알림 삭제용)
+        eventPublisher.publishEvent(new FriendRequestProcessedEvent(userId, requestId));
 
-        // 요청자에게 거절 알림 발송
-        try {
-            Users rejecter = userRepository.findById(userId).orElse(null);
-            String rejecterNickname = rejecter != null ? rejecter.getNickname() : "사용자";
-            notificationService.notifyFriendRejected(friendship.getUserId(), rejecterNickname, friendship.getId());
-        } catch (Exception e) {
-            log.warn("친구 거절 알림 발송 실패: {}", e.getMessage());
-        }
+        // 친구 요청 거절 이벤트 발행
+        Users rejecter = userRepository.findById(userId).orElse(null);
+        String rejecterNickname = rejecter != null ? rejecter.getNickname() : "사용자";
+        eventPublisher.publishEvent(new FriendRequestRejectedEvent(
+            userId, friendship.getUserId(), rejecterNickname, friendship.getId()
+        ));
 
         log.info("친구 요청 거절: {} rejected {}", userId, friendship.getUserId());
     }

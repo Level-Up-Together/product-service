@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
@@ -13,10 +14,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class MissionService {
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
     private final GuildMemberRepository guildMemberRepository;
-    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
@@ -226,36 +227,30 @@ public class MissionService {
 
     /**
      * 길드원에게 미션 모집 시작 알림 전송 (참여는 길드원이 직접 신청)
+     * 이벤트를 발행하여 비동기로 알림 처리
      */
     private void notifyGuildMembersAboutRecruitment(Mission mission, String creatorId) {
         try {
             Long guildId = Long.parseLong(mission.getGuildId());
             List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
 
-            int successCount = 0;
-            int failCount = 0;
+            // 생성자를 제외한 활성 길드원 ID 목록 추출
+            List<String> memberIds = activeMembers.stream()
+                .map(GuildMember::getUserId)
+                .filter(memberId -> !memberId.equals(creatorId))
+                .toList();
 
-            for (GuildMember member : activeMembers) {
-                String memberId = member.getUserId();
-
-                // 생성자는 제외
-                if (memberId.equals(creatorId)) {
-                    continue;
-                }
-
-                try {
-                    // 알림만 전송 (참여는 길드원이 직접 신청)
-                    notificationService.notifyGuildMissionArrived(memberId, mission.getTitle(), mission.getId());
-                    successCount++;
-                } catch (Exception e) {
-                    failCount++;
-                    log.warn("길드 미션 모집 알림 전송 실패: memberId={}, missionId={}, error={}",
-                        memberId, mission.getId(), e.getMessage());
-                }
+            if (!memberIds.isEmpty()) {
+                // 이벤트 발행 (리스너에서 비동기로 알림 처리)
+                eventPublisher.publishEvent(new GuildMissionArrivedEvent(
+                    creatorId,
+                    memberIds,
+                    mission.getId(),
+                    mission.getTitle()
+                ));
+                log.info("길드 미션 모집 이벤트 발행: missionId={}, guildId={}, memberCount={}",
+                    mission.getId(), guildId, memberIds.size());
             }
-
-            log.info("길드 미션 모집 알림 전송 완료: missionId={}, guildId={}, success={}, fail={}",
-                mission.getId(), guildId, successCount, failCount);
         } catch (NumberFormatException e) {
             log.error("길드 ID 파싱 실패: guildId={}", mission.getGuildId(), e);
         } catch (Exception e) {
