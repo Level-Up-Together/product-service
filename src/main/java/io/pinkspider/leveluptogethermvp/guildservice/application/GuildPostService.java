@@ -39,7 +39,7 @@ public class GuildPostService {
 
     /**
      * 게시글 작성
-     * - 공지글(NOTICE)은 길드 마스터만 작성 가능
+     * - 공지글(NOTICE)은 길드 마스터 또는 부길드마스터만 작성 가능
      * - 일반글(NORMAL)은 모든 길드원 작성 가능
      */
     @Transactional
@@ -47,13 +47,13 @@ public class GuildPostService {
         Guild guild = findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
 
-        // 공지글은 마스터만 작성 가능
-        if (request.getPostType() == GuildPostType.NOTICE && member.getRole() != GuildMemberRole.MASTER) {
-            throw new IllegalStateException("공지글은 길드 마스터만 작성할 수 있습니다.");
+        // 공지글은 마스터 또는 부길드마스터만 작성 가능
+        if (request.getPostType() == GuildPostType.NOTICE && !member.isAdminOrMaster()) {
+            throw new IllegalStateException("공지글은 길드 마스터 또는 부길드마스터만 작성할 수 있습니다.");
         }
 
-        // 상단 고정은 마스터만 가능
-        boolean isPinned = Boolean.TRUE.equals(request.getIsPinned()) && member.getRole() == GuildMemberRole.MASTER;
+        // 상단 고정은 마스터 또는 부길드마스터만 가능
+        boolean isPinned = Boolean.TRUE.equals(request.getIsPinned()) && member.isAdminOrMaster();
 
         GuildPost post = GuildPost.builder()
             .guild(guild)
@@ -155,7 +155,7 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 삭제 (작성자 또는 마스터 가능)
+     * 게시글 삭제 (작성자 또는 마스터/부길드마스터 가능)
      */
     @Transactional
     public void deletePost(Long guildId, Long postId, String userId) {
@@ -165,8 +165,8 @@ public class GuildPostService {
         GuildPost post = findActivePost(postId);
         validatePostBelongsToGuild(post, guildId);
 
-        // 작성자이거나 마스터인 경우에만 삭제 가능
-        if (!post.isAuthor(userId) && member.getRole() != GuildMemberRole.MASTER) {
+        // 작성자이거나 마스터/부길드마스터인 경우에만 삭제 가능
+        if (!post.isAuthor(userId) && !member.isAdminOrMaster()) {
             throw new IllegalStateException("게시글을 삭제할 권한이 없습니다.");
         }
 
@@ -175,15 +175,15 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 상단 고정/해제 (마스터만 가능)
+     * 게시글 상단 고정/해제 (마스터 또는 부길드마스터 가능)
      */
     @Transactional
     public GuildPostResponse togglePin(Long guildId, Long postId, String userId) {
         findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
 
-        if (member.getRole() != GuildMemberRole.MASTER) {
-            throw new IllegalStateException("게시글 상단 고정은 길드 마스터만 할 수 있습니다.");
+        if (!member.isAdminOrMaster()) {
+            throw new IllegalStateException("게시글 상단 고정은 길드 마스터 또는 부길드마스터만 할 수 있습니다.");
         }
 
         GuildPost post = findActivePost(postId);
@@ -298,7 +298,7 @@ public class GuildPostService {
     }
 
     /**
-     * 댓글 삭제 (작성자 또는 마스터 가능)
+     * 댓글 삭제 (작성자 또는 마스터/부길드마스터 가능)
      */
     @Transactional
     public void deleteComment(Long guildId, Long postId, Long commentId, String userId) {
@@ -315,8 +315,8 @@ public class GuildPostService {
             throw new IllegalArgumentException("댓글이 해당 게시글에 속하지 않습니다.");
         }
 
-        // 작성자이거나 마스터인 경우에만 삭제 가능
-        if (!comment.isAuthor(userId) && member.getRole() != GuildMemberRole.MASTER) {
+        // 작성자이거나 마스터/부길드마스터인 경우에만 삭제 가능
+        if (!comment.isAuthor(userId) && !member.isAdminOrMaster()) {
             throw new IllegalStateException("댓글을 삭제할 권한이 없습니다.");
         }
 

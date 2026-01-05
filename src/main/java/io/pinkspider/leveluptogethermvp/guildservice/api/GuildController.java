@@ -183,7 +183,7 @@ public class GuildController {
         return ResponseEntity.ok(ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
     }
 
-    // 멤버 초대 (비공개 길드용, 마스터 전용)
+    // 멤버 초대 (비공개 길드용, 마스터 또는 부길드마스터)
     @PostMapping("/{guildId}/members/{inviteeId}")
     public ResponseEntity<ApiResult<GuildMemberResponse>> inviteMember(
         @PathVariable Long guildId,
@@ -192,6 +192,39 @@ public class GuildController {
 
         GuildMemberResponse response = guildService.inviteMember(guildId, userId, inviteeId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
+    }
+
+    // 부길드마스터 승격 (마스터 전용)
+    @PostMapping("/{guildId}/members/{targetUserId}/promote-admin")
+    public ResponseEntity<ApiResult<GuildMemberResponse>> promoteToAdmin(
+        @PathVariable Long guildId,
+        @PathVariable String targetUserId,
+        @CurrentUser String userId) {
+
+        GuildMemberResponse response = guildService.promoteToAdmin(guildId, userId, targetUserId);
+        return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
+    }
+
+    // 부길드마스터 강등 (마스터 전용)
+    @PostMapping("/{guildId}/members/{targetUserId}/demote-admin")
+    public ResponseEntity<ApiResult<GuildMemberResponse>> demoteFromAdmin(
+        @PathVariable Long guildId,
+        @PathVariable String targetUserId,
+        @CurrentUser String userId) {
+
+        GuildMemberResponse response = guildService.demoteFromAdmin(guildId, userId, targetUserId);
+        return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
+    }
+
+    // 멤버 추방 (마스터 또는 부길드마스터)
+    @DeleteMapping("/{guildId}/members/{targetUserId}")
+    public ResponseEntity<ApiResult<Void>> kickMember(
+        @PathVariable Long guildId,
+        @PathVariable String targetUserId,
+        @CurrentUser String userId) {
+
+        guildService.kickMember(guildId, userId, targetUserId);
+        return ResponseEntity.ok(ApiResult.getBase());
     }
 
     // 길드 경험치/레벨 정보 조회

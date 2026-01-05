@@ -192,7 +192,7 @@ class GuildPostServiceTest {
             // when & then
             assertThatThrownBy(() -> guildPostService.createPost(1L, memberId, "테스터", request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("공지글은 길드 마스터만 작성할 수 있습니다");
+                .hasMessageContaining("공지글은 길드 마스터 또는 부길드마스터만 작성할 수 있습니다");
         }
 
         @Test
@@ -417,7 +417,7 @@ class GuildPostServiceTest {
             // when & then
             assertThatThrownBy(() -> guildPostService.togglePin(1L, 1L, memberId))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("게시글 상단 고정은 길드 마스터만 할 수 있습니다");
+                .hasMessageContaining("게시글 상단 고정은 길드 마스터 또는 부길드마스터만 할 수 있습니다");
         }
     }
 }

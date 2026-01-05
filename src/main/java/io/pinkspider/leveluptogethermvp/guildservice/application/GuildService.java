@@ -401,15 +401,15 @@ public class GuildService {
     }
 
     public Page<GuildJoinRequestResponse> getPendingJoinRequests(Long guildId, String userId, Pageable pageable) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, userId);
+        findActiveGuildById(guildId);
+        validateMasterOrAdmin(guildId, userId);
 
         return joinRequestRepository.findPendingRequests(guildId, pageable)
             .map(GuildJoinRequestResponse::from);
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildMemberResponse approveJoinRequest(Long requestId, String masterId) {
+    public GuildMemberResponse approveJoinRequest(Long requestId, String operatorId) {
         GuildJoinRequest request = joinRequestRepository.findById(requestId)
             .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
 
@@ -418,11 +418,11 @@ public class GuildService {
         }
 
         Guild guild = request.getGuild();
-        validateMaster(guild, masterId);
+        validateMasterOrAdmin(guild.getId(), operatorId);
 
         // 카테고리당 1개 길드 정책: 대기 중에 해당 카테고리의 다른 길드에 가입했는지 확인
         if (guildMemberRepository.hasActiveGuildMembershipInCategory(request.getRequesterId(), guild.getCategoryId())) {
-            request.reject(masterId, "신청자가 이미 해당 카테고리의 다른 길드에 가입되어 있습니다."); // 자동 거절 처리
+            request.reject(operatorId, "신청자가 이미 해당 카테고리의 다른 길드에 가입되어 있습니다."); // 자동 거절 처리
             throw new IllegalStateException("신청자가 이미 해당 카테고리의 다른 길드에 가입되어 있어 자동 거절되었습니다.");
         }
 
@@ -431,7 +431,7 @@ public class GuildService {
             throw new IllegalStateException("길드 인원이 가득 찼습니다.");
         }
 
-        request.approve(masterId);
+        request.approve(operatorId);
 
         GuildMember newMember = GuildMember.builder()
             .guild(guild)
@@ -452,7 +452,7 @@ public class GuildService {
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildJoinRequestResponse rejectJoinRequest(Long requestId, String masterId, String reason) {
+    public GuildJoinRequestResponse rejectJoinRequest(Long requestId, String operatorId, String reason) {
         GuildJoinRequest request = joinRequestRepository.findById(requestId)
             .orElseThrow(() -> new IllegalArgumentException("가입 신청을 찾을 수 없습니다."));
 
@@ -461,19 +461,19 @@ public class GuildService {
         }
 
         Guild guild = request.getGuild();
-        validateMaster(guild, masterId);
+        validateMasterOrAdmin(guild.getId(), operatorId);
 
-        request.reject(masterId, reason);
+        request.reject(operatorId, reason);
         log.info("길드 가입 거절: guildId={}, requesterId={}", guild.getId(), request.getRequesterId());
 
         return GuildJoinRequestResponse.from(request);
     }
 
-    // 초대를 통한 가입 (비공개 길드용)
+    // 초대를 통한 가입 (비공개 길드용, 마스터 또는 부길드마스터)
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildMemberResponse inviteMember(Long guildId, String masterId, String inviteeId) {
+    public GuildMemberResponse inviteMember(Long guildId, String operatorId, String inviteeId) {
         Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, masterId);
+        validateMasterOrAdmin(guildId, operatorId);
 
         // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
         if (guildMemberRepository.hasActiveGuildMembershipInCategory(inviteeId, guild.getCategoryId())) {
@@ -583,8 +583,131 @@ public class GuildService {
         }
     }
 
+    private void validateMasterOrAdmin(Long guildId, String userId) {
+        GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
+            .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
+        if (!member.isAdminOrMaster()) {
+            throw new IllegalStateException("길드 마스터 또는 부길드마스터만 이 작업을 수행할 수 있습니다.");
+        }
+    }
+
     private boolean isMember(Long guildId, String userId) {
         return guildMemberRepository.isActiveMember(guildId, userId);
+    }
+
+    /**
+     * 부길드마스터 승격
+     * 길드 마스터만 멤버를 부길드마스터로 승격시킬 수 있음
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildMemberResponse promoteToAdmin(Long guildId, String masterId, String targetUserId) {
+        Guild guild = findActiveGuildById(guildId);
+        validateMaster(guild, masterId);
+
+        if (masterId.equals(targetUserId)) {
+            throw new IllegalStateException("자기 자신을 부길드마스터로 승격할 수 없습니다.");
+        }
+
+        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
+            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+
+        if (!targetMember.isActive()) {
+            throw new IllegalStateException("활성 상태의 멤버만 승격할 수 있습니다.");
+        }
+
+        if (targetMember.isMaster()) {
+            throw new IllegalStateException("길드 마스터는 승격 대상이 아닙니다.");
+        }
+
+        if (targetMember.isAdmin()) {
+            throw new IllegalStateException("이미 부길드마스터입니다.");
+        }
+
+        targetMember.promoteToAdmin();
+        log.info("부길드마스터 승격: guildId={}, userId={}", guildId, targetUserId);
+
+        return buildGuildMemberResponse(targetMember);
+    }
+
+    /**
+     * 부길드마스터 강등
+     * 길드 마스터만 부길드마스터를 일반 멤버로 강등시킬 수 있음
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildMemberResponse demoteFromAdmin(Long guildId, String masterId, String targetUserId) {
+        Guild guild = findActiveGuildById(guildId);
+        validateMaster(guild, masterId);
+
+        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
+            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+
+        if (!targetMember.isAdmin()) {
+            throw new IllegalStateException("부길드마스터만 강등할 수 있습니다.");
+        }
+
+        targetMember.demoteToMember();
+        log.info("부길드마스터 강등: guildId={}, userId={}", guildId, targetUserId);
+
+        return buildGuildMemberResponse(targetMember);
+    }
+
+    /**
+     * 멤버 추방
+     * 길드 마스터 또는 부길드마스터가 멤버를 추방할 수 있음
+     * 단, 부길드마스터는 다른 부길드마스터나 마스터를 추방할 수 없음
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void kickMember(Long guildId, String operatorId, String targetUserId) {
+        Guild guild = findActiveGuildById(guildId);
+
+        if (operatorId.equals(targetUserId)) {
+            throw new IllegalStateException("자기 자신을 추방할 수 없습니다.");
+        }
+
+        GuildMember operatorMember = guildMemberRepository.findByGuildIdAndUserId(guildId, operatorId)
+            .orElseThrow(() -> new IllegalStateException("길드 멤버가 아닙니다."));
+
+        if (!operatorMember.isAdminOrMaster()) {
+            throw new IllegalStateException("길드 마스터 또는 부길드마스터만 멤버를 추방할 수 있습니다.");
+        }
+
+        GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
+            .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
+
+        if (!targetMember.isActive()) {
+            throw new IllegalStateException("이미 탈퇴하거나 추방된 멤버입니다.");
+        }
+
+        // 부길드마스터는 다른 부길드마스터나 마스터를 추방할 수 없음
+        if (operatorMember.isAdmin() && targetMember.isAdminOrMaster()) {
+            throw new IllegalStateException("부길드마스터는 다른 부길드마스터나 길드 마스터를 추방할 수 없습니다.");
+        }
+
+        // 마스터는 자신을 추방할 수 없음 (위에서 이미 체크하지만 명시적으로)
+        if (targetMember.isMaster()) {
+            throw new IllegalStateException("길드 마스터는 추방할 수 없습니다.");
+        }
+
+        targetMember.kick();
+        log.info("멤버 추방: guildId={}, operator={}, target={}", guildId, operatorId, targetUserId);
+    }
+
+    private GuildMemberResponse buildGuildMemberResponse(GuildMember member) {
+        GuildMemberResponse response = GuildMemberResponse.from(member);
+        Users user = userRepository.findById(member.getUserId()).orElse(null);
+        if (user != null) {
+            response.setNickname(user.getDisplayName());
+            response.setProfileImageUrl(user.getPicture());
+            response.setUserLevel(1);
+            try {
+                TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(member.getUserId());
+                response.setEquippedTitleName(titleInfo.name());
+                response.setEquippedTitleRarity(titleInfo.rarity());
+            } catch (Exception e) {
+                log.warn("칭호 정보 조회 실패: userId={}", member.getUserId());
+            }
+        }
+        return response;
     }
 
     private void triggerGuildAchievements(String userId, boolean isJoin, boolean isMaster) {

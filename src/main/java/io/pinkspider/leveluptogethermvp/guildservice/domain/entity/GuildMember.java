@@ -80,12 +80,24 @@ public class GuildMember extends LocalDateTimeBaseEntity {
         return this.role == GuildMemberRole.MASTER;
     }
 
+    public boolean isAdmin() {
+        return this.role == GuildMemberRole.ADMIN;
+    }
+
+    public boolean isAdminOrMaster() {
+        return this.role == GuildMemberRole.MASTER || this.role == GuildMemberRole.ADMIN;
+    }
+
     public boolean isActive() {
         return this.status == GuildMemberStatus.ACTIVE;
     }
 
     public void promoteToMaster() {
         this.role = GuildMemberRole.MASTER;
+    }
+
+    public void promoteToAdmin() {
+        this.role = GuildMemberRole.ADMIN;
     }
 
     public void demoteToMember() {

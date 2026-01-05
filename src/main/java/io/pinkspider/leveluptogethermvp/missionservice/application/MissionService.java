@@ -300,25 +300,40 @@ public class MissionService {
     public void deleteMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
 
-        // 미션 생성자인 경우: 미션 자체를 삭제
-        if (mission.getCreatorId().equals(userId)) {
-            if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
-                throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
-            }
-            missionRepository.delete(mission);
-            log.info("미션 삭제: id={}", missionId);
-            return;
-        }
-
         // 시스템 미션의 참여자인 경우: 참여 철회로 처리
-        if (mission.getSource() == MissionSource.SYSTEM) {
+        if (mission.getSource() == MissionSource.SYSTEM && !mission.getCreatorId().equals(userId)) {
             missionParticipantService.withdrawFromMission(missionId, userId);
             log.info("시스템 미션 참여 철회: missionId={}, userId={}", missionId, userId);
             return;
         }
 
+        // 미션 생성자이거나 길드 관리자인 경우: 미션 자체를 삭제
+        boolean isCreator = mission.getCreatorId().equals(userId);
+        boolean isGuildAdmin = false;
+
+        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
+            try {
+                Long guildId = Long.parseLong(mission.getGuildId());
+                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
+                if (member != null && member.isActive() && member.isAdminOrMaster()) {
+                    isGuildAdmin = true;
+                }
+            } catch (NumberFormatException e) {
+                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+            }
+        }
+
+        if (isCreator || isGuildAdmin) {
+            if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
+                throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
+            }
+            missionRepository.delete(mission);
+            log.info("미션 삭제: id={}, deletedBy={}", missionId, userId);
+            return;
+        }
+
         // 그 외의 경우: 권한 없음
-        throw new IllegalStateException("미션 생성자만 이 작업을 수행할 수 있습니다.");
+        throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
     }
 
     private Mission findMissionById(Long missionId) {
@@ -327,8 +342,24 @@ public class MissionService {
     }
 
     private void validateMissionOwner(Mission mission, String userId) {
-        if (!mission.getCreatorId().equals(userId)) {
-            throw new IllegalStateException("미션 생성자만 이 작업을 수행할 수 있습니다.");
+        // 미션 생성자인 경우 허용
+        if (mission.getCreatorId().equals(userId)) {
+            return;
         }
+
+        // 길드 미션인 경우 길드 마스터 또는 부길드마스터도 허용
+        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
+            try {
+                Long guildId = Long.parseLong(mission.getGuildId());
+                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
+                if (member != null && member.isActive() && member.isAdminOrMaster()) {
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+            }
+        }
+
+        throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
     }
 }

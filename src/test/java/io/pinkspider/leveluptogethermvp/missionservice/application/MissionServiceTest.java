@@ -238,7 +238,7 @@ class MissionServiceTest {
             // when & then
             assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("미션 생성자만 이 작업을 수행할 수 있습니다.");
+                .hasMessage("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
 
             verify(missionRepository, never()).delete(any());
             verify(missionParticipantService, never()).withdrawFromMission(anyLong(), anyString());
@@ -436,7 +436,7 @@ class MissionServiceTest {
             // when & then
             assertThatThrownBy(() -> missionService.openMission(missionId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("미션 생성자만 이 작업을 수행할 수 있습니다.");
+                .hasMessage("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
         }
 
         @Test
