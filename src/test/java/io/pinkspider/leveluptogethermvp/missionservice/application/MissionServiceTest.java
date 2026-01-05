@@ -21,20 +21,22 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSourc
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class MissionServiceTest {
@@ -55,7 +57,10 @@ class MissionServiceTest {
     private GuildMemberRepository guildMemberRepository;
 
     @Mock
-    private NotificationService notificationService;
+    private ApplicationEventPublisher eventPublisher;
+
+    @Captor
+    private ArgumentCaptor<GuildMissionArrivedEvent> eventCaptor;
 
     @InjectMocks
     private MissionService missionService;
@@ -338,8 +343,8 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("길드 미션 오픈 시 길드원에게 알림이 전송된다")
-        void openMission_guildMission_notifiesMembers() {
+        @DisplayName("길드 미션 오픈 시 길드원에게 이벤트가 발행된다")
+        void openMission_guildMission_publishesEvent() {
             // given
             Long missionId = 1L;
             Long guildId = 100L;
@@ -375,10 +380,13 @@ class MissionServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(MissionStatus.OPEN);
 
-            // 알림 전송 확인 (생성자 제외 2명에게)
-            verify(notificationService).notifyGuildMissionArrived(member1Id, "길드 미션", missionId);
-            verify(notificationService).notifyGuildMissionArrived(member2Id, "길드 미션", missionId);
-            verify(notificationService, never()).notifyGuildMissionArrived(eq(TEST_USER_ID), anyString(), anyLong());
+            // 이벤트 발행 확인 (생성자 제외한 멤버 목록과 함께)
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            GuildMissionArrivedEvent event = eventCaptor.getValue();
+            assertThat(event.missionId()).isEqualTo(missionId);
+            assertThat(event.missionTitle()).isEqualTo("길드 미션");
+            assertThat(event.memberIds()).containsExactlyInAnyOrder(member1Id, member2Id);
+            assertThat(event.memberIds()).doesNotContain(TEST_USER_ID);  // 생성자 제외
 
             // 참여자 자동 등록은 하지 않음 (길드원이 직접 참여 신청)
             verify(missionParticipantService, never()).addGuildMemberAsParticipant(any(), anyString());
@@ -411,7 +419,7 @@ class MissionServiceTest {
 
             // 길드 관련 로직이 호출되지 않음
             verify(guildMemberRepository, never()).findActiveMembers(anyLong());
-            verify(notificationService, never()).notifyGuildMissionArrived(anyString(), anyString(), anyLong());
+            verify(eventPublisher, never()).publishEvent(any(GuildMissionArrivedEvent.class));
             verify(missionParticipantService, never()).addGuildMemberAsParticipant(any(), anyString());
         }
 
@@ -463,7 +471,7 @@ class MissionServiceTest {
             // then
             assertThat(response).isNotNull();
             verify(guildMemberRepository, never()).findActiveMembers(anyLong());
-            verify(notificationService, never()).notifyGuildMissionArrived(anyString(), anyString(), anyLong());
+            verify(eventPublisher, never()).publishEvent(any(GuildMissionArrivedEvent.class));
         }
     }
 }

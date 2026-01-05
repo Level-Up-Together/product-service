@@ -1,3 +1,8 @@
+---
+description: 변경사항 분석 후 커밋 메시지 생성
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*)
+---
+
 작업 내용을 분석하고 적절한 커밋 메시지를 생성해줘.
 
 규칙:
