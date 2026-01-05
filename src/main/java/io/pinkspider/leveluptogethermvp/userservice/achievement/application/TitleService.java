@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.Tit
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public class TitleService {
     private final TitleRepository titleRepository;
     private final UserTitleRepository userTitleRepository;
     private final ActivityFeedRepository activityFeedRepository;
+    private final NotificationService notificationService;
 
     // 전체 칭호 목록
     public List<TitleResponse> getAllTitles() {
@@ -138,6 +140,12 @@ public class TitleService {
     // 칭호 부여
     @Transactional
     public UserTitleResponse grantTitle(String userId, Long titleId) {
+        return grantTitle(userId, titleId, true);
+    }
+
+    // 칭호 부여 (알림 여부 선택)
+    @Transactional
+    public UserTitleResponse grantTitle(String userId, Long titleId, boolean notify) {
         if (userTitleRepository.existsByUserIdAndTitleId(userId, titleId)) {
             log.debug("이미 보유한 칭호: userId={}, titleId={}", userId, titleId);
             return userTitleRepository.findByUserIdAndTitleId(userId, titleId)
@@ -156,6 +164,16 @@ public class TitleService {
 
         UserTitle saved = userTitleRepository.save(userTitle);
         log.info("칭호 획득: userId={}, title={}, position={}", userId, title.getName(), title.getPositionType());
+
+        // 알림 생성 (신규 획득 시에만)
+        if (notify) {
+            notificationService.notifyTitleAcquired(
+                userId,
+                title.getId(),
+                title.getDisplayName(),
+                title.getRarity().name()
+            );
+        }
 
         return UserTitleResponse.from(saved);
     }
@@ -241,12 +259,12 @@ public class TitleService {
         final Long DEFAULT_LEFT_TITLE_ID = 1L;   // 신입
         final Long DEFAULT_RIGHT_TITLE_ID = 26L; // 모험가
 
-        // LEFT 칭호 "신입" 부여 및 장착
-        grantTitle(userId, DEFAULT_LEFT_TITLE_ID);
+        // LEFT 칭호 "신입" 부여 및 장착 (기본 칭호는 알림 제외)
+        grantTitle(userId, DEFAULT_LEFT_TITLE_ID, false);
         equipTitle(userId, DEFAULT_LEFT_TITLE_ID);
 
-        // RIGHT 칭호 "모험가" 부여 및 장착
-        grantTitle(userId, DEFAULT_RIGHT_TITLE_ID);
+        // RIGHT 칭호 "모험가" 부여 및 장착 (기본 칭호는 알림 제외)
+        grantTitle(userId, DEFAULT_RIGHT_TITLE_ID, false);
         equipTitle(userId, DEFAULT_RIGHT_TITLE_ID);
 
         log.info("기본 칭호 부여 완료: userId={}, left=신입, right=모험가", userId);

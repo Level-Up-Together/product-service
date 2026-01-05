@@ -26,7 +26,11 @@ public enum NotificationType {
     COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL"),
 
     // 미션 관련 (레거시 호환)
-    MISSION_COMPLETED("미션 완료", "SYSTEM");
+    MISSION_COMPLETED("미션 완료", "SYSTEM"),
+
+    // 업적/칭호 관련
+    ACHIEVEMENT_COMPLETED("업적 달성", "ACHIEVEMENT"),
+    TITLE_ACQUIRED("칭호 획득", "ACHIEVEMENT");
 
     private final String displayName;
     private final String category;
