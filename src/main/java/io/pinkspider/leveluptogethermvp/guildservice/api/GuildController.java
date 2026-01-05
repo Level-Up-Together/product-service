@@ -195,24 +195,24 @@ public class GuildController {
     }
 
     // 부길드마스터 승격 (마스터 전용)
-    @PostMapping("/{guildId}/members/{targetUserId}/promote-admin")
-    public ResponseEntity<ApiResult<GuildMemberResponse>> promoteToAdmin(
+    @PostMapping("/{guildId}/members/{targetUserId}/promote-sub-master")
+    public ResponseEntity<ApiResult<GuildMemberResponse>> promoteToSubMaster(
         @PathVariable Long guildId,
         @PathVariable String targetUserId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.promoteToAdmin(guildId, userId, targetUserId);
+        GuildMemberResponse response = guildService.promoteToSubMaster(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
     // 부길드마스터 강등 (마스터 전용)
-    @PostMapping("/{guildId}/members/{targetUserId}/demote-admin")
-    public ResponseEntity<ApiResult<GuildMemberResponse>> demoteFromAdmin(
+    @PostMapping("/{guildId}/members/{targetUserId}/demote-sub-master")
+    public ResponseEntity<ApiResult<GuildMemberResponse>> demoteFromSubMaster(
         @PathVariable Long guildId,
         @PathVariable String targetUserId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.demoteFromAdmin(guildId, userId, targetUserId);
+        GuildMemberResponse response = guildService.demoteFromSubMaster(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
