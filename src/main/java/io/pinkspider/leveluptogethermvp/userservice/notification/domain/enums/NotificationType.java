@@ -23,7 +23,10 @@ public enum NotificationType {
     GUILD_MISSION_ARRIVED("길드 미션 도착", "GUILD"),
 
     // 소셜 관련 (댓글)
-    COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL");
+    COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL"),
+
+    // 미션 관련 (레거시 호환)
+    MISSION_COMPLETED("미션 완료", "SYSTEM");
 
     private final String displayName;
     private final String category;
