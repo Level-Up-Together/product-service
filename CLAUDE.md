@@ -30,30 +30,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-**Multi-Service Monolith**: Spring Boot 3.4.5 application with 6 service modules sharing a single deployment unit but using separate databases per service.
+**Multi-Service Monolith**: Spring Boot 3.4.5 application with service modules sharing a single deployment unit but using separate databases per service. Designed for future MSA migration with Saga pattern.
 
 ### Service Modules (`src/main/java/io/pinkspider/leveluptogethermvp/`)
 
 | Service | Purpose |
 |---------|---------|
-| `userservice` | OAuth2 authentication (Google, Kakao, Apple), JWT token management, user profiles, terms |
-| `metaservice` | Common codes, calendar holidays, Redis-cached metadata |
-| `missionservice` | Mission definition and progress tracking |
-| `guildservice` | Guild/group creation and member management |
+| `userservice` | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests, activity feed, notifications |
+| `metaservice` | Common codes, calendar holidays, Redis-cached metadata, level configuration |
+| `missionservice` | Mission definition, progress tracking, Saga orchestration, mission book |
+| `guildservice` | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
 | `loggerservice` | Event logging with MongoDB and Kafka |
-| `bff` | Backend-for-Frontend API aggregation |
+| `bffservice` | Backend-for-Frontend API aggregation |
+| `noticeservice` | Notice/announcement management |
+| `supportservice` | Support/help functionality |
+| `profanity` | Profanity detection and filtering |
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
 - **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, saga_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
-- **Caching**: Redis with Lettuce client
+- **Caching**: Redis with Lettuce client (two templates: `redisTemplateForString`, `redisTemplateForObject`)
 - **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
+- **Events**: Spring Events for notification system (`io.pinkspider.global.event`)
 - **Exception Handling**: Extend `CustomException` from `io.pinkspider.global.exception`
 - **Encryption**: `CryptoConverter` for sensitive field encryption
+- **Translation**: Google Translation API integration (`io.pinkspider.global.translation`)
+- **Validation**: Profanity detection, Korean text normalization (`io.pinkspider.global.validation`)
 - **Tracing**: Zipkin/Brave distributed tracing
 - **Monitoring**: Actuator at `/showmethemoney`
 - **Saga Pattern**: `io.pinkspider.global.saga` - 분산 트랜잭션 관리 (MSA 전환 대비)
+- **Rate Limiting**: Resilience4j rate limiter (`io.pinkspider.global.config.RateLimiterConfig`)
 
 ### Transaction Manager 주의사항
 
@@ -62,7 +69,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```java
 // GuildService 예시
 @Transactional(transactionManager = "guildTransactionManager")
-public void updateGuild(...) { ... }
+public void updateGuild(/...) { ... }
 
 // MissionService 예시
 @Transactional(transactionManager = "missionTransactionManager")
@@ -167,7 +174,8 @@ class YourServiceTest {
 ## Configuration Profiles
 
 - `application.yml` - Default configuration
-- `application-test.yml` - H2 databases, test Kafka
+- `application-test.yml` - H2 databases, test Kafka (port 18080)
+- `application-unit-test.yml` - Unit test configuration
 - `application-local.yml` - Config server integration
 - `application-dev.yml` / `application-prod.yml` - Environment-specific
 
@@ -206,3 +214,6 @@ class YourServiceTest {
 
 ### 트랜잭션 매니저 미지정 오류
 데이터가 저장되지 않거나 조회되지 않는 경우, `@Transactional`에 올바른 트랜잭션 매니저가 지정되어 있는지 확인
+
+### Integration Tests 실패
+SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있음. `@ActiveProfiles("test")` 확인

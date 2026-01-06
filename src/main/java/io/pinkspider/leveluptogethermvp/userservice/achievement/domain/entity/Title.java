@@ -56,6 +56,14 @@ public class Title extends LocalDateTimeBaseEntity {
     @Comment("칭호 설명")
     private String description;
 
+    @Column(name = "description_en", length = 200)
+    @Comment("칭호 설명 (영어)")
+    private String descriptionEn;
+
+    @Column(name = "description_ar", length = 200)
+    @Comment("칭호 설명 (아랍어)")
+    private String descriptionAr;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "rarity", nullable = false, length = 20)

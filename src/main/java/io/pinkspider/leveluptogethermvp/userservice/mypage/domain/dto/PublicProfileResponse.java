@@ -56,6 +56,8 @@ public class PublicProfileResponse {
     public static class EquippedTitleInfo {
         private Long titleId;
         private String name;
+        private String nameEn;
+        private String nameAr;
         private String displayName;
         private String rarity;
         private String colorCode;

@@ -20,6 +20,8 @@ public class TitleResponse {
 
     private Long id;
     private String name;
+    private String nameEn;
+    private String nameAr;
     private String displayName;
     private String description;
     private TitleRarity rarity;
@@ -33,6 +35,8 @@ public class TitleResponse {
         return TitleResponse.builder()
             .id(title.getId())
             .name(title.getName())
+            .nameEn(title.getNameEn())
+            .nameAr(title.getNameAr())
             .displayName(title.getDisplayName())
             .description(title.getDescription())
             .rarity(title.getRarity())
