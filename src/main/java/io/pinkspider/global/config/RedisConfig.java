@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.pinkspider.global.properties.RedisProperties;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
@@ -80,14 +83,24 @@ public class RedisConfig {
 
     @Bean
     public CacheManager redisCacheManager() {
-        RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
 
+        // 캐시별 TTL 설정
+        Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+
+        // Home 관련 캐시: 5분 TTL
+        RedisCacheConfiguration homeConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
+        cacheConfigurations.put("todayPlayers", homeConfig);
+        cacheConfigurations.put("todayPlayersByCategory", homeConfig);
+        cacheConfigurations.put("mvpGuilds", homeConfig);
+
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(redisConnectionFactory())
-                .cacheDefaults(redisCacheConfiguration)
+                .cacheDefaults(defaultConfig)
+                .withInitialCacheConfigurations(cacheConfigurations)
                 .build();
     }
 }
