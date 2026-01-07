@@ -2,8 +2,10 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionStateChangedEvent;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
@@ -35,6 +37,7 @@ public class MissionService {
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
     private final GuildMemberRepository guildMemberRepository;
+    private final GuildRepository guildRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "missionTransactionManager")
@@ -58,6 +61,20 @@ public class MissionService {
             customCategory = request.getCustomCategory().trim();
         }
 
+        // 길드 미션인 경우 길드 이름 조회
+        String guildName = null;
+        if (request.getType() == MissionType.GUILD && request.getGuildId() != null) {
+            try {
+                Long guildId = Long.parseLong(request.getGuildId());
+                Guild guild = guildRepository.findById(guildId).orElse(null);
+                if (guild != null) {
+                    guildName = guild.getName();
+                }
+            } catch (NumberFormatException e) {
+                log.warn("길드 ID 파싱 실패: guildId={}", request.getGuildId());
+            }
+        }
+
         Mission mission = Mission.builder()
             .title(request.getTitle())
             .description(request.getDescription())
@@ -67,6 +84,7 @@ public class MissionService {
             .source(MissionSource.USER)  // 명시적으로 USER로 설정
             .creatorId(creatorId)
             .guildId(request.getGuildId())
+            .guildName(guildName)
             .maxParticipants(request.getMaxParticipants())
             .startAt(request.getStartAt())
             .endAt(request.getEndAt())
