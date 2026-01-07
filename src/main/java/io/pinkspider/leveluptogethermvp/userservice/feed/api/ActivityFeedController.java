@@ -190,11 +190,12 @@ public class ActivityFeedController {
     @GetMapping("/{feedId}/comments")
     public ResponseEntity<ApiResult<Page<FeedCommentResponse>>> getComments(
         @PathVariable Long feedId,
+        @CurrentUser(required = false) String currentUserId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<FeedCommentResponse> comments = activityFeedService.getComments(feedId, page, size, acceptLanguage);
+        Page<FeedCommentResponse> comments = activityFeedService.getComments(feedId, currentUserId, page, size, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<FeedCommentResponse>>builder().value(comments).build());
     }
 

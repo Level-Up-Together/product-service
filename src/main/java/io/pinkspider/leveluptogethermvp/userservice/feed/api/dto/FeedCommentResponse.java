@@ -24,16 +24,21 @@ public class FeedCommentResponse {
     private String userProfileImageUrl;
     private String content;
     private boolean isDeleted;
+    private boolean isMyComment;
     private LocalDateTime createdAt;
 
     // 번역 정보 (다국어 지원)
     private TranslationInfo translation;
 
     public static FeedCommentResponse from(FeedComment comment) {
-        return from(comment, null);
+        return from(comment, null, null);
     }
 
     public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation) {
+        return from(comment, translation, null);
+    }
+
+    public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation, String currentUserId) {
         return FeedCommentResponse.builder()
             .id(comment.getId())
             .feedId(comment.getFeed().getId())
@@ -42,6 +47,7 @@ public class FeedCommentResponse {
             .userProfileImageUrl(comment.getUserProfileImageUrl())
             .content(comment.getContent())
             .isDeleted(comment.getIsDeleted())
+            .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
             .createdAt(comment.getCreatedAt())
             .translation(translation)
             .build();
