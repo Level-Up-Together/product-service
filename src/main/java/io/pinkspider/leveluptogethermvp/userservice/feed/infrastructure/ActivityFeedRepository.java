@@ -109,4 +109,11 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         @Param("userId") String userId,
         @Param("userTitle") String userTitle,
         @Param("userTitleRarity") TitleRarity userTitleRarity);
+
+    // referenceId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
+    @Modifying
+    @Query("DELETE FROM ActivityFeed f WHERE f.referenceId = :referenceId AND f.referenceType = :referenceType")
+    int deleteByReferenceIdAndReferenceType(
+        @Param("referenceId") Long referenceId,
+        @Param("referenceType") String referenceType);
 }
