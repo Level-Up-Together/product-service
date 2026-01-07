@@ -12,9 +12,11 @@ import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,6 +51,7 @@ public class BffHomeController {
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
+     * @param acceptLanguage Accept-Language 헤더 (다국어 지원)
      * @return HomeDataResponse
      */
     @GetMapping("/home")
@@ -57,9 +60,10 @@ public class BffHomeController {
         @RequestParam(required = false) Long categoryId,
         @RequestParam(defaultValue = "0") int feedPage,
         @RequestParam(defaultValue = "20") int feedSize,
-        @RequestParam(defaultValue = "5") int publicGuildSize
+        @RequestParam(defaultValue = "5") int publicGuildSize,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize);
+        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
 
