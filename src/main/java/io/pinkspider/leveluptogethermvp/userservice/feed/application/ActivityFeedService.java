@@ -902,4 +902,15 @@ public class ActivityFeedService {
         activityFeedRepository.deleteById(feedId);
         log.info("Feed deleted by id: feedId={}", feedId);
     }
+
+    /**
+     * referenceId와 referenceType으로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
+     */
+    @Transactional
+    public int deleteFeedsByReferenceId(Long referenceId, String referenceType) {
+        int deletedCount = activityFeedRepository.deleteByReferenceIdAndReferenceType(referenceId, referenceType);
+        log.info("Feeds deleted by referenceId: referenceId={}, referenceType={}, deletedCount={}",
+            referenceId, referenceType, deletedCount);
+        return deletedCount;
+    }
 }

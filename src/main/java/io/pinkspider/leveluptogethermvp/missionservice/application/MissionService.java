@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class MissionService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildRepository guildRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ActivityFeedService activityFeedService;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
@@ -362,6 +364,14 @@ public class MissionService {
             }
             missionRepository.delete(mission);
             log.info("미션 삭제: id={}, deletedBy={}", missionId, userId);
+
+            // 관련 피드 삭제 (미션 공유 피드)
+            try {
+                int deletedFeedCount = activityFeedService.deleteFeedsByReferenceId(missionId, "MISSION");
+                log.info("미션 관련 피드 삭제: missionId={}, deletedFeedCount={}", missionId, deletedFeedCount);
+            } catch (Exception e) {
+                log.warn("미션 관련 피드 삭제 실패: missionId={}, error={}", missionId, e.getMessage());
+            }
             return;
         }
 
