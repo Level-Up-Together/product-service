@@ -547,21 +547,21 @@ public class ActivityFeedService {
     /**
      * 댓글 목록 조회
      */
-    public Page<FeedCommentResponse> getComments(Long feedId, int page, int size) {
-        return getComments(feedId, page, size, null);
+    public Page<FeedCommentResponse> getComments(Long feedId, String currentUserId, int page, int size) {
+        return getComments(feedId, currentUserId, page, size, null);
     }
 
     /**
      * 댓글 목록 조회 (다국어 지원)
      */
-    public Page<FeedCommentResponse> getComments(Long feedId, int page, int size, String acceptLanguage) {
+    public Page<FeedCommentResponse> getComments(Long feedId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         Page<FeedComment> comments = feedCommentRepository.findByFeedId(feedId, pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         return comments.map(comment -> {
             TranslationInfo translation = translateComment(comment, targetLocale);
-            return FeedCommentResponse.from(comment, translation);
+            return FeedCommentResponse.from(comment, translation, currentUserId);
         });
     }
 
