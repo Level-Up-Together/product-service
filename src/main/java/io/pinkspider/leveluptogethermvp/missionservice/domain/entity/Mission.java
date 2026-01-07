@@ -131,6 +131,11 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("길드 ID (길드 미션인 경우)")
     private String guildId;
 
+    @Size(max = 100)
+    @Column(name = "guild_name", length = 100)
+    @Comment("길드 이름 (길드 미션인 경우)")
+    private String guildName;
+
     @Column(name = "max_participants")
     @Comment("최대 참여 인원")
     private Integer maxParticipants;

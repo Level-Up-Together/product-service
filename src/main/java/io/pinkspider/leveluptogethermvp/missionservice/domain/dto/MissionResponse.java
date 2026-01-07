@@ -41,6 +41,7 @@ public class MissionResponse {
     private Boolean isPinned;
     private String creatorId;
     private String guildId;
+    private String guildName;
     private Integer maxParticipants;
     private Integer currentParticipants;
 
@@ -84,6 +85,7 @@ public class MissionResponse {
             .isPinned(mission.getIsPinned())
             .creatorId(mission.getCreatorId())
             .guildId(mission.getGuildId())
+            .guildName(mission.getGuildName())
             .maxParticipants(mission.getMaxParticipants())
             .startAt(mission.getStartAt())
             .endAt(mission.getEndAt())
