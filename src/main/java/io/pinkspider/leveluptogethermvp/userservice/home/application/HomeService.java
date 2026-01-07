@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.global.translation.LocaleUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -80,6 +81,15 @@ public class HomeService {
      * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명)
      */
     public List<TodayPlayerResponse> getTodayPlayers() {
+        return getTodayPlayers(null);
+    }
+
+    /**
+     * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명) - 다국어 지원
+     *
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     */
+    public List<TodayPlayerResponse> getTodayPlayers(String locale) {
         // 오늘 00:00 ~ 23:59:59
         LocalDate today = LocalDate.now();
         LocalDateTime startDate = today.atStartOfDay();
@@ -111,8 +121,8 @@ public class HomeService {
                 .map(UserExperience::getCurrentLevel)
                 .orElse(1);
 
-            // 장착된 칭호 조회 (LEFT + RIGHT 조합)
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(odayUserId);
+            // 장착된 칭호 조회 (LEFT + RIGHT 조합) - 로컬라이즈된 이름
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(odayUserId, locale);
 
             result.add(TodayPlayerResponse.of(
                 odayUserId,
@@ -136,6 +146,16 @@ public class HomeService {
      * 3. 중복 제거 후 최대 5명 반환
      */
     public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId) {
+        return getTodayPlayersByCategory(categoryId, null);
+    }
+
+    /**
+     * 카테고리별 MVP 목록 조회 (하이브리드 선정) - 다국어 지원
+     *
+     * @param categoryId 카테고리 ID
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     */
+    public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale) {
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = LocalDate.now();
         LocalDateTime startDate = today.atStartOfDay();
@@ -154,7 +174,7 @@ public class HomeService {
             String userId = fp.getUserId();
             if (addedUserIds.contains(userId)) continue;
 
-            TodayPlayerResponse player = buildTodayPlayerResponse(userId, 0L, rank);
+            TodayPlayerResponse player = buildTodayPlayerResponse(userId, 0L, rank, locale);
             if (player != null) {
                 result.add(player);
                 addedUserIds.add(userId);
@@ -182,7 +202,7 @@ public class HomeService {
 
                     if (addedUserIds.contains(odayUserId)) continue;
 
-                    TodayPlayerResponse player = buildTodayPlayerResponse(odayUserId, earnedExp, rank);
+                    TodayPlayerResponse player = buildTodayPlayerResponse(odayUserId, earnedExp, rank, locale);
                     if (player != null) {
                         result.add(player);
                         addedUserIds.add(odayUserId);
@@ -246,6 +266,13 @@ public class HomeService {
      * TodayPlayerResponse 생성 헬퍼 메서드
      */
     private TodayPlayerResponse buildTodayPlayerResponse(String userId, Long earnedExp, int rank) {
+        return buildTodayPlayerResponse(userId, earnedExp, rank, null);
+    }
+
+    /**
+     * TodayPlayerResponse 생성 헬퍼 메서드 - 다국어 지원
+     */
+    private TodayPlayerResponse buildTodayPlayerResponse(String userId, Long earnedExp, int rank, String locale) {
         Users user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             return null;
@@ -255,7 +282,7 @@ public class HomeService {
             .map(UserExperience::getCurrentLevel)
             .orElse(1);
 
-        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
 
         return TodayPlayerResponse.of(
             userId,
@@ -348,6 +375,17 @@ public class HomeService {
      * 예: "용감한 전사", "전설적인 챔피언"
      */
     private TitleInfo getCombinedEquippedTitleInfo(String userId) {
+        return getCombinedEquippedTitleInfo(userId, null);
+    }
+
+    /**
+     * 사용자의 장착된 칭호 조합 정보 조회 (LEFT + RIGHT) - 다국어 지원
+     * 예: "용감한 전사", "Brave Warrior", "المحارب الشجاع"
+     *
+     * @param userId 사용자 ID
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     */
+    private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
             return new TitleInfo(null, null);
@@ -363,8 +401,11 @@ public class HomeService {
             .findFirst()
             .orElse(null);
 
-        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
-        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+        // 로컬라이즈된 칭호 이름 가져오기
+        String leftTitle = leftUserTitle != null ?
+            getLocalizedTitleName(leftUserTitle.getTitle(), locale) : null;
+        String rightTitle = rightUserTitle != null ?
+            getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
 
         // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용)
         TitleRarity highestRarity = getHighestRarity(
@@ -384,6 +425,16 @@ public class HomeService {
         }
 
         return new TitleInfo(combinedTitle, highestRarity);
+    }
+
+    /**
+     * 칭호의 로컬라이즈된 이름 반환
+     */
+    private String getLocalizedTitleName(io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title title, String locale) {
+        if (title == null) {
+            return null;
+        }
+        return LocaleUtils.getLocalizedText(title.getName(), title.getNameEn(), title.getNameAr(), locale);
     }
 
     /**
