@@ -49,7 +49,22 @@ public class BffHomeService {
      * @return HomeDataResponse 홈 화면 데이터
      */
     public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize) {
-        log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}", userId, categoryId, feedPage, feedSize);
+        return getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, null);
+    }
+
+    /**
+     * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다. (다국어 지원)
+     *
+     * @param userId 현재 로그인한 사용자 ID
+     * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param feedPage 피드 페이지 번호 (기본: 0)
+     * @param feedSize 피드 페이지 크기 (기본: 20)
+     * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     * @return HomeDataResponse 홈 화면 데이터
+     */
+    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale) {
+        log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}, locale={}", userId, categoryId, feedPage, feedSize, locale);
 
         // 병렬로 모든 데이터 조회
         CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
@@ -84,11 +99,11 @@ public class BffHomeService {
         CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 if (categoryId != null) {
-                    // 카테고리별 MVP 조회 (하이브리드)
-                    return homeService.getTodayPlayersByCategory(categoryId);
+                    // 카테고리별 MVP 조회 (하이브리드) - 로컬라이즈된 칭호
+                    return homeService.getTodayPlayersByCategory(categoryId, locale);
                 } else {
-                    // 전체 MVP 조회
-                    return homeService.getTodayPlayers();
+                    // 전체 MVP 조회 - 로컬라이즈된 칭호
+                    return homeService.getTodayPlayers(locale);
                 }
             } catch (Exception e) {
                 log.error("Failed to fetch rankings", e);
