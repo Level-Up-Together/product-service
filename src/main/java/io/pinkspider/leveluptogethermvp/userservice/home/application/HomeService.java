@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -86,6 +87,7 @@ public class HomeService {
 
     /**
      * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명) - 다국어 지원
+     * N+1 문제 해결을 위해 배치 조회 사용
      *
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
      */
@@ -103,6 +105,24 @@ public class HomeService {
             return List.of();
         }
 
+        // 1. 모든 사용자 ID 추출
+        List<String> userIds = topGainers.stream()
+            .map(row -> (String) row[0])
+            .collect(Collectors.toList());
+
+        // 2. 배치 조회: 사용자 정보
+        Map<String, Users> userMap = userRepository.findAllById(userIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+
+        // 3. 배치 조회: 레벨 정보
+        Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
+            .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
+
+        // 4. 배치 조회: 장착된 칭호
+        Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+            .collect(Collectors.groupingBy(UserTitle::getUserId));
+
+        // 5. 결과 조합
         List<TodayPlayerResponse> result = new ArrayList<>();
         int rank = 1;
 
@@ -110,19 +130,13 @@ public class HomeService {
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
-            // 사용자 정보 조회
-            Users user = userRepository.findById(odayUserId).orElse(null);
+            Users user = userMap.get(odayUserId);
             if (user == null) {
                 continue;
             }
 
-            // 레벨 정보 조회
-            Integer level = userExperienceRepository.findByUserId(odayUserId)
-                .map(UserExperience::getCurrentLevel)
-                .orElse(1);
-
-            // 장착된 칭호 조회 (LEFT + RIGHT 조합) - 로컬라이즈된 이름
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(odayUserId, locale);
+            Integer level = levelMap.getOrDefault(odayUserId, 1);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(odayUserId), locale);
 
             result.add(TodayPlayerResponse.of(
                 odayUserId,
@@ -217,6 +231,7 @@ public class HomeService {
 
     /**
      * MVP 길드 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 길드 5개)
+     * N+1 문제 해결을 위해 배치 조회 사용
      */
     public List<MvpGuildResponse> getMvpGuilds() {
         // 오늘 00:00 ~ 23:59:59
@@ -232,6 +247,23 @@ public class HomeService {
             return List.of();
         }
 
+        // 1. 모든 길드 ID 추출
+        List<Long> guildIds = topGuilds.stream()
+            .map(row -> ((Number) row[0]).longValue())
+            .collect(Collectors.toList());
+
+        // 2. 배치 조회: 길드 정보
+        Map<Long, Guild> guildMap = guildRepository.findByIdInAndIsActiveTrue(guildIds).stream()
+            .collect(Collectors.toMap(Guild::getId, g -> g));
+
+        // 3. 배치 조회: 멤버 수
+        Map<Long, Long> memberCountMap = guildMemberRepository.countActiveMembersByGuildIds(guildIds).stream()
+            .collect(Collectors.toMap(
+                row -> (Long) row[0],
+                row -> (Long) row[1]
+            ));
+
+        // 4. 결과 조합
         List<MvpGuildResponse> result = new ArrayList<>();
         int rank = 1;
 
@@ -239,14 +271,12 @@ public class HomeService {
             Long guildId = ((Number) row[0]).longValue();
             Long earnedExp = ((Number) row[1]).longValue();
 
-            // 길드 정보 조회
-            Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId).orElse(null);
+            Guild guild = guildMap.get(guildId);
             if (guild == null) {
                 continue;
             }
 
-            // 멤버 수 조회
-            int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+            int memberCount = memberCountMap.getOrDefault(guildId, 0L).intValue();
 
             result.add(MvpGuildResponse.of(
                 guildId,
@@ -388,6 +418,53 @@ public class HomeService {
     private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
+            return new TitleInfo(null, null);
+        }
+
+        UserTitle leftUserTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .orElse(null);
+
+        UserTitle rightUserTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .orElse(null);
+
+        // 로컬라이즈된 칭호 이름 가져오기
+        String leftTitle = leftUserTitle != null ?
+            getLocalizedTitleName(leftUserTitle.getTitle(), locale) : null;
+        String rightTitle = rightUserTitle != null ?
+            getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
+
+        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용)
+        TitleRarity highestRarity = getHighestRarity(
+            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
+            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
+        );
+
+        String combinedTitle;
+        if (leftTitle == null && rightTitle == null) {
+            combinedTitle = null;
+        } else if (leftTitle == null) {
+            combinedTitle = rightTitle;
+        } else if (rightTitle == null) {
+            combinedTitle = leftTitle;
+        } else {
+            combinedTitle = leftTitle + " " + rightTitle;
+        }
+
+        return new TitleInfo(combinedTitle, highestRarity);
+    }
+
+    /**
+     * 배치 조회된 칭호 리스트에서 TitleInfo 생성 (N+1 방지용)
+     *
+     * @param equippedTitles 사용자의 장착된 칭호 리스트 (null 가능)
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     */
+    private TitleInfo buildTitleInfoFromList(List<UserTitle> equippedTitles, String locale) {
+        if (equippedTitles == null || equippedTitles.isEmpty()) {
             return new TitleInfo(null, null);
         }
 

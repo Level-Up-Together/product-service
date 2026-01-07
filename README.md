@@ -177,3 +177,6 @@ src/main/java/io/pinkspider/
 | `level-up-together-admin-frontend` | 어드민 프론트엔드 (Next.js) |
 | `level-up-together-sql` | SQL 스크립트 (DDL/DML) |
 | `config-repository` | Spring Cloud Config 저장소 |
+
+## 개발 서버
+- https://dev.level-up-together.com:3000

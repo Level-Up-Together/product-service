@@ -29,6 +29,12 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
     @Query("SELECT g FROM Guild g WHERE g.masterId = :userId AND g.isActive = true")
     List<Guild> findByMasterId(@Param("userId") String userId);
 
+    /**
+     * 여러 길드 ID로 활성 길드 배치 조회 (N+1 방지)
+     */
+    @Query("SELECT g FROM Guild g WHERE g.id IN :guildIds AND g.isActive = true")
+    List<Guild> findByIdInAndIsActiveTrue(@Param("guildIds") List<Long> guildIds);
+
     boolean existsByNameAndIsActiveTrue(String name);
 
     @Query("SELECT g FROM Guild g WHERE g.isActive = true AND " +

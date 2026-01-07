@@ -39,4 +39,10 @@ public interface UserTitleRepository extends JpaRepository<UserTitle, Long> {
     long countByUserId(@Param("userId") String userId);
 
     boolean existsByUserIdAndTitleId(String userId, Long titleId);
+
+    /**
+     * 여러 사용자의 장착된 칭호 배치 조회 (N+1 방지)
+     */
+    @Query("SELECT ut FROM UserTitle ut JOIN FETCH ut.title WHERE ut.userId IN :userIds AND ut.isEquipped = true")
+    List<UserTitle> findEquippedTitlesByUserIdIn(@Param("userIds") List<String> userIds);
 }

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +37,10 @@ public interface UserExperienceRepository extends JpaRepository<UserExperience, 
      */
     @Query("SELECT COUNT(ue) FROM UserExperience ue")
     long countTotalUsers();
+
+    /**
+     * 여러 사용자의 경험치 정보 배치 조회 (N+1 방지)
+     */
+    @Query("SELECT ue FROM UserExperience ue WHERE ue.userId IN :userIds")
+    List<UserExperience> findByUserIdIn(@Param("userIds") List<String> userIds);
 }

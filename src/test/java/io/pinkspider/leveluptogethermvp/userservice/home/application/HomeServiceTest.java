@@ -127,10 +127,11 @@ class HomeServiceTest {
 
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
                 .thenReturn(topGainers);
-            when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
-            when(userExperienceRepository.findByUserId(testUserId))
-                .thenReturn(Optional.of(testUserExperience));
-            when(userTitleRepository.findEquippedTitlesByUserId(testUserId))
+            // 배치 조회 방식으로 변경
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
                 .thenReturn(Collections.emptyList());
 
             // when

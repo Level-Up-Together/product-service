@@ -67,4 +67,13 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
     @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
            "WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
     List<GuildMember> findAllActiveGuildMemberships(@Param("userId") String userId);
+
+    /**
+     * 여러 길드의 활성 멤버 수 배치 조회 (N+1 방지)
+     * @return List of [guildId, memberCount]
+     */
+    @Query("SELECT gm.guild.id, COUNT(gm) FROM GuildMember gm " +
+           "WHERE gm.guild.id IN :guildIds AND gm.status = 'ACTIVE' " +
+           "GROUP BY gm.guild.id")
+    List<Object[]> countActiveMembersByGuildIds(@Param("guildIds") List<Long> guildIds);
 }
