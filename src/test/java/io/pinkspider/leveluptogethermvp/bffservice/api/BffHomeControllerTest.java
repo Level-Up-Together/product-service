@@ -146,6 +146,8 @@ class BffHomeControllerTest {
     private GuildPostListResponse createMockGuildPostListResponse() {
         return GuildPostListResponse.builder()
             .id(1L)
+            .guildId(1L)
+            .guildName("테스트 길드")
             .authorId("user-1")
             .authorNickname("테스터")
             .title("테스트 게시글")
@@ -490,6 +492,8 @@ class BffHomeControllerTest {
                             fieldWithPath("value.posts").type(JsonFieldType.OBJECT).description("게시글 목록 (페이징)"),
                             fieldWithPath("value.posts.content[]").type(JsonFieldType.ARRAY).description("게시글 목록"),
                             fieldWithPath("value.posts.content[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
+                            fieldWithPath("value.posts.content[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.posts.content[].guild_name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("value.posts.content[].author_id").type(JsonFieldType.STRING).description("작성자 ID"),
                             fieldWithPath("value.posts.content[].author_nickname").type(JsonFieldType.STRING).description("작성자 닉네임"),
                             fieldWithPath("value.posts.content[].title").type(JsonFieldType.STRING).description("제목"),
@@ -612,6 +616,8 @@ class BffHomeControllerTest {
                             fieldWithPath("value.recommended_guilds.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
                             fieldWithPath("value.guild_notices[]").type(JsonFieldType.ARRAY).description("길드 공지사항 목록"),
                             fieldWithPath("value.guild_notices[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
+                            fieldWithPath("value.guild_notices[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.guild_notices[].guild_name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("value.guild_notices[].author_id").type(JsonFieldType.STRING).description("작성자 ID"),
                             fieldWithPath("value.guild_notices[].author_nickname").type(JsonFieldType.STRING).description("작성자 닉네임"),
                             fieldWithPath("value.guild_notices[].title").type(JsonFieldType.STRING).description("제목"),

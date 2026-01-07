@@ -18,6 +18,8 @@ import lombok.NoArgsConstructor;
 public class GuildPostListResponse {
 
     private Long id;
+    private Long guildId;
+    private String guildName;
     private String authorId;
     private String authorNickname;
     private String title;
@@ -30,6 +32,8 @@ public class GuildPostListResponse {
     public static GuildPostListResponse from(GuildPost post) {
         return GuildPostListResponse.builder()
             .id(post.getId())
+            .guildId(post.getGuild().getId())
+            .guildName(post.getGuild().getName())
             .authorId(post.getAuthorId())
             .authorNickname(post.getAuthorNickname())
             .title(post.getTitle())

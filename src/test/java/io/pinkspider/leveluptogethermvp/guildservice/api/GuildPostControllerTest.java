@@ -641,6 +641,8 @@ class GuildPostControllerTest {
         List<GuildPostListResponse> notices = List.of(
             GuildPostListResponse.builder()
                 .id(1L)
+                .guildId(1L)
+                .guildName("테스트 길드")
                 .authorId(MOCK_USER_ID)
                 .authorNickname(MOCK_NICKNAME)
                 .title("길드 규칙 안내")
@@ -652,6 +654,8 @@ class GuildPostControllerTest {
                 .build(),
             GuildPostListResponse.builder()
                 .id(2L)
+                .guildId(1L)
+                .guildName("테스트 길드")
                 .authorId(MOCK_USER_ID)
                 .authorNickname(MOCK_NICKNAME)
                 .title("이번 주 미션 안내")
@@ -687,6 +691,8 @@ class GuildPostControllerTest {
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("공지글 목록"),
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
+                            fieldWithPath("value[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value[].guild_name").type(JsonFieldType.STRING).description("길드 이름"),
                             fieldWithPath("value[].author_id").type(JsonFieldType.STRING).description("작성자 ID"),
                             fieldWithPath("value[].author_nickname").type(JsonFieldType.STRING).description("작성자 닉네임").optional(),
                             fieldWithPath("value[].title").type(JsonFieldType.STRING).description("제목"),
