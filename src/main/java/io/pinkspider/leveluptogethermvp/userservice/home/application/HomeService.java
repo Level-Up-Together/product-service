@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,9 +89,11 @@ public class HomeService {
     /**
      * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명) - 다국어 지원
      * N+1 문제 해결을 위해 배치 조회 사용
+     * Redis 캐싱 적용 (5분 TTL)
      *
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
      */
+    @Cacheable(value = "todayPlayers", key = "#locale ?: 'ko'", cacheManager = "redisCacheManager")
     public List<TodayPlayerResponse> getTodayPlayers(String locale) {
         // 오늘 00:00 ~ 23:59:59
         LocalDate today = LocalDate.now();
@@ -165,10 +168,12 @@ public class HomeService {
 
     /**
      * 카테고리별 MVP 목록 조회 (하이브리드 선정) - 다국어 지원
+     * Redis 캐싱 적용 (5분 TTL)
      *
      * @param categoryId 카테고리 ID
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
      */
+    @Cacheable(value = "todayPlayersByCategory", key = "#categoryId + '_' + (#locale ?: 'ko')", cacheManager = "redisCacheManager")
     public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale) {
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = LocalDate.now();
@@ -232,7 +237,9 @@ public class HomeService {
     /**
      * MVP 길드 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 길드 5개)
      * N+1 문제 해결을 위해 배치 조회 사용
+     * Redis 캐싱 적용 (5분 TTL)
      */
+    @Cacheable(value = "mvpGuilds", cacheManager = "redisCacheManager")
     public List<MvpGuildResponse> getMvpGuilds() {
         // 오늘 00:00 ~ 23:59:59
         LocalDate today = LocalDate.now();
