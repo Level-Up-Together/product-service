@@ -6,5 +6,6 @@
   "user_profile_image_url": null,
   "content": "축하합니다!",
   "deleted": false,
-  "created_at": "2025-01-15T11:00:00"
+  "created_at": "2025-01-15T11:00:00",
+  "my_comment": false
 }
