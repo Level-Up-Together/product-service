@@ -15,14 +15,15 @@ public class RateLimiterConfig {
 
     /**
      * 출석 체크 Rate Limiter
-     * 사용자당 1분에 최대 3회 요청 허용
+     * 전역 1분에 최대 30회 요청 허용
+     * TODO: 사용자별 Rate Limiter로 변경 필요 (현재 Resilience4j는 전역 적용)
      * (중복 출석은 DB에서 방지되지만, 과도한 API 호출 방지)
      */
     @Bean
     public RateLimiter attendanceRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =
             io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
-                .limitForPeriod(3)                       // 1분에 3회
+                .limitForPeriod(30)                      // 1분에 30회 (전역)
                 .limitRefreshPeriod(Duration.ofMinutes(1))
                 .timeoutDuration(Duration.ofSeconds(1))
                 .build();
@@ -32,13 +33,14 @@ public class RateLimiterConfig {
 
     /**
      * 미션 완료 Rate Limiter
-     * 사용자당 1분에 최대 10회 요청 허용
+     * 전역 1분에 최대 100회 요청 허용
+     * TODO: 사용자별 Rate Limiter로 변경 필요 (현재 Resilience4j는 전역 적용)
      */
     @Bean
     public RateLimiter missionCompletionRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =
             io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
-                .limitForPeriod(10)                      // 1분에 10회
+                .limitForPeriod(100)                     // 1분에 100회 (전역)
                 .limitRefreshPeriod(Duration.ofMinutes(1))
                 .timeoutDuration(Duration.ofSeconds(1))
                 .build();
