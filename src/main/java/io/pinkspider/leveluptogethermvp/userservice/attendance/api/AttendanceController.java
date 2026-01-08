@@ -1,10 +1,10 @@
 package io.pinkspider.leveluptogethermvp.userservice.attendance.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
-import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,24 +24,13 @@ public class AttendanceController {
 
     private final AttendanceService attendanceService;
 
-    // 출석 체크 (Rate Limit: 1분에 3회)
+    // 출석 체크 (Rate Limit: 사용자당 1분에 5회)
     @PostMapping("/check-in")
-    @RateLimiter(name = "attendance", fallbackMethod = "checkInFallback")
+    @PerUserRateLimit(name = "attendance", limit = 5, windowSeconds = 60)
     public ResponseEntity<ApiResult<AttendanceCheckInResponse>> checkIn(
         @CurrentUser String userId) {
         AttendanceCheckInResponse response = attendanceService.checkIn(userId);
         return ResponseEntity.ok(ApiResult.<AttendanceCheckInResponse>builder().value(response).build());
-    }
-
-    // Rate Limit 초과 시 fallback
-    public ResponseEntity<ApiResult<AttendanceCheckInResponse>> checkInFallback(
-        String userId, Exception ex) {
-        log.warn("출석 체크 Rate Limit 초과: userId={}", userId);
-        return ResponseEntity.status(429)
-            .body(ApiResult.<AttendanceCheckInResponse>builder()
-                .code("TOO_MANY_REQUESTS")
-                .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
-                .build());
     }
 
     // 오늘 출석 여부 확인
