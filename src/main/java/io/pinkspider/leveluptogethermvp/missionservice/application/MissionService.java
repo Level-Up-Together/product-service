@@ -367,7 +367,7 @@ public class MissionService {
 
             // 관련 피드 삭제 (미션 공유 피드)
             try {
-                int deletedFeedCount = activityFeedService.deleteFeedsByReferenceId(missionId, "MISSION");
+                int deletedFeedCount = activityFeedService.deleteFeedsByMissionId(missionId);
                 log.info("미션 관련 피드 삭제: missionId={}, deletedFeedCount={}", missionId, deletedFeedCount);
             } catch (Exception e) {
                 log.warn("미션 관련 피드 삭제 실패: missionId={}, error={}", missionId, e.getMessage());
