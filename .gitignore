@@ -43,5 +43,6 @@ logs
 
 ### Claude Code ###
 *-command-message*.txt
+.mcp.json
 /src/main/resources/restdocs/
 /uploads/

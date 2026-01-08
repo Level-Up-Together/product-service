@@ -60,14 +60,33 @@ public class MissionExecutionService {
     @Transactional
     public void generateExecutionsForParticipant(MissionParticipant participant) {
         Mission mission = participant.getMission();
-        LocalDate startDate = mission.getStartAt() != null
-            ? mission.getStartAt().toLocalDate()
-            : LocalDate.now();
-        LocalDate endDate = mission.getEndAt() != null
-            ? mission.getEndAt().toLocalDate()
-            : (mission.getDurationDays() != null
-                ? startDate.plusDays(mission.getDurationDays())
-                : startDate.plusDays(30));
+        LocalDate today = LocalDate.now();
+
+        // 시작일 결정: startAt이 없거나 과거이면 오늘부터 시작
+        LocalDate startDate;
+        if (mission.getStartAt() != null) {
+            LocalDate missionStartDate = mission.getStartAt().toLocalDate();
+            // 미션 시작일이 과거인 경우 오늘부터 시작
+            startDate = missionStartDate.isBefore(today) ? today : missionStartDate;
+        } else {
+            startDate = today;
+        }
+
+        // 종료일 결정: 시작일 기준으로 durationDays 적용
+        LocalDate endDate;
+        if (mission.getDurationDays() != null) {
+            endDate = startDate.plusDays(mission.getDurationDays());
+        } else if (mission.getEndAt() != null) {
+            LocalDate missionEndDate = mission.getEndAt().toLocalDate();
+            // 종료일이 시작일보다 이전이면 durationDays 또는 기본값 사용
+            if (missionEndDate.isBefore(startDate)) {
+                endDate = startDate.plusDays(30);
+            } else {
+                endDate = missionEndDate;
+            }
+        } else {
+            endDate = startDate.plusDays(30);
+        }
 
         MissionInterval interval = mission.getMissionInterval() != null
             ? mission.getMissionInterval()
