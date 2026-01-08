@@ -35,7 +35,8 @@ import org.hibernate.annotations.Comment;
         @Index(name = "idx_feed_created", columnList = "created_at DESC"),
         @Index(name = "idx_feed_visibility", columnList = "visibility"),
         @Index(name = "idx_feed_guild", columnList = "guild_id"),
-        @Index(name = "idx_feed_category", columnList = "category_id")
+        @Index(name = "idx_feed_category", columnList = "category_id"),
+        @Index(name = "idx_feed_mission", columnList = "mission_id")
     })
 @Comment("활동 피드")
 public class ActivityFeed extends LocalDateTimeBaseEntity {
@@ -132,6 +133,10 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Comment("댓글 수")
     @Builder.Default
     private Integer commentCount = 0;
+
+    @Column(name = "mission_id")
+    @Comment("미션 ID (미션 공유 피드인 경우)")
+    private Long missionId;
 
     @Column(name = "execution_id")
     @Comment("미션 실행 ID (사용자 공유 피드인 경우)")
