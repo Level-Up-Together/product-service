@@ -116,4 +116,9 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     int deleteByReferenceIdAndReferenceType(
         @Param("referenceId") Long referenceId,
         @Param("referenceType") String referenceType);
+
+    // missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
+    @Modifying
+    @Query("DELETE FROM ActivityFeed f WHERE f.missionId = :missionId")
+    int deleteByMissionId(@Param("missionId") Long missionId);
 }

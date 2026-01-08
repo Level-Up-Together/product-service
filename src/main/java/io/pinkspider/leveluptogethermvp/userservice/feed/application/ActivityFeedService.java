@@ -881,6 +881,7 @@ public class ActivityFeedService {
             .visibility(FeedVisibility.PUBLIC)
             .categoryId(categoryId)
             .imageUrl(imageUrl)
+            .missionId(missionId)
             .executionId(executionId)
             .durationMinutes(durationMinutes)
             .expEarned(expEarned)
@@ -911,6 +912,16 @@ public class ActivityFeedService {
         int deletedCount = activityFeedRepository.deleteByReferenceIdAndReferenceType(referenceId, referenceType);
         log.info("Feeds deleted by referenceId: referenceId={}, referenceType={}, deletedCount={}",
             referenceId, referenceType, deletedCount);
+        return deletedCount;
+    }
+
+    /**
+     * missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
+     */
+    @Transactional
+    public int deleteFeedsByMissionId(Long missionId) {
+        int deletedCount = activityFeedRepository.deleteByMissionId(missionId);
+        log.info("Feeds deleted by missionId: missionId={}, deletedCount={}", missionId, deletedCount);
         return deletedCount;
     }
 }
