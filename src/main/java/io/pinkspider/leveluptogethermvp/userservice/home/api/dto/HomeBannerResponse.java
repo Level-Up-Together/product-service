@@ -2,9 +2,9 @@ package io.pinkspider.leveluptogethermvp.userservice.home.api.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.entity.HomeBanner;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.LinkType;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.LinkType;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

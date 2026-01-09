@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.home.domain.enums;
+package io.pinkspider.leveluptogethermvp.adminservice.domain.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

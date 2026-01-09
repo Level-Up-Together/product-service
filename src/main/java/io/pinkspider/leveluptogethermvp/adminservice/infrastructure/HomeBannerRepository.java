@@ -1,7 +1,7 @@
-package io.pinkspider.leveluptogethermvp.userservice.home.infrastructure;
+package io.pinkspider.leveluptogethermvp.adminservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.entity.HomeBanner;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;

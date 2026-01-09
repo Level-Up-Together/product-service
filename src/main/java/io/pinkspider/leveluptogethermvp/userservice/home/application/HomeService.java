@@ -1,11 +1,14 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedPlayer;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
+import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedPlayerRepository;
+import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.HomeBannerRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedPlayer;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedPlayerRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
@@ -15,9 +18,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.U
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.entity.HomeBanner;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.userservice.home.infrastructure.HomeBannerRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.ExperienceHistoryRepository;
@@ -336,7 +336,7 @@ public class HomeService {
     /**
      * 배너 생성 (관리자용)
      */
-    @Transactional
+    @Transactional(transactionManager = "adminTransactionManager")
     public HomeBannerResponse createBanner(HomeBanner banner) {
         HomeBanner saved = homeBannerRepository.save(banner);
         log.info("Banner created: id={}, type={}, title={}", saved.getId(), saved.getBannerType(), saved.getTitle());
@@ -346,7 +346,7 @@ public class HomeService {
     /**
      * 배너 수정 (관리자용)
      */
-    @Transactional
+    @Transactional(transactionManager = "adminTransactionManager")
     public HomeBannerResponse updateBanner(Long bannerId, HomeBanner updateData) {
         HomeBanner banner = homeBannerRepository.findById(bannerId)
             .orElseThrow(() -> new IllegalArgumentException("배너를 찾을 수 없습니다: " + bannerId));
@@ -387,7 +387,7 @@ public class HomeService {
     /**
      * 배너 삭제 (관리자용)
      */
-    @Transactional
+    @Transactional(transactionManager = "adminTransactionManager")
     public void deleteBanner(Long bannerId) {
         homeBannerRepository.deleteById(bannerId);
         log.info("Banner deleted: id={}", bannerId);
@@ -396,7 +396,7 @@ public class HomeService {
     /**
      * 배너 비활성화 (관리자용)
      */
-    @Transactional
+    @Transactional(transactionManager = "adminTransactionManager")
     public HomeBannerResponse deactivateBanner(Long bannerId) {
         HomeBanner banner = homeBannerRepository.findById(bannerId)
             .orElseThrow(() -> new IllegalArgumentException("배너를 찾을 수 없습니다: " + bannerId));
