@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.metaservice.infrastructure;
+package io.pinkspider.leveluptogethermvp.adminservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedPlayer;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedPlayer;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;

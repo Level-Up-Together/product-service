@@ -1,8 +1,8 @@
-package io.pinkspider.leveluptogethermvp.userservice.home.domain.entity;
+package io.pinkspider.leveluptogethermvp.adminservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.userservice.home.domain.enums.LinkType;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.LinkType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

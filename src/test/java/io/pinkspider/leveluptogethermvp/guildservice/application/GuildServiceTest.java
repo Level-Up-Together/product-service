@@ -30,8 +30,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildLevelCo
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.FeaturedGuild;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.FeaturedGuildRepository;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedGuild;
+import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedGuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;

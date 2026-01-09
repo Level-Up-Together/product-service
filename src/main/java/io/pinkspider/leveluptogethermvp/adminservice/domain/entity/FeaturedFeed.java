@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.metaservice.domain.entity;
+package io.pinkspider.leveluptogethermvp.adminservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import jakarta.persistence.Column;
@@ -24,14 +24,14 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "featured_guild",
+@Table(name = "featured_feed",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_featured_guild",
-        columnNames = {"category_id", "guild_id"}
+        name = "uk_featured_feed",
+        columnNames = {"category_id", "feed_id"}
     )
 )
-@Comment("카테고리별 추천 길드")
-public class FeaturedGuild extends LocalDateTimeBaseEntity {
+@Comment("추천 피드/미션")
+public class FeaturedFeed extends LocalDateTimeBaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,15 +39,14 @@ public class FeaturedGuild extends LocalDateTimeBaseEntity {
     @Comment("ID")
     private Long id;
 
-    @NotNull
-    @Column(name = "category_id", nullable = false)
-    @Comment("카테고리 ID (mission_category.id 참조)")
+    @Column(name = "category_id")
+    @Comment("카테고리 ID (NULL=전체, mission_category.id 참조)")
     private Long categoryId;
 
     @NotNull
-    @Column(name = "guild_id", nullable = false)
-    @Comment("길드 ID (guild.id 참조)")
-    private Long guildId;
+    @Column(name = "feed_id", nullable = false)
+    @Comment("피드 ID (activity_feed.id 참조)")
+    private Long feedId;
 
     @NotNull
     @Column(name = "display_order", nullable = false)
