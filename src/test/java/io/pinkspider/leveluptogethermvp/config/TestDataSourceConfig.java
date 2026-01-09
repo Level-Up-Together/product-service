@@ -267,4 +267,49 @@ public class TestDataSourceConfig {
         }
     }
 
+    // ========== Notification DataSource ==========
+    @Configuration
+    @Profile("test")
+    @EnableJpaRepositories(
+        basePackages = "io.pinkspider.leveluptogethermvp.notificationservice",
+        entityManagerFactoryRef = "notificationEntityManagerFactory",
+        transactionManagerRef = "notificationTransactionManager"
+    )
+    static class TestNotificationDataSourceConfig {
+
+        @Bean
+        @ConfigurationProperties("spring.datasource.notification")
+        public DataSource notificationDataSource() {
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "notificationEntityManagerFactory")
+        public LocalContainerEntityManagerFactoryBean notificationEntityManagerFactory(
+            @Qualifier("notificationDataSource") DataSource dataSource) {
+            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            em.setDataSource(dataSource);
+            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.notificationservice");
+            em.setPersistenceUnitName("notification");
+            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+            em.setJpaVendorAdapter(vendorAdapter);
+            em.setJpaProperties(jpaProperties());
+            return em;
+        }
+
+        @Bean(name = "notificationTransactionManager")
+        public PlatformTransactionManager notificationTransactionManager(
+            @Qualifier("notificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            return new JpaTransactionManager(entityManagerFactory);
+        }
+
+        private Properties jpaProperties() {
+            Properties properties = new Properties();
+            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
+            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+            properties.setProperty("hibernate.format_sql", "true");
+            properties.setProperty("hibernate.show_sql", "true");
+            return properties;
+        }
+    }
+
 }

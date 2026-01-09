@@ -13,13 +13,11 @@ import javax.crypto.spec.PBEKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest
-@DirtiesContext
-@ActiveProfiles("test")
+/**
+ * AES 키 생성 유틸리티 테스트
+ * Spring 컨텍스트 불필요 - 순수 Java 암호화 기능 테스트
+ */
 @Slf4j
 public class AesKeyGenerator {
 

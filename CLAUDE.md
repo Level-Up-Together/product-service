@@ -36,7 +36,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Service | Purpose |
 |---------|---------|
-| `userservice` | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests, activity feed, notifications |
+| `userservice` | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests, activity feed |
+| `notificationservice` | Push notifications, notification preferences, notification management (separate DB: notification_db) |
 | `metaservice` | Common codes, calendar holidays, Redis-cached metadata, level configuration |
 | `missionservice` | Mission definition, progress tracking, Saga orchestration, mission book |
 | `guildservice` | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
@@ -48,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
-- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, saga_db) with Hikari pooling
+- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, saga_db, notification_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
 - **Caching**: Redis with Lettuce client (two templates: `redisTemplateForString`, `redisTemplateForObject`)
 - **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
@@ -80,6 +81,7 @@ public void updateMission(...) { ... }
 | Service | Transaction Manager |
 |---------|---------------------|
 | userservice | `userTransactionManager` (Primary) |
+| notificationservice | `notificationTransactionManager` |
 | missionservice | `missionTransactionManager` |
 | guildservice | `guildTransactionManager` |
 | metaservice | `metaTransactionManager` |
