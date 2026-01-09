@@ -23,7 +23,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.User
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import java.time.LocalDate;
 import java.time.YearMonth;

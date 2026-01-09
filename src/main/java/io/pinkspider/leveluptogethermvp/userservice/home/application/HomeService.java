@@ -11,17 +11,17 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.ExperienceHistoryRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.global.translation.LocaleUtils;
 import java.time.LocalDate;
@@ -514,7 +514,7 @@ public class HomeService {
     /**
      * 칭호의 로컬라이즈된 이름 반환
      */
-    private String getLocalizedTitleName(io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Title title, String locale) {
+    private String getLocalizedTitleName(io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title title, String locale) {
         if (title == null) {
             return null;
         }

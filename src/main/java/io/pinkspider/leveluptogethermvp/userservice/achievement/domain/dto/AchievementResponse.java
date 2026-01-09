@@ -2,9 +2,9 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.Achievement;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
