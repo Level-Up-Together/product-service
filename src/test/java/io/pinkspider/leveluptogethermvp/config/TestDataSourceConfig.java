@@ -402,4 +402,49 @@ public class TestDataSourceConfig {
         }
     }
 
+    // ========== Gamification DataSource ==========
+    @Configuration
+    @Profile("test")
+    @EnableJpaRepositories(
+        basePackages = "io.pinkspider.leveluptogethermvp.gamificationservice",
+        entityManagerFactoryRef = "gamificationEntityManagerFactory",
+        transactionManagerRef = "gamificationTransactionManager"
+    )
+    static class TestGamificationDataSourceConfig {
+
+        @Bean
+        @ConfigurationProperties("spring.datasource.gamification")
+        public DataSource gamificationDataSource() {
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "gamificationEntityManagerFactory")
+        public LocalContainerEntityManagerFactoryBean gamificationEntityManagerFactory(
+            @Qualifier("gamificationDataSource") DataSource dataSource) {
+            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            em.setDataSource(dataSource);
+            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.gamificationservice");
+            em.setPersistenceUnitName("gamification");
+            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+            em.setJpaVendorAdapter(vendorAdapter);
+            em.setJpaProperties(jpaProperties());
+            return em;
+        }
+
+        @Bean(name = "gamificationTransactionManager")
+        public PlatformTransactionManager gamificationTransactionManager(
+            @Qualifier("gamificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            return new JpaTransactionManager(entityManagerFactory);
+        }
+
+        private Properties jpaProperties() {
+            Properties properties = new Properties();
+            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
+            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+            properties.setProperty("hibernate.format_sql", "true");
+            properties.setProperty("hibernate.show_sql", "true");
+            return properties;
+        }
+    }
+
 }

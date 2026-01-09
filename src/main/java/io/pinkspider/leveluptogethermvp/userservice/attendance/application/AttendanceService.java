@@ -1,15 +1,15 @@
 package io.pinkspider.leveluptogethermvp.userservice.attendance.application;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRewardConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AttendanceRewardType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRewardConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.entity.AttendanceRecord;
-import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.entity.AttendanceRewardConfig;
-import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.enums.AttendanceRewardType;
-import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRecordRepository;
-import io.pinkspider.leveluptogethermvp.userservice.attendance.infrastructure.AttendanceRewardConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "gamificationTransactionManager", readOnly = true)
 public class AttendanceService {
 
     private final AttendanceRecordRepository attendanceRecordRepository;
@@ -37,7 +37,7 @@ public class AttendanceService {
 
     private static final int DEFAULT_DAILY_EXP = 10;
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public AttendanceCheckInResponse checkIn(String userId) {
         LocalDate today = LocalDate.now();
 
@@ -225,7 +225,7 @@ public class AttendanceService {
         return totalBonus;
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void initializeDefaultRewardConfigs() {
         if (rewardConfigRepository.count() > 0) {
             return;

@@ -23,8 +23,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantS
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory.ExpSourceType;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

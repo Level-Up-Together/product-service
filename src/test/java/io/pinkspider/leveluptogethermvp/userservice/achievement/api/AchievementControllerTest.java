@@ -25,11 +25,11 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Title
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementType;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleAcquisitionType;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;

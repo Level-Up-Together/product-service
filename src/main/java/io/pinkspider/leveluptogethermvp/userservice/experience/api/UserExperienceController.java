@@ -5,7 +5,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.ExperienceHistory;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
