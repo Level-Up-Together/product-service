@@ -13,6 +13,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
 
     // swagger json
     id 'com.epages.restdocs-api-spec' version "${restdocsApiSpecVersion}"
@@ -185,7 +186,7 @@ tasks.named('test') {
 }
 
 tasks.named('test').configure {
-    finalizedBy(sortOpenApiJson)
+    finalizedBy(sortOpenApiJson, jacocoTestReport)
 }
 
 // Swagger JSON 정렬 작업
@@ -291,4 +292,44 @@ generateJava {
     schemaPaths = ["${projectDir}/src/main/resources/schema"]
     packageName = 'io.pinkspider'
     generateClient = true
+}
+
+// JaCoCo 설정
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/html')
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    '**/Q*.class',
+                    '**/config/**',
+                    '**/dto/**',
+                    '**/entity/**',
+                    '**/enums/**',
+                    '**/exception/**',
+                    '**/generated/**',
+                    '**/types/**',
+                    '**/DgsConstants*.class',
+                    '**/*Application.class'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.70
+            }
+        }
+    }
 }
