@@ -1,12 +1,12 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.api;
+package io.pinkspider.leveluptogethermvp.notificationservice.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceRequest;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationSummaryResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

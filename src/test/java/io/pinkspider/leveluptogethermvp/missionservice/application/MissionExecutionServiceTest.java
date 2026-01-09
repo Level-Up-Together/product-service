@@ -24,7 +24,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSag
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

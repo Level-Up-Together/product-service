@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity;
+package io.pinkspider.leveluptogethermvp.notificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import jakarta.persistence.Column;

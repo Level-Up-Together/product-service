@@ -1,7 +1,7 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity;
+package io.pinkspider.leveluptogethermvp.notificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.enums.NotificationType;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

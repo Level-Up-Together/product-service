@@ -16,7 +16,7 @@ import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.listener.NotificationEventListener;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.infrastructure;
+package io.pinkspider.leveluptogethermvp.notificationservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity.NotificationPreference;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

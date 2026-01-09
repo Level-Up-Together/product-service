@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.api;
+package io.pinkspider.leveluptogethermvp.notificationservice.api;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
@@ -18,12 +18,12 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
-import io.pinkspider.leveluptogethermvp.userservice.notification.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceRequest;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationSummaryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.enums.NotificationType;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

@@ -1,14 +1,14 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.application;
+package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceRequest;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationPreferenceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto.NotificationSummaryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity.Notification;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.entity.NotificationPreference;
-import io.pinkspider.leveluptogethermvp.userservice.notification.domain.enums.NotificationType;
-import io.pinkspider.leveluptogethermvp.userservice.notification.infrastructure.NotificationPreferenceRepository;
-import io.pinkspider.leveluptogethermvp.userservice.notification.infrastructure.NotificationRepository;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
+import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,20 +21,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "notificationTransactionManager", readOnly = true)
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceRepository preferenceRepository;
 
     // 알림 생성
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse createNotification(String userId, NotificationType type,
                                                     String title, String message) {
         return createNotification(userId, type, title, message, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse createNotification(String userId, NotificationType type,
                                                     String title, String message,
                                                     String referenceType, Long referenceId,
@@ -42,7 +42,7 @@ public class NotificationService {
         return createNotification(userId, type, title, message, referenceType, referenceId, actionUrl, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse createNotification(String userId, NotificationType type,
                                                     String title, String message,
                                                     String referenceType, Long referenceId,
@@ -93,7 +93,7 @@ public class NotificationService {
     }
 
     // 알림 읽음 처리
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse markAsRead(String userId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
             .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
@@ -107,7 +107,7 @@ public class NotificationService {
     }
 
     // 모든 알림 읽음 처리
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public int markAllAsRead(String userId) {
         int count = notificationRepository.markAllAsRead(userId);
         log.info("모든 알림 읽음 처리: userId={}, count={}", userId, count);
@@ -115,7 +115,7 @@ public class NotificationService {
     }
 
     // 알림 삭제
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void deleteNotification(String userId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
             .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다."));
@@ -129,7 +129,7 @@ public class NotificationService {
     }
 
     // 참조 정보로 알림 삭제 (친구 요청 등 처리 후 알림 제거용)
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public int deleteByReference(String referenceType, Long referenceId) {
         int count = notificationRepository.deleteByReference(referenceType, referenceId);
         if (count > 0) {
@@ -146,7 +146,7 @@ public class NotificationService {
     }
 
     // 알림 설정 수정
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationPreferenceResponse updatePreferences(String userId,
                                                              NotificationPreferenceRequest request) {
         NotificationPreference pref = getOrCreatePreference(userId);
@@ -165,7 +165,7 @@ public class NotificationService {
     }
 
     // 만료된 알림 정리
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public int cleanupExpiredNotifications() {
         int count = notificationRepository.deleteExpiredNotifications(LocalDateTime.now());
         if (count > 0) {
@@ -185,7 +185,7 @@ public class NotificationService {
     // ==================== 편의 메서드 ====================
 
     // 친구 요청 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyFriendRequest(String userId, String requesterNickname, Long friendshipId) {
         createNotification(userId, NotificationType.FRIEND_REQUEST,
             "새 친구 요청",
@@ -194,7 +194,7 @@ public class NotificationService {
     }
 
     // 친구 수락 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyFriendAccepted(String userId, String accepterNickname, Long friendshipId) {
         createNotification(userId, NotificationType.FRIEND_ACCEPTED,
             "친구 요청 수락",
@@ -203,7 +203,7 @@ public class NotificationService {
     }
 
     // 친구 거절 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyFriendRejected(String userId, String rejecterNickname, Long friendshipId) {
         createNotification(userId, NotificationType.FRIEND_REJECTED,
             "친구 요청 거절",
@@ -212,7 +212,7 @@ public class NotificationService {
     }
 
     // 길드 초대 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildInvite(String userId, String guildName, Long guildId) {
         createNotification(userId, NotificationType.GUILD_INVITE,
             "길드 초대",
@@ -221,7 +221,7 @@ public class NotificationService {
     }
 
     // 길드 가입 신청 알림 (길드장에게)
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildJoinRequest(String guildLeaderId, String applicantNickname, Long guildId) {
         createNotification(guildLeaderId, NotificationType.GUILD_JOIN_REQUEST,
             "길드 가입 신청",
@@ -230,7 +230,7 @@ public class NotificationService {
     }
 
     // 길드 가입 승인 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildJoinApproved(String userId, String guildName, Long guildId) {
         createNotification(userId, NotificationType.GUILD_JOIN_APPROVED,
             "길드 가입 승인",
@@ -239,7 +239,7 @@ public class NotificationService {
     }
 
     // 길드 가입 거절 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildJoinRejected(String userId, String guildName, Long guildId) {
         createNotification(userId, NotificationType.GUILD_JOIN_REJECTED,
             "길드 가입 거절",
@@ -248,7 +248,7 @@ public class NotificationService {
     }
 
     // 길드 미션 도착 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildMissionArrived(String userId, String missionTitle, Long missionId) {
         createNotification(userId, NotificationType.GUILD_MISSION_ARRIVED,
             "새 길드 미션",
@@ -257,7 +257,7 @@ public class NotificationService {
     }
 
     // 내 글에 댓글 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyCommentOnMyFeed(String feedOwnerId, String commenterNickname, Long feedId) {
         createNotification(feedOwnerId, NotificationType.COMMENT_ON_MY_FEED,
             "새 댓글",
@@ -266,21 +266,21 @@ public class NotificationService {
     }
 
     // 칭호 획득 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
         // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
         String rarityMetadata = "rarity:" + titleRarity;
         createNotification(userId, NotificationType.TITLE_ACQUIRED,
-            "🏆 새로운 칭호 획득!",
+            "새로운 칭호 획득!",
             "'" + titleName + "' 칭호를 획득했습니다!",
             "TITLE", titleId, "/mypage/titles", rarityMetadata);
     }
 
     // 업적 달성 알림
-    @Transactional
+    @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyAchievementCompleted(String userId, Long achievementId, String achievementName) {
         createNotification(userId, NotificationType.ACHIEVEMENT_COMPLETED,
-            "🎯 업적 달성!",
+            "업적 달성!",
             "'" + achievementName + "' 업적을 달성했습니다!",
             "ACHIEVEMENT", achievementId, "/mypage/achievements");
     }

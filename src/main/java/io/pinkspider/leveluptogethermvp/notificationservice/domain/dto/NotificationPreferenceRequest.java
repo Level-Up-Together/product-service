@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.notification.domain.dto;
+package io.pinkspider.leveluptogethermvp.notificationservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
