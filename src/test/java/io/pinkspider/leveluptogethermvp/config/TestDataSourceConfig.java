@@ -357,4 +357,49 @@ public class TestDataSourceConfig {
         }
     }
 
+    // ========== Feed DataSource ==========
+    @Configuration
+    @Profile("test")
+    @EnableJpaRepositories(
+        basePackages = "io.pinkspider.leveluptogethermvp.feedservice",
+        entityManagerFactoryRef = "feedEntityManagerFactory",
+        transactionManagerRef = "feedTransactionManager"
+    )
+    static class TestFeedDataSourceConfig {
+
+        @Bean
+        @ConfigurationProperties("spring.datasource.feed")
+        public DataSource feedDataSource() {
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "feedEntityManagerFactory")
+        public LocalContainerEntityManagerFactoryBean feedEntityManagerFactory(
+            @Qualifier("feedDataSource") DataSource dataSource) {
+            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            em.setDataSource(dataSource);
+            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.feedservice");
+            em.setPersistenceUnitName("feed");
+            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+            em.setJpaVendorAdapter(vendorAdapter);
+            em.setJpaProperties(jpaProperties());
+            return em;
+        }
+
+        @Bean(name = "feedTransactionManager")
+        public PlatformTransactionManager feedTransactionManager(
+            @Qualifier("feedEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            return new JpaTransactionManager(entityManagerFactory);
+        }
+
+        private Properties jpaProperties() {
+            Properties properties = new Properties();
+            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
+            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+            properties.setProperty("hibernate.format_sql", "true");
+            properties.setProperty("hibernate.show_sql", "true");
+            return properties;
+        }
+    }
+
 }

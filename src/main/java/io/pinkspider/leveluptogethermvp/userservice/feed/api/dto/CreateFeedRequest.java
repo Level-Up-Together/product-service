@@ -2,8 +2,8 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

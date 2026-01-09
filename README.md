@@ -18,34 +18,273 @@
 ## 아키텍처
 
 Multi-Service Monolith 구조로, 단일 배포 단위 내에서 서비스별로 독립된 데이터베이스를 사용합니다.
+MSA 전환을 대비하여 각 서비스가 자체 데이터베이스와 트랜잭션 매니저를 가지고 있습니다.
+
+### 아키텍처 다이어그램
+
+```mermaid
+graph TB
+    subgraph Client["클라이언트"]
+        APP["모바일 앱<br/>(React Native)"]
+        WEB["웹 앱<br/>(Next.js)"]
+        ADMIN["어드민<br/>(Next.js)"]
+    end
+
+    subgraph Gateway["API Gateway Layer"]
+        SSL["HTTPS/SSL<br/>:8443"]
+    end
+
+    subgraph Application["Level Up Together MVP (Spring Boot 3.4.5)"]
+        subgraph Services["Service Modules"]
+            USER["userservice<br/>인증, 프로필, 경험치<br/>친구, 출석, 퀘스트"]
+            MISSION["missionservice<br/>미션 관리, Saga<br/>미션북"]
+            GUILD["guildservice<br/>길드, 채팅<br/>게시판, 거점"]
+            META["metaservice<br/>공통코드, 레벨설정<br/>캘린더"]
+            FEED["feedservice<br/>활동 피드<br/>좋아요, 댓글"]
+            NOTIF["notificationservice<br/>알림, 푸시<br/>알림 설정"]
+            ADMIN_SVC["adminservice<br/>추천 콘텐츠<br/>홈 배너"]
+            BFF["bffservice<br/>데이터 집계<br/>통합 검색"]
+            NOTICE["noticeservice<br/>공지사항"]
+            SUPPORT["supportservice<br/>고객지원"]
+            LOGGER["loggerservice<br/>이벤트 로깅"]
+        end
+
+        subgraph Global["Global Infrastructure"]
+            SAGA["Saga Pattern<br/>분산 트랜잭션"]
+            SECURITY["JWT/OAuth2<br/>보안 필터"]
+            CACHE["Redis Cache<br/>메타데이터 캐싱"]
+        end
+    end
+
+    subgraph Databases["PostgreSQL Databases"]
+        USER_DB[("user_db<br/>사용자, 인증<br/>친구, 퀘스트")]
+        MISSION_DB[("mission_db<br/>미션, 실행<br/>카테고리")]
+        GUILD_DB[("guild_db<br/>길드, 멤버<br/>채팅, 게시판")]
+        META_DB[("meta_db<br/>공통코드<br/>레벨설정")]
+        FEED_DB[("feed_db<br/>피드, 댓글<br/>좋아요")]
+        NOTIF_DB[("notification_db<br/>알림<br/>알림설정")]
+        ADMIN_DB[("admin_db<br/>추천콘텐츠<br/>배너")]
+        SAGA_DB[("saga_db<br/>Saga 상태<br/>스텝 로그")]
+    end
+
+    subgraph External["External Services"]
+        REDIS[("Redis<br/>캐시")]
+        KAFKA["Kafka<br/>메시징"]
+        MONGO[("MongoDB<br/>로그")]
+    end
+
+    APP --> SSL
+    WEB --> SSL
+    ADMIN --> SSL
+
+    SSL --> BFF
+    SSL --> USER
+    SSL --> MISSION
+    SSL --> GUILD
+    SSL --> FEED
+    SSL --> NOTIF
+    SSL --> NOTICE
+
+    USER --> USER_DB
+    MISSION --> MISSION_DB
+    GUILD --> GUILD_DB
+    META --> META_DB
+    FEED --> FEED_DB
+    NOTIF --> NOTIF_DB
+    ADMIN_SVC --> ADMIN_DB
+    SAGA --> SAGA_DB
+
+    LOGGER --> MONGO
+    LOGGER --> KAFKA
+    CACHE --> REDIS
+
+    classDef service fill:#4a90d9,stroke:#2c5282,color:#fff
+    classDef db fill:#48bb78,stroke:#276749,color:#fff
+    classDef external fill:#ed8936,stroke:#c05621,color:#fff
+    classDef client fill:#9f7aea,stroke:#6b46c1,color:#fff
+
+    class USER,MISSION,GUILD,META,FEED,NOTIF,ADMIN_SVC,BFF,NOTICE,SUPPORT,LOGGER service
+    class USER_DB,MISSION_DB,GUILD_DB,META_DB,FEED_DB,NOTIF_DB,ADMIN_DB,SAGA_DB db
+    class REDIS,KAFKA,MONGO external
+    class APP,WEB,ADMIN client
+```
+
+### 서비스 간 의존성
+
+```mermaid
+graph LR
+    subgraph "API Layer"
+        BFF["bffservice"]
+    end
+
+    subgraph "Domain Services"
+        USER["userservice"]
+        MISSION["missionservice"]
+        GUILD["guildservice"]
+        FEED["feedservice"]
+        NOTIF["notificationservice"]
+        ADMIN["adminservice"]
+        META["metaservice"]
+    end
+
+    subgraph "Infrastructure"
+        SAGA["saga"]
+    end
+
+    BFF --> USER
+    BFF --> MISSION
+    BFF --> GUILD
+    BFF --> FEED
+    BFF --> ADMIN
+
+    MISSION --> USER
+    MISSION --> FEED
+    MISSION --> SAGA
+
+    GUILD --> USER
+    GUILD --> FEED
+
+    FEED --> USER
+
+    NOTIF --> USER
+
+    USER --> META
+    MISSION --> META
+    GUILD --> META
+
+    style BFF fill:#e2e8f0,stroke:#4a5568
+    style SAGA fill:#fed7d7,stroke:#c53030
+```
+
+### 디렉토리 구조
 
 ```
 src/main/java/io/pinkspider/
 ├── leveluptogethermvp/
-│   ├── userservice/      # 인증, OAuth2, JWT, 사용자 관리, 경험치/레벨
-│   ├── metaservice/      # 공통코드, 메타데이터, Redis 캐싱
-│   ├── missionservice/   # 미션 정의, 진행 관리, Saga 오케스트레이션
-│   ├── guildservice/     # 길드 생성, 멤버 관리, 길드 경험치
-│   ├── loggerservice/    # 이벤트 로깅, MongoDB, Kafka
-│   └── bff/              # Backend-for-Frontend 집계 레이어
+│   ├── userservice/          # 인증, OAuth2, JWT, 사용자 관리, 경험치/레벨
+│   ├── missionservice/       # 미션 정의, 진행 관리, Saga 오케스트레이션
+│   ├── guildservice/         # 길드 생성, 멤버 관리, 길드 경험치
+│   ├── metaservice/          # 공통코드, 메타데이터, Redis 캐싱
+│   ├── feedservice/          # 활동 피드, 좋아요, 댓글
+│   ├── notificationservice/  # 알림 관리, 푸시 알림
+│   ├── adminservice/         # 추천 콘텐츠, 홈 배너 관리
+│   ├── noticeservice/        # 공지사항 관리
+│   ├── supportservice/       # 고객지원
+│   ├── bffservice/           # Backend-for-Frontend 집계 레이어
+│   ├── loggerservice/        # 이벤트 로깅, MongoDB, Kafka
+│   └── profanity/            # 비속어 필터링
 └── global/
-    ├── config/           # 멀티 데이터소스, 보안, 캐시 설정
-    ├── saga/             # Saga 패턴 인프라 (MSA 전환 대비)
-    ├── exception/        # 공통 예외 처리
-    └── security/         # JWT, OAuth2 보안 필터
+    ├── config/
+    │   └── datasource/       # 멀티 데이터소스 설정 (8개 DB)
+    ├── saga/                 # Saga 패턴 인프라 (MSA 전환 대비)
+    ├── exception/            # 공통 예외 처리
+    ├── security/             # JWT, OAuth2 보안 필터
+    ├── translation/          # 다국어 번역 지원
+    └── validation/           # 입력 검증
 ```
 
 ## 데이터베이스 구조
 
 서비스별 독립된 데이터베이스를 사용하며, 각 데이터소스는 별도의 Transaction Manager를 가집니다.
 
-| 데이터베이스 | 서비스 | Transaction Manager |
-|-------------|--------|---------------------|
-| `user_db` | userservice | `userTransactionManager` (Primary) |
-| `mission_db` | missionservice | `missionTransactionManager` |
-| `guild_db` | guildservice | `guildTransactionManager` |
-| `meta_db` | metaservice | `metaTransactionManager` |
-| `saga_db` | saga (global) | `sagaTransactionManager` |
+### 데이터베이스 ERD
+
+```mermaid
+erDiagram
+    user_db {
+        users PK
+        user_term_agreement FK
+        term
+        term_version
+        experience_history
+        level_config
+        attendance
+        quest
+        quest_progress
+        friend
+        friend_request
+        title
+        user_title
+        user_token
+    }
+
+    mission_db {
+        mission PK
+        mission_category
+        mission_participant FK
+        mission_execution FK
+        mission_state_history
+    }
+
+    guild_db {
+        guild PK
+        guild_member FK
+        guild_post
+        guild_post_comment
+        guild_chat_message
+        guild_join_request
+        guild_experience_history
+        guild_level_config
+        guild_headquarters_config
+    }
+
+    feed_db {
+        activity_feed PK
+        feed_comment FK
+        feed_like FK
+    }
+
+    notification_db {
+        notification PK
+        notification_preference FK
+    }
+
+    admin_db {
+        home_banner PK
+        featured_feed
+        featured_guild
+        featured_player
+    }
+
+    meta_db {
+        common_code PK
+        calendar_holiday
+        level_config
+        content_translation
+        profanity_word
+    }
+
+    saga_db {
+        saga_instance PK
+        saga_step_log FK
+    }
+
+    user_db ||--o{ mission_db : "creator_id"
+    user_db ||--o{ guild_db : "master_id/member"
+    user_db ||--o{ feed_db : "user_id"
+    user_db ||--o{ notification_db : "user_id"
+    mission_db ||--o{ feed_db : "mission_id"
+    guild_db ||--o{ feed_db : "guild_id"
+```
+
+### Transaction Manager 매핑
+
+| 데이터베이스 | 서비스 | Transaction Manager | 주요 테이블 |
+|-------------|--------|---------------------|------------|
+| `user_db` | userservice | `userTransactionManager` (Primary) | users, attendance, quest, friend, title |
+| `mission_db` | missionservice | `missionTransactionManager` | mission, mission_execution, mission_participant |
+| `guild_db` | guildservice | `guildTransactionManager` | guild, guild_member, guild_post, guild_chat |
+| `meta_db` | metaservice | `metaTransactionManager` | common_code, level_config, calendar_holiday |
+| `feed_db` | feedservice | `feedTransactionManager` | activity_feed, feed_comment, feed_like |
+| `notification_db` | notificationservice | `notificationTransactionManager` | notification, notification_preference |
+| `admin_db` | adminservice | `adminTransactionManager` | home_banner, featured_feed/guild/player |
+| `saga_db` | saga (global) | `sagaTransactionManager` | saga_instance, saga_step_log |
+
+> **주의**: `@Transactional` 사용 시 반드시 해당 서비스의 트랜잭션 매니저를 명시해야 합니다.
+> ```java
+> @Transactional(transactionManager = "feedTransactionManager")
+> public void createFeed(...) { ... }
+> ```
 
 ## 시작하기
 
@@ -91,18 +330,15 @@ src/main/java/io/pinkspider/
 
 ## 주요 기능
 
-### 인증 (User Service)
+### 사용자 (User Service)
 - OAuth2 소셜 로그인 (Google, Kakao, Apple)
-- JWT 기반 토큰 인증
-- 멀티 디바이스 토큰 지원
+- JWT 기반 토큰 인증 (멀티 디바이스 지원)
 - 약관 동의 관리
 - 경험치/레벨 시스템
 - 친구 관리 (친구 요청/수락/거절)
 - 업적/칭호 시스템 (LEFT+RIGHT 조합 방식)
 - 출석 체크 (연속 출석 보너스)
 - 퀘스트 (일일/주간)
-- 활동 피드 (좋아요, 댓글)
-- 알림 시스템 (인앱, 푸시)
 - 마이페이지 (프로필, 통계)
 
 ### 미션 (Mission Service)
@@ -123,15 +359,34 @@ src/main/java/io/pinkspider/
 - 길드 거점 시스템 (지도 기반)
 - 길드원 칭호 색상 표시
 
+### 활동 피드 (Feed Service)
+- 활동 피드 생성 및 조회
+- 피드 좋아요/댓글
+- 피드 공개 범위 설정 (전체/친구/길드/비공개)
+- 미션 완료 시 자동 피드 생성
+- 피드 검색 기능
+
+### 알림 (Notification Service)
+- 인앱 알림 관리
+- 푸시 알림 (FCM)
+- 알림 설정 (타입별 on/off)
+- 알림 읽음 처리
+
+### 관리 (Admin Service)
+- 홈 배너 관리
+- 추천 플레이어/길드/피드 관리
+- Featured 콘텐츠 관리
+
 ### 메타데이터 (Meta Service)
 - 공통 코드 관리 (Redis 캐싱)
 - 캘린더 휴일 정보
 - 레벨 설정 관리
-- 추천 플레이어/길드/피드 관리
 - 비속어 필터링
+- 다국어 번역 지원
 
 ### BFF (Backend-for-Frontend)
 - 홈 화면 데이터 집계
+- 통합 검색 (피드, 미션, 사용자, 길드)
 - 다중 서비스 데이터 조합
 
 ## API 응답 형식
