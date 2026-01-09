@@ -12,12 +12,12 @@ import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedPlay
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.HomeBannerRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.ExperienceHistoryRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

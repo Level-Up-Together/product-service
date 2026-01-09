@@ -1,8 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.entity.UserStats;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserStatsRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

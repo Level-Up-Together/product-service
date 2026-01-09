@@ -36,13 +36,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Service | Database | Purpose |
 |---------|----------|---------|
-| `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests |
+| `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, friends, quests |
 | `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book |
 | `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
 | `metaservice` | meta_db | Common codes, calendar holidays, Redis-cached metadata, level configuration |
 | `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
 | `notificationservice` | notification_db | Push notifications, notification preferences, notification management |
 | `adminservice` | admin_db | Home banners, featured content (players, guilds, feeds) |
+| `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking |
 | `bffservice` | - | Backend-for-Frontend API aggregation, unified search |
 | `noticeservice` | - | Notice/announcement management |
 | `supportservice` | - | Support/help functionality |
@@ -51,7 +52,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
-- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db, saga_db) with Hikari pooling
+- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db, gamification_db, saga_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
 - **Caching**: Redis with Lettuce client (two templates: `redisTemplateForString`, `redisTemplateForObject`)
 - **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
@@ -89,6 +90,7 @@ public void updateMission(...) { ... }
 | feedservice | `feedTransactionManager` |
 | notificationservice | `notificationTransactionManager` |
 | adminservice | `adminTransactionManager` |
+| gamificationservice | `gamificationTransactionManager` |
 | saga | `sagaTransactionManager` |
 
 ### Service Layer Pattern

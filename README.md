@@ -36,13 +36,14 @@ graph TB
 
     subgraph Application["Level Up Together MVP (Spring Boot 3.4.5)"]
         subgraph Services["Service Modules"]
-            USER["userservice<br/>인증, 프로필, 경험치<br/>친구, 출석, 퀘스트"]
+            USER["userservice<br/>인증, 프로필<br/>친구, 퀘스트"]
             MISSION["missionservice<br/>미션 관리, Saga<br/>미션북"]
             GUILD["guildservice<br/>길드, 채팅<br/>게시판, 거점"]
             META["metaservice<br/>공통코드, 레벨설정<br/>캘린더"]
             FEED["feedservice<br/>활동 피드<br/>좋아요, 댓글"]
             NOTIF["notificationservice<br/>알림, 푸시<br/>알림 설정"]
             ADMIN_SVC["adminservice<br/>추천 콘텐츠<br/>홈 배너"]
+            GAMIF["gamificationservice<br/>칭호, 업적, 경험치<br/>출석, 통계"]
             BFF["bffservice<br/>데이터 집계<br/>통합 검색"]
             NOTICE["noticeservice<br/>공지사항"]
             SUPPORT["supportservice<br/>고객지원"]
@@ -64,6 +65,7 @@ graph TB
         FEED_DB[("feed_db<br/>피드, 댓글<br/>좋아요")]
         NOTIF_DB[("notification_db<br/>알림<br/>알림설정")]
         ADMIN_DB[("admin_db<br/>추천콘텐츠<br/>배너")]
+        GAMIF_DB[("gamification_db<br/>칭호, 업적<br/>경험치, 출석")]
         SAGA_DB[("saga_db<br/>Saga 상태<br/>스텝 로그")]
     end
 
@@ -92,6 +94,7 @@ graph TB
     FEED --> FEED_DB
     NOTIF --> NOTIF_DB
     ADMIN_SVC --> ADMIN_DB
+    GAMIF --> GAMIF_DB
     SAGA --> SAGA_DB
 
     LOGGER --> MONGO
@@ -103,8 +106,8 @@ graph TB
     classDef external fill:#ed8936,stroke:#c05621,color:#fff
     classDef client fill:#9f7aea,stroke:#6b46c1,color:#fff
 
-    class USER,MISSION,GUILD,META,FEED,NOTIF,ADMIN_SVC,BFF,NOTICE,SUPPORT,LOGGER service
-    class USER_DB,MISSION_DB,GUILD_DB,META_DB,FEED_DB,NOTIF_DB,ADMIN_DB,SAGA_DB db
+    class USER,MISSION,GUILD,META,FEED,NOTIF,ADMIN_SVC,GAMIF,BFF,NOTICE,SUPPORT,LOGGER service
+    class USER_DB,MISSION_DB,GUILD_DB,META_DB,FEED_DB,NOTIF_DB,ADMIN_DB,GAMIF_DB,SAGA_DB db
     class REDIS,KAFKA,MONGO external
     class APP,WEB,ADMIN client
 ```
@@ -196,15 +199,10 @@ erDiagram
         user_term_agreement FK
         term
         term_version
-        experience_history
-        level_config
-        attendance
         quest
         quest_progress
         friend
         friend_request
-        title
-        user_title
         user_token
     }
 
@@ -254,6 +252,18 @@ erDiagram
         profanity_word
     }
 
+    gamification_db {
+        title PK
+        achievement PK
+        user_title FK
+        user_achievement FK
+        user_stats
+        user_experience
+        experience_history
+        attendance_record
+        attendance_reward_config
+    }
+
     saga_db {
         saga_instance PK
         saga_step_log FK
@@ -263,6 +273,7 @@ erDiagram
     user_db ||--o{ guild_db : "master_id/member"
     user_db ||--o{ feed_db : "user_id"
     user_db ||--o{ notification_db : "user_id"
+    user_db ||--o{ gamification_db : "user_id"
     mission_db ||--o{ feed_db : "mission_id"
     guild_db ||--o{ feed_db : "guild_id"
 ```
@@ -271,13 +282,14 @@ erDiagram
 
 | 데이터베이스 | 서비스 | Transaction Manager | 주요 테이블 |
 |-------------|--------|---------------------|------------|
-| `user_db` | userservice | `userTransactionManager` (Primary) | users, attendance, quest, friend, title |
+| `user_db` | userservice | `userTransactionManager` (Primary) | users, quest, friend |
 | `mission_db` | missionservice | `missionTransactionManager` | mission, mission_execution, mission_participant |
 | `guild_db` | guildservice | `guildTransactionManager` | guild, guild_member, guild_post, guild_chat |
 | `meta_db` | metaservice | `metaTransactionManager` | common_code, level_config, calendar_holiday |
 | `feed_db` | feedservice | `feedTransactionManager` | activity_feed, feed_comment, feed_like |
 | `notification_db` | notificationservice | `notificationTransactionManager` | notification, notification_preference |
 | `admin_db` | adminservice | `adminTransactionManager` | home_banner, featured_feed/guild/player |
+| `gamification_db` | gamificationservice | `gamificationTransactionManager` | title, achievement, user_title, user_achievement, user_stats, user_experience, experience_history, attendance_record, attendance_reward_config |
 | `saga_db` | saga (global) | `sagaTransactionManager` | saga_instance, saga_step_log |
 
 > **주의**: `@Transactional` 사용 시 반드시 해당 서비스의 트랜잭션 매니저를 명시해야 합니다.

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.translation.dto.TranslationInfo;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;

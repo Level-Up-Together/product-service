@@ -10,8 +10,8 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Title
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.AchievementCategory;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
