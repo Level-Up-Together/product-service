@@ -1,9 +1,9 @@
-package io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure;
+package io.pinkspider.leveluptogethermvp.feedservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;

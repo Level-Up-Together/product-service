@@ -8,7 +8,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import lombok.RequiredArgsConstructor;

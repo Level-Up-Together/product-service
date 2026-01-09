@@ -34,22 +34,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Service Modules (`src/main/java/io/pinkspider/leveluptogethermvp/`)
 
-| Service | Purpose |
-|---------|---------|
-| `userservice` | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests, activity feed |
-| `notificationservice` | Push notifications, notification preferences, notification management (separate DB: notification_db) |
-| `metaservice` | Common codes, calendar holidays, Redis-cached metadata, level configuration |
-| `missionservice` | Mission definition, progress tracking, Saga orchestration, mission book |
-| `guildservice` | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
-| `loggerservice` | Event logging with MongoDB and Kafka |
-| `bffservice` | Backend-for-Frontend API aggregation |
-| `noticeservice` | Notice/announcement management |
-| `supportservice` | Support/help functionality |
-| `profanity` | Profanity detection and filtering |
+| Service | Database | Purpose |
+|---------|----------|---------|
+| `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, experience/levels, achievements, attendance, friends, quests |
+| `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book |
+| `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
+| `metaservice` | meta_db | Common codes, calendar holidays, Redis-cached metadata, level configuration |
+| `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
+| `notificationservice` | notification_db | Push notifications, notification preferences, notification management |
+| `adminservice` | admin_db | Home banners, featured content (players, guilds, feeds) |
+| `bffservice` | - | Backend-for-Frontend API aggregation, unified search |
+| `noticeservice` | - | Notice/announcement management |
+| `supportservice` | - | Support/help functionality |
+| `loggerservice` | MongoDB | Event logging with MongoDB and Kafka |
+| `profanity` | meta_db | Profanity detection and filtering |
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
-- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, saga_db, notification_db) with Hikari pooling
+- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db, saga_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
 - **Caching**: Redis with Lettuce client (two templates: `redisTemplateForString`, `redisTemplateForObject`)
 - **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
@@ -81,10 +83,12 @@ public void updateMission(...) { ... }
 | Service | Transaction Manager |
 |---------|---------------------|
 | userservice | `userTransactionManager` (Primary) |
-| notificationservice | `notificationTransactionManager` |
 | missionservice | `missionTransactionManager` |
 | guildservice | `guildTransactionManager` |
 | metaservice | `metaTransactionManager` |
+| feedservice | `feedTransactionManager` |
+| notificationservice | `notificationTransactionManager` |
+| adminservice | `adminTransactionManager` |
 | saga | `sagaTransactionManager` |
 
 ### Service Layer Pattern

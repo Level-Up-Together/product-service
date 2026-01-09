@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure;
+package io.pinkspider.leveluptogethermvp.feedservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedLike;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
