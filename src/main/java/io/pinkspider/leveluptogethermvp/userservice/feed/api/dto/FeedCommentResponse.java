@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.translation.dto.TranslationInfo;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedComment;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure;
+package io.pinkspider.leveluptogethermvp.feedservice.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.FeedComment;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

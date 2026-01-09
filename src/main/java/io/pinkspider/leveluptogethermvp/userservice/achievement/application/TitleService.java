@@ -10,7 +10,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.Tit
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;

@@ -1,9 +1,9 @@
-package io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity;
+package io.pinkspider.leveluptogethermvp.feedservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

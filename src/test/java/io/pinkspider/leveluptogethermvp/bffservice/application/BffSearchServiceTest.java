@@ -15,10 +15,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.entity.ActivityFeed;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.ActivityType;
-import io.pinkspider.leveluptogethermvp.userservice.feed.domain.enums.FeedVisibility;
-import io.pinkspider.leveluptogethermvp.userservice.feed.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.Collections;
