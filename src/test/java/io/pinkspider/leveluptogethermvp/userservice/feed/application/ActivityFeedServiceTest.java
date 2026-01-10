@@ -32,6 +32,7 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedReque
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
+import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -65,6 +66,9 @@ class ActivityFeedServiceTest {
 
     @Mock
     private FriendshipRepository friendshipRepository;
+
+    @Mock
+    private FriendCacheService friendCacheService;
 
     @Mock
     private FeaturedFeedRepository featuredFeedRepository;
@@ -258,7 +262,7 @@ class ActivityFeedServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(friendshipRepository.findFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -280,7 +284,7 @@ class ActivityFeedServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             List<String> friendIds = List.of("friend-1", "friend-2");
 
-            when(friendshipRepository.findFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
             when(activityFeedRepository.findTimelineFeeds(eq(TEST_USER_ID), eq(friendIds), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
