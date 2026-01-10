@@ -54,4 +54,23 @@ public class FeedCommentResponse {
             .translation(translation)
             .build();
     }
+
+    /**
+     * 기존 댓글의 userLevel이 null인 경우 외부에서 조회한 레벨로 설정
+     */
+    public static FeedCommentResponse from(FeedComment comment, TranslationInfo translation, String currentUserId, Integer userLevel) {
+        return FeedCommentResponse.builder()
+            .id(comment.getId())
+            .feedId(comment.getFeed().getId())
+            .userId(comment.getUserId())
+            .userNickname(comment.getUserNickname())
+            .userProfileImageUrl(comment.getUserProfileImageUrl())
+            .userLevel(userLevel != null ? userLevel : comment.getUserLevel())
+            .content(comment.getContent())
+            .isDeleted(comment.getIsDeleted())
+            .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
+            .createdAt(comment.getCreatedAt())
+            .translation(translation)
+            .build();
+    }
 }
