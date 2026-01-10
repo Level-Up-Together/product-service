@@ -558,6 +558,7 @@ public class ActivityFeedService {
 
     /**
      * 댓글 목록 조회 (다국어 지원)
+     * - 모든 댓글에 대해 현재 유저 레벨을 표시 (작성 시점 레벨이 아닌 현재 레벨)
      */
     public Page<FeedCommentResponse> getComments(Long feedId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
@@ -566,7 +567,16 @@ public class ActivityFeedService {
 
         return comments.map(comment -> {
             TranslationInfo translation = translateComment(comment, targetLocale);
-            return FeedCommentResponse.from(comment, translation, currentUserId);
+            // 모든 댓글에 대해 현재 유저 레벨 조회
+            Integer userLevel;
+            try {
+                UserProfileCache userProfile = userProfileCacheService.getUserProfile(comment.getUserId());
+                userLevel = userProfile.level();
+            } catch (Exception e) {
+                log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());
+                userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
+            }
+            return FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
         });
     }
 
