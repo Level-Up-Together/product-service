@@ -49,6 +49,9 @@ class FriendServiceTest {
     private FriendshipRepository friendshipRepository;
 
     @Mock
+    private FriendCacheService friendCacheService;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @Mock
