@@ -97,6 +97,22 @@ public class RedisConfig {
         cacheConfigurations.put("todayPlayersByCategory", homeConfig);
         cacheConfigurations.put("mvpGuilds", homeConfig);
 
+        // Mission Category 캐시: 1시간 TTL (카테고리는 자주 변경되지 않음)
+        RedisCacheConfiguration categoryConfig = defaultConfig.entryTtl(Duration.ofHours(1));
+        cacheConfigurations.put("missionCategories", categoryConfig);
+
+        // User Title 캐시: 5분 TTL (칭호 장착 변경 빈도 고려)
+        RedisCacheConfiguration titleConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
+        cacheConfigurations.put("userTitleInfo", titleConfig);
+
+        // Friend IDs 캐시: 10분 TTL (친구 관계 변경 빈도 고려)
+        RedisCacheConfiguration friendConfig = defaultConfig.entryTtl(Duration.ofMinutes(10));
+        cacheConfigurations.put("userFriendIds", friendConfig);
+
+        // User Profile 캐시: 5분 TTL (피드 생성 시 사용)
+        RedisCacheConfiguration profileConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
+        cacheConfigurations.put("userProfile", profileConfig);
+
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(redisConnectionFactory())
                 .cacheDefaults(defaultConfig)

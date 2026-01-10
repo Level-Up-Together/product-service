@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,6 +83,7 @@ public class TitleService {
     /**
      * 장착된 칭호의 조합된 정보 반환 (이름과 가장 높은 등급)
      */
+    @Cacheable(value = "userTitleInfo", key = "#userId")
     public TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
@@ -181,6 +184,7 @@ public class TitleService {
 
     // 칭호 장착 (포지션별로 장착)
     @Transactional
+    @CacheEvict(value = "userTitleInfo", key = "#userId")
     public UserTitleResponse equipTitle(String userId, Long titleId) {
         UserTitle userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
             .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
@@ -202,6 +206,7 @@ public class TitleService {
 
     // 특정 포지션 칭호 해제
     @Transactional
+    @CacheEvict(value = "userTitleInfo", key = "#userId")
     public void unequipTitle(String userId, TitlePosition position) {
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
         log.info("칭호 해제: userId={}, position={}", userId, position);
@@ -212,6 +217,7 @@ public class TitleService {
 
     // 모든 칭호 해제
     @Transactional
+    @CacheEvict(value = "userTitleInfo", key = "#userId")
     public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
         log.info("모든 칭호 해제: userId={}", userId);

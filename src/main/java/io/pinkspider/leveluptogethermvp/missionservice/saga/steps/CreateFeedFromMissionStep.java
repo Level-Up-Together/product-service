@@ -5,12 +5,10 @@ import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
-import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,9 +24,7 @@ import org.springframework.stereotype.Component;
 public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionContext> {
 
     private final ActivityFeedService activityFeedService;
-    private final UserService userService;
-    private final UserExperienceService userExperienceService;
-    private final TitleService titleService;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Override
     public String getName() {
@@ -60,18 +56,10 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             userId, execution.getId(), mission.getId());
 
         try {
-            // 사용자 정보 조회
-            Users user = userService.findByUserId(userId);
-            log.info("사용자 정보 조회 완료: userId={}, nickname={}", userId, user.getNickname());
-
-            // 사용자 레벨 조회
-            Integer userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
-            log.info("사용자 레벨 조회 완료: userId={}, level={}", userId, userLevel);
-
-            // 사용자 칭호 조회
-            TitleService.TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(userId);
-            log.info("사용자 칭호 조회 완료: userId={}, title={}, rarity={}",
-                userId, titleInfo.name(), titleInfo.rarity());
+            // 사용자 프로필 캐시 조회 (nickname, picture, level, titleName, titleRarity)
+            UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
+            log.info("사용자 프로필 조회 완료: userId={}, nickname={}, level={}, title={}",
+                userId, profile.nickname(), profile.level(), profile.titleName());
 
             // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
@@ -85,11 +73,11 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             // 피드 생성
             ActivityFeed feed = activityFeedService.createMissionSharedFeed(
                 userId,
-                user.getNickname(),
-                user.getPicture(),
-                userLevel,
-                titleInfo.name(),
-                titleInfo.rarity(),
+                profile.nickname(),
+                profile.picture(),
+                profile.level(),
+                profile.titleName(),
+                profile.titleRarity(),
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),

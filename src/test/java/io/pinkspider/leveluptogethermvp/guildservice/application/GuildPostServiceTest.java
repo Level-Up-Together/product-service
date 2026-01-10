@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostResponse;
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -53,6 +56,9 @@ class GuildPostServiceTest {
 
     @Mock
     private GuildPostCommentRepository guildPostCommentRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private GuildPostService guildPostService;
@@ -212,6 +218,74 @@ class GuildPostServiceTest {
             assertThatThrownBy(() -> guildPostService.createPost(1L, "non-member", "비멤버", request))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("길드원만 접근할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("공지글 작성 시 길드원들에게 알림 이벤트가 발행된다")
+        void createPost_notice_publishesEvent() {
+            // given
+            GuildPostCreateRequest request = GuildPostCreateRequest.builder()
+                .title("중요 공지사항")
+                .content("중요 공지 내용")
+                .postType(GuildPostType.NOTICE)
+                .build();
+
+            String otherMemberId = "other-member-id";
+            GuildMember otherMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(otherMemberId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(masterMember, otherMember));
+            when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
+                GuildPost post = inv.getArgument(0);
+                setId(post, GuildPost.class, 1L);
+                return post;
+            });
+
+            // when
+            GuildPostResponse response = guildPostService.createPost(1L, masterId, "마스터", request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(eventPublisher).publishEvent(any(GuildBulletinCreatedEvent.class));
+            verify(eventPublisher).publishEvent(argThat((GuildBulletinCreatedEvent bulletinEvent) ->
+                bulletinEvent.userId().equals(masterId)
+                    && bulletinEvent.guildId().equals(1L)
+                    && bulletinEvent.postTitle().equals("중요 공지사항")
+                    && bulletinEvent.memberIds().contains(otherMemberId)
+                    && !bulletinEvent.memberIds().contains(masterId)  // 작성자 제외
+            ));
+        }
+
+        @Test
+        @DisplayName("일반 게시글 작성 시 알림 이벤트가 발행되지 않는다")
+        void createPost_normal_noEvent() {
+            // given
+            GuildPostCreateRequest request = GuildPostCreateRequest.builder()
+                .title("일반 게시글")
+                .content("일반 내용")
+                .postType(GuildPostType.NORMAL)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
+                GuildPost post = inv.getArgument(0);
+                setId(post, GuildPost.class, 1L);
+                return post;
+            });
+
+            // when
+            GuildPostResponse response = guildPostService.createPost(1L, memberId, "테스터", request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(eventPublisher, never()).publishEvent(any(GuildBulletinCreatedEvent.class));
         }
     }
 
