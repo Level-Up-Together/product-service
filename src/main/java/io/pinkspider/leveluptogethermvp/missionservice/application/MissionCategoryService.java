@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,7 @@ public class MissionCategoryService {
     /**
      * 카테고리 수정 (Admin용)
      */
+    @CacheEvict(value = "missionCategories", key = "#categoryId")
     public MissionCategoryResponse updateCategory(Long categoryId, MissionCategoryUpdateRequest request) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -82,6 +85,7 @@ public class MissionCategoryService {
     /**
      * 카테고리 삭제 (Admin용)
      */
+    @CacheEvict(value = "missionCategories", key = "#categoryId")
     public void deleteCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -93,6 +97,7 @@ public class MissionCategoryService {
     /**
      * 카테고리 비활성화 (Admin용) - 삭제 대신 비활성화
      */
+    @CacheEvict(value = "missionCategories", key = "#categoryId")
     public MissionCategoryResponse deactivateCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -127,6 +132,7 @@ public class MissionCategoryService {
     /**
      * 카테고리 단건 조회
      */
+    @Cacheable(value = "missionCategories", key = "#categoryId")
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionCategoryResponse getCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)

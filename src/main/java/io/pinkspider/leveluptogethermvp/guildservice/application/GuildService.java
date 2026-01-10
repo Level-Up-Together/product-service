@@ -20,9 +20,10 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedGuild;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedGuildRepository;
+import io.pinkspider.global.event.GuildJoinedEvent;
+import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -38,7 +39,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,7 +57,7 @@ public class GuildService {
     private final GuildJoinRequestRepository joinRequestRepository;
     private final GuildLevelConfigRepository levelConfigRepository;
     private final MissionCategoryService missionCategoryService;
-    private final ApplicationContext applicationContext;
+    private final ApplicationEventPublisher eventPublisher;
     private final GuildHeadquartersService guildHeadquartersService;
     private final UserRepository userRepository;
     private final FeaturedGuildRepository featuredGuildRepository;
@@ -118,8 +119,8 @@ public class GuildService {
 
         guildMemberRepository.save(masterMember);
 
-        // 길드 마스터 업적 및 가입 업적 체크
-        triggerGuildAchievements(userId, true, true);
+        // 길드 마스터 업적 및 가입 업적 이벤트 발행
+        publishGuildAchievementEvents(userId, savedGuild, true, true);
 
         log.info("길드 생성 완료: id={}, name={}, master={}", savedGuild.getId(), savedGuild.getName(), userId);
 
@@ -368,8 +369,8 @@ public class GuildService {
 
             guildMemberRepository.save(newMember);
 
-            // 길드 가입 업적 체크
-            triggerGuildAchievements(userId, true, false);
+            // 길드 가입 업적 이벤트 발행
+            publishGuildAchievementEvents(userId, guild, true, false);
 
             log.info("길드 바로 가입 (OPEN): guildId={}, userId={}", guildId, userId);
 
@@ -443,8 +444,8 @@ public class GuildService {
 
         GuildMember savedMember = guildMemberRepository.save(newMember);
 
-        // 길드 가입 업적 체크
-        triggerGuildAchievements(request.getRequesterId(), true, false);
+        // 길드 가입 업적 이벤트 발행
+        publishGuildAchievementEvents(request.getRequesterId(), guild, true, false);
 
         log.info("길드 가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
 
@@ -502,8 +503,8 @@ public class GuildService {
 
         GuildMember savedMember = guildMemberRepository.save(newMember);
 
-        // 길드 가입 업적 체크
-        triggerGuildAchievements(inviteeId, true, false);
+        // 길드 가입 업적 이벤트 발행
+        publishGuildAchievementEvents(inviteeId, guild, true, false);
 
         log.info("길드원 초대: guildId={}, inviteeId={}", guildId, inviteeId);
 
@@ -710,17 +711,20 @@ public class GuildService {
         return response;
     }
 
-    private void triggerGuildAchievements(String userId, boolean isJoin, boolean isMaster) {
-        try {
-            AchievementService achievementService = applicationContext.getBean(AchievementService.class);
-            if (isJoin) {
-                achievementService.checkGuildJoinAchievement(userId);
-            }
-            if (isMaster) {
-                achievementService.checkGuildMasterAchievement(userId);
-            }
-        } catch (Exception e) {
-            log.warn("길드 업적 체크 실패: userId={}, error={}", userId, e.getMessage());
+    /**
+     * 길드 업적 관련 이벤트 발행
+     * - 길드 가입 시: GuildJoinedEvent 발행
+     * - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행
+     */
+    private void publishGuildAchievementEvents(String userId, Guild guild, boolean isJoin, boolean isMaster) {
+        if (isJoin) {
+            eventPublisher.publishEvent(new GuildJoinedEvent(userId, guild.getId(), guild.getName()));
+            log.debug("길드 가입 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
+        }
+        if (isMaster) {
+            eventPublisher.publishEvent(new GuildMasterAssignedEvent(userId, guild.getId(), guild.getName()));
+            log.debug("길드 마스터 할당 이벤트 발행: userId={}, guildId={}", userId, guild.getId());
         }
     }
 }
+

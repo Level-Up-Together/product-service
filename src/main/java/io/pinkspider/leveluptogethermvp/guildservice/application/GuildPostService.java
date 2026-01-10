@@ -17,10 +17,12 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostCommentRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,20 +31,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(transactionManager = "guildTransactionManager", readOnly = true)
 public class GuildPostService {
 
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildPostRepository guildPostRepository;
     private final GuildPostCommentRepository guildPostCommentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 게시글 작성
      * - 공지글(NOTICE)은 길드 마스터 또는 부길드마스터만 작성 가능
      * - 일반글(NORMAL)은 모든 길드원 작성 가능
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostResponse createPost(Long guildId, String userId, String userNickname, GuildPostCreateRequest request) {
         Guild guild = findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
@@ -68,6 +71,11 @@ public class GuildPostService {
         GuildPost savedPost = guildPostRepository.save(post);
         log.info("길드 게시글 작성: guildId={}, postId={}, type={}, author={}",
             guildId, savedPost.getId(), request.getPostType(), userId);
+
+        // 공지글인 경우 길드원들에게 알림 발송
+        if (request.getPostType() == GuildPostType.NOTICE) {
+            publishBulletinCreatedEvent(guild, savedPost, userId);
+        }
 
         return GuildPostResponse.from(savedPost);
     }
@@ -120,7 +128,7 @@ public class GuildPostService {
     /**
      * 게시글 상세 조회 (조회수 증가)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostResponse getPost(Long guildId, Long postId, String userId) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
@@ -136,7 +144,7 @@ public class GuildPostService {
     /**
      * 게시글 수정 (작성자만 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostResponse updatePost(Long guildId, Long postId, String userId, GuildPostUpdateRequest request) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
@@ -157,7 +165,7 @@ public class GuildPostService {
     /**
      * 게시글 삭제 (작성자 또는 마스터/부길드마스터 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public void deletePost(Long guildId, Long postId, String userId) {
         findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
@@ -177,7 +185,7 @@ public class GuildPostService {
     /**
      * 게시글 상단 고정/해제 (마스터 또는 부길드마스터 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostResponse togglePin(Long guildId, Long postId, String userId) {
         findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
@@ -207,7 +215,7 @@ public class GuildPostService {
     /**
      * 댓글 작성 (길드원만 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostCommentResponse createComment(Long guildId, Long postId, String userId, String userNickname,
                                                    GuildPostCommentCreateRequest request) {
         findActiveGuild(guildId);
@@ -271,7 +279,7 @@ public class GuildPostService {
     /**
      * 댓글 수정 (작성자만 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostCommentResponse updateComment(Long guildId, Long postId, Long commentId, String userId,
                                                    GuildPostCommentUpdateRequest request) {
         findActiveGuild(guildId);
@@ -300,7 +308,7 @@ public class GuildPostService {
     /**
      * 댓글 삭제 (작성자 또는 마스터/부길드마스터 가능)
      */
-    @Transactional
+    @Transactional(transactionManager = "guildTransactionManager")
     public void deleteComment(Long guildId, Long postId, Long commentId, String userId) {
         findActiveGuild(guildId);
         GuildMember member = validateMembership(guildId, userId);
@@ -349,6 +357,29 @@ public class GuildPostService {
     private void validatePostBelongsToGuild(GuildPost post, Long guildId) {
         if (!post.getGuild().getId().equals(guildId)) {
             throw new IllegalArgumentException("게시글이 해당 길드에 속하지 않습니다.");
+        }
+    }
+
+    /**
+     * 길드 공지사항 등록 이벤트 발행
+     */
+    private void publishBulletinCreatedEvent(Guild guild, GuildPost post, String authorId) {
+        List<String> memberIds = guildMemberRepository.findActiveMembers(guild.getId()).stream()
+            .map(GuildMember::getUserId)
+            .filter(memberId -> !memberId.equals(authorId))  // 작성자 제외
+            .toList();
+
+        if (!memberIds.isEmpty()) {
+            eventPublisher.publishEvent(new GuildBulletinCreatedEvent(
+                authorId,
+                memberIds,
+                guild.getId(),
+                guild.getName(),
+                post.getId(),
+                post.getTitle()
+            ));
+            log.debug("길드 공지사항 이벤트 발행: guildId={}, postId={}, memberCount={}",
+                guild.getId(), post.getId(), memberIds.size());
         }
     }
 }

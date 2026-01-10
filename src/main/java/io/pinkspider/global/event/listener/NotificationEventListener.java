@@ -8,6 +8,7 @@ import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
+import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -156,6 +157,33 @@ public class NotificationEventListener {
             }
         } catch (Exception e) {
             log.error("길드 미션 알림 처리 실패: error={}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 길드 공지사항 등록 이벤트 처리
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildBulletinCreated(GuildBulletinCreatedEvent event) {
+        try {
+            log.debug("길드 공지사항 등록 이벤트 처리: postId={}, memberCount={}",
+                event.postId(), event.memberIds().size());
+            for (String memberId : event.memberIds()) {
+                try {
+                    notificationService.notifyGuildBulletin(
+                        memberId,
+                        event.guildName(),
+                        event.guildId(),
+                        event.postId(),
+                        event.postTitle()
+                    );
+                } catch (Exception e) {
+                    log.warn("길드 공지사항 알림 생성 실패: memberId={}, error={}", memberId, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("길드 공지사항 알림 처리 실패: error={}", e.getMessage(), e);
         }
     }
 

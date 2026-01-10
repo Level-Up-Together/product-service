@@ -13,6 +13,7 @@ import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
+import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.listener.NotificationEventListener;
@@ -263,6 +264,53 @@ class NotificationEventListenerTest {
 
             // then
             verify(notificationService, never()).notifyCommentOnMyFeed(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 공지사항 등록 이벤트 처리")
+    class HandleGuildBulletinCreatedTest {
+
+        @Test
+        @DisplayName("길드 공지사항 등록 이벤트 발생 시 각 멤버에게 알림 전송")
+        void shouldNotifyAllMembersOnGuildBulletinCreated() {
+            // given
+            List<String> memberIds = List.of("member-1", "member-2", "member-3");
+            GuildBulletinCreatedEvent event = new GuildBulletinCreatedEvent(
+                "author-123", memberIds, 1L, "테스트 길드", 10L, "중요 공지사항"
+            );
+
+            // when
+            eventListener.handleGuildBulletinCreated(event);
+
+            // then
+            verify(notificationService, times(3)).notifyGuildBulletin(
+                any(), eq("테스트 길드"), eq(1L), eq(10L), eq("중요 공지사항")
+            );
+            verify(notificationService).notifyGuildBulletin("member-1", "테스트 길드", 1L, 10L, "중요 공지사항");
+            verify(notificationService).notifyGuildBulletin("member-2", "테스트 길드", 1L, 10L, "중요 공지사항");
+            verify(notificationService).notifyGuildBulletin("member-3", "테스트 길드", 1L, 10L, "중요 공지사항");
+        }
+
+        @Test
+        @DisplayName("일부 멤버 알림 실패해도 나머지는 계속 처리")
+        void shouldContinueOnPartialFailure() {
+            // given
+            List<String> memberIds = List.of("member-1", "member-2", "member-3");
+            GuildBulletinCreatedEvent event = new GuildBulletinCreatedEvent(
+                "author-123", memberIds, 1L, "테스트 길드", 10L, "중요 공지사항"
+            );
+
+            doThrow(new RuntimeException("알림 실패"))
+                .when(notificationService).notifyGuildBulletin(eq("member-2"), any(), any(), any(), any());
+
+            // when
+            eventListener.handleGuildBulletinCreated(event);
+
+            // then - member-1, member-3도 호출되어야 함
+            verify(notificationService).notifyGuildBulletin("member-1", "테스트 길드", 1L, 10L, "중요 공지사항");
+            verify(notificationService).notifyGuildBulletin("member-2", "테스트 길드", 1L, 10L, "중요 공지사항");
+            verify(notificationService).notifyGuildBulletin("member-3", "테스트 길드", 1L, 10L, "중요 공지사항");
         }
     }
 }

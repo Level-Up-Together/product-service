@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FriendService {
 
     private final FriendshipRepository friendshipRepository;
+    private final FriendCacheService friendCacheService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
     private final UserExperienceRepository userExperienceRepository;
@@ -89,6 +90,9 @@ public class FriendService {
         }
 
         friendship.accept();
+
+        // 양쪽 사용자의 친구 캐시 무효화
+        friendCacheService.evictBothFriendCaches(userId, friendship.getUserId());
 
         // 친구 요청 처리 완료 이벤트 발행 (알림 삭제용)
         eventPublisher.publishEvent(new FriendRequestProcessedEvent(userId, requestId));
@@ -150,6 +154,10 @@ public class FriendService {
         }
 
         friendshipRepository.delete(friendship);
+
+        // 양쪽 사용자의 친구 캐시 무효화
+        friendCacheService.evictBothFriendCaches(userId, friendId);
+
         log.info("친구 삭제: {} removed {}", userId, friendId);
     }
 
@@ -171,6 +179,9 @@ public class FriendService {
             friendshipRepository.save(friendship);
         }
 
+        // 양쪽 사용자의 친구 캐시 무효화 (기존 친구 관계가 차단으로 변경될 수 있음)
+        friendCacheService.evictBothFriendCaches(userId, targetId);
+
         log.info("사용자 차단: {} blocked {}", userId, targetId);
     }
 
@@ -185,6 +196,10 @@ public class FriendService {
         }
 
         friendshipRepository.delete(friendship);
+
+        // 양쪽 사용자의 친구 캐시 무효화
+        friendCacheService.evictBothFriendCaches(userId, targetId);
+
         log.info("차단 해제: {} unblocked {}", userId, targetId);
     }
 

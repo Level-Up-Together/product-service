@@ -21,6 +21,7 @@ public enum NotificationType {
     GUILD_JOIN_APPROVED("길드 가입 승인", "GUILD"),
     GUILD_JOIN_REJECTED("길드 가입 거절", "GUILD"),
     GUILD_MISSION_ARRIVED("길드 미션 도착", "GUILD"),
+    GUILD_BULLETIN("길드 공지사항", "GUILD"),
 
     // 소셜 관련 (댓글)
     COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL"),

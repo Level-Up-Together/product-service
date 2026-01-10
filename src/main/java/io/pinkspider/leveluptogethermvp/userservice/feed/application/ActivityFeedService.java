@@ -26,6 +26,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
+import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -57,6 +58,7 @@ public class ActivityFeedService {
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
     private final FriendshipRepository friendshipRepository;
+    private final FriendCacheService friendCacheService;
     private final FeaturedFeedRepository featuredFeedRepository;
     private final UserRepository userRepository;
     private final UserTitleRepository userTitleRepository;
@@ -304,7 +306,7 @@ public class ActivityFeedService {
      */
     public Page<ActivityFeedResponse> getTimelineFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        List<String> friendIds = friendshipRepository.findFriendIds(userId);
+        List<String> friendIds = friendCacheService.getFriendIds(userId);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Page<ActivityFeed> feeds;

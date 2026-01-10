@@ -256,6 +256,15 @@ public class NotificationService {
             "MISSION", missionId, "/mission");
     }
 
+    // 길드 공지사항 알림
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void notifyGuildBulletin(String userId, String guildName, Long guildId, Long postId, String postTitle) {
+        createNotification(userId, NotificationType.GUILD_BULLETIN,
+            "새 길드 공지사항",
+            "[" + guildName + "] " + postTitle,
+            "GUILD_POST", postId, "/guild/" + guildId + "/posts/" + postId);
+    }
+
     // 내 글에 댓글 알림
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyCommentOnMyFeed(String feedOwnerId, String commenterNickname, Long feedId) {
