@@ -34,6 +34,8 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResp
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.lang.reflect.Field;
@@ -78,6 +80,9 @@ class ActivityFeedServiceTest {
 
     @Mock
     private UserTitleRepository userTitleRepository;
+
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     @Mock
     private TranslationService translationService;
@@ -458,20 +463,24 @@ class ActivityFeedServiceTest {
             // given
             Long feedId = 1L;
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
-            Users user = createTestUser(TEST_USER_ID);
+            UserProfileCache userProfile = new UserProfileCache(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, null, null
+            );
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
             FeedComment savedComment = FeedComment.builder()
                 .feed(feed)
                 .userId(TEST_USER_ID)
-                .userNickname(user.getDisplayName())
+                .userNickname(userProfile.nickname())
+                .userLevel(userProfile.level())
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
             setCommentId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 

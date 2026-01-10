@@ -28,6 +28,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRe
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
@@ -62,6 +64,7 @@ public class ActivityFeedService {
     private final FeaturedFeedRepository featuredFeedRepository;
     private final UserRepository userRepository;
     private final UserTitleRepository userTitleRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final TranslationService translationService;
 
     /**
@@ -525,15 +528,15 @@ public class ActivityFeedService {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
 
-        // 사용자 정보 조회
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
+        // 사용자 프로필 정보 조회 (캐시)
+        UserProfileCache userProfile = userProfileCacheService.getUserProfile(userId);
 
         FeedComment comment = FeedComment.builder()
             .feed(feed)
             .userId(userId)
-            .userNickname(user.getDisplayName())
-            .userProfileImageUrl(user.getPicture())
+            .userNickname(userProfile.nickname())
+            .userProfileImageUrl(userProfile.picture())
+            .userLevel(userProfile.level())
             .content(request.getContent())
             .isDeleted(false)
             .build();

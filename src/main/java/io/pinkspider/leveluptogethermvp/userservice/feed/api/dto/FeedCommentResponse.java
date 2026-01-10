@@ -22,6 +22,7 @@ public class FeedCommentResponse {
     private String userId;
     private String userNickname;
     private String userProfileImageUrl;
+    private Integer userLevel;
     private String content;
     private boolean isDeleted;
     private boolean isMyComment;
@@ -45,6 +46,7 @@ public class FeedCommentResponse {
             .userId(comment.getUserId())
             .userNickname(comment.getUserNickname())
             .userProfileImageUrl(comment.getUserProfileImageUrl())
+            .userLevel(comment.getUserLevel())
             .content(comment.getContent())
             .isDeleted(comment.getIsDeleted())
             .isMyComment(currentUserId != null && currentUserId.equals(comment.getUserId()))
