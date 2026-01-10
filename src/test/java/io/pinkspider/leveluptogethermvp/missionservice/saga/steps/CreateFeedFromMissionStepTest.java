@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -26,12 +25,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.TitleInfo;
-import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,13 +48,7 @@ class CreateFeedFromMissionStepTest {
     private ActivityFeedService activityFeedService;
 
     @Mock
-    private UserService userService;
-
-    @Mock
-    private UserExperienceService userExperienceService;
-
-    @Mock
-    private TitleService titleService;
+    private UserProfileCacheService userProfileCacheService;
 
     @InjectMocks
     private CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -72,8 +62,7 @@ class CreateFeedFromMissionStepTest {
     private MissionParticipant participant;
     private MissionExecution execution;
     private MissionCompletionContext context;
-    private Users user;
-    private UserExperience userExperience;
+    private UserProfileCache userProfile;
     private ActivityFeed activityFeed;
 
     @BeforeEach
@@ -121,20 +110,14 @@ class CreateFeedFromMissionStepTest {
         context.setParticipant(participant);
         context.setMission(mission);
 
-        user = Users.builder()
-            .id(TEST_USER_ID)
-            .email("test@example.com")
-            .provider("google")
-            .nickname("테스트유저")
-            .picture("https://example.com/profile.jpg")
-            .build();
-
-        userExperience = UserExperience.builder()
-            .userId(TEST_USER_ID)
-            .currentLevel(10)
-            .currentExp(500)
-            .totalExp(5000)
-            .build();
+        userProfile = new UserProfileCache(
+            TEST_USER_ID,
+            "테스트유저",
+            "https://example.com/profile.jpg",
+            10,
+            "초보 모험가",
+            TitleRarity.COMMON
+        );
 
         activityFeed = ActivityFeed.builder()
             .userId(TEST_USER_ID)
@@ -193,10 +176,7 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("정상적으로 피드를 생성한다")
         void execute_success() {
             // given
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(user);
-            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(userExperience);
-            when(titleService.getCombinedEquippedTitleInfo(TEST_USER_ID))
-                .thenReturn(new TitleInfo("초보 모험가", TitleRarity.COMMON));
+            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(activityFeedService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
@@ -215,7 +195,8 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("피드 생성 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
-            when(userService.findByUserId(TEST_USER_ID)).thenThrow(new RuntimeException("사용자 조회 실패"));
+            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+                .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
