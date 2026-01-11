@@ -160,19 +160,16 @@ public class MissionExecutionService {
         if (result.isSuccess()) {
             return missionCompletionSaga.toResponse(result);
         } else {
-            // Saga 실패 시 예외 발생
-            String errorMessage = String.format(
-                "미션 완료 처리 실패 (sagaId=%s, status=%s): %s",
-                result.getSagaId(),
-                result.getStatus(),
-                result.getMessage()
-            );
+            // Saga 실패 로깅 (디버깅용)
+            log.warn("미션 완료 처리 실패 (sagaId={}, status={}): {}",
+                result.getSagaId(), result.getStatus(), result.getMessage());
 
             if (result.isCompensated()) {
                 log.info("미션 완료 실패 - 보상 트랜잭션 완료: sagaId={}", result.getSagaId());
             }
 
-            throw new IllegalStateException(errorMessage, result.getException());
+            // 사용자에게는 원본 에러 메시지만 전달
+            throw new IllegalStateException(result.getMessage(), result.getException());
         }
     }
 
@@ -256,6 +253,7 @@ public class MissionExecutionService {
     /**
      * 미션 수행 시작
      * 이미 진행 중인 미션이 있으면 예외 발생
+     * 해당 날짜의 실행 레코드가 없으면 자동 생성
      */
     @Transactional
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
@@ -271,8 +269,17 @@ public class MissionExecutionService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
+        // 해당 날짜의 실행 레코드가 없으면 자동 생성
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+            .orElseGet(() -> {
+                log.info("실행 레코드 자동 생성: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
+                MissionExecution newExecution = MissionExecution.builder()
+                    .participant(participant)
+                    .executionDate(executionDate)
+                    .status(ExecutionStatus.PENDING)
+                    .build();
+                return executionRepository.save(newExecution);
+            });
 
         execution.start();
         executionRepository.save(execution);

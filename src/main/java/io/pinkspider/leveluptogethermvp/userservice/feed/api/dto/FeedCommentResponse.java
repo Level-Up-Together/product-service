@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.translation.dto.TranslationInfo;
@@ -24,8 +25,13 @@ public class FeedCommentResponse {
     private String userProfileImageUrl;
     private Integer userLevel;
     private String content;
+
+    @JsonProperty("is_deleted")
     private boolean isDeleted;
+
+    @JsonProperty("is_my_comment")
     private boolean isMyComment;
+
     private LocalDateTime createdAt;
 
     // 번역 정보 (다국어 지원)

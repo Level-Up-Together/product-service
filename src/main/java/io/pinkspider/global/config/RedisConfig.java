@@ -83,10 +83,20 @@ public class RedisConfig {
 
     @Bean
     public CacheManager redisCacheManager() {
+        // JavaTimeModule을 포함한 ObjectMapper 설정 (LocalDateTime 직렬화 지원)
+        ObjectMapper cacheObjectMapper = new ObjectMapper();
+        cacheObjectMapper.registerModule(new JavaTimeModule());
+        cacheObjectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // 타입 정보 포함 (역직렬화 시 올바른 타입 복원을 위해)
+        cacheObjectMapper.activateDefaultTyping(
+                cacheObjectMapper.getPolymorphicTypeValidator(),
+                ObjectMapper.DefaultTyping.NON_FINAL
+        );
+
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
+                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer(cacheObjectMapper)));
 
         // 캐시별 TTL 설정
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();

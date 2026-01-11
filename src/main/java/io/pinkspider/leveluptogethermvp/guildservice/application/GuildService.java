@@ -693,6 +693,40 @@ public class GuildService {
         log.info("멤버 추방: guildId={}, operator={}, target={}", guildId, operatorId, targetUserId);
     }
 
+    /**
+     * 길드 해체
+     * 길드 마스터만 해체할 수 있으며, 자신을 제외한 다른 멤버가 없어야 함
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void dissolveGuild(Long guildId, String userId) {
+        Guild guild = findActiveGuildById(guildId);
+
+        // 길드 마스터인지 확인
+        if (!guild.getMasterId().equals(userId)) {
+            throw new IllegalStateException("길드 마스터만 길드를 해체할 수 있습니다.");
+        }
+
+        // 활성 멤버 수 확인 (마스터 제외)
+        List<GuildMember> activeMembers = guildMemberRepository.findByGuildIdAndStatus(guildId, GuildMemberStatus.ACTIVE);
+        long otherMemberCount = activeMembers.stream()
+            .filter(m -> !m.getUserId().equals(userId))
+            .count();
+
+        if (otherMemberCount > 0) {
+            throw new IllegalStateException("길드를 해체하려면 먼저 모든 길드원을 내보내야 합니다. 현재 " + otherMemberCount + "명의 길드원이 있습니다.");
+        }
+
+        // 마스터 멤버 상태 변경
+        GuildMember masterMember = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
+            .orElseThrow(() -> new IllegalStateException("길드 멤버 정보를 찾을 수 없습니다."));
+        masterMember.leave();
+
+        // 길드 비활성화
+        guild.deactivate();
+
+        log.info("길드 해체: guildId={}, masterId={}, guildName={}", guildId, userId, guild.getName());
+    }
+
     private GuildMemberResponse buildGuildMemberResponse(GuildMember member) {
         GuildMemberResponse response = GuildMemberResponse.from(member);
         Users user = userRepository.findById(member.getUserId()).orElse(null);

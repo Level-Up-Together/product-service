@@ -80,8 +80,27 @@ class MyPageServiceTest {
     @Mock
     private GuildMemberRepository guildMemberRepository;
 
-    @InjectMocks
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager feedTransactionManager;
+
     private MyPageService myPageService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        myPageService = new MyPageService(
+            userRepository,
+            userExperienceRepository,
+            userTitleRepository,
+            userStatsRepository,
+            friendshipRepository,
+            levelConfigRepository,
+            profileImageStorageService,
+            imageModerationService,
+            activityFeedRepository,
+            guildMemberRepository,
+            feedTransactionManager
+        );
+    }
 
     private static final String TEST_USER_ID = "test-user-123";
 
@@ -504,6 +523,10 @@ class MyPageServiceTest {
             when(userTitleRepository.findById(2L)).thenReturn(Optional.of(rightUserTitle));
             when(userTitleRepository.save(any(UserTitle.class))).thenAnswer(i -> i.getArgument(0));
             when(activityFeedRepository.updateUserTitleByUserId(anyString(), anyString(), any(TitleRarity.class))).thenReturn(1);
+
+            // feedTransactionManager mock 설정 (TransactionTemplate.execute()가 동작하도록)
+            org.springframework.transaction.TransactionStatus mockStatus = org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class);
+            when(feedTransactionManager.getTransaction(any())).thenReturn(mockStatus);
 
             // when
             TitleChangeResponse result = myPageService.changeTitles(TEST_USER_ID, request);

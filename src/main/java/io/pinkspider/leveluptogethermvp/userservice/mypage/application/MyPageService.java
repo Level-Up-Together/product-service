@@ -39,15 +39,16 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MyPageService {
 
@@ -61,6 +62,32 @@ public class MyPageService {
     private final ImageModerationService imageModerationService;
     private final ActivityFeedRepository activityFeedRepository;
     private final GuildMemberRepository guildMemberRepository;
+    private final TransactionTemplate feedTransactionTemplate;
+
+    public MyPageService(
+            UserRepository userRepository,
+            UserExperienceRepository userExperienceRepository,
+            UserTitleRepository userTitleRepository,
+            UserStatsRepository userStatsRepository,
+            FriendshipRepository friendshipRepository,
+            LevelConfigRepository levelConfigRepository,
+            ProfileImageStorageService profileImageStorageService,
+            ImageModerationService imageModerationService,
+            ActivityFeedRepository activityFeedRepository,
+            GuildMemberRepository guildMemberRepository,
+            @Qualifier("feedTransactionManager") PlatformTransactionManager feedTransactionManager) {
+        this.userRepository = userRepository;
+        this.userExperienceRepository = userExperienceRepository;
+        this.userTitleRepository = userTitleRepository;
+        this.userStatsRepository = userStatsRepository;
+        this.friendshipRepository = friendshipRepository;
+        this.levelConfigRepository = levelConfigRepository;
+        this.profileImageStorageService = profileImageStorageService;
+        this.imageModerationService = imageModerationService;
+        this.activityFeedRepository = activityFeedRepository;
+        this.guildMemberRepository = guildMemberRepository;
+        this.feedTransactionTemplate = new TransactionTemplate(feedTransactionManager);
+    }
 
     /**
      * MyPage 전체 데이터 조회
@@ -362,7 +389,7 @@ public class MyPageService {
     /**
      * 칭호 변경 (좌측/우측 동시 변경)
      */
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public TitleChangeResponse changeTitles(String userId, TitleChangeRequest request) {
         // 좌측/우측 칭호가 같으면 에러
         if (request.getLeftUserTitleId().equals(request.getRightUserTitleId())) {
@@ -402,10 +429,13 @@ public class MyPageService {
         userTitleRepository.save(leftUserTitle);
         userTitleRepository.save(rightUserTitle);
 
-        // 피드의 칭호도 업데이트
+        // 피드의 칭호도 업데이트 (별도 트랜잭션 - feed_db)
         String combinedTitle = leftUserTitle.getTitle().getDisplayName() + " " + rightUserTitle.getTitle().getDisplayName();
         TitleRarity highestRarity = getHighestRarity(leftUserTitle.getTitle().getRarity(), rightUserTitle.getTitle().getRarity());
-        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, combinedTitle, highestRarity);
+        final String finalUserId = userId;
+        int updatedCount = feedTransactionTemplate.execute(status ->
+            activityFeedRepository.updateUserTitleByUserId(finalUserId, combinedTitle, highestRarity)
+        );
 
         log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}, feedsUpdated={}",
             userId, leftUserTitle.getTitle().getId(), rightUserTitle.getTitle().getId(), updatedCount);

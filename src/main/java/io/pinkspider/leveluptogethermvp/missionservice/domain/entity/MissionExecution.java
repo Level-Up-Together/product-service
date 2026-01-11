@@ -136,9 +136,7 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
         LocalDateTime now = LocalDateTime.now();
         long elapsedMinutes = Duration.between(this.startedAt, now).toMinutes();
         if (elapsedMinutes < MINIMUM_EXECUTION_MINUTES) {
-            throw new IllegalStateException(
-                String.format("최소 %d분 이상 수행해야 미션을 완료할 수 있습니다. (현재: %d분 경과)",
-                    MINIMUM_EXECUTION_MINUTES, elapsedMinutes));
+            throw new IllegalStateException("1분 이하는 기록할 수 없습니다.");
         }
 
         this.status = ExecutionStatus.COMPLETED;

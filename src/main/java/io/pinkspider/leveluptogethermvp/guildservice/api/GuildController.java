@@ -227,6 +227,16 @@ public class GuildController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    // 길드 해체 (마스터 전용, 자신 외 멤버가 없어야 함)
+    @DeleteMapping("/{guildId}")
+    public ResponseEntity<ApiResult<Void>> dissolveGuild(
+        @PathVariable Long guildId,
+        @CurrentUser String userId) {
+
+        guildService.dissolveGuild(guildId, userId);
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
     // 길드 경험치/레벨 정보 조회
     @GetMapping("/{guildId}/experience")
     public ResponseEntity<ApiResult<GuildExperienceResponse>> getGuildExperience(

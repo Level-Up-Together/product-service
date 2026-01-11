@@ -71,10 +71,19 @@ public class LevelRankingResponse {
     /**
      * 사용자 경험치 정보가 없는 경우 기본값 반환
      */
-    public static LevelRankingResponse defaultResponse(String userId, long totalUsers) {
+    public static LevelRankingResponse defaultResponse(
+        String userId,
+        long totalUsers,
+        String nickname,
+        String profileImageUrl,
+        String equippedTitle
+    ) {
         return LevelRankingResponse.builder()
             .rank(totalUsers + 1)
             .userId(userId)
+            .nickname(nickname)
+            .profileImageUrl(profileImageUrl)
+            .equippedTitle(equippedTitle)
             .currentLevel(1)
             .currentExp(0)
             .totalExp(0)

@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Exper
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -139,11 +140,19 @@ public class RankingService {
     public LevelRankingResponse getMyLevelRanking(String userId) {
         long totalUsers = userExperienceRepository.countTotalUsers();
 
+        // 사용자 정보 조회 (닉네임, 프로필 이미지)
+        Users user = userRepository.findById(userId).orElse(null);
+        String nickname = user != null ? user.getDisplayName() : null;
+        String profileImageUrl = user != null ? user.getPicture() : null;
+
+        // 장착된 칭호 조회
+        String equippedTitle = getCombinedEquippedTitleName(userId);
+
         UserExperience userExp = userExperienceRepository.findByUserId(userId)
             .orElse(null);
 
         if (userExp == null) {
-            return LevelRankingResponse.defaultResponse(userId, totalUsers);
+            return LevelRankingResponse.defaultResponse(userId, totalUsers, nickname, profileImageUrl, equippedTitle);
         }
 
         long rank = userExperienceRepository.calculateLevelRank(
@@ -151,7 +160,7 @@ public class RankingService {
             userExp.getTotalExp()
         );
 
-        return LevelRankingResponse.from(userExp, rank, totalUsers);
+        return LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl, equippedTitle);
     }
 
     /**
@@ -172,11 +181,11 @@ public class RankingService {
             .collect(Collectors.toMap(Users::getId, u -> u));
 
         // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
-        Map<String, String> titleMap = userIds.stream()
-            .collect(Collectors.toMap(
-                id -> id,
-                id -> getCombinedEquippedTitleName(id)
-            ));
+        // Collectors.toMap()은 null 값을 허용하지 않으므로 HashMap 직접 사용
+        Map<String, String> titleMap = new HashMap<>();
+        for (String id : userIds) {
+            titleMap.put(id, getCombinedEquippedTitleName(id));
+        }
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         long startRank = pageable.getOffset() + 1;
@@ -223,18 +232,17 @@ public class RankingService {
             .collect(Collectors.toMap(Users::getId, u -> u));
 
         // 사용자 경험치 정보 일괄 조회
-        Map<String, UserExperience> expMap = userIds.stream()
-            .collect(Collectors.toMap(
-                id -> id,
-                id -> userExperienceRepository.findByUserId(id).orElse(null)
-            ));
+        // Collectors.toMap()은 null 값을 허용하지 않으므로 HashMap 직접 사용
+        Map<String, UserExperience> expMap = new HashMap<>();
+        for (String id : userIds) {
+            expMap.put(id, userExperienceRepository.findByUserId(id).orElse(null));
+        }
 
         // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
-        Map<String, String> titleMap = userIds.stream()
-            .collect(Collectors.toMap(
-                id -> id,
-                id -> getCombinedEquippedTitleName(id)
-            ));
+        Map<String, String> titleMap = new HashMap<>();
+        for (String id : userIds) {
+            titleMap.put(id, getCombinedEquippedTitleName(id));
+        }
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         long startRank = pageable.getOffset() + 1;
