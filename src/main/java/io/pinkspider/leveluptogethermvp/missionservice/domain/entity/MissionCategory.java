@@ -28,6 +28,11 @@ import org.hibernate.annotations.Comment;
 @Comment("미션 카테고리")
 public class MissionCategory extends LocalDateTimeBaseEntity {
 
+    /**
+     * 기본 카테고리명 (출석체크, 업적 등 미션 외 경험치 출처에 사용)
+     */
+    public static final String DEFAULT_CATEGORY_NAME = "기타";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)

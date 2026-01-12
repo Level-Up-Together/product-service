@@ -287,7 +287,7 @@ class AchievementServiceTest {
             assertThat(result).isNotNull();
             assertThat(userAchievement.getIsRewardClaimed()).isTrue();
             verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(achievementId), anyString());
+                eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(achievementId), anyString(), eq("기타"));
         }
 
         @Test

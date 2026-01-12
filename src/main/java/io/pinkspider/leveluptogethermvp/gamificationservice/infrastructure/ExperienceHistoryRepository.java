@@ -27,11 +27,14 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     /**
      * 특정 기간 동안 가장 많은 경험치를 획득한 사용자 목록 (Top N)
      * 오늘의 플레이어 기능에 사용 (어제 00:00 ~ 23:59 기준)
+     * categoryName이 있는 경험치만 포함 (모든 카테고리 MVP)
      */
     @Query("""
         SELECT eh.userId, SUM(eh.expAmount) as totalExp
         FROM ExperienceHistory eh
         WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.categoryName IS NOT NULL
+        AND eh.expAmount > 0
         GROUP BY eh.userId
         ORDER BY totalExp DESC
         """)

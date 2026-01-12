@@ -124,7 +124,7 @@ class AttendanceServiceTest {
             assertThat(result.isAlreadyCheckedIn()).isFalse();
             verify(attendanceRecordRepository).save(any(AttendanceRecord.class));
             verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), anyInt(), eq(ExpSourceType.EVENT), anyLong(), anyString());
+                eq(TEST_USER_ID), anyInt(), eq(ExpSourceType.EVENT), anyLong(), anyString(), eq("기타"));
         }
 
         @Test

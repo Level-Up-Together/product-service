@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.attendance.application;
 
+import static io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
+
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRewardConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AttendanceRewardType;
@@ -88,7 +90,8 @@ public class AttendanceService {
                 totalExp,
                 ExpSourceType.EVENT,
                 savedRecord.getId(),
-                "출석 체크 보상" + (consecutiveDays > 1 ? " (" + consecutiveDays + "일 연속)" : "")
+                "출석 체크 보상" + (consecutiveDays > 1 ? " (" + consecutiveDays + "일 연속)" : ""),
+                DEFAULT_CATEGORY_NAME
             );
         }
 
