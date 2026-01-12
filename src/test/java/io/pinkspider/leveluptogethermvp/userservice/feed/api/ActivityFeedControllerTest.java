@@ -424,9 +424,9 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.content[].user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
                             fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("댓글 내용"),
-                            fieldWithPath("value.content[].deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.content[].is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("작성 일시"),
-                            fieldWithPath("value.content[].my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
+                            fieldWithPath("value.content[].is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
@@ -502,9 +502,9 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
                             fieldWithPath("value.content").type(JsonFieldType.STRING).description("댓글 내용"),
-                            fieldWithPath("value.deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성 일시"),
-                            fieldWithPath("value.my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
+                            fieldWithPath("value.is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
                             fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
                         )
                         .build()
