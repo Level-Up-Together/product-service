@@ -36,6 +36,9 @@ out/
 ### VS Code ###
 .vscode/
 
+### macOS ###
+.DS_Store
+
 ### DOC ###
 logs
 /src/main/generated/
@@ -47,3 +50,4 @@ logs
 /src/main/resources/restdocs/
 /uploads/
 /last_prompting_history.log
+/claude_log_2026-01-12.log

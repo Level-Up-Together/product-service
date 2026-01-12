@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.api.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.translation.dto.TranslationInfo;
@@ -26,11 +27,21 @@ public class FeedCommentResponse {
     private Integer userLevel;
     private String content;
 
-    @JsonProperty("is_deleted")
+    @JsonIgnore
     private boolean isDeleted;
 
-    @JsonProperty("is_my_comment")
+    @JsonIgnore
     private boolean isMyComment;
+
+    @JsonGetter("is_deleted")
+    public boolean getIsDeleted() {
+        return isDeleted;
+    }
+
+    @JsonGetter("is_my_comment")
+    public boolean getIsMyComment() {
+        return isMyComment;
+    }
 
     private LocalDateTime createdAt;
 
