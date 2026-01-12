@@ -10,6 +10,13 @@ X-User-Id: {{userId}}
 Accept: application/json
 
 ### ----------------------------------------------------------
+### 카테고리별 공개 피드 조회 (categoryId 사용)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/feeds/public?page=0&size=20&categoryId=1
+X-User-Id: {{userId}}
+Accept: application/json
+
+### ----------------------------------------------------------
 ### 내 타임라인 피드 조회 (내 + 친구 피드)
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/feeds/timeline?page=0&size=20
