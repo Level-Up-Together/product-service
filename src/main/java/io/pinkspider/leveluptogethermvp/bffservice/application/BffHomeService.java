@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
+import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.GuildPageData;
@@ -16,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResp
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +40,7 @@ public class BffHomeService {
     private final MissionCategoryService missionCategoryService;
     private final GuildService guildService;
     private final NoticeService noticeService;
+    private final SeasonRankingService seasonRankingService;
 
     /**
      * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다.
@@ -182,11 +186,22 @@ public class BffHomeService {
             }
         });
 
+        CompletableFuture<Optional<SeasonMvpData>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return seasonRankingService.getSeasonMvpData(locale);
+            } catch (Exception e) {
+                log.error("Failed to fetch season MVP data", e);
+                return Optional.empty();
+            }
+        });
+
         // 모든 결과 취합
         CompletableFuture.allOf(
             feedsFuture, rankingsFuture, mvpGuildsFuture, categoriesFuture,
-            myGuildsFuture, publicGuildsFuture, noticesFuture
+            myGuildsFuture, publicGuildsFuture, noticesFuture, seasonMvpFuture
         ).join();
+
+        Optional<SeasonMvpData> seasonMvpData = seasonMvpFuture.join();
 
         HomeDataResponse response = HomeDataResponse.builder()
             .feeds(feedsFuture.join())
@@ -196,9 +211,12 @@ public class BffHomeService {
             .myGuilds(myGuildsFuture.join())
             .publicGuilds(publicGuildsFuture.join())
             .notices(noticesFuture.join())
+            .currentSeason(seasonMvpData.map(SeasonMvpData::currentSeason).orElse(null))
+            .seasonMvpPlayers(seasonMvpData.map(SeasonMvpData::seasonMvpPlayers).orElse(Collections.emptyList()))
+            .seasonMvpGuilds(seasonMvpData.map(SeasonMvpData::seasonMvpGuilds).orElse(Collections.emptyList()))
             .build();
 
-        log.info("BFF getHomeData completed: userId={}, categoryId={}", userId, categoryId);
+        log.info("BFF getHomeData completed: userId={}, categoryId={}, hasActiveSeason={}", userId, categoryId, seasonMvpData.isPresent());
         return response;
     }
 }
