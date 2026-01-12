@@ -213,7 +213,7 @@ class YourServiceTest {
 - 테스트: JUnit 5 + Mockito
 
 ## 작업 완료 시 규칙
-- 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
+2- 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
 - 필요시 CLAUDE.md, README.md 업데이트
 
 ## 자주 발생하는 이슈

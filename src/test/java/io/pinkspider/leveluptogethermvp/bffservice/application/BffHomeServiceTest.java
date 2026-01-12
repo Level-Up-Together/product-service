@@ -8,6 +8,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.SeasonStatus;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -25,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +62,9 @@ class BffHomeServiceTest {
     @Mock
     private NoticeService noticeService;
 
+    @Mock
+    private SeasonRankingService seasonRankingService;
+
     @InjectMocks
     private BffHomeService bffHomeService;
 
@@ -64,6 +74,10 @@ class BffHomeServiceTest {
     private MissionCategoryResponse testCategoryResponse;
     private GuildResponse testGuildResponse;
     private NoticeResponse testNoticeResponse;
+    private SeasonResponse testSeasonResponse;
+    private SeasonMvpPlayerResponse testSeasonMvpPlayerResponse;
+    private SeasonMvpGuildResponse testSeasonMvpGuildResponse;
+    private SeasonMvpData testSeasonMvpData;
 
     @BeforeEach
     void setUp() {
@@ -126,6 +140,45 @@ class BffHomeServiceTest {
             .isActive(true)
             .createdAt(LocalDateTime.now())
             .build();
+
+        testSeasonResponse = new SeasonResponse(
+            1L,
+            "2024 윈터 시즌",
+            "겨울 시즌 이벤트입니다.",
+            LocalDateTime.now().minusDays(7),
+            LocalDateTime.now().plusDays(7),
+            1L,
+            "윈터 마스터",
+            SeasonStatus.ACTIVE,
+            "진행중"
+        );
+
+        testSeasonMvpPlayerResponse = SeasonMvpPlayerResponse.of(
+            testUserId,
+            "테스터",
+            "https://example.com/profile.jpg",
+            5,
+            "초보 모험가",
+            null,
+            1000L,
+            1
+        );
+
+        testSeasonMvpGuildResponse = SeasonMvpGuildResponse.of(
+            1L,
+            "테스트 길드",
+            "https://example.com/guild.jpg",
+            3,
+            10,
+            5000L,
+            1
+        );
+
+        testSeasonMvpData = SeasonMvpData.of(
+            testSeasonResponse,
+            List.of(testSeasonMvpPlayerResponse),
+            List.of(testSeasonMvpGuildResponse)
+        );
     }
 
     @Nested
@@ -145,10 +198,12 @@ class BffHomeServiceTest {
 
             when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
             when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(seasonRankingService.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
 
             // when - categoryId = null (전체 조회)
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
@@ -161,6 +216,11 @@ class BffHomeServiceTest {
             assertThat(response.getMyGuilds()).hasSize(1);
             assertThat(response.getPublicGuilds().getContent()).hasSize(1);
             assertThat(response.getNotices()).hasSize(1);
+            // 시즌 데이터 검증
+            assertThat(response.getCurrentSeason()).isNotNull();
+            assertThat(response.getCurrentSeason().title()).isEqualTo("2024 윈터 시즌");
+            assertThat(response.getSeasonMvpPlayers()).hasSize(1);
+            assertThat(response.getSeasonMvpGuilds()).hasSize(1);
         }
 
         @Test
@@ -427,6 +487,109 @@ class BffHomeServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getFeeds()).isNotNull();
             assertThat(response.getFeeds().getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("활성 시즌이 있을 때 시즌 MVP 데이터를 조회한다")
+        void getHomeData_withActiveSeason_success() {
+            // given
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 20), 1
+            );
+            Page<GuildResponse> guildPage = new PageImpl<>(
+                List.of(testGuildResponse), PageRequest.of(0, 5), 1
+            );
+
+            when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(seasonRankingService.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getCurrentSeason()).isNotNull();
+            assertThat(response.getCurrentSeason().id()).isEqualTo(1L);
+            assertThat(response.getCurrentSeason().title()).isEqualTo("2024 윈터 시즌");
+            assertThat(response.getCurrentSeason().status()).isEqualTo(SeasonStatus.ACTIVE);
+            assertThat(response.getSeasonMvpPlayers()).hasSize(1);
+            assertThat(response.getSeasonMvpPlayers().get(0).userId()).isEqualTo(testUserId);
+            assertThat(response.getSeasonMvpPlayers().get(0).seasonExp()).isEqualTo(1000L);
+            assertThat(response.getSeasonMvpGuilds()).hasSize(1);
+            assertThat(response.getSeasonMvpGuilds().get(0).guildId()).isEqualTo(1L);
+            assertThat(response.getSeasonMvpGuilds().get(0).seasonExp()).isEqualTo(5000L);
+        }
+
+        @Test
+        @DisplayName("활성 시즌이 없을 때 시즌 관련 데이터는 null 또는 빈 목록이다")
+        void getHomeData_noActiveSeason_nullSeasonData() {
+            // given
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 20), 1
+            );
+            Page<GuildResponse> guildPage = new PageImpl<>(
+                List.of(testGuildResponse), PageRequest.of(0, 5), 1
+            );
+
+            when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(seasonRankingService.getSeasonMvpData(any())).thenReturn(Optional.empty());
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getCurrentSeason()).isNull();
+            assertThat(response.getSeasonMvpPlayers()).isEmpty();
+            assertThat(response.getSeasonMvpGuilds()).isEmpty();
+            // 다른 데이터는 정상 조회
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getRankings()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("시즌 데이터 조회 실패 시 빈 데이터 반환")
+        void getHomeData_seasonFetchFailed_emptySeasonData() {
+            // given
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 20), 1
+            );
+            Page<GuildResponse> guildPage = new PageImpl<>(
+                List.of(testGuildResponse), PageRequest.of(0, 5), 1
+            );
+
+            when(activityFeedService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(seasonRankingService.getSeasonMvpData(any())).thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
+
+            // when
+            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getCurrentSeason()).isNull();
+            assertThat(response.getSeasonMvpPlayers()).isEmpty();
+            assertThat(response.getSeasonMvpGuilds()).isEmpty();
+            // 다른 데이터는 정상 조회
+            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getRankings()).hasSize(1);
         }
     }
 }
