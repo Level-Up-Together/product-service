@@ -158,6 +158,74 @@ class HomeServiceTest {
             // then
             assertThat(result).isEmpty();
         }
+
+        @Test
+        @DisplayName("전체 MVP 조회 시 모든 카테고리의 경험치가 합산된 결과를 반환한다")
+        void getTodayPlayers_aggregatesAllCategories() {
+            // given
+            // Repository는 categoryName IS NOT NULL인 모든 경험치를 합산해서 반환
+            String user1 = "user-1";
+            String user2 = "user-2";
+
+            // user1의 총 합산 경험치 500 (운동 200 + 독서 200 + 기타 100)
+            // user2의 총 합산 경험치 300 (기타 300 - 출석/업적 보상)
+            Object[] row1 = {user1, 500L};
+            Object[] row2 = {user2, 300L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+            topGainers.add(row2);
+
+            Users user1Entity = Users.builder()
+                .nickname("플레이어1")
+                .picture("https://example.com/1.jpg")
+                .build();
+            setUserId(user1Entity, user1);
+
+            Users user2Entity = Users.builder()
+                .nickname("플레이어2")
+                .picture("https://example.com/2.jpg")
+                .build();
+            setUserId(user2Entity, user2);
+
+            UserExperience user1Exp = UserExperience.builder()
+                .userId(user1)
+                .currentLevel(10)
+                .currentExp(1000)
+                .totalExp(9000)
+                .build();
+
+            UserExperience user2Exp = UserExperience.builder()
+                .userId(user2)
+                .currentLevel(5)
+                .currentExp(500)
+                .totalExp(4500)
+                .build();
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(user1, user2)))
+                .thenReturn(List.of(user1Entity, user2Entity));
+            when(userExperienceRepository.findByUserIdIn(List.of(user1, user2)))
+                .thenReturn(List.of(user1Exp, user2Exp));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(user1, user2)))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(2);
+
+            // 1등: user1 (500 경험치 - 모든 카테고리 합산)
+            assertThat(result.get(0).getUserId()).isEqualTo(user1);
+            assertThat(result.get(0).getEarnedExp()).isEqualTo(500L);
+            assertThat(result.get(0).getRank()).isEqualTo(1);
+
+            // 2등: user2 (300 경험치 - 기타 카테고리만 있어도 MVP에 포함)
+            assertThat(result.get(1).getUserId()).isEqualTo(user2);
+            assertThat(result.get(1).getEarnedExp()).isEqualTo(300L);
+            assertThat(result.get(1).getRank()).isEqualTo(2);
+        }
     }
 
     @Nested

@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import static io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
+
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
@@ -132,7 +134,8 @@ public class AchievementService {
                 achievement.getRewardExp(),
                 ExpSourceType.ACHIEVEMENT,
                 achievement.getId(),
-                "업적 달성 보상: " + achievement.getName()
+                "업적 달성 보상: " + achievement.getName(),
+                DEFAULT_CATEGORY_NAME
             );
         }
 
