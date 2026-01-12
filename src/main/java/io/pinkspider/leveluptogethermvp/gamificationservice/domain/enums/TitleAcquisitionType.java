@@ -11,7 +11,8 @@ public enum TitleAcquisitionType {
     MISSION("미션 완료"),
     GUILD("길드 활동"),
     EVENT("이벤트"),
-    SPECIAL("특별");
+    SPECIAL("특별"),
+    SEASON("시즌 보상");
 
     private final String description;
 }
