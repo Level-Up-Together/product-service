@@ -33,15 +33,22 @@ public class ActivityFeedController {
 
     /**
      * 전체 공개 피드 조회
+     * - categoryId가 있으면 해당 카테고리별 피드 조회
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
         @CurrentUser(required = false) String userId,
+        @RequestParam(required = false) Long categoryId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        Page<ActivityFeedResponse> feeds = activityFeedService.getPublicFeeds(userId, page, size, acceptLanguage);
+        Page<ActivityFeedResponse> feeds;
+        if (categoryId != null) {
+            feeds = activityFeedService.getPublicFeedsByCategory(categoryId, userId, page, size, acceptLanguage);
+        } else {
+            feeds = activityFeedService.getPublicFeeds(userId, page, size, acceptLanguage);
+        }
         return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder().value(feeds).build());
     }
 
