@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -95,6 +96,23 @@ class SeasonRewardProcessorServiceTest {
         setId(testReward2, 2L);
     }
 
+    private SeasonRankReward createCategoryReward(Long id, int rankStart, int rankEnd, Long titleId,
+                                                   String titleName, Long categoryId, String categoryName) throws Exception {
+        SeasonRankReward reward = SeasonRankReward.builder()
+            .season(testSeason)
+            .rankStart(rankStart)
+            .rankEnd(rankEnd)
+            .titleId(titleId)
+            .titleName(titleName)
+            .categoryId(categoryId)
+            .categoryName(categoryName)
+            .sortOrder(1)
+            .isActive(true)
+            .build();
+        setId(reward, id);
+        return reward;
+    }
+
     private void setId(Object entity, Long id) throws Exception {
         Field idField = entity.getClass().getDeclaredField("id");
         idField.setAccessible(true);
@@ -113,7 +131,6 @@ class SeasonRewardProcessorServiceTest {
             when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
             when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
                 .thenReturn(List.of(testReward1, testReward2));
-            when(rankRewardRepository.findMaxRankBySeasonId(1L)).thenReturn(Optional.of(5));
 
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(new Object[]{"user1", 1000L});
@@ -174,7 +191,6 @@ class SeasonRewardProcessorServiceTest {
             when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
             when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
                 .thenReturn(List.of(testReward1));
-            when(rankRewardRepository.findMaxRankBySeasonId(1L)).thenReturn(Optional.of(1));
 
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(new Object[]{"user1", 1000L});
@@ -203,7 +219,6 @@ class SeasonRewardProcessorServiceTest {
             when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
             when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
                 .thenReturn(List.of(testReward1));
-            when(rankRewardRepository.findMaxRankBySeasonId(1L)).thenReturn(Optional.of(1));
 
             List<Object[]> topGainers = new ArrayList<>();
             topGainers.add(new Object[]{"user1", 1000L});
@@ -222,6 +237,96 @@ class SeasonRewardProcessorServiceTest {
             assertThat(result.status()).isEqualTo("COMPLETED");
             assertThat(result.skipCount()).isEqualTo(1);
             assertThat(result.successCount()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("전체 랭킹과 카테고리별 랭킹 보상을 함께 처리한다")
+        void processOverallAndCategoryRewards() throws Exception {
+            // given
+            SeasonRankReward overallReward = SeasonRankReward.builder()
+                .season(testSeason)
+                .rankStart(1)
+                .rankEnd(1)
+                .titleId(100L)
+                .titleName("전체 챔피언")
+                .categoryId(null)  // 전체 랭킹
+                .categoryName(null)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(overallReward, 10L);
+
+            SeasonRankReward categoryReward = createCategoryReward(
+                11L, 1, 1, 200L, "운동 챔피언", 1L, "운동");
+
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+            when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                .thenReturn(List.of(overallReward, categoryReward));
+
+            // 전체 랭킹 데이터
+            List<Object[]> overallGainers = new ArrayList<>();
+            overallGainers.add(new Object[]{"user1", 1000L});
+
+            // 카테고리별 랭킹 데이터
+            List<Object[]> categoryGainers = new ArrayList<>();
+            categoryGainers.add(new Object[]{"user2", 500L});
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(Pageable.class)))
+                .thenReturn(overallGainers);
+            when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                any(), any(), any(), any(Pageable.class)))
+                .thenReturn(categoryGainers);
+            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            SeasonRewardProcessResult result = processorService.processSeasonRewards(1L);
+
+            // then
+            assertThat(result.status()).isEqualTo("COMPLETED");
+            assertThat(result.successCount()).isEqualTo(2);  // 전체 1명 + 카테고리 1명
+            verify(titleService).grantTitle("user1", 100L);  // 전체 랭킹 보상
+            verify(titleService).grantTitle("user2", 200L);  // 카테고리 랭킹 보상
+        }
+
+        @Test
+        @DisplayName("카테고리별 랭킹만 있는 경우 처리한다")
+        void processCategoryOnlyRewards() throws Exception {
+            // given
+            SeasonRankReward categoryReward1 = createCategoryReward(
+                20L, 1, 1, 300L, "운동 마스터", 1L, "운동");
+            SeasonRankReward categoryReward2 = createCategoryReward(
+                21L, 1, 1, 301L, "공부 마스터", 2L, "공부");
+
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+            when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                .thenReturn(List.of(categoryReward1, categoryReward2));
+
+            // 운동 카테고리 랭킹 데이터
+            List<Object[]> exerciseGainers = new ArrayList<>();
+            exerciseGainers.add(new Object[]{"user1", 500L});
+
+            // 공부 카테고리 랭킹 데이터
+            List<Object[]> studyGainers = new ArrayList<>();
+            studyGainers.add(new Object[]{"user2", 400L});
+
+            when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+                any(), any(), any(), any(Pageable.class)))
+                .thenReturn(exerciseGainers)
+                .thenReturn(studyGainers);
+            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            SeasonRewardProcessResult result = processorService.processSeasonRewards(1L);
+
+            // then
+            assertThat(result.status()).isEqualTo("COMPLETED");
+            assertThat(result.successCount()).isEqualTo(2);  // 카테고리별 각 1명
+            verify(titleService).grantTitle("user1", 300L);  // 운동 카테고리
+            verify(titleService).grantTitle("user2", 301L);  // 공부 카테고리
         }
     }
 

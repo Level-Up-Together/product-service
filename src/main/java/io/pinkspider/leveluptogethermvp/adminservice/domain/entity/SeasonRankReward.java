@@ -26,11 +26,12 @@ import org.hibernate.annotations.Comment;
 @Table(name = "season_rank_reward",
     uniqueConstraints = @UniqueConstraint(
         name = "uk_season_rank_reward",
-        columnNames = {"season_id", "rank_start", "rank_end"}
+        columnNames = {"season_id", "category_id", "rank_start", "rank_end"}
     ),
     indexes = {
         @Index(name = "idx_season_rank_reward_season", columnList = "season_id"),
-        @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active")
+        @Index(name = "idx_season_rank_reward_active", columnList = "season_id, is_active"),
+        @Index(name = "idx_season_rank_reward_category", columnList = "season_id, category_id")
     }
 )
 @Getter
@@ -72,6 +73,14 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
     @Comment("보상 칭호 이름 (비정규화)")
     private String titleName;
 
+    @Column(name = "category_id")
+    @Comment("카테고리 ID (NULL이면 전체 랭킹)")
+    private Long categoryId;
+
+    @Column(name = "category_name", length = 100)
+    @Comment("카테고리명 (비정규화)")
+    private String categoryName;
+
     @Column(name = "sort_order", nullable = false)
     @Comment("정렬 순서 (1위 보상이 먼저)")
     @Builder.Default
@@ -97,5 +106,19 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
             return rankStart + "위";
         }
         return rankStart + "~" + rankEnd + "위";
+    }
+
+    /**
+     * 전체 랭킹 여부 확인
+     */
+    public boolean isOverallRanking() {
+        return categoryId == null;
+    }
+
+    /**
+     * 랭킹 타입 표시 문자열 (예: "전체", "운동")
+     */
+    public String getRankingTypeDisplay() {
+        return categoryId == null ? "전체" : categoryName;
     }
 }
