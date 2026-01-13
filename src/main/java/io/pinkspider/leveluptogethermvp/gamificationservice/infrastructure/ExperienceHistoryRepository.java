@@ -88,4 +88,75 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate,
         Pageable pageable);
+
+    /**
+     * 특정 기간 동안 사용자의 총 경험치 합계 조회
+     */
+    @Query("""
+        SELECT COALESCE(SUM(eh.expAmount), 0)
+        FROM ExperienceHistory eh
+        WHERE eh.userId = :userId
+        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.expAmount > 0
+        """)
+    Long sumExpByUserIdAndPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 특정 기간 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용)
+     */
+    @Query(value = """
+        SELECT COUNT(*) FROM (
+            SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+            FROM experience_history eh
+            WHERE eh.created_at >= :startDate AND eh.created_at < :endDate
+            AND eh.category_name IS NOT NULL
+            AND eh.exp_amount > 0
+            GROUP BY eh.user_id
+            HAVING SUM(eh.exp_amount) > :myExp
+        ) sub
+        """, nativeQuery = true)
+    Long countUsersWithMoreExpByPeriod(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("myExp") Long myExp);
+
+    /**
+     * 특정 기간 + 카테고리 동안 사용자의 총 경험치 합계 조회
+     */
+    @Query("""
+        SELECT COALESCE(SUM(eh.expAmount), 0)
+        FROM ExperienceHistory eh
+        WHERE eh.userId = :userId
+        AND eh.categoryName = :categoryName
+        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.expAmount > 0
+        """)
+    Long sumExpByUserIdAndCategoryAndPeriod(
+        @Param("userId") String userId,
+        @Param("categoryName") String categoryName,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 특정 기간 + 카테고리 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용)
+     */
+    @Query(value = """
+        SELECT COUNT(*) FROM (
+            SELECT eh.user_id, SUM(eh.exp_amount) as total_exp
+            FROM experience_history eh
+            WHERE eh.category_name = :categoryName
+            AND eh.created_at >= :startDate AND eh.created_at < :endDate
+            AND eh.exp_amount > 0
+            GROUP BY eh.user_id
+            HAVING SUM(eh.exp_amount) > :myExp
+        ) sub
+        """, nativeQuery = true)
+    Long countUsersWithMoreExpByCategoryAndPeriod(
+        @Param("categoryName") String categoryName,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("myExp") Long myExp);
 }
