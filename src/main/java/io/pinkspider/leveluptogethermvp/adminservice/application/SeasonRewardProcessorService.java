@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,28 +47,103 @@ public class SeasonRewardProcessorService {
         }
 
         // 순위별 보상 설정 조회
-        List<SeasonRankReward> rankRewards = rankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId);
-        if (rankRewards.isEmpty()) {
+        List<SeasonRankReward> allRewards = rankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId);
+        if (allRewards.isEmpty()) {
             log.warn("시즌에 설정된 보상이 없습니다: seasonId={}", seasonId);
             return SeasonRewardProcessResult.noRewardsConfigured(seasonId);
         }
 
-        // 보상 대상 최대 순위 확인
-        int maxRank = rankRewardRepository.findMaxRankBySeasonId(seasonId).orElse(0);
-        if (maxRank == 0) {
-            return SeasonRewardProcessResult.noRewardsConfigured(seasonId);
-        }
-
-        // 순위별 보상 맵 생성
-        Map<Integer, SeasonRankReward> rankRewardMap = buildRankRewardMap(rankRewards, maxRank);
-
-        // 시즌 기간 동안 경험치 상위자 조회
-        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
-            season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
-
         int successCount = 0;
         int failCount = 0;
         int skipCount = 0;
+
+        // 전체 랭킹 보상 처리
+        List<SeasonRankReward> overallRewards = allRewards.stream()
+            .filter(SeasonRankReward::isOverallRanking)
+            .toList();
+
+        if (!overallRewards.isEmpty()) {
+            int[] result = processOverallRankingRewards(season, overallRewards);
+            successCount += result[0];
+            failCount += result[1];
+            skipCount += result[2];
+        }
+
+        // 카테고리별 랭킹 보상 처리
+        Map<Long, List<SeasonRankReward>> categoryRewardsMap = allRewards.stream()
+            .filter(r -> !r.isOverallRanking())
+            .collect(Collectors.groupingBy(SeasonRankReward::getCategoryId));
+
+        for (Map.Entry<Long, List<SeasonRankReward>> entry : categoryRewardsMap.entrySet()) {
+            Long categoryId = entry.getKey();
+            List<SeasonRankReward> categoryRewards = entry.getValue();
+            String categoryName = categoryRewards.get(0).getCategoryName();
+
+            int[] result = processCategoryRankingRewards(season, categoryId, categoryName, categoryRewards);
+            successCount += result[0];
+            failCount += result[1];
+            skipCount += result[2];
+        }
+
+        log.info("시즌 보상 처리 완료: seasonId={}, success={}, fail={}, skip={}",
+            seasonId, successCount, failCount, skipCount);
+
+        return SeasonRewardProcessResult.completed(seasonId, successCount, failCount, skipCount);
+    }
+
+    /**
+     * 전체 랭킹 보상 처리
+     */
+    private int[] processOverallRankingRewards(Season season, List<SeasonRankReward> rewards) {
+        int maxRank = rewards.stream()
+            .mapToInt(SeasonRankReward::getRankEnd)
+            .max()
+            .orElse(0);
+
+        if (maxRank == 0) {
+            return new int[]{0, 0, 0};
+        }
+
+        Map<Integer, SeasonRankReward> rankRewardMap = buildRankRewardMap(rewards, maxRank);
+
+        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
+            season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
+
+        return processRankings(season.getId(), null, null, topGainers, rankRewardMap);
+    }
+
+    /**
+     * 카테고리별 랭킹 보상 처리
+     */
+    private int[] processCategoryRankingRewards(Season season, Long categoryId, String categoryName,
+                                                 List<SeasonRankReward> rewards) {
+        int maxRank = rewards.stream()
+            .mapToInt(SeasonRankReward::getRankEnd)
+            .max()
+            .orElse(0);
+
+        if (maxRank == 0) {
+            return new int[]{0, 0, 0};
+        }
+
+        Map<Integer, SeasonRankReward> rankRewardMap = buildRankRewardMap(rewards, maxRank);
+
+        List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
+            categoryName, season.getStartAt(), season.getEndAt(), PageRequest.of(0, maxRank));
+
+        return processRankings(season.getId(), categoryId, categoryName, topGainers, rankRewardMap);
+    }
+
+    /**
+     * 랭킹 데이터로 보상 처리
+     */
+    private int[] processRankings(Long seasonId, Long categoryId, String categoryName,
+                                   List<Object[]> topGainers, Map<Integer, SeasonRankReward> rankRewardMap) {
+        int successCount = 0;
+        int failCount = 0;
+        int skipCount = 0;
+
+        String rankingType = categoryId == null ? "전체" : categoryName;
 
         for (int i = 0; i < topGainers.size(); i++) {
             Object[] row = topGainers.get(i);
@@ -77,11 +153,9 @@ public class SeasonRewardProcessorService {
 
             SeasonRankReward reward = rankRewardMap.get(rank);
             if (reward == null) {
-                // 해당 순위에 대한 보상이 없음
                 continue;
             }
 
-            // 보상 이력 생성
             SeasonRewardHistory history = SeasonRewardHistory.builder()
                 .seasonId(seasonId)
                 .userId(userId)
@@ -89,37 +163,35 @@ public class SeasonRewardProcessorService {
                 .totalExp(totalExp)
                 .titleId(reward.getTitleId())
                 .titleName(reward.getTitleName())
+                .categoryId(categoryId)
+                .categoryName(categoryName)
                 .status(SeasonRewardStatus.PENDING)
                 .build();
 
             try {
-                // 칭호 부여
                 titleService.grantTitle(userId, reward.getTitleId());
                 history.markSuccess();
                 successCount++;
-                log.info("시즌 보상 부여 성공: seasonId={}, userId={}, rank={}, titleId={}",
-                    seasonId, userId, rank, reward.getTitleId());
+                log.info("시즌 보상 부여 성공: seasonId={}, userId={}, rank={}, rankingType={}, titleId={}",
+                    seasonId, userId, rank, rankingType, reward.getTitleId());
             } catch (Exception e) {
                 if (e.getMessage() != null && e.getMessage().contains("이미 보유한 칭호")) {
                     history.markSkipped("이미 칭호 보유");
                     skipCount++;
-                    log.info("시즌 보상 건너뜀 (이미 보유): seasonId={}, userId={}, rank={}",
-                        seasonId, userId, rank);
+                    log.info("시즌 보상 건너뜀 (이미 보유): seasonId={}, userId={}, rank={}, rankingType={}",
+                        seasonId, userId, rank, rankingType);
                 } else {
                     history.markFailed(e.getMessage());
                     failCount++;
-                    log.error("시즌 보상 부여 실패: seasonId={}, userId={}, rank={}",
-                        seasonId, userId, rank, e);
+                    log.error("시즌 보상 부여 실패: seasonId={}, userId={}, rank={}, rankingType={}",
+                        seasonId, userId, rank, rankingType, e);
                 }
             }
 
             rewardHistoryRepository.save(history);
         }
 
-        log.info("시즌 보상 처리 완료: seasonId={}, success={}, fail={}, skip={}",
-            seasonId, successCount, failCount, skipCount);
-
-        return SeasonRewardProcessResult.completed(seasonId, successCount, failCount, skipCount);
+        return new int[]{successCount, failCount, skipCount};
     }
 
     /**

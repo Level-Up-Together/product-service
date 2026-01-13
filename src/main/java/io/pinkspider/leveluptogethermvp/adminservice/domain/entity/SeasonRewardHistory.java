@@ -72,6 +72,14 @@ public class SeasonRewardHistory extends LocalDateTimeBaseEntity {
     @Comment("부여된 칭호 이름")
     private String titleName;
 
+    @Column(name = "category_id")
+    @Comment("보상 대상 카테고리 ID (NULL이면 전체 랭킹)")
+    private Long categoryId;
+
+    @Column(name = "category_name", length = 100)
+    @Comment("보상 대상 카테고리명")
+    private String categoryName;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
