@@ -31,4 +31,37 @@ public interface GuildExperienceHistoryRepository extends JpaRepository<GuildExp
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate,
         Pageable pageable);
+
+    /**
+     * 특정 기간 동안 길드의 총 경험치 합계 조회
+     */
+    @Query("""
+        SELECT COALESCE(SUM(geh.expAmount), 0)
+        FROM GuildExperienceHistory geh
+        WHERE geh.guild.id = :guildId
+        AND geh.createdAt >= :startDate AND geh.createdAt < :endDate
+        AND geh.expAmount > 0
+        """)
+    Long sumExpByGuildIdAndPeriod(
+        @Param("guildId") Long guildId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 특정 기간 동안 특정 길드보다 경험치가 많은 길드 수 조회 (순위 계산용)
+     */
+    @Query(value = """
+        SELECT COUNT(*) FROM (
+            SELECT geh.guild_id, SUM(geh.exp_amount) as total_exp
+            FROM guild_experience_history geh
+            WHERE geh.created_at >= :startDate AND geh.created_at < :endDate
+            AND geh.exp_amount > 0
+            GROUP BY geh.guild_id
+            HAVING SUM(geh.exp_amount) > :myExp
+        ) sub
+        """, nativeQuery = true)
+    Long countGuildsWithMoreExpByPeriod(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("myExp") Long myExp);
 }

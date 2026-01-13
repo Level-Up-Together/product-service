@@ -107,6 +107,11 @@ public class RedisConfig {
         cacheConfigurations.put("todayPlayersByCategory", homeConfig);
         cacheConfigurations.put("mvpGuilds", homeConfig);
 
+        // 시즌 관련 캐시: 10분 TTL (Admin에서 변경 시 즉시 삭제됨)
+        RedisCacheConfiguration seasonConfig = defaultConfig.entryTtl(Duration.ofMinutes(10));
+        cacheConfigurations.put("currentSeason", seasonConfig);
+        cacheConfigurations.put("seasonMvpData", seasonConfig);
+
         // Mission Category 캐시: 1시간 TTL (카테고리는 자주 변경되지 않음)
         RedisCacheConfiguration categoryConfig = defaultConfig.entryTtl(Duration.ofHours(1));
         cacheConfigurations.put("missionCategories", categoryConfig);
