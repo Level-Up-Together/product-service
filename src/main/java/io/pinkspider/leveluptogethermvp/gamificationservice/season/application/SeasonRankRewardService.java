@@ -67,13 +67,14 @@ public class SeasonRankRewardService {
             .rankEnd(request.rankEnd())
             .titleId(request.titleId())
             .titleName(title.getName())
+            .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
             .sortOrder(request.sortOrder())
             .isActive(true)
             .build();
 
         SeasonRankReward saved = rankRewardRepository.save(reward);
-        log.info("시즌 순위 보상 생성: seasonId={}, rankRange={}-{}, titleId={}",
-            seasonId, request.rankStart(), request.rankEnd(), request.titleId());
+        log.info("시즌 순위 보상 생성: seasonId={}, rankRange={}-{}, titleId={}, titleRarity={}",
+            seasonId, request.rankStart(), request.rankEnd(), request.titleId(), title.getRarity());
 
         return SeasonRankRewardResponse.from(saved);
     }
@@ -104,12 +105,13 @@ public class SeasonRankRewardService {
         reward.setRankEnd(request.rankEnd());
         reward.setTitleId(request.titleId());
         reward.setTitleName(title.getName());
+        reward.setTitleRarity(title.getRarity() != null ? title.getRarity().name() : null);
         if (request.sortOrder() != null) {
             reward.setSortOrder(request.sortOrder());
         }
 
-        log.info("시즌 순위 보상 수정: rewardId={}, rankRange={}-{}, titleId={}",
-            rewardId, request.rankStart(), request.rankEnd(), request.titleId());
+        log.info("시즌 순위 보상 수정: rewardId={}, rankRange={}-{}, titleId={}, titleRarity={}",
+            rewardId, request.rankStart(), request.rankEnd(), request.titleId(), title.getRarity());
 
         return SeasonRankRewardResponse.from(reward);
     }
