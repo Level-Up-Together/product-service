@@ -7,7 +7,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Achie
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
@@ -41,8 +40,14 @@ public class AchievementService {
             .toList();
     }
 
-    public List<AchievementResponse> getAchievementsByCategory(AchievementCategory category) {
-        return achievementRepository.findVisibleAchievementsByCategory(category).stream()
+    public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode) {
+        return achievementRepository.findVisibleAchievementsByCategoryCode(categoryCode).stream()
+            .map(AchievementResponse::from)
+            .toList();
+    }
+
+    public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId) {
+        return achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId).stream()
             .map(AchievementResponse::from)
             .toList();
     }

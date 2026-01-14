@@ -2,15 +2,18 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.global.translation.LocaleUtils;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
@@ -33,7 +36,11 @@ import org.hibernate.annotations.Comment;
     uniqueConstraints = @UniqueConstraint(
         name = "uk_achievement_type",
         columnNames = {"achievement_type"}
-    )
+    ),
+    indexes = {
+        @Index(name = "idx_achievement_category", columnList = "category_id"),
+        @Index(name = "idx_achievement_mission_category", columnList = "mission_category_id")
+    }
 )
 @Comment("업적")
 public class Achievement extends LocalDateTimeBaseEntity {
@@ -75,11 +82,22 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Comment("업적 설명 (아랍어)")
     private String descriptionAr;
 
-    @NotNull
-    @Enumerated(EnumType.STRING)
-    @Column(name = "category", nullable = false, length = 30)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
     @Comment("업적 카테고리")
     private AchievementCategory category;
+
+    @Column(name = "category_code", length = 30)
+    @Comment("업적 카테고리 코드 (비정규화)")
+    private String categoryCode;
+
+    @Column(name = "mission_category_id")
+    @Comment("미션 카테고리 ID (카테고리가 MISSION인 경우)")
+    private Long missionCategoryId;
+
+    @Column(name = "mission_category_name", length = 50)
+    @Comment("미션 카테고리명 (비정규화)")
+    private String missionCategoryName;
 
     @Column(name = "icon_url")
     @Comment("업적 아이콘 URL")
@@ -99,11 +117,6 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Column(name = "reward_title_id")
     @Comment("보상 칭호 ID")
     private Long rewardTitleId;
-
-    @Column(name = "reward_points")
-    @Comment("보상 포인트")
-    @Builder.Default
-    private Integer rewardPoints = 0;
 
     @NotNull
     @Column(name = "is_hidden", nullable = false)
@@ -129,5 +142,15 @@ public class Achievement extends LocalDateTimeBaseEntity {
      */
     public String getLocalizedDescription(String locale) {
         return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+    }
+
+    /**
+     * 카테고리 설정 시 코드도 함께 저장
+     */
+    public void setCategory(AchievementCategory category) {
+        this.category = category;
+        if (category != null) {
+            this.categoryCode = category.getCode();
+        }
     }
 }

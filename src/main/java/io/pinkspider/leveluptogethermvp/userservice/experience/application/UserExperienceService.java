@@ -5,9 +5,11 @@ import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRe
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,18 +28,25 @@ public class UserExperienceService {
 
     private final UserExperienceRepository userExperienceRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
+    private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final LevelConfigRepository levelConfigRepository;
     private final ApplicationContext applicationContext;
 
     @Transactional
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description) {
-        return addExperience(userId, expAmount, sourceType, sourceId, description, null);
+        return addExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
     @Transactional
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description, String categoryName) {
+        return addExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
+    }
+
+    @Transactional
+    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                 Long sourceId, String description, Long categoryId, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -59,6 +68,11 @@ public class UserExperienceService {
             .build();
         experienceHistoryRepository.save(history);
 
+        // 카테고리별 경험치 업데이트 (categoryId가 있을 때만)
+        if (categoryId != null && expAmount > 0) {
+            updateCategoryExperience(userId, categoryId, categoryName, expAmount);
+        }
+
         if (levelAfter > levelBefore) {
             log.info("레벨 업! userId={}, {} -> {}", userId, levelBefore, levelAfter);
             // 레벨 업적 체크 (순환 의존성 방지를 위해 ApplicationContext 사용)
@@ -70,10 +84,30 @@ public class UserExperienceService {
             }
         }
 
-        log.info("경험치 획득: userId={}, amount={}, total={}, level={}",
-            userId, expAmount, userExp.getTotalExp(), userExp.getCurrentLevel());
+        log.info("경험치 획득: userId={}, amount={}, total={}, level={}, categoryId={}",
+            userId, expAmount, userExp.getTotalExp(), userExp.getCurrentLevel(), categoryId);
 
         return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+    }
+
+    /**
+     * 카테고리별 경험치 업데이트
+     */
+    private void updateCategoryExperience(String userId, Long categoryId, String categoryName, int expAmount) {
+        UserCategoryExperience categoryExp = userCategoryExperienceRepository
+            .findByUserIdAndCategoryId(userId, categoryId)
+            .orElseGet(() -> UserCategoryExperience.create(userId, categoryId, categoryName, 0));
+
+        categoryExp.addExperience(expAmount);
+
+        // categoryName이 변경되었을 수 있으므로 업데이트
+        if (categoryName != null && !categoryName.equals(categoryExp.getCategoryName())) {
+            categoryExp.setCategoryName(categoryName);
+        }
+
+        userCategoryExperienceRepository.save(categoryExp);
+        log.debug("카테고리별 경험치 업데이트: userId={}, categoryId={}, categoryExp={}",
+            userId, categoryId, categoryExp.getTotalExp());
     }
 
     public UserExperienceResponse getUserExperience(String userId) {
@@ -169,12 +203,18 @@ public class UserExperienceService {
     @Transactional
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description) {
-        return subtractExperience(userId, expAmount, sourceType, sourceId, description, null);
+        return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
     @Transactional
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description, String categoryName) {
+        return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
+    }
+
+    @Transactional
+    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                      Long sourceId, String description, Long categoryId, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         int levelBefore = userExp.getCurrentLevel();
 
@@ -206,10 +246,29 @@ public class UserExperienceService {
             .build();
         experienceHistoryRepository.save(history);
 
-        log.info("경험치 차감: userId={}, amount={}, total={}, level: {} -> {}",
-            userId, expAmount, userExp.getTotalExp(), levelBefore, levelAfter);
+        // 카테고리별 경험치 차감 (categoryId가 있을 때만)
+        if (categoryId != null && expAmount > 0) {
+            subtractCategoryExperience(userId, categoryId, expAmount);
+        }
+
+        log.info("경험치 차감: userId={}, amount={}, total={}, level: {} -> {}, categoryId={}",
+            userId, expAmount, userExp.getTotalExp(), levelBefore, levelAfter, categoryId);
 
         return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));
+    }
+
+    /**
+     * 카테고리별 경험치 차감
+     */
+    private void subtractCategoryExperience(String userId, Long categoryId, int expAmount) {
+        userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
+            .ifPresent(categoryExp -> {
+                long newExp = Math.max(0, categoryExp.getTotalExp() - expAmount);
+                categoryExp.setTotalExp(newExp);
+                userCategoryExperienceRepository.save(categoryExp);
+                log.debug("카테고리별 경험치 차감: userId={}, categoryId={}, categoryExp={}",
+                    userId, categoryId, newExp);
+            });
     }
 
     /**

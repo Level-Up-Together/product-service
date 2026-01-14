@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import java.util.List;
 import java.util.Optional;
@@ -17,11 +16,22 @@ public interface AchievementRepository extends JpaRepository<Achievement, Long> 
 
     List<Achievement> findByIsActiveTrue();
 
-    List<Achievement> findByCategoryAndIsActiveTrue(AchievementCategory category);
+    /**
+     * 카테고리 코드로 활성 업적 조회
+     */
+    List<Achievement> findByCategoryCodeAndIsActiveTrue(String categoryCode);
+
+    /**
+     * 미션 카테고리 ID로 활성 업적 조회
+     */
+    List<Achievement> findByMissionCategoryIdAndIsActiveTrue(Long missionCategoryId);
 
     @Query("SELECT a FROM Achievement a WHERE a.isActive = true AND a.isHidden = false")
     List<Achievement> findVisibleAchievements();
 
-    @Query("SELECT a FROM Achievement a WHERE a.isActive = true AND a.isHidden = false AND a.category = :category")
-    List<Achievement> findVisibleAchievementsByCategory(@Param("category") AchievementCategory category);
+    @Query("SELECT a FROM Achievement a WHERE a.isActive = true AND a.isHidden = false AND a.categoryCode = :categoryCode")
+    List<Achievement> findVisibleAchievementsByCategoryCode(@Param("categoryCode") String categoryCode);
+
+    @Query("SELECT a FROM Achievement a WHERE a.isActive = true AND a.isHidden = false AND a.missionCategoryId = :missionCategoryId")
+    List<Achievement> findVisibleAchievementsByMissionCategoryId(@Param("missionCategoryId") Long missionCategoryId);
 }

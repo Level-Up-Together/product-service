@@ -10,7 +10,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Title
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.util.List;
@@ -41,11 +40,19 @@ public class AchievementController {
         return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
     }
 
-    // 카테고리별 업적 목록
-    @GetMapping("/category/{category}")
-    public ResponseEntity<ApiResult<List<AchievementResponse>>> getAchievementsByCategory(
-        @PathVariable AchievementCategory category) {
-        List<AchievementResponse> responses = achievementService.getAchievementsByCategory(category);
+    // 카테고리 코드별 업적 목록
+    @GetMapping("/category/{categoryCode}")
+    public ResponseEntity<ApiResult<List<AchievementResponse>>> getAchievementsByCategoryCode(
+        @PathVariable String categoryCode) {
+        List<AchievementResponse> responses = achievementService.getAchievementsByCategoryCode(categoryCode);
+        return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
+    }
+
+    // 미션 카테고리별 업적 목록 (업적 카테고리가 MISSION인 경우)
+    @GetMapping("/mission-category/{missionCategoryId}")
+    public ResponseEntity<ApiResult<List<AchievementResponse>>> getAchievementsByMissionCategoryId(
+        @PathVariable Long missionCategoryId) {
+        List<AchievementResponse> responses = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
         return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
     }
 

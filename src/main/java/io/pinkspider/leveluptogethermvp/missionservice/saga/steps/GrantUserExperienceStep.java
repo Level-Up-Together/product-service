@@ -56,13 +56,16 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 currentExp.getCurrentLevel());
             context.setUserLevelBefore(currentExp.getCurrentLevel());
 
-            // 경험치 지급
+            // 경험치 지급 (카테고리 ID 포함)
+            Long categoryId = context.getMission().getCategory() != null
+                ? context.getMission().getCategory().getId() : null;
             userExperienceService.addExperience(
                 userId,
                 expToGrant,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
                 "미션 수행 완료: " + context.getMission().getTitle(),
+                categoryId,
                 context.getMission().getCategoryName()
             );
 
@@ -90,13 +93,16 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
         log.debug("Compensating user experience: userId={}, exp={}", userId, expGranted);
 
         try {
-            // 지급한 경험치 차감
+            // 지급한 경험치 차감 (카테고리 ID 포함)
+            Long categoryId = context.getMission().getCategory() != null
+                ? context.getMission().getCategory().getId() : null;
             userExperienceService.subtractExperience(
                 userId,
                 expGranted,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
                 "미션 완료 보상 - 경험치 환수",
+                categoryId,
                 context.getMission().getCategoryName()
             );
 

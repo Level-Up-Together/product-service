@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,12 +20,13 @@ public class AchievementResponse {
     private AchievementType achievementType;
     private String name;
     private String description;
-    private AchievementCategory category;
+    private String categoryCode;
+    private Long missionCategoryId;
+    private String missionCategoryName;
     private String iconUrl;
     private Integer requiredCount;
     private Integer rewardExp;
     private Long rewardTitleId;
-    private Integer rewardPoints;
     private Boolean isHidden;
 
     public static AchievementResponse from(Achievement achievement) {
@@ -35,12 +35,13 @@ public class AchievementResponse {
             .achievementType(achievement.getAchievementType())
             .name(achievement.getName())
             .description(achievement.getDescription())
-            .category(achievement.getCategory())
+            .categoryCode(achievement.getCategoryCode())
+            .missionCategoryId(achievement.getMissionCategoryId())
+            .missionCategoryName(achievement.getMissionCategoryName())
             .iconUrl(achievement.getIconUrl())
             .requiredCount(achievement.getRequiredCount())
             .rewardExp(achievement.getRewardExp())
             .rewardTitleId(achievement.getRewardTitleId())
-            .rewardPoints(achievement.getRewardPoints())
             .isHidden(achievement.getIsHidden())
             .build();
     }

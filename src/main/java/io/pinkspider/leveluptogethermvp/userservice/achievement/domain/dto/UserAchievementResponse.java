@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -23,7 +22,9 @@ public class UserAchievementResponse {
     private AchievementType achievementType;
     private String name;
     private String description;
-    private AchievementCategory category;
+    private String categoryCode;
+    private Long missionCategoryId;
+    private String missionCategoryName;
     private String iconUrl;
     private Integer currentCount;
     private Integer requiredCount;
@@ -33,7 +34,6 @@ public class UserAchievementResponse {
     private Boolean isRewardClaimed;
     private Integer rewardExp;
     private Long rewardTitleId;
-    private Integer rewardPoints;
 
     public static UserAchievementResponse from(UserAchievement userAchievement) {
         var achievement = userAchievement.getAchievement();
@@ -43,7 +43,9 @@ public class UserAchievementResponse {
             .achievementType(achievement.getAchievementType())
             .name(achievement.getName())
             .description(achievement.getDescription())
-            .category(achievement.getCategory())
+            .categoryCode(achievement.getCategoryCode())
+            .missionCategoryId(achievement.getMissionCategoryId())
+            .missionCategoryName(achievement.getMissionCategoryName())
             .iconUrl(achievement.getIconUrl())
             .currentCount(userAchievement.getCurrentCount())
             .requiredCount(achievement.getRequiredCount())
@@ -53,7 +55,6 @@ public class UserAchievementResponse {
             .isRewardClaimed(userAchievement.getIsRewardClaimed())
             .rewardExp(achievement.getRewardExp())
             .rewardTitleId(achievement.getRewardTitleId())
-            .rewardPoints(achievement.getRewardPoints())
             .build();
     }
 }
