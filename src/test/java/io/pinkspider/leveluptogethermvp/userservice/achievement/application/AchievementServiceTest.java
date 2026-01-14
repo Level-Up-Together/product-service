@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
@@ -85,7 +84,7 @@ class AchievementServiceTest {
             .name(type.getDisplayName())
             .description(type.getDisplayName() + " 설명")
             .achievementType(type)
-            .category(AchievementCategory.MISSION)
+            .categoryCode("MISSION")
             .requiredCount(targetCount)
             .rewardExp(rewardExp)
             .isActive(true)
@@ -129,20 +128,20 @@ class AchievementServiceTest {
     }
 
     @Nested
-    @DisplayName("getAchievementsByCategory 테스트")
-    class GetAchievementsByCategoryTest {
+    @DisplayName("getAchievementsByCategoryCode 테스트")
+    class GetAchievementsByCategoryCodeTest {
 
         @Test
         @DisplayName("카테고리별 업적을 조회한다")
-        void getAchievementsByCategory_success() {
+        void getAchievementsByCategoryCode_success() {
             // given
             Achievement achievement = createTestAchievement(1L, AchievementType.FIRST_MISSION_COMPLETE, 1, 50);
 
-            when(achievementRepository.findVisibleAchievementsByCategory(AchievementCategory.MISSION))
+            when(achievementRepository.findVisibleAchievementsByCategoryCode("MISSION"))
                 .thenReturn(List.of(achievement));
 
             // when
-            List<AchievementResponse> result = achievementService.getAchievementsByCategory(AchievementCategory.MISSION);
+            List<AchievementResponse> result = achievementService.getAchievementsByCategoryCode("MISSION");
 
             // then
             assertThat(result).hasSize(1);
