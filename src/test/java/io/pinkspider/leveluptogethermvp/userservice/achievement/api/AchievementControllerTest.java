@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.api;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -25,7 +24,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Title
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementCategory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
@@ -89,7 +87,7 @@ class AchievementControllerTest {
                 .achievementType(AchievementType.FIRST_MISSION_COMPLETE)
                 .name("첫 미션 완료")
                 .description("첫 번째 미션을 완료하세요")
-                .category(AchievementCategory.MISSION)
+                .categoryCode("MISSION")
                 .requiredCount(1)
                 .rewardExp(100)
                 .iconUrl("https://example.com/icon1.png")
@@ -99,7 +97,7 @@ class AchievementControllerTest {
                 .achievementType(AchievementType.STREAK_7_DAYS)
                 .name("7일 연속 활동")
                 .description("7일 연속 활동하세요")
-                .category(AchievementCategory.STREAK)
+                .categoryCode("STREAK")
                 .requiredCount(7)
                 .rewardExp(200)
                 .build()
@@ -127,12 +125,13 @@ class AchievementControllerTest {
                             fieldWithPath("value[].achievement_type").type(JsonFieldType.STRING).description("업적 타입"),
                             fieldWithPath("value[].name").type(JsonFieldType.STRING).description("업적 이름"),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("업적 설명").optional(),
-                            fieldWithPath("value[].category").type(JsonFieldType.STRING).description("업적 카테고리 (MISSION, STREAK, GUILD, LEVEL, SPECIAL)"),
+                            fieldWithPath("value[].category_code").type(JsonFieldType.STRING).description("업적 카테고리 코드 (MISSION, STREAK, GUILD, LEVEL, SPECIAL)"),
+                            fieldWithPath("value[].mission_category_id").type(JsonFieldType.NUMBER).description("미션 카테고리 ID (MISSION 카테고리일 때)").optional(),
+                            fieldWithPath("value[].mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
                             fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
                             fieldWithPath("value[].required_count").type(JsonFieldType.NUMBER).description("필요 횟수"),
                             fieldWithPath("value[].reward_exp").type(JsonFieldType.NUMBER).description("보상 경험치").optional(),
                             fieldWithPath("value[].reward_title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional(),
-                            fieldWithPath("value[].reward_points").type(JsonFieldType.NUMBER).description("보상 포인트").optional(),
                             fieldWithPath("value[].is_hidden").type(JsonFieldType.BOOLEAN).description("숨김 여부").optional()
                         )
                         .build()
@@ -153,13 +152,13 @@ class AchievementControllerTest {
                 .id(1L)
                 .achievementType(AchievementType.FIRST_MISSION_COMPLETE)
                 .name("첫 미션 완료")
-                .category(AchievementCategory.MISSION)
+                .categoryCode("MISSION")
                 .requiredCount(1)
                 .rewardExp(100)
                 .build()
         );
 
-        when(achievementService.getAchievementsByCategory(any(AchievementCategory.class)))
+        when(achievementService.getAchievementsByCategoryCode(anyString()))
             .thenReturn(responses);
 
         // when
@@ -197,7 +196,7 @@ class AchievementControllerTest {
                 .achievementType(AchievementType.FIRST_MISSION_COMPLETE)
                 .name("첫 미션 완료")
                 .description("첫 번째 미션을 완료하세요")
-                .category(AchievementCategory.MISSION)
+                .categoryCode("MISSION")
                 .currentCount(1)
                 .requiredCount(1)
                 .progressPercent(100.0)
@@ -232,7 +231,9 @@ class AchievementControllerTest {
                             fieldWithPath("value[].achievement_type").type(JsonFieldType.STRING).description("업적 타입"),
                             fieldWithPath("value[].name").type(JsonFieldType.STRING).description("업적 이름"),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("업적 설명").optional(),
-                            fieldWithPath("value[].category").type(JsonFieldType.STRING).description("카테고리"),
+                            fieldWithPath("value[].category_code").type(JsonFieldType.STRING).description("카테고리 코드"),
+                            fieldWithPath("value[].mission_category_id").type(JsonFieldType.NUMBER).description("미션 카테고리 ID").optional(),
+                            fieldWithPath("value[].mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
                             fieldWithPath("value[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
                             fieldWithPath("value[].current_count").type(JsonFieldType.NUMBER).description("현재 진행 값"),
                             fieldWithPath("value[].required_count").type(JsonFieldType.NUMBER).description("필요 횟수"),
@@ -241,8 +242,7 @@ class AchievementControllerTest {
                             fieldWithPath("value[].is_reward_claimed").type(JsonFieldType.BOOLEAN).description("보상 수령 여부"),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].reward_exp").type(JsonFieldType.NUMBER).description("보상 경험치").optional(),
-                            fieldWithPath("value[].reward_title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional(),
-                            fieldWithPath("value[].reward_points").type(JsonFieldType.NUMBER).description("보상 포인트").optional()
+                            fieldWithPath("value[].reward_title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional()
                         )
                         .build()
                 )
@@ -262,7 +262,7 @@ class AchievementControllerTest {
             .achievementId(1L)
             .achievementType(AchievementType.FIRST_MISSION_COMPLETE)
             .name("첫 미션 완료")
-            .category(AchievementCategory.MISSION)
+            .categoryCode("MISSION")
             .currentCount(1)
             .requiredCount(1)
             .progressPercent(100.0)

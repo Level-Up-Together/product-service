@@ -161,7 +161,7 @@ class GrantUserExperienceStepTest {
                 .thenReturn(afterExp);        // 두 번째 호출 (after)
 
             when(userExperienceService.addExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), anyString()))
+                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
                 .thenReturn(mockResponse);
 
             // when
@@ -178,6 +178,7 @@ class GrantUserExperienceStepTest {
                 ExpSourceType.MISSION_EXECUTION,
                 mission.getId(),
                 "미션 수행 완료: 30일 운동 챌린지",
+                category.getId(),
                 "운동"
             );
         }
@@ -191,7 +192,7 @@ class GrantUserExperienceStepTest {
 
             doThrow(new RuntimeException("DB 오류"))
                 .when(userExperienceService).addExperience(
-                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), anyString());
+                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
 
             // when
             SagaStepResult result = grantUserExperienceStep.execute(context);
@@ -217,7 +218,7 @@ class GrantUserExperienceStepTest {
                 .build();
 
             when(userExperienceService.subtractExperience(
-                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), anyString()))
+                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
                 .thenReturn(mockResponse);
 
             // when
@@ -231,6 +232,7 @@ class GrantUserExperienceStepTest {
                 ExpSourceType.MISSION_EXECUTION,
                 mission.getId(),
                 "미션 완료 보상 - 경험치 환수",
+                category.getId(),
                 "운동"
             );
         }
@@ -241,7 +243,7 @@ class GrantUserExperienceStepTest {
             // given
             doThrow(new RuntimeException("DB 오류"))
                 .when(userExperienceService).subtractExperience(
-                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), anyString());
+                    anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
 
             // when
             SagaStepResult result = grantUserExperienceStep.compensate(context);
