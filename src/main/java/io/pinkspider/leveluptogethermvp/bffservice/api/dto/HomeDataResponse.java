@@ -2,9 +2,9 @@ package io.pinkspider.leveluptogethermvp.bffservice.api.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;

@@ -19,17 +19,17 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonRankRewardResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.SeasonStatus;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -107,6 +107,7 @@ class BffSeasonControllerTest {
             "전체 랭킹",
             100L + rank,
             "시즌 " + rank + "등",
+            "LEGENDARY",
             rank,
             true
         );
@@ -244,13 +245,16 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.rank_rewards[].ranking_type_display").type(JsonFieldType.STRING).description("랭킹 유형 표시명"),
                             fieldWithPath("value.rank_rewards[].title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional(),
                             fieldWithPath("value.rank_rewards[].title_name").type(JsonFieldType.STRING).description("보상 칭호명").optional(),
+                            fieldWithPath("value.rank_rewards[].title_rarity").type(JsonFieldType.STRING).description("칭호 희귀도").optional(),
                             fieldWithPath("value.rank_rewards[].sort_order").type(JsonFieldType.NUMBER).description("정렬 순서"),
                             fieldWithPath("value.rank_rewards[].is_active").type(JsonFieldType.BOOLEAN).description("활성 여부"),
                             // 플레이어 랭킹
                             fieldWithPath("value.player_rankings[]").type(JsonFieldType.ARRAY).description("플레이어 랭킹 (TOP 10)"),
                             fieldWithPath("value.player_rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.player_rankings[].nickname").type(JsonFieldType.STRING).description("닉네임"),
-                            fieldWithPath("value.player_rankings[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.player_rankings[].profile_image_url").type(JsonFieldType.STRING)
+                                .description("프로필 이미지 URL")
+                                .optional(),
                             fieldWithPath("value.player_rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
                             fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호").optional(),
                             fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
@@ -348,12 +352,15 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.rank_rewards[].ranking_type_display").type(JsonFieldType.STRING).description("랭킹 유형 표시명"),
                             fieldWithPath("value.rank_rewards[].title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional(),
                             fieldWithPath("value.rank_rewards[].title_name").type(JsonFieldType.STRING).description("보상 칭호명").optional(),
+                            fieldWithPath("value.rank_rewards[].title_rarity").type(JsonFieldType.STRING).description("칭호 희귀도").optional(),
                             fieldWithPath("value.rank_rewards[].sort_order").type(JsonFieldType.NUMBER).description("정렬 순서"),
                             fieldWithPath("value.rank_rewards[].is_active").type(JsonFieldType.BOOLEAN).description("활성 여부"),
                             fieldWithPath("value.player_rankings[]").type(JsonFieldType.ARRAY).description("플레이어 랭킹"),
                             fieldWithPath("value.player_rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.player_rankings[].nickname").type(JsonFieldType.STRING).description("닉네임"),
-                            fieldWithPath("value.player_rankings[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.player_rankings[].profile_image_url").type(JsonFieldType.STRING)
+                                .description("프로필 이미지 URL")
+                                .optional(),
                             fieldWithPath("value.player_rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
                             fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호").optional(),
                             fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),

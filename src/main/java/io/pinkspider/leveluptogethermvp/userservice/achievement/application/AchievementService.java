@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
 import static io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
+import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class AchievementService {
     private final UserStatsService userStatsService;
     private final UserExperienceService userExperienceService;
     private final TitleService titleService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 업적 목록 조회
     public List<AchievementResponse> getAllAchievements() {
@@ -90,6 +93,13 @@ public class AchievementService {
         if (userAchievement.getIsCompleted()) {
             userStatsService.recordAchievementCompleted(userId);
             log.info("업적 달성! userId={}, achievement={}", userId, type.getDisplayName());
+
+            // 업적 달성 이벤트 발행 (알림 발송용)
+            eventPublisher.publishEvent(new AchievementCompletedEvent(
+                userId,
+                achievement.getId(),
+                achievement.getName()
+            ));
         }
     }
 
@@ -113,6 +123,13 @@ public class AchievementService {
         if (userAchievement.getIsCompleted()) {
             userStatsService.recordAchievementCompleted(userId);
             log.info("업적 달성! userId={}, achievement={}", userId, type.getDisplayName());
+
+            // 업적 달성 이벤트 발행 (알림 발송용)
+            eventPublisher.publishEvent(new AchievementCompletedEvent(
+                userId,
+                achievement.getId(),
+                achievement.getName()
+            ));
         }
     }
 

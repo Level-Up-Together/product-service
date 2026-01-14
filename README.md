@@ -421,6 +421,17 @@ erDiagram
 ./gradlew generateJava
 ```
 
+### 테스트 커버리지
+
+JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
+
+```bash
+# 테스트 실행 후 커버리지 리포트 생성
+./gradlew test jacocoTestReport
+
+# 리포트 위치: build/reports/jacoco/html/index.html
+```
+
 ## 주요 기능
 
 ### 사용자 (User Service)
@@ -497,11 +508,32 @@ erDiagram
 
 ```json
 {
-  "code": "0000",
+  "code": "000000",
   "message": "success",
   "value": { ... }
 }
 ```
+
+**API 필드 네이밍**: 프론트엔드와의 통신에서 모든 필드는 `snake_case`를 사용합니다.
+
+### 에러 코드 체계
+
+6자리 코드: `[서비스 2자리][카테고리 2자리][일련번호 2자리]`
+
+| 서비스 | 코드 접두사 |
+|--------|------------|
+| global | 00 |
+| bff-service | 01 |
+| api-gateway | 02 |
+| user-service | 03 |
+| guild-service | 04 |
+| mission-service | 05 |
+| app-push-service | 06 |
+| payment-service | 07 |
+| meta-service | 08 |
+| logger-service | 09 |
+| stats-service | 10 |
+| batch-service | 11 |
 
 ## 환경 설정
 
@@ -530,12 +562,45 @@ erDiagram
 | 프로젝트 | 설명 |
 |---------|------|
 | `level-up-together-frontend` | 사용자 앱 프론트엔드 (Next.js) |
+| `LevelUpTogetherReactNative` | 모바일 하이브리드 앱 (React Native) |
 | `level-up-together-mvp-admin` | 어드민 백엔드 (Spring Boot) |
 | `level-up-together-admin-frontend` | 어드민 프론트엔드 (Next.js) |
 | `level-up-together-sql` | SQL 스크립트 (DDL/DML) |
 | `config-repository` | Spring Cloud Config 저장소 |
 
+## 문제 해결
+
+### QueryDSL 빌드 오류
+
+`Attempt to recreate a file for type Q*` 오류 발생 시:
+```bash
+./gradlew clean compileJava
+```
+
+### 트랜잭션 매니저 미지정 오류
+
+데이터가 저장되지 않거나 조회되지 않는 경우, `@Transactional`에 올바른 트랜잭션 매니저가 지정되어 있는지 확인하세요.
+
+```java
+// 올바른 예시
+@Transactional(transactionManager = "guildTransactionManager")
+public void updateGuild(...) { ... }
+
+// 잘못된 예시 - 기본값(userTransactionManager)이 사용됨
+@Transactional
+public void updateGuild(...) { ... }
+```
+
+### Integration Tests 실패
+
+SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있습니다. `@ActiveProfiles("test")` 확인이 필요합니다.
+
 ## 최근 업데이트
+
+### 2026-01 시즌 랭킹 기능
+- SeasonRankReward에 titleRarity 필드 추가
+- Redis 캐시 직렬화 오류 수정
+- 시즌 랭킹 기능 확장
 
 ### 2025-01 Event-Driven 전환
 - Spring Events 기반 서비스 간 통신 구현
@@ -549,4 +614,5 @@ erDiagram
 - 피드 작성자 프로필 캐싱 적용
 
 ## 개발 서버
+
 - https://dev.level-up-together.com:3000

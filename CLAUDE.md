@@ -80,7 +80,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```java
 // GuildService 예시
 @Transactional(transactionManager = "guildTransactionManager")
-public void updateGuild(/...) { ... }
+public void updateGuild(...) { ... }
 
 // MissionService 예시
 @Transactional(transactionManager = "missionTransactionManager")
@@ -123,9 +123,36 @@ All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
 
 - GraphQL via Netflix DGS (schemas in `src/main/resources/schema/*.graphqls`)
 - REST API with Spring REST Docs + OpenAPI 3.0
-- QueryDSL for type-safe queries (generated in `src/main/generated/querydsl`)
+- QueryDSL for type-safe queries (generated in `build/generated/querydsl`)
 - Resilience4j for circuit breaker
 - Pact for contract testing
+
+### Exception Handling
+
+Custom exceptions should extend `CustomException` from `io.pinkspider.global.exception`:
+```java
+public class YourServiceException extends CustomException {
+    public YourServiceException() {
+        super("XXXXXX", "Error message");
+    }
+}
+```
+
+**ApiStatus 코드 할당 규칙** (6자리: 서비스 2자리 + 카테고리 2자리 + 일련번호 2자리):
+| 서비스 | 코드 접두사 |
+|--------|------------|
+| global | 00 |
+| bff-service | 01 |
+| api-gateway | 02 |
+| user-service | 03 |
+| guild-service | 04 |
+| mission-service | 05 |
+| app-push-service | 06 |
+| payment-service | 07 |
+| meta-service | 08 |
+| logger-service | 09 |
+| stats-service | 10 |
+| batch-service | 11 |
 
 ## Database Configuration
 
@@ -137,7 +164,7 @@ Each service has its own datasource configuration in `io.pinkspider.global.confi
 
 ## Testing
 
-Tests exclude classes in `io/pinkspider/global/**`.
+Tests exclude classes in `io/pinkspider/global/**`. JaCoCo 최소 커버리지: **70%**
 
 ### Test Fixtures
 JSON fixtures in `src/test/resources/fixture/{servicename}/` are loaded via `MockUtil`:
@@ -194,27 +221,24 @@ class YourServiceTest {
 - `application-local.yml` - Config server integration
 - `application-dev.yml` / `application-prod.yml` - Environment-specific
 
-
-# Project Context
-## 프로젝트 구조
-- admin backend = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin
-- admin front = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend
-- product backend = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp 
-- product front = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend
-- sql = /Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries
-- config = /Users/pink-spider/Code/github/Level-Up-Together/config-repository
-- hybrid app = /Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative
-
 ## 코드 컨벤션
-- 프론트와 백엔드간의 통신은 필드들이 snake case 로 한다.
-- 들여쓰기: 4 spaces
-- DTO는 record 사용 권장
-- Controller → Service → Repository 레이어 구조
-- 테스트: JUnit 5 + Mockito
 
-## 작업 완료 시 규칙
-2- 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
-- 필요시 CLAUDE.md, README.md 업데이트
+- **API 필드명**: 프론트와 백엔드간 통신은 snake_case 사용
+- **들여쓰기**: 4 spaces
+- **DTO**: record 사용 권장
+- **레이어 구조**: Controller → Service → Repository
+- **테스트**: JUnit 5 + Mockito
+
+## 관련 프로젝트
+
+| 프로젝트 | 경로 |
+|---------|------|
+| Admin Backend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin` |
+| Admin Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend` |
+| Product Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend` |
+| SQL Scripts | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries` |
+| Config Server | `/Users/pink-spider/Code/github/Level-Up-Together/config-repository` |
+| React Native App | `/Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative` |
 
 ## 자주 발생하는 이슈
 

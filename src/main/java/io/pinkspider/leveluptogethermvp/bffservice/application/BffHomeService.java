@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpData;
-import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.GuildPageData;

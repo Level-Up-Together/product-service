@@ -1,14 +1,14 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonRankRewardResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.Season;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.SeasonRankReward;
-import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.SeasonRankRewardRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;

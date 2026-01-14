@@ -16,11 +16,11 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpData;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.adminservice.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
@@ -373,7 +373,7 @@ class HomeControllerTest {
             LocalDateTime.now().plusDays(20),
             1L,
             "시즌 챔피언",
-            io.pinkspider.leveluptogethermvp.adminservice.domain.enums.SeasonStatus.ACTIVE,
+            io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus.ACTIVE,
             "진행 중"
         );
 
