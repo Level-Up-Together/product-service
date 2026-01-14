@@ -1,5 +1,6 @@
 package io.pinkspider.global.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -9,9 +10,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -28,11 +33,12 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 // redis Lettuce를 이용한다.
+@Slf4j
 @Configuration
 @RequiredArgsConstructor
 @EnableRedisRepositories
 @EnableCaching
-public class RedisConfig {
+public class RedisConfig implements CachingConfigurer {
 
     private final RedisProperties redisProperties;
 
@@ -87,10 +93,12 @@ public class RedisConfig {
         ObjectMapper cacheObjectMapper = new ObjectMapper();
         cacheObjectMapper.registerModule(new JavaTimeModule());
         cacheObjectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        // 타입 정보 포함 (역직렬화 시 올바른 타입 복원을 위해)
+        // 타입 정보를 @class 프로퍼티로 저장 (WRAPPER_ARRAY 대신 PROPERTY 사용)
+        // 이 방식이 기존 캐시 데이터와 더 호환성이 좋고, 역직렬화 오류가 적음
         cacheObjectMapper.activateDefaultTyping(
                 cacheObjectMapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
         );
 
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -133,5 +141,48 @@ public class RedisConfig {
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigurations)
                 .build();
+    }
+
+    /**
+     * 캐시 오류 핸들러 - 역직렬화 오류 등 캐시 관련 예외 발생 시 graceful하게 처리
+     * 오류 발생 시 해당 캐시 엔트리를 삭제하고 로그만 남긴 후 원본 메서드를 실행하도록 함
+     */
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
+                log.warn("Redis 캐시 조회 오류 발생 - cache: {}, key: {}, error: {}",
+                        cache.getName(), key, exception.getMessage());
+                // 오류가 발생한 캐시 엔트리 삭제 시도
+                try {
+                    cache.evict(key);
+                    log.info("손상된 캐시 엔트리 삭제 완료 - cache: {}, key: {}", cache.getName(), key);
+                } catch (Exception e) {
+                    log.warn("캐시 엔트리 삭제 실패 - cache: {}, key: {}, error: {}",
+                            cache.getName(), key, e.getMessage());
+                }
+                // 예외를 던지지 않고 null 반환하여 원본 메서드 실행되도록 함
+            }
+
+            @Override
+            public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
+                log.warn("Redis 캐시 저장 오류 발생 - cache: {}, key: {}, error: {}",
+                        cache.getName(), key, exception.getMessage());
+                // 저장 실패 시 예외 무시하고 계속 진행
+            }
+
+            @Override
+            public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
+                log.warn("Redis 캐시 삭제 오류 발생 - cache: {}, key: {}, error: {}",
+                        cache.getName(), key, exception.getMessage());
+            }
+
+            @Override
+            public void handleCacheClearError(RuntimeException exception, Cache cache) {
+                log.warn("Redis 캐시 전체 삭제 오류 발생 - cache: {}, error: {}",
+                        cache.getName(), exception.getMessage());
+            }
+        };
     }
 }

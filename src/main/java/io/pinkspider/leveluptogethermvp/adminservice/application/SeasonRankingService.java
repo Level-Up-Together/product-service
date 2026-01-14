@@ -60,11 +60,21 @@ public class SeasonRankingService {
 
     /**
      * 현재 활성 시즌 조회
+     * 캐시는 Optional을 피하고 null을 반환하도록 하여 직렬화 문제 방지
      */
-    @Cacheable(value = "currentSeason", cacheManager = "redisCacheManager")
     public Optional<SeasonResponse> getCurrentSeason() {
+        SeasonResponse cached = getCurrentSeasonCached();
+        return Optional.ofNullable(cached);
+    }
+
+    /**
+     * 현재 활성 시즌 캐시 조회 (내부용 - null 허용)
+     */
+    @Cacheable(value = "currentSeason", cacheManager = "redisCacheManager", unless = "#result == null")
+    public SeasonResponse getCurrentSeasonCached() {
         return seasonRepository.findCurrentSeason(LocalDateTime.now())
-            .map(SeasonResponse::from);
+            .map(SeasonResponse::from)
+            .orElse(null);
     }
 
     /**
