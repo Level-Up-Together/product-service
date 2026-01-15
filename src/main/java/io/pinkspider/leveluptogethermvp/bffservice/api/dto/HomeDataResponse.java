@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.Seaso
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
@@ -62,6 +63,11 @@ public class HomeDataResponse {
      * 활성 공지사항 목록
      */
     private List<NoticeResponse> notices;
+
+    /**
+     * 활성 이벤트 목록 (진행중 또는 예정된 이벤트)
+     */
+    private List<EventResponse> events;
 
     /**
      * 현재 시즌 정보 (null이면 활성 시즌 없음)
