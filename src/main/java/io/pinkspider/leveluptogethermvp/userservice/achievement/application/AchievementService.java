@@ -5,6 +5,8 @@ import static io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Miss
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategy;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.AchievementType;
@@ -32,6 +34,7 @@ public class AchievementService {
     private final UserExperienceService userExperienceService;
     private final TitleService titleService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AchievementCheckStrategyRegistry strategyRegistry;
 
     // 업적 목록 조회
     public List<AchievementResponse> getAllAchievements() {
@@ -236,6 +239,102 @@ public class AchievementService {
     public void checkLikeAchievements(String userId, int totalLikes) {
         checkAndUpdateAchievement(userId, AchievementType.FIRST_LIKE, totalLikes);
         checkAndUpdateAchievement(userId, AchievementType.LIKES_100, totalLikes);
+    }
+
+    // =============================================
+    // 동적 업적 체크 메서드 (Strategy 패턴 기반)
+    // =============================================
+
+    /**
+     * 특정 데이터 소스의 모든 활성 업적을 체크합니다.
+     * @param userId 사용자 ID
+     * @param dataSource 데이터 소스 (USER_STATS, USER_EXPERIENCE, FRIEND_SERVICE, GUILD_SERVICE, FEED_SERVICE)
+     */
+    @Transactional
+    public void checkAchievementsByDataSource(String userId, String dataSource) {
+        AchievementCheckStrategy strategy = strategyRegistry.getStrategy(dataSource);
+        if (strategy == null) {
+            log.warn("알 수 없는 데이터 소스입니다: {}", dataSource);
+            return;
+        }
+
+        List<Achievement> achievements = achievementRepository.findByCheckLogicDataSourceAndIsActiveTrue(dataSource);
+
+        for (Achievement achievement : achievements) {
+            checkAndUpdateAchievementDynamic(userId, achievement, strategy);
+        }
+    }
+
+    /**
+     * 체크 로직이 설정된 모든 활성 업적을 체크합니다.
+     * 이벤트 발생 시 전체 업적을 체크하는 용도로 사용합니다.
+     * @param userId 사용자 ID
+     */
+    @Transactional
+    public void checkAllDynamicAchievements(String userId) {
+        List<Achievement> achievements = achievementRepository.findAllWithCheckLogicAndIsActiveTrue();
+
+        for (Achievement achievement : achievements) {
+            String dataSource = achievement.getCheckLogicDataSource();
+            AchievementCheckStrategy strategy = strategyRegistry.getStrategy(dataSource);
+
+            if (strategy != null) {
+                checkAndUpdateAchievementDynamic(userId, achievement, strategy);
+            }
+        }
+    }
+
+    /**
+     * Strategy를 사용하여 동적으로 업적 조건을 체크하고 진행도를 업데이트합니다.
+     */
+    private void checkAndUpdateAchievementDynamic(String userId, Achievement achievement, AchievementCheckStrategy strategy) {
+        if (!achievement.getIsActive()) {
+            return;
+        }
+
+        // 이미 완료된 업적은 스킵
+        Optional<UserAchievement> existingOpt = userAchievementRepository.findByUserIdAndAchievementId(userId, achievement.getId());
+        if (existingOpt.isPresent() && existingOpt.get().getIsCompleted()) {
+            return;
+        }
+
+        // Strategy를 통해 조건 체크
+        boolean conditionMet = strategy.checkCondition(userId, achievement);
+
+        if (conditionMet) {
+            // 조건 충족 시 업적 완료 처리
+            UserAchievement userAchievement = existingOpt.orElseGet(() -> createUserAchievement(userId, achievement));
+
+            if (!userAchievement.getIsCompleted()) {
+                // 현재 값을 가져와서 count 업데이트
+                Object currentValue = strategy.fetchCurrentValue(userId, achievement.getCheckLogicDataField());
+                if (currentValue instanceof Number) {
+                    userAchievement.setCount(((Number) currentValue).intValue());
+                } else if (currentValue instanceof Boolean && (Boolean) currentValue) {
+                    userAchievement.setCount(1);
+                }
+
+                if (userAchievement.getIsCompleted()) {
+                    userStatsService.recordAchievementCompleted(userId);
+                    log.info("동적 업적 달성! userId={}, achievement={}", userId, achievement.getName());
+
+                    eventPublisher.publishEvent(new AchievementCompletedEvent(
+                        userId,
+                        achievement.getId(),
+                        achievement.getName()
+                    ));
+                }
+            }
+        } else {
+            // 조건 미충족이더라도 진행도 업데이트
+            Object currentValue = strategy.fetchCurrentValue(userId, achievement.getCheckLogicDataField());
+            if (currentValue instanceof Number) {
+                UserAchievement userAchievement = existingOpt.orElseGet(() -> createUserAchievement(userId, achievement));
+                if (!userAchievement.getIsCompleted()) {
+                    userAchievement.setCount(((Number) currentValue).intValue());
+                }
+            }
+        }
     }
 
     private void checkAndUpdateAchievement(String userId, AchievementType type, int count) {

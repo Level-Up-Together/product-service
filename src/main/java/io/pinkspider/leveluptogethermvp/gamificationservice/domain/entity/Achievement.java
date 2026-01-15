@@ -99,6 +99,23 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Comment("미션 카테고리명 (비정규화)")
     private String missionCategoryName;
 
+    @Column(name = "check_logic_type_id")
+    @Comment("체크 로직 유형 ID")
+    private Long checkLogicTypeId;
+
+    @Column(name = "check_logic_data_source", length = 50)
+    @Comment("데이터 소스 (비정규화)")
+    private String checkLogicDataSource;
+
+    @Column(name = "check_logic_data_field", length = 100)
+    @Comment("데이터 필드 (비정규화)")
+    private String checkLogicDataField;
+
+    @Column(name = "comparison_operator", length = 20)
+    @Comment("비교 연산자 (비정규화)")
+    @Builder.Default
+    private String comparisonOperator = "GTE";
+
     @Column(name = "icon_url")
     @Comment("업적 아이콘 URL")
     private String iconUrl;
