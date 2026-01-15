@@ -93,13 +93,22 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Long rankingPoints = 0L;
 
+    // 미션 완주 관련 통계
+    @Column(name = "max_completed_mission_duration", nullable = false)
+    @Comment("완주한 미션 중 최대 기간(일)")
+    @Builder.Default
+    private Integer maxCompletedMissionDuration = 0;
+
     public void incrementMissionCompletion() {
         this.totalMissionCompletions++;
         updateRankingPoints();
     }
 
-    public void incrementMissionFullCompletion() {
+    public void incrementMissionFullCompletion(int durationDays) {
         this.totalMissionFullCompletions++;
+        if (durationDays > this.maxCompletedMissionDuration) {
+            this.maxCompletedMissionDuration = durationDays;
+        }
         updateRankingPoints();
     }
 

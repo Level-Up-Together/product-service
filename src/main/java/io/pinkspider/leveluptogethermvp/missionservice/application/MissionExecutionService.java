@@ -522,7 +522,9 @@ public class MissionExecutionService {
 
             // 미션 전체 완료 업적 체크
             try {
-                userStatsService.recordMissionFullCompletion(participant.getUserId());
+                // 미션 기간 계산: totalExecutions가 실제 완주한 일수
+                int durationDays = (int) totalExecutions;
+                userStatsService.recordMissionFullCompletion(participant.getUserId(), durationDays);
                 // 동적 Strategy 패턴으로 USER_STATS 관련 업적 체크
                 achievementService.checkAchievementsByDataSource(participant.getUserId(), "USER_STATS");
             } catch (Exception e) {

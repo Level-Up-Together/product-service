@@ -159,10 +159,51 @@ class UserStatsServiceTest {
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
-            userStatsService.recordMissionFullCompletion(TEST_USER_ID);
+            userStatsService.recordMissionFullCompletion(TEST_USER_ID, 30);
 
             // then
             assertThat(stats.getTotalMissionFullCompletions()).isEqualTo(6);
+            assertThat(stats.getMaxCompletedMissionDuration()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("더 긴 기간의 미션을 완주하면 maxCompletedMissionDuration이 업데이트된다")
+        void recordMissionFullCompletion_updatesMaxDuration() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            // 기존 maxCompletedMissionDuration은 0
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when - 7일 미션 완주
+            userStatsService.recordMissionFullCompletion(TEST_USER_ID, 7);
+
+            // then
+            assertThat(stats.getMaxCompletedMissionDuration()).isEqualTo(7);
+
+            // when - 30일 미션 완주
+            userStatsService.recordMissionFullCompletion(TEST_USER_ID, 30);
+
+            // then - 더 긴 기간으로 업데이트
+            assertThat(stats.getMaxCompletedMissionDuration()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("더 짧은 기간의 미션을 완주해도 maxCompletedMissionDuration은 유지된다")
+        void recordMissionFullCompletion_keepsMaxDuration() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when - 30일 미션 완주 후 7일 미션 완주
+            userStatsService.recordMissionFullCompletion(TEST_USER_ID, 30);
+            userStatsService.recordMissionFullCompletion(TEST_USER_ID, 7);
+
+            // then - 30일이 유지됨
+            assertThat(stats.getMaxCompletedMissionDuration()).isEqualTo(30);
+            // totalMissionFullCompletions는 2번 증가
+            assertThat(stats.getTotalMissionFullCompletions()).isEqualTo(7);
         }
     }
 

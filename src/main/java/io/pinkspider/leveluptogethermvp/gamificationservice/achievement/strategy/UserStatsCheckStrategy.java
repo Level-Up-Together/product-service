@@ -39,6 +39,7 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
             case "maxStreak" -> userStats.getMaxStreak();
             case "totalAchievementsCompleted" -> userStats.getTotalAchievementsCompleted();
             case "totalTitlesAcquired" -> userStats.getTotalTitlesAcquired();
+            case "maxCompletedMissionDuration" -> userStats.getMaxCompletedMissionDuration();
             default -> {
                 log.warn("알 수 없는 dataField: {}", dataField);
                 yield 0;

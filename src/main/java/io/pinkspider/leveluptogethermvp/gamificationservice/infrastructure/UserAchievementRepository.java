@@ -20,9 +20,6 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.isCompleted = false")
     List<UserAchievement> findInProgressByUserId(@Param("userId") String userId);
 
-    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND a.code = :code")
-    Optional<UserAchievement> findByUserIdAndAchievementCode(@Param("userId") String userId, @Param("code") String code);
-
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.achievement.id = :achievementId")
     Optional<UserAchievement> findByUserIdAndAchievementId(@Param("userId") String userId, @Param("achievementId") Long achievementId);
 

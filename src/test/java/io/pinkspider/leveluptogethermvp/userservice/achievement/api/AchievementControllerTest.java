@@ -83,7 +83,6 @@ class AchievementControllerTest {
         List<AchievementResponse> responses = List.of(
             AchievementResponse.builder()
                 .id(1L)
-                .code("FIRST_MISSION_COMPLETE")
                 .name("첫 미션 완료")
                 .description("첫 번째 미션을 완료하세요")
                 .categoryCode("MISSION")
@@ -93,7 +92,6 @@ class AchievementControllerTest {
                 .build(),
             AchievementResponse.builder()
                 .id(2L)
-                .code("STREAK_7_DAYS")
                 .name("7일 연속 활동")
                 .description("7일 연속 활동하세요")
                 .categoryCode("STREAK")
@@ -121,7 +119,6 @@ class AchievementControllerTest {
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("업적 목록"),
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("업적 ID"),
-                            fieldWithPath("value[].code").type(JsonFieldType.STRING).description("업적 코드"),
                             fieldWithPath("value[].name").type(JsonFieldType.STRING).description("업적 이름"),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("업적 설명").optional(),
                             fieldWithPath("value[].category_code").type(JsonFieldType.STRING).description("업적 카테고리 코드 (MISSION, STREAK, GUILD, LEVEL, SPECIAL)"),
@@ -149,7 +146,6 @@ class AchievementControllerTest {
         List<AchievementResponse> responses = List.of(
             AchievementResponse.builder()
                 .id(1L)
-                .code("FIRST_MISSION_COMPLETE")
                 .name("첫 미션 완료")
                 .categoryCode("MISSION")
                 .requiredCount(1)
@@ -192,7 +188,6 @@ class AchievementControllerTest {
             UserAchievementResponse.builder()
                 .id(1L)
                 .achievementId(1L)
-                .code("FIRST_MISSION_COMPLETE")
                 .name("첫 미션 완료")
                 .description("첫 번째 미션을 완료하세요")
                 .categoryCode("MISSION")
@@ -227,7 +222,6 @@ class AchievementControllerTest {
                             fieldWithPath("value[]").type(JsonFieldType.ARRAY).description("내 업적 목록"),
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("사용자 업적 ID"),
                             fieldWithPath("value[].achievement_id").type(JsonFieldType.NUMBER).description("업적 ID"),
-                            fieldWithPath("value[].code").type(JsonFieldType.STRING).description("업적 코드"),
                             fieldWithPath("value[].name").type(JsonFieldType.STRING).description("업적 이름"),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("업적 설명").optional(),
                             fieldWithPath("value[].category_code").type(JsonFieldType.STRING).description("카테고리 코드"),
@@ -259,7 +253,6 @@ class AchievementControllerTest {
         UserAchievementResponse response = UserAchievementResponse.builder()
             .id(1L)
             .achievementId(1L)
-            .code("FIRST_MISSION_COMPLETE")
             .name("첫 미션 완료")
             .categoryCode("MISSION")
             .currentCount(1)

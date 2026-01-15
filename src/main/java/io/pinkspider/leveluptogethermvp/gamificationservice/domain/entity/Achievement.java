@@ -12,7 +12,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -30,14 +29,10 @@ import org.hibernate.annotations.Comment;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Table(name = "achievement",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_achievement_code",
-        columnNames = {"code"}
-    ),
     indexes = {
         @Index(name = "idx_achievement_category", columnList = "category_id"),
         @Index(name = "idx_achievement_mission_category", columnList = "mission_category_id"),
-        @Index(name = "idx_achievement_code", columnList = "code")
+        @Index(name = "idx_achievement_check_logic_type", columnList = "check_logic_type_id")
     }
 )
 @Comment("업적")
@@ -48,11 +43,6 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Column(name = "id", nullable = false)
     @Comment("업적 ID")
     private Long id;
-
-    @NotNull
-    @Column(name = "code", nullable = false, length = 50)
-    @Comment("업적 고유 코드")
-    private String code;
 
     @NotNull
     @Column(name = "name", nullable = false, length = 100)
