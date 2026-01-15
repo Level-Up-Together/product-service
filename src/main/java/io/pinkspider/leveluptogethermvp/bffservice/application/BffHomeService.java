@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
@@ -41,6 +43,7 @@ public class BffHomeService {
     private final MissionCategoryService missionCategoryService;
     private final GuildService guildService;
     private final NoticeService noticeService;
+    private final EventService eventService;
     private final SeasonRankingService seasonRankingService;
     private final AchievementService achievementService;
 
@@ -197,6 +200,15 @@ public class BffHomeService {
             }
         });
 
+        CompletableFuture<List<EventResponse>> eventsFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return eventService.getActiveOrUpcomingEvents(locale);
+            } catch (Exception e) {
+                log.error("Failed to fetch events", e);
+                return Collections.emptyList();
+            }
+        });
+
         CompletableFuture<Optional<SeasonMvpData>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 return seasonRankingService.getSeasonMvpData(locale);
@@ -209,7 +221,7 @@ public class BffHomeService {
         // 모든 결과 취합
         CompletableFuture.allOf(
             feedsFuture, rankingsFuture, mvpGuildsFuture, categoriesFuture,
-            myGuildsFuture, publicGuildsFuture, noticesFuture, seasonMvpFuture
+            myGuildsFuture, publicGuildsFuture, noticesFuture, eventsFuture, seasonMvpFuture
         ).join();
 
         Optional<SeasonMvpData> seasonMvpData = seasonMvpFuture.join();
@@ -222,6 +234,7 @@ public class BffHomeService {
             .myGuilds(myGuildsFuture.join())
             .publicGuilds(publicGuildsFuture.join())
             .notices(noticesFuture.join())
+            .events(eventsFuture.join())
             .currentSeason(seasonMvpData.map(SeasonMvpData::currentSeason).orElse(null))
             .seasonMvpPlayers(seasonMvpData.map(SeasonMvpData::seasonMvpPlayers).orElse(Collections.emptyList()))
             .seasonMvpGuilds(seasonMvpData.map(SeasonMvpData::seasonMvpGuilds).orElse(Collections.emptyList()))
