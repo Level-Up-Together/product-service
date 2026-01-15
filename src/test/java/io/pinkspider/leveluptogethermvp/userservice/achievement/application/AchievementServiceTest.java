@@ -354,8 +354,8 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                 .thenReturn(List.of(claimableAchievement));
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(claimableAchievement));
+            when(userAchievementRepository.save(any(UserAchievement.class)))
+                .thenReturn(claimableAchievement);
 
             // when
             achievementService.autoClaimRewards(TEST_USER_ID);
@@ -364,6 +364,7 @@ class AchievementServiceTest {
             assertThat(claimableAchievement.getIsRewardClaimed()).isTrue();
             verify(userExperienceService).addExperience(
                 eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(1L), anyString(), eq("기타"));
+            verify(userAchievementRepository).save(claimableAchievement);
         }
     }
 

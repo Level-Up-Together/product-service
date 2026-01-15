@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -232,7 +233,6 @@ class FriendServiceTest {
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(accepter));
-            when(friendshipRepository.countFriends(anyString())).thenReturn(1);
 
             // when
             FriendResponse result = friendService.acceptFriendRequest(TEST_USER_ID, requestId);
@@ -242,6 +242,9 @@ class FriendServiceTest {
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.ACCEPTED);
             verify(eventPublisher).publishEvent(any(FriendRequestProcessedEvent.class));
             verify(eventPublisher).publishEvent(any(FriendRequestAcceptedEvent.class));
+            // 동적 업적 체크 호출 확인
+            verify(achievementService).checkAchievementsByDataSource(eq(TEST_USER_ID), eq("FRIEND_SERVICE"));
+            verify(achievementService).checkAchievementsByDataSource(eq(FRIEND_USER_ID), eq("FRIEND_SERVICE"));
         }
 
         @Test

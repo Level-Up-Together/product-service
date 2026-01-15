@@ -23,9 +23,10 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND a.code = :code")
     Optional<UserAchievement> findByUserIdAndAchievementCode(@Param("userId") String userId, @Param("code") String code);
 
-    Optional<UserAchievement> findByUserIdAndAchievementId(String userId, Long achievementId);
+    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.achievement.id = :achievementId")
+    Optional<UserAchievement> findByUserIdAndAchievementId(@Param("userId") String userId, @Param("achievementId") Long achievementId);
 
-    @Query("SELECT ua FROM UserAchievement ua WHERE ua.userId = :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false")
+    @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false")
     List<UserAchievement> findClaimableByUserId(@Param("userId") String userId);
 
     @Query("SELECT COUNT(ua) FROM UserAchievement ua WHERE ua.userId = :userId AND ua.isCompleted = true")

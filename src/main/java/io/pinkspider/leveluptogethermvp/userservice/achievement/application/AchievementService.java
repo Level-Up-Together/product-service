@@ -15,9 +15,12 @@ import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import java.util.List;
 import java.util.Optional;
+import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -143,16 +146,55 @@ public class AchievementService {
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void autoClaimRewards(String userId) {
         List<UserAchievement> claimableAchievements = userAchievementRepository.findClaimableByUserId(userId);
+        log.info("보상 수령 가능한 업적 조회: userId={}, count={}", userId, claimableAchievements.size());
 
         for (UserAchievement ua : claimableAchievements) {
             try {
-                claimReward(userId, ua.getAchievement().getId());
-                log.info("업적 보상 자동 수령: userId={}, achievement={}", userId, ua.getAchievement().getName());
+                log.info("업적 보상 수령 시도: userId={}, achievementId={}, achievementName={}",
+                    userId, ua.getAchievement().getId(), ua.getAchievement().getName());
+                claimRewardInternal(userId, ua);
+                log.info("업적 보상 자동 수령 완료: userId={}, achievement={}", userId, ua.getAchievement().getName());
             } catch (Exception e) {
-                log.warn("업적 보상 자동 수령 실패: userId={}, achievement={}, error={}",
-                    userId, ua.getAchievement().getName(), e.getMessage());
+                log.error("업적 보상 자동 수령 실패: userId={}, achievement={}, error={}",
+                    userId, ua.getAchievement().getName(), e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * 내부용 보상 수령 메서드 (이미 조회된 UserAchievement 사용)
+     */
+    private void claimRewardInternal(String userId, UserAchievement userAchievement) {
+        userAchievement.claimReward();
+        log.info("claimReward() 호출 완료: userId={}, isRewardClaimed={}",
+            userId, userAchievement.getIsRewardClaimed());
+
+        Achievement achievement = userAchievement.getAchievement();
+
+        // 경험치 보상
+        if (achievement.getRewardExp() > 0) {
+            log.info("경험치 보상 지급 시작: userId={}, exp={}", userId, achievement.getRewardExp());
+            userExperienceService.addExperience(
+                userId,
+                achievement.getRewardExp(),
+                ExpSourceType.ACHIEVEMENT,
+                achievement.getId(),
+                "업적 달성 보상: " + achievement.getName(),
+                DEFAULT_CATEGORY_NAME
+            );
+            log.info("경험치 보상 지급 완료: userId={}", userId);
+        }
+
+        // 칭호 보상
+        if (achievement.getRewardTitleId() != null) {
+            log.info("칭호 보상 지급 시작: userId={}, titleId={}", userId, achievement.getRewardTitleId());
+            titleService.grantTitle(userId, achievement.getRewardTitleId());
+            log.info("칭호 보상 지급 완료: userId={}, titleId={}", userId, achievement.getRewardTitleId());
+        }
+
+        // 명시적으로 저장하여 변경사항 반영
+        userAchievementRepository.save(userAchievement);
+        log.info("업적 보상 수령 DB 저장 완료: userId={}, achievement={}", userId, achievement.getName());
     }
 
     // =============================================
