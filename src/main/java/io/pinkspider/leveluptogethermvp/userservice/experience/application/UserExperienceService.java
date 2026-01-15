@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserExperienceService {
 
     private final UserExperienceRepository userExperienceRepository;
@@ -32,19 +32,19 @@ public class UserExperienceService {
     private final LevelConfigRepository levelConfigRepository;
     private final ApplicationContext applicationContext;
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description) {
         return addExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description, String categoryName) {
         return addExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                  Long sourceId, String description, Long categoryId, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
@@ -119,7 +119,7 @@ public class UserExperienceService {
         return experienceHistoryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperience getOrCreateUserExperience(String userId) {
         return userExperienceRepository.findByUserId(userId)
             .orElseGet(() -> {
@@ -200,19 +200,19 @@ public class UserExperienceService {
      * @param description 설명
      * @return 업데이트된 경험치 정보
      */
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description) {
         return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description, String categoryName) {
         return subtractExperience(userId, expAmount, sourceType, sourceId, description, null, categoryName);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
                                                       Long sourceId, String description, Long categoryId, String categoryName) {
         UserExperience userExp = getOrCreateUserExperience(userId);
@@ -309,7 +309,7 @@ public class UserExperienceService {
         userExp.setCurrentExp(Math.max(0, remainingExp));
     }
 
-    @Transactional
+    @Transactional(transactionManager = "metaTransactionManager")
     public LevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
                                                   Integer cumulativeExp, String title, String description) {
         LevelConfig config = levelConfigRepository.findByLevel(level)
