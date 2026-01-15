@@ -95,4 +95,18 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate
     );
+
+    /**
+     * 사용자의 특정 카테고리 미션 완료 횟수 조회 (업적 체크용)
+     */
+    @Query("SELECT COUNT(me) FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.category.id = :categoryId " +
+           "AND me.status = 'COMPLETED'")
+    long countCompletedByUserIdAndCategoryId(
+        @Param("userId") String userId,
+        @Param("categoryId") Long categoryId
+    );
 }
