@@ -12,12 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserStatsService {
 
     private final UserStatsRepository userStatsRepository;
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserStats getOrCreateUserStats(String userId) {
         return userStatsRepository.findByUserId(userId)
             .orElseGet(() -> {
@@ -33,7 +33,7 @@ public class UserStatsService {
         return UserStatsResponse.from(stats);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordMissionCompletion(String userId, boolean isGuildMission) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.incrementMissionCompletion();
@@ -44,20 +44,20 @@ public class UserStatsService {
         log.debug("미션 완료 기록: userId={}, totalCompletions={}", userId, stats.getTotalMissionCompletions());
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordMissionFullCompletion(String userId) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.incrementMissionFullCompletion();
         log.debug("미션 전체 완료 기록: userId={}, totalFullCompletions={}", userId, stats.getTotalMissionFullCompletions());
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordAchievementCompleted(String userId) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.incrementAchievementCompleted();
     }
 
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordTitleAcquired(String userId) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.incrementTitleAcquired();

@@ -142,13 +142,13 @@ public class TitleService {
     }
 
     // 칭호 부여
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserTitleResponse grantTitle(String userId, Long titleId) {
         return grantTitle(userId, titleId, true);
     }
 
     // 칭호 부여 (알림 여부 선택)
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserTitleResponse grantTitle(String userId, Long titleId, boolean notify) {
         if (userTitleRepository.existsByUserIdAndTitleId(userId, titleId)) {
             log.debug("이미 보유한 칭호: userId={}, titleId={}", userId, titleId);
@@ -183,7 +183,7 @@ public class TitleService {
     }
 
     // 칭호 장착 (포지션별로 장착)
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     @CacheEvict(value = "userTitleInfo", key = "#userId")
     public UserTitleResponse equipTitle(String userId, Long titleId) {
         UserTitle userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
@@ -205,7 +205,7 @@ public class TitleService {
     }
 
     // 특정 포지션 칭호 해제
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     @CacheEvict(value = "userTitleInfo", key = "#userId")
     public void unequipTitle(String userId, TitlePosition position) {
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
@@ -216,7 +216,7 @@ public class TitleService {
     }
 
     // 모든 칭호 해제
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     @CacheEvict(value = "userTitleInfo", key = "#userId")
     public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
@@ -235,7 +235,7 @@ public class TitleService {
     }
 
     // 칭호 생성 (관리자용)
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public TitleResponse createTitle(String name, String description, TitleRarity rarity,
                                       TitlePosition positionType, TitleAcquisitionType acquisitionType,
                                       String acquisitionCondition, String iconUrl) {
@@ -260,7 +260,7 @@ public class TitleService {
      * 신규 사용자에게 기본 칭호 부여 및 장착
      * LEFT: 신입 (id: 1), RIGHT: 모험가 (id: 26)
      */
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void grantAndEquipDefaultTitles(String userId) {
         // 기본 칭호 ID (DML에서 정의된 값)
         final Long DEFAULT_LEFT_TITLE_ID = 1L;   // 신입
@@ -278,7 +278,7 @@ public class TitleService {
     }
 
     // 기본 칭호 초기화
-    @Transactional
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void initializeDefaultTitles() {
         if (titleRepository.count() > 0) {
             return;
