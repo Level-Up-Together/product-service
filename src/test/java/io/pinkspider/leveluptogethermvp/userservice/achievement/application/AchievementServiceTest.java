@@ -84,11 +84,10 @@ class AchievementServiceTest {
         }
     }
 
-    private Achievement createTestAchievement(Long id, String code, int targetCount, int rewardExp) {
+    private Achievement createTestAchievement(Long id, String name, int targetCount, int rewardExp) {
         Achievement achievement = Achievement.builder()
-            .name(code + " 업적")
-            .description(code + " 설명")
-            .code(code)
+            .name(name)
+            .description(name + " 설명")
             .categoryCode("MISSION")
             .requiredCount(targetCount)
             .rewardExp(rewardExp)
@@ -132,8 +131,8 @@ class AchievementServiceTest {
 
             // then
             assertThat(result).hasSize(2);
-            assertThat(result.get(0).getCode()).isEqualTo("FIRST_MISSION_COMPLETE");
-            assertThat(result.get(1).getCode()).isEqualTo("MISSION_COMPLETE_10");
+            assertThat(result.get(0).getName()).isEqualTo("FIRST_MISSION_COMPLETE");
+            assertThat(result.get(1).getName()).isEqualTo("MISSION_COMPLETE_10");
         }
     }
 
@@ -178,7 +177,7 @@ class AchievementServiceTest {
 
             // then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getCode()).isEqualTo("FIRST_MISSION_COMPLETE");
+            assertThat(result.get(0).getName()).isEqualTo("FIRST_MISSION_COMPLETE");
         }
     }
 

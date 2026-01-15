@@ -79,10 +79,6 @@ public class AchievementCategory extends LocalDateTimeBaseEntity {
     @Comment("카테고리 설명 (아랍어)")
     private String descriptionAr;
 
-    @Column(name = "check_logic_type", length = 50)
-    @Comment("달성 체크 로직 유형 (MISSION_COUNT, GUILD_JOIN, LEVEL_REACH, STREAK_DAYS, SOCIAL_ACTION 등)")
-    private String checkLogicType;
-
     @NotNull
     @Column(name = "sort_order", nullable = false)
     @Comment("정렬 순서")

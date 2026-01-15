@@ -18,7 +18,6 @@ public class UserAchievementResponse {
 
     private Long id;
     private Long achievementId;
-    private String code;
     private String name;
     private String description;
     private String categoryCode;
@@ -39,7 +38,6 @@ public class UserAchievementResponse {
         return UserAchievementResponse.builder()
             .id(userAchievement.getId())
             .achievementId(achievement.getId())
-            .code(achievement.getCode())
             .name(achievement.getName())
             .description(achievement.getDescription())
             .categoryCode(achievement.getCategoryCode())

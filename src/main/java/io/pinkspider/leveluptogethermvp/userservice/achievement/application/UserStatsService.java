@@ -45,10 +45,11 @@ public class UserStatsService {
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void recordMissionFullCompletion(String userId) {
+    public void recordMissionFullCompletion(String userId, int durationDays) {
         UserStats stats = getOrCreateUserStats(userId);
-        stats.incrementMissionFullCompletion();
-        log.debug("미션 전체 완료 기록: userId={}, totalFullCompletions={}", userId, stats.getTotalMissionFullCompletions());
+        stats.incrementMissionFullCompletion(durationDays);
+        log.debug("미션 전체 완료 기록: userId={}, totalFullCompletions={}, durationDays={}, maxDuration={}",
+            userId, stats.getTotalMissionFullCompletions(), durationDays, stats.getMaxCompletedMissionDuration());
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")

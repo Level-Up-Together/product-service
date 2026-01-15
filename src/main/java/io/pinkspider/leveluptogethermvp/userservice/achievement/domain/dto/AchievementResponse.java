@@ -16,7 +16,6 @@ import lombok.NoArgsConstructor;
 public class AchievementResponse {
 
     private Long id;
-    private String code;
     private String name;
     private String description;
     private String categoryCode;
@@ -31,7 +30,6 @@ public class AchievementResponse {
     public static AchievementResponse from(Achievement achievement) {
         return AchievementResponse.builder()
             .id(achievement.getId())
-            .code(achievement.getCode())
             .name(achievement.getName())
             .description(achievement.getDescription())
             .categoryCode(achievement.getCategoryCode())
