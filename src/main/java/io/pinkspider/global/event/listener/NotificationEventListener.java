@@ -9,6 +9,7 @@ import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
+import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -206,6 +207,39 @@ public class NotificationEventListener {
             );
         } catch (Exception e) {
             log.error("피드 댓글 알림 생성 실패: error={}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 길드 채팅 메시지 이벤트 처리
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildChatMessage(GuildChatMessageEvent event) {
+        try {
+            log.debug("길드 채팅 이벤트 처리: guildId={}, sender={}, memberCount={}",
+                event.guildId(), event.userId(), event.memberIds().size());
+
+            for (String memberId : event.memberIds()) {
+                // 발송자 본인에게는 알림 안 보냄
+                if (memberId.equals(event.userId())) {
+                    continue;
+                }
+                try {
+                    notificationService.notifyGuildChat(
+                        memberId,
+                        event.senderNickname(),
+                        event.guildId(),
+                        event.guildName(),
+                        event.messageId(),
+                        event.getPreviewContent()
+                    );
+                } catch (Exception e) {
+                    log.warn("길드 채팅 알림 생성 실패: memberId={}, error={}", memberId, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("길드 채팅 알림 처리 실패: error={}", e.getMessage(), e);
         }
     }
 }
