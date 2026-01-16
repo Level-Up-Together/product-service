@@ -448,7 +448,11 @@ class GuildControllerTest {
                             fieldWithPath("value[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value[].equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional(),
-                            fieldWithPath("value[].equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional()
+                            fieldWithPath("value[].equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional(),
+                            fieldWithPath("value[].left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
+                            fieldWithPath("value[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value[].right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
+                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
                         )
                         .build()
                 )
