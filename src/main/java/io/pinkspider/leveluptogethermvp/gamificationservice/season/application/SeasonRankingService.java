@@ -164,6 +164,10 @@ public class SeasonRankingService {
                 level,
                 titleInfo.name(),
                 titleInfo.rarity(),
+                titleInfo.leftTitle(),
+                titleInfo.leftRarity(),
+                titleInfo.rightTitle(),
+                titleInfo.rightRarity(),
                 earnedExp,
                 rank++
             ));
@@ -233,7 +237,7 @@ public class SeasonRankingService {
      */
     private TitleInfo buildTitleInfoFromList(List<UserTitle> equippedTitles, String locale) {
         if (equippedTitles == null || equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null);
+            return new TitleInfo(null, null, null, null, null, null);
         }
 
         UserTitle leftUserTitle = equippedTitles.stream()
@@ -251,10 +255,12 @@ public class SeasonRankingService {
         String rightTitle = rightUserTitle != null ?
             getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
 
-        TitleRarity highestRarity = getHighestRarity(
-            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
-            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
-        );
+        // 개별 등급 추출
+        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+
+        // 가장 높은 등급 선택 - 기존 호환성 유지
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
 
         String combinedTitle;
         if (leftTitle == null && rightTitle == null) {
@@ -267,7 +273,7 @@ public class SeasonRankingService {
             combinedTitle = leftTitle + " " + rightTitle;
         }
 
-        return new TitleInfo(combinedTitle, highestRarity);
+        return new TitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     private String getLocalizedTitleName(Title title, String locale) {
@@ -283,7 +289,14 @@ public class SeasonRankingService {
         return r1.ordinal() > r2.ordinal() ? r1 : r2;
     }
 
-    private record TitleInfo(String name, TitleRarity rarity) {}
+    private record TitleInfo(
+        String name,
+        TitleRarity rarity,
+        String leftTitle,
+        TitleRarity leftRarity,
+        String rightTitle,
+        TitleRarity rightRarity
+    ) {}
 
     // ===== 캐시 관리 메서드들 =====
 
@@ -456,6 +469,10 @@ public class SeasonRankingService {
                 level,
                 titleInfo.name(),
                 titleInfo.rarity(),
+                titleInfo.leftTitle(),
+                titleInfo.leftRarity(),
+                titleInfo.rightTitle(),
+                titleInfo.rightRarity(),
                 earnedExp,
                 rank++
             ));

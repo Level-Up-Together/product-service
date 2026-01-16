@@ -148,6 +148,10 @@ public class HomeService {
                 level,
                 titleInfo.name(),
                 titleInfo.rarity(),
+                titleInfo.leftTitle(),
+                titleInfo.leftRarity(),
+                titleInfo.rightTitle(),
+                titleInfo.rightRarity(),
                 earnedExp,
                 rank++
             ));
@@ -328,6 +332,10 @@ public class HomeService {
             level,
             titleInfo.name(),
             titleInfo.rarity(),
+            titleInfo.leftTitle(),
+            titleInfo.leftRarity(),
+            titleInfo.rightTitle(),
+            titleInfo.rightRarity(),
             earnedExp,
             rank
         );
@@ -425,7 +433,7 @@ public class HomeService {
     private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null);
+            return new TitleInfo(null, null, null, null, null, null);
         }
 
         UserTitle leftUserTitle = equippedTitles.stream()
@@ -444,11 +452,12 @@ public class HomeService {
         String rightTitle = rightUserTitle != null ?
             getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
 
-        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용)
-        TitleRarity highestRarity = getHighestRarity(
-            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
-            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
-        );
+        // 개별 등급 추출
+        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+
+        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용) - 기존 호환성 유지
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
 
         String combinedTitle;
         if (leftTitle == null && rightTitle == null) {
@@ -461,7 +470,7 @@ public class HomeService {
             combinedTitle = leftTitle + " " + rightTitle;
         }
 
-        return new TitleInfo(combinedTitle, highestRarity);
+        return new TitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     /**
@@ -472,7 +481,7 @@ public class HomeService {
      */
     private TitleInfo buildTitleInfoFromList(List<UserTitle> equippedTitles, String locale) {
         if (equippedTitles == null || equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null);
+            return new TitleInfo(null, null, null, null, null, null);
         }
 
         UserTitle leftUserTitle = equippedTitles.stream()
@@ -491,11 +500,12 @@ public class HomeService {
         String rightTitle = rightUserTitle != null ?
             getLocalizedTitleName(rightUserTitle.getTitle(), locale) : null;
 
-        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용)
-        TitleRarity highestRarity = getHighestRarity(
-            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
-            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
-        );
+        // 개별 등급 추출
+        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+
+        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용) - 기존 호환성 유지
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
 
         String combinedTitle;
         if (leftTitle == null && rightTitle == null) {
@@ -508,7 +518,7 @@ public class HomeService {
             combinedTitle = leftTitle + " " + rightTitle;
         }
 
-        return new TitleInfo(combinedTitle, highestRarity);
+        return new TitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     /**
@@ -531,7 +541,14 @@ public class HomeService {
     }
 
     /**
-     * 칭호 정보 (이름과 등급)
+     * 칭호 정보 (이름과 등급) - LEFT/RIGHT 개별 정보 포함
      */
-    private record TitleInfo(String name, TitleRarity rarity) {}
+    private record TitleInfo(
+        String name,
+        TitleRarity rarity,
+        String leftTitle,
+        TitleRarity leftRarity,
+        String rightTitle,
+        TitleRarity rightRarity
+    ) {}
 }

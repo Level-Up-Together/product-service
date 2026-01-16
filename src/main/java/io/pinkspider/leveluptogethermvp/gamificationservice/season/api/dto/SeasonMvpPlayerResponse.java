@@ -12,6 +12,10 @@ public record SeasonMvpPlayerResponse(
     Integer level,
     String title,
     TitleRarity titleRarity,
+    String leftTitle,
+    TitleRarity leftTitleRarity,
+    String rightTitle,
+    TitleRarity rightTitleRarity,
     Long seasonExp,
     Integer rank
 ) {
@@ -22,6 +26,10 @@ public record SeasonMvpPlayerResponse(
         Integer level,
         String title,
         TitleRarity titleRarity,
+        String leftTitle,
+        TitleRarity leftTitleRarity,
+        String rightTitle,
+        TitleRarity rightTitleRarity,
         Long seasonExp,
         Integer rank
     ) {
@@ -32,6 +40,10 @@ public record SeasonMvpPlayerResponse(
             level,
             title,
             titleRarity,
+            leftTitle,
+            leftTitleRarity,
+            rightTitle,
+            rightTitleRarity,
             seasonExp,
             rank
         );
