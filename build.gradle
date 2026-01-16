@@ -60,6 +60,9 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-ribbon:2.2.10.RELEASE'
 
+    // Firebase Admin SDK for FCM Push Notification
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
+
     implementation(platform('com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:8.0.0'))
     implementation "com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter"
     implementation "com.netflix.graphql.dgs:graphql-dgs-extended-scalars"
@@ -143,6 +146,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+    // WebSocket
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
     // pact
     testImplementation 'au.com.dius.pact.consumer:junit5:4.6.5'

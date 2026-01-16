@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatRoomInfoResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -102,6 +103,37 @@ public class GuildChatController {
         @PathVariable Long messageId,
         @CurrentUser String userId) {
         chatService.deleteMessage(guildId, messageId, userId);
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    // ============ 읽음 확인 관련 엔드포인트 ============
+
+    // 채팅방 정보 조회 (참여자 수, 안읽은 메시지 수)
+    @GetMapping("/info")
+    public ResponseEntity<ApiResult<ChatRoomInfoResponse>> getChatRoomInfo(
+        @PathVariable Long guildId,
+        @CurrentUser String userId) {
+        ChatRoomInfoResponse response = chatService.getChatRoomInfo(guildId, userId);
+        return ResponseEntity.ok(ApiResult.<ChatRoomInfoResponse>builder().value(response).build());
+    }
+
+    // 메시지 조회 (안읽은 수 포함)
+    @GetMapping("/with-unread")
+    public ResponseEntity<ApiResult<Page<ChatMessageResponse>>> getMessagesWithUnreadCount(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @PageableDefault(size = 50) Pageable pageable) {
+        Page<ChatMessageResponse> responses = chatService.getMessagesWithUnreadCount(guildId, userId, pageable);
+        return ResponseEntity.ok(ApiResult.<Page<ChatMessageResponse>>builder().value(responses).build());
+    }
+
+    // 메시지 읽음 처리
+    @PostMapping("/read/{messageId}")
+    public ResponseEntity<ApiResult<Void>> markAsRead(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @PathVariable Long messageId) {
+        chatService.markAsRead(guildId, userId, messageId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 }

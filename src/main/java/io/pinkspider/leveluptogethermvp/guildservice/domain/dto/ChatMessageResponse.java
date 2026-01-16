@@ -27,6 +27,7 @@ public class ChatMessageResponse {
     private Long referenceId;
     private Boolean isSystemMessage;
     private LocalDateTime createdAt;
+    private Integer unreadCount;
 
     public static ChatMessageResponse from(GuildChatMessage message) {
         return ChatMessageResponse.builder()
@@ -41,6 +42,23 @@ public class ChatMessageResponse {
             .referenceId(message.getReferenceId())
             .isSystemMessage(message.isSystemMessage())
             .createdAt(message.getCreatedAt())
+            .build();
+    }
+
+    public static ChatMessageResponse from(GuildChatMessage message, int unreadCount) {
+        return ChatMessageResponse.builder()
+            .id(message.getId())
+            .guildId(message.getGuild().getId())
+            .senderId(message.getSenderId())
+            .senderNickname(message.getSenderNickname())
+            .messageType(message.getMessageType())
+            .content(message.getContent())
+            .imageUrl(message.getImageUrl())
+            .referenceType(message.getReferenceType())
+            .referenceId(message.getReferenceId())
+            .isSystemMessage(message.isSystemMessage())
+            .createdAt(message.getCreatedAt())
+            .unreadCount(unreadCount)
             .build();
     }
 }

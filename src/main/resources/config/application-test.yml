@@ -239,6 +239,10 @@ moderation:
   image:
     provider: none
 
+# Firebase 푸시 알림 설정 (테스트 환경은 비활성화)
+firebase:
+  enabled: false
+
 app:
   admin:
     api-url: http://localhost:8080

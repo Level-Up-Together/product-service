@@ -57,3 +57,13 @@ google:
     api:
       url: https://translation.googleapis.com
       key: ${GOOGLE_TRANSLATION_API_KEY:}
+
+# Firebase 푸시 알림 설정
+# enabled: true로 설정하면 FCM 푸시 알림 활성화
+# credentials.path: classpath 내 서비스 계정 파일 경로 (로컬 개발용)
+# credentials.json: 서비스 계정 JSON 문자열 (배포 환경용, 환경변수로 주입)
+firebase:
+  enabled: ${FIREBASE_ENABLED:false}
+  credentials:
+    path: firebase-service-account.json
+    json: ${FIREBASE_CREDENTIALS_JSON:}

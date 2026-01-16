@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
+import io.pinkspider.global.kafka.dto.AppPushMessageDto;
+import io.pinkspider.global.kafka.producer.KafkaAppPushProducer;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationPreferenceResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationResponse;
@@ -11,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.Notif
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceRepository preferenceRepository;
+    private final KafkaAppPushProducer kafkaAppPushProducer;
 
     // 알림 생성
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -68,7 +72,40 @@ public class NotificationService {
         Notification saved = notificationRepository.save(notification);
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
+        // 푸시 알림 전송 (푸시 설정이 활성화된 경우)
+        if (pref.getPushEnabled()) {
+            sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+        }
+
         return NotificationResponse.from(saved);
+    }
+
+    /**
+     * 푸시 알림 전송 (Kafka 통해 비동기 처리)
+     */
+    private void sendPushNotification(String userId, String title, String body,
+                                      String notificationType, String referenceType,
+                                      Long referenceId, String actionUrl) {
+        try {
+            AppPushMessageDto pushMessage = AppPushMessageDto.builder()
+                .userId(userId)
+                .title(title)
+                .body(body)
+                .notificationType(notificationType)
+                .clickAction(actionUrl)
+                .data(Map.of(
+                    "notification_type", notificationType,
+                    "reference_type", referenceType != null ? referenceType : "",
+                    "reference_id", referenceId != null ? referenceId.toString() : "",
+                    "action_url", actionUrl != null ? actionUrl : ""
+                ))
+                .build();
+
+            kafkaAppPushProducer.sendMessage(pushMessage);
+            log.debug("푸시 알림 Kafka 전송: userId={}, title={}", userId, title);
+        } catch (Exception e) {
+            log.warn("푸시 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
+        }
     }
 
     // 알림 목록 조회
@@ -263,6 +300,16 @@ public class NotificationService {
             "새 길드 공지사항",
             "[" + guildName + "] " + postTitle,
             "GUILD_POST", postId, "/guild/" + guildId + "/posts/" + postId);
+    }
+
+    // 길드 채팅 알림
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void notifyGuildChat(String userId, String senderNickname, Long guildId,
+                                String guildName, Long messageId, String messagePreview) {
+        createNotification(userId, NotificationType.GUILD_CHAT,
+            guildName,
+            senderNickname + ": " + messagePreview,
+            "GUILD_CHAT", messageId, "/guild/" + guildId + "/chat");
     }
 
     // 내 글에 댓글 알림
