@@ -2,6 +2,7 @@ package io.pinkspider.global.config;
 
 import io.pinkspider.global.interceptor.JwtInterceptor;
 import io.pinkspider.global.interceptor.MultipartInterceptor;
+import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageProperties;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;
 import io.pinkspider.leveluptogethermvp.userservice.core.resolver.CurrentUserArgumentResolver;
@@ -34,15 +35,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final ProfileImageProperties profileImageProperties;
     private final MissionImageProperties missionImageProperties;
     private final GuildImageProperties guildImageProperties;
+    private final EventImageProperties eventImageProperties;
 
     @PostConstruct
     public void init() {
         String missionPath = missionImageProperties.getPath();
         String profilePath = profileImageProperties.getPath();
         String guildPath = guildImageProperties.getPath();
+        String eventPath = eventImageProperties.getPath();
         File missionDir = new File(missionPath);
         File profileDir = new File(profilePath);
         File guildDir = new File(guildPath);
+        File eventDir = new File(eventPath);
 
         log.info("=== 이미지 업로드 설정 ===");
         log.info("미션 이미지 경로: {} (절대경로: {}, 존재: {})",
@@ -51,9 +55,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
             profilePath, profileDir.getAbsolutePath(), profileDir.exists());
         log.info("길드 이미지 경로: {} (절대경로: {}, 존재: {})",
             guildPath, guildDir.getAbsolutePath(), guildDir.exists());
+        log.info("이벤트 이미지 경로: {} (절대경로: {}, 존재: {})",
+            eventPath, eventDir.getAbsolutePath(), eventDir.exists());
         log.info("미션 이미지 URL 접두어: {}", missionImageProperties.getUrlPrefix());
         log.info("프로필 이미지 URL 접두어: {}", profileImageProperties.getUrlPrefix());
         log.info("길드 이미지 URL 접두어: {}", guildImageProperties.getUrlPrefix());
+        log.info("이벤트 이미지 URL 접두어: {}", eventImageProperties.getUrlPrefix());
         log.info("===========================");
     }
 
@@ -82,6 +89,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
         log.info("길드 이미지 리소스 핸들러: {} -> {}", guildUrlPrefix + "/**", guildResourceLocation);
         registry.addResourceHandler(guildUrlPrefix + "/**")
                 .addResourceLocations(guildResourceLocation);
+
+        // 이벤트 이미지 업로드 디렉토리 매핑
+        String eventUploadPath = new File(eventImageProperties.getPath()).getAbsolutePath();
+        String eventUrlPrefix = eventImageProperties.getUrlPrefix();
+        String eventResourceLocation = "file:" + eventUploadPath + "/";
+        log.info("이벤트 이미지 리소스 핸들러: {} -> {}", eventUrlPrefix + "/**", eventResourceLocation);
+        registry.addResourceHandler(eventUrlPrefix + "/**")
+                .addResourceLocations(eventResourceLocation);
 
         // 정적 리소스 핸들러는 마지막에 등록 (catch-all)
         registry.addResourceHandler("/**")
