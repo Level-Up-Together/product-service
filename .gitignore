@@ -51,3 +51,7 @@ logs
 /uploads/
 /last_prompting_history.log
 /prompt_log/
+
+### Firebase ###
+firebase-service-account.json
+src/main/resources/firebase-service-account.json
