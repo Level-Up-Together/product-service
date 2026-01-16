@@ -43,7 +43,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
 | `notificationservice` | notification_db | Push notifications, notification preferences, notification management |
 | `adminservice` | admin_db | Home banners, featured content (players, guilds, feeds) |
-| `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking |
+| `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons |
 | `bffservice` | - | Backend-for-Frontend API aggregation, unified search |
 | `noticeservice` | - | Notice/announcement management |
 | `supportservice` | - | Support/help functionality |

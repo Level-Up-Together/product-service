@@ -395,6 +395,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.notices[].modified_by").type(JsonFieldType.STRING).description("수정자").optional(),
                             fieldWithPath("value.notices[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.notices[].modified_at").type(JsonFieldType.STRING).description("수정일시"),
+                            fieldWithPath("value.events").type(JsonFieldType.ARRAY).description("활성 이벤트 목록 (진행중 또는 예정된 이벤트)").optional(),
                             fieldWithPath("value.current_season").type(JsonFieldType.OBJECT).description("현재 시즌 정보 (null이면 활성 시즌 없음)").optional(),
                             fieldWithPath("value.season_mvp_players").type(JsonFieldType.ARRAY).description("시즌 MVP 유저 랭킹").optional(),
                             fieldWithPath("value.season_mvp_guilds").type(JsonFieldType.ARRAY).description("시즌 MVP 길드 랭킹").optional()

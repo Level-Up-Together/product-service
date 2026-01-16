@@ -48,7 +48,7 @@ graph TB
             FEED["feedservice<br/>활동 피드<br/>좋아요, 댓글"]
             NOTIF["notificationservice<br/>알림, 푸시<br/>알림 설정"]
             ADMIN_SVC["adminservice<br/>추천 콘텐츠<br/>홈 배너"]
-            GAMIF["gamificationservice<br/>칭호, 업적, 경험치<br/>출석, 통계"]
+            GAMIF["gamificationservice<br/>칭호, 업적, 경험치<br/>출석, 이벤트, 시즌"]
             BFF["bffservice<br/>데이터 집계<br/>통합 검색"]
             NOTICE["noticeservice<br/>공지사항"]
             SUPPORT["supportservice<br/>고객지원"]
@@ -336,6 +336,8 @@ erDiagram
     gamification_db {
         title PK
         achievement PK
+        achievement_category
+        check_logic_type
         user_title FK
         user_achievement FK
         user_stats
@@ -343,6 +345,9 @@ erDiagram
         experience_history
         attendance_record
         attendance_reward_config
+        event
+        season
+        season_rank_reward
     }
 
     saga_db {
@@ -370,7 +375,7 @@ erDiagram
 | `feed_db` | feedservice | `feedTransactionManager` | activity_feed, feed_comment, feed_like |
 | `notification_db` | notificationservice | `notificationTransactionManager` | notification, notification_preference |
 | `admin_db` | adminservice | `adminTransactionManager` | home_banner, featured_feed/guild/player |
-| `gamification_db` | gamificationservice | `gamificationTransactionManager` | title, achievement, user_title, user_achievement, user_stats, user_experience, experience_history, attendance_record, attendance_reward_config |
+| `gamification_db` | gamificationservice | `gamificationTransactionManager` | title, achievement, achievement_category, check_logic_type, user_title, user_achievement, user_stats, user_experience, experience_history, attendance_record, attendance_reward_config, event, season |
 | `saga_db` | saga (global) | `sagaTransactionManager` | saga_instance, saga_step_log |
 
 > **주의**: `@Transactional` 사용 시 반드시 해당 서비스의 트랜잭션 매니저를 명시해야 합니다.
@@ -446,8 +451,13 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 ### 게이미피케이션 (Gamification Service)
 - 경험치/레벨 시스템
 - 업적/칭호 시스템 (LEFT+RIGHT 조합 방식)
+  - Strategy 패턴 기반 동적 업적 체크 (`AchievementCheckStrategy`)
+  - 미션 카테고리별 완료 횟수 업적 지원 (`MissionCategoryCompletionStrategy`)
+  - code 필드 기반 업적 식별 (DB 관리)
 - 출석 체크 (연속 출석 보너스)
 - 사용자 통계 관리
+- 이벤트 관리 (기간별 이벤트, 활성/비활성 관리)
+- 시즌 관리 (시즌별 랭킹, 보상)
 - `UserProfileCacheService`: 유저 프로필 캐싱 (nickname, level, title)
 
 ### 미션 (Mission Service)
@@ -498,7 +508,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 다국어 번역 지원
 
 ### BFF (Backend-for-Frontend)
-- 홈 화면 데이터 집계
+- 홈 화면 데이터 집계 (피드, 랭킹, 길드, 공지사항, 이벤트)
 - 통합 검색 (피드, 미션, 사용자, 길드)
 - 다중 서비스 데이터 조합
 
@@ -596,6 +606,13 @@ public void updateGuild(...) { ... }
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있습니다. `@ActiveProfiles("test")` 확인이 필요합니다.
 
 ## 최근 업데이트
+
+### 2026-01 업적 시스템 리팩토링
+- Strategy 패턴 기반 동적 업적 체크 시스템 구현 (`AchievementCheckStrategy`)
+- 미션 카테고리별 완료 횟수 업적 체크 기능 추가 (`MissionCategoryCompletionStrategy`)
+- code 필드 기반 업적 식별로 전환 (DB 관리)
+- 이벤트 관리 기능 추가 (gamificationservice)
+- BFF 홈 화면에 이벤트 목록 추가
 
 ### 2026-01 시즌 랭킹 기능
 - SeasonRankReward에 titleRarity 필드 추가
