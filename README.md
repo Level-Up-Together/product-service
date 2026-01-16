@@ -607,6 +607,12 @@ SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 
 
 ## 최근 업데이트
 
+### 2026-01 칭호 시스템 개선
+- LEFT/RIGHT 칭호 개별 희귀도 표시 기능 추가
+  - `TodayPlayerResponse`: leftTitle, leftTitleRarity, rightTitle, rightTitleRarity 필드 추가
+  - `SeasonMvpPlayerResponse`: 동일 필드 추가
+- 프론트엔드에서 각 칭호를 개별 색상으로 표시 가능
+
 ### 2026-01 업적 시스템 리팩토링
 - Strategy 패턴 기반 동적 업적 체크 시스템 구현 (`AchievementCheckStrategy`)
 - 미션 카테고리별 완료 횟수 업적 체크 기능 추가 (`MissionCategoryCompletionStrategy`)
