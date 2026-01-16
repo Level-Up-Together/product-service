@@ -120,7 +120,8 @@ class GuildChatControllerTest {
                             fieldWithPath("value.reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
                             fieldWithPath("value.reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value.is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성 일시")
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value.unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
                         )
                         .build()
                 )
@@ -183,6 +184,7 @@ class GuildChatControllerTest {
                             fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
                             fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
                             fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
@@ -261,7 +263,8 @@ class GuildChatControllerTest {
                             fieldWithPath("value[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
                             fieldWithPath("value[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시")
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
                         )
                         .build()
                 )
@@ -316,7 +319,8 @@ class GuildChatControllerTest {
                             fieldWithPath("value[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
                             fieldWithPath("value[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시")
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional()
                         )
                         .build()
                 )
@@ -385,6 +389,7 @@ class GuildChatControllerTest {
                             fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
                             fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
                             fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),
@@ -475,6 +480,7 @@ class GuildChatControllerTest {
                             fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
                             fieldWithPath("value.content[].is_system_message").type(JsonFieldType.BOOLEAN).description("시스템 메시지 여부"),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value.content[].unread_count").type(JsonFieldType.NUMBER).description("읽지 않은 메시지 수").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이지 정보").optional(),
                             fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
                             fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부").optional(),

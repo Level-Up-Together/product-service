@@ -6,8 +6,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRespo
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -16,13 +16,24 @@ import org.springframework.stereotype.Controller;
 
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class GuildChatWebSocketController {
 
     private final GuildChatService chatService;
     private final GuildMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    public GuildChatWebSocketController(
+            GuildChatService chatService,
+            GuildMemberRepository memberRepository,
+            UserRepository userRepository,
+            @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
+        this.chatService = chatService;
+        this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
+        this.messagingTemplate = messagingTemplate;
+    }
 
     /**
      * 메시지 전송
@@ -37,6 +48,11 @@ public class GuildChatWebSocketController {
 
         if (principal == null) {
             log.warn("WebSocket 메시지 전송 실패: 인증되지 않은 사용자");
+            return;
+        }
+
+        if (messagingTemplate == null) {
+            log.warn("WebSocket is not configured. Skipping chat WebSocket message.");
             return;
         }
 
@@ -97,6 +113,10 @@ public class GuildChatWebSocketController {
 
         if (principal == null) {
             log.warn("WebSocket 읽음 처리 실패: 인증되지 않은 사용자");
+            return;
+        }
+
+        if (messagingTemplate == null) {
             return;
         }
 

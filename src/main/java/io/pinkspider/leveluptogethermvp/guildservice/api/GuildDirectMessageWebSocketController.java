@@ -4,8 +4,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.application.GuildDirectMess
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.DirectMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.DirectMessageResponse;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -14,11 +14,18 @@ import org.springframework.stereotype.Controller;
 
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class GuildDirectMessageWebSocketController {
 
     private final GuildDirectMessageService dmService;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    public GuildDirectMessageWebSocketController(
+            GuildDirectMessageService dmService,
+            @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
+        this.dmService = dmService;
+        this.messagingTemplate = messagingTemplate;
+    }
 
     /**
      * DM 전송
@@ -35,6 +42,11 @@ public class GuildDirectMessageWebSocketController {
 
         if (principal == null) {
             log.warn("WebSocket DM 전송 실패: 인증되지 않은 사용자");
+            return;
+        }
+
+        if (messagingTemplate == null) {
+            log.warn("WebSocket is not configured. Skipping DM WebSocket message.");
             return;
         }
 
@@ -91,6 +103,10 @@ public class GuildDirectMessageWebSocketController {
             return;
         }
 
+        if (messagingTemplate == null) {
+            return;
+        }
+
         String userId = principal.getName();
 
         try {
@@ -126,7 +142,7 @@ public class GuildDirectMessageWebSocketController {
             @Payload DmTypingRequest request,
             Principal principal) {
 
-        if (principal == null) {
+        if (principal == null || messagingTemplate == null) {
             return;
         }
 

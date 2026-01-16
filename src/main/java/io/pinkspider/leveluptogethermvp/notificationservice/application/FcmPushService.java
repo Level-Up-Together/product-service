@@ -4,8 +4,8 @@ import com.google.firebase.messaging.*;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.DeviceTokenRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +19,18 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class FcmPushService {
 
     private final FirebaseMessaging firebaseMessaging;
     private final DeviceTokenRepository deviceTokenRepository;
+
+    @Autowired
+    public FcmPushService(
+            @Autowired(required = false) FirebaseMessaging firebaseMessaging,
+            DeviceTokenRepository deviceTokenRepository) {
+        this.firebaseMessaging = firebaseMessaging;
+        this.deviceTokenRepository = deviceTokenRepository;
+    }
 
     /**
      * 단일 사용자에게 푸시 알림 전송
