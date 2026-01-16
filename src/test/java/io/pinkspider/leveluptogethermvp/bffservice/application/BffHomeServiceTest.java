@@ -160,6 +160,10 @@ class BffHomeServiceTest {
             5,
             "초보 모험가",
             null,
+            null,
+            null,
+            null,
+            null,
             1000L,
             1
         );

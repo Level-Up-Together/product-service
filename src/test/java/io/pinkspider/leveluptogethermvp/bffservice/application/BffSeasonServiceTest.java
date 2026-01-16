@@ -91,6 +91,10 @@ class BffSeasonServiceTest {
             15,
             "모험가",
             TitleRarity.RARE,
+            null,
+            null,
+            null,
+            null,
             10000L,
             1
         );

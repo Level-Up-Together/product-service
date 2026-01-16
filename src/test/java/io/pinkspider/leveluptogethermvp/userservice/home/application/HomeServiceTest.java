@@ -12,6 +12,10 @@ import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedPlay
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.HomeBannerRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -113,6 +117,16 @@ class HomeServiceTest {
         }
     }
 
+    private void setTitleId(Title title, Long id) {
+        try {
+            java.lang.reflect.Field idField = Title.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(title, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Nested
     @DisplayName("오늘의 플레이어 조회 테스트")
     class GetTodayPlayersTest {
@@ -157,6 +171,116 @@ class HomeServiceTest {
 
             // then
             assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("LEFT/RIGHT 칭호를 개별 희귀도와 함께 반환한다")
+        void getTodayPlayers_returnsLeftRightTitlesWithIndividualRarity() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            // LEFT 칭호 생성 (RARE 등급)
+            Title leftTitle = Title.builder()
+                .name("용감한")
+                .rarity(TitleRarity.RARE)
+                .positionType(TitlePosition.LEFT)
+                .build();
+            setTitleId(leftTitle, 1L);
+
+            // RIGHT 칭호 생성 (LEGENDARY 등급)
+            Title rightTitle = Title.builder()
+                .name("전사")
+                .rarity(TitleRarity.LEGENDARY)
+                .positionType(TitlePosition.RIGHT)
+                .build();
+            setTitleId(rightTitle, 2L);
+
+            // UserTitle 생성
+            UserTitle leftUserTitle = UserTitle.builder()
+                .userId(testUserId)
+                .title(leftTitle)
+                .isEquipped(true)
+                .equippedPosition(TitlePosition.LEFT)
+                .build();
+
+            UserTitle rightUserTitle = UserTitle.builder()
+                .userId(testUserId)
+                .title(rightTitle)
+                .isEquipped(true)
+                .equippedPosition(TitlePosition.RIGHT)
+                .build();
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            TodayPlayerResponse player = result.get(0);
+
+            // 개별 칭호 정보 검증
+            assertThat(player.getLeftTitle()).isEqualTo("용감한");
+            assertThat(player.getLeftTitleRarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(player.getRightTitle()).isEqualTo("전사");
+            assertThat(player.getRightTitleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+
+            // 합쳐진 칭호와 가장 높은 등급 (기존 호환성)
+            assertThat(player.getTitle()).isEqualTo("용감한 전사");
+            assertThat(player.getTitleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+        }
+
+        @Test
+        @DisplayName("LEFT 칭호만 있을 때 정상적으로 반환한다")
+        void getTodayPlayers_returnsLeftTitleOnly() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            Title leftTitle = Title.builder()
+                .name("빠른")
+                .rarity(TitleRarity.EPIC)
+                .positionType(TitlePosition.LEFT)
+                .build();
+            setTitleId(leftTitle, 1L);
+
+            UserTitle leftUserTitle = UserTitle.builder()
+                .userId(testUserId)
+                .title(leftTitle)
+                .isEquipped(true)
+                .equippedPosition(TitlePosition.LEFT)
+                .build();
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(leftUserTitle));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            TodayPlayerResponse player = result.get(0);
+
+            assertThat(player.getLeftTitle()).isEqualTo("빠른");
+            assertThat(player.getLeftTitleRarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(player.getRightTitle()).isNull();
+            assertThat(player.getRightTitleRarity()).isNull();
+            assertThat(player.getTitle()).isEqualTo("빠른");
+            assertThat(player.getTitleRarity()).isEqualTo(TitleRarity.EPIC);
         }
 
         @Test
