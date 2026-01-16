@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestDto;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
@@ -63,6 +64,7 @@ public class GuildService {
     private final FeaturedGuildRepository featuredGuildRepository;
     private final TitleService titleService;
     private final GuildImageStorageService guildImageStorageService;
+    private final GuildChatService guildChatService;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -447,6 +449,12 @@ public class GuildService {
         // 길드 가입 업적 이벤트 발행
         publishGuildAchievementEvents(request.getRequesterId(), guild, true, false);
 
+        // 채팅방에 가입 알림 메시지 전송
+        String memberNickname = userRepository.findById(request.getRequesterId())
+            .map(Users::getNickname)
+            .orElse("새 멤버");
+        guildChatService.notifyMemberJoin(guild.getId(), memberNickname);
+
         log.info("길드 가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
 
         return GuildMemberResponse.from(savedMember);
@@ -505,6 +513,12 @@ public class GuildService {
 
         // 길드 가입 업적 이벤트 발행
         publishGuildAchievementEvents(inviteeId, guild, true, false);
+
+        // 채팅방에 가입 알림 메시지 전송
+        String memberNickname = userRepository.findById(inviteeId)
+            .map(Users::getNickname)
+            .orElse("새 멤버");
+        guildChatService.notifyMemberJoin(guildId, memberNickname);
 
         log.info("길드원 초대: guildId={}, inviteeId={}", guildId, inviteeId);
 
@@ -569,7 +583,16 @@ public class GuildService {
             throw new IllegalStateException("이미 탈퇴한 멤버입니다.");
         }
 
+        // 탈퇴 전에 닉네임 조회 (탈퇴 후 조회 시 멤버가 아니라 실패할 수 있음)
+        String memberNickname = userRepository.findById(userId)
+            .map(Users::getNickname)
+            .orElse("멤버");
+
         member.leave();
+
+        // 채팅방에 탈퇴 알림 메시지 전송
+        guildChatService.notifyMemberLeave(guildId, memberNickname);
+
         log.info("길드 탈퇴: guildId={}, userId={}", guildId, userId);
     }
 
@@ -689,7 +712,16 @@ public class GuildService {
             throw new IllegalStateException("길드 마스터는 추방할 수 없습니다.");
         }
 
+        // 추방 전에 닉네임 조회
+        String memberNickname = userRepository.findById(targetUserId)
+            .map(Users::getNickname)
+            .orElse("멤버");
+
         targetMember.kick();
+
+        // 채팅방에 추방 알림 메시지 전송
+        guildChatService.notifyMemberKick(guildId, memberNickname);
+
         log.info("멤버 추방: guildId={}, operator={}, target={}", guildId, operatorId, targetUserId);
     }
 
