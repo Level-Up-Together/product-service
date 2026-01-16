@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatRoomInfoResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -135,5 +136,45 @@ public class GuildChatController {
         @PathVariable Long messageId) {
         chatService.markAsRead(guildId, userId, messageId);
         return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    // ============ 채팅방 참여 관련 엔드포인트 ============
+
+    // 채팅방 입장
+    @PostMapping("/join")
+    public ResponseEntity<ApiResult<ChatParticipantResponse>> joinChat(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @RequestHeader(value = "X-User-Nickname", required = false) String nickname) {
+        ChatParticipantResponse response = chatService.joinChat(guildId, userId, nickname);
+        return ResponseEntity.ok(ApiResult.<ChatParticipantResponse>builder().value(response).build());
+    }
+
+    // 채팅방 퇴장
+    @PostMapping("/leave")
+    public ResponseEntity<ApiResult<Void>> leaveChat(
+        @PathVariable Long guildId,
+        @CurrentUser String userId,
+        @RequestHeader(value = "X-User-Nickname", required = false) String nickname) {
+        chatService.leaveChat(guildId, userId, nickname);
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    // 채팅방 참여 상태 확인
+    @GetMapping("/participation-status")
+    public ResponseEntity<ApiResult<Boolean>> getParticipationStatus(
+        @PathVariable Long guildId,
+        @CurrentUser String userId) {
+        boolean isParticipating = chatService.isParticipating(guildId, userId);
+        return ResponseEntity.ok(ApiResult.<Boolean>builder().value(isParticipating).build());
+    }
+
+    // 현재 채팅방 참여자 목록
+    @GetMapping("/participants")
+    public ResponseEntity<ApiResult<List<ChatParticipantResponse>>> getParticipants(
+        @PathVariable Long guildId,
+        @CurrentUser String userId) {
+        List<ChatParticipantResponse> participants = chatService.getActiveParticipants(guildId, userId);
+        return ResponseEntity.ok(ApiResult.<List<ChatParticipantResponse>>builder().value(participants).build());
     }
 }
