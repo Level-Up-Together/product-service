@@ -26,7 +26,7 @@ import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
-import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.TitleInfo;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import org.springframework.web.multipart.MultipartFile;
@@ -554,9 +554,13 @@ public class GuildService {
                     response.setUserLevel(1);
                     // 칭호 정보 조회
                     try {
-                        TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(member.getUserId());
-                        response.setEquippedTitleName(titleInfo.name());
-                        response.setEquippedTitleRarity(titleInfo.rarity());
+                        DetailedTitleInfo titleInfo = titleService.getDetailedEquippedTitleInfo(member.getUserId());
+                        response.setEquippedTitleName(titleInfo.combinedName());
+                        response.setEquippedTitleRarity(titleInfo.highestRarity());
+                        response.setLeftTitleName(titleInfo.leftTitle());
+                        response.setLeftTitleRarity(titleInfo.leftRarity());
+                        response.setRightTitleName(titleInfo.rightTitle());
+                        response.setRightTitleRarity(titleInfo.rightRarity());
                     } catch (Exception e) {
                         log.warn("칭호 정보 조회 실패: userId={}, error={}", member.getUserId(), e.getMessage());
                         response.setEquippedTitleName(null);
@@ -767,9 +771,13 @@ public class GuildService {
             response.setProfileImageUrl(user.getPicture());
             response.setUserLevel(1);
             try {
-                TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(member.getUserId());
-                response.setEquippedTitleName(titleInfo.name());
-                response.setEquippedTitleRarity(titleInfo.rarity());
+                DetailedTitleInfo titleInfo = titleService.getDetailedEquippedTitleInfo(member.getUserId());
+                response.setEquippedTitleName(titleInfo.combinedName());
+                response.setEquippedTitleRarity(titleInfo.highestRarity());
+                response.setLeftTitleName(titleInfo.leftTitle());
+                response.setLeftTitleRarity(titleInfo.leftRarity());
+                response.setRightTitleName(titleInfo.rightTitle());
+                response.setRightTitleRarity(titleInfo.rightRarity());
             } catch (Exception e) {
                 log.warn("칭호 정보 조회 실패: userId={}", member.getUserId());
             }

@@ -38,6 +38,14 @@ public class GuildMemberResponse {
     private String equippedTitleName;
     @Setter
     private TitleRarity equippedTitleRarity;
+    @Setter
+    private String leftTitleName;
+    @Setter
+    private TitleRarity leftTitleRarity;
+    @Setter
+    private String rightTitleName;
+    @Setter
+    private TitleRarity rightTitleRarity;
 
     public static GuildMemberResponse from(GuildMember member) {
         return GuildMemberResponse.builder()
