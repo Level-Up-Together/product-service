@@ -122,6 +122,46 @@ public class TitleService {
     }
 
     /**
+     * 장착된 칭호의 상세 정보 반환 (개별 좌/우 칭호 정보 포함)
+     */
+    @Cacheable(value = "userDetailedTitleInfo", key = "#userId")
+    public DetailedTitleInfo getDetailedEquippedTitleInfo(String userId) {
+        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
+        if (equippedTitles.isEmpty()) {
+            return new DetailedTitleInfo(null, null, null, null, null, null);
+        }
+
+        UserTitle leftUserTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .orElse(null);
+
+        UserTitle rightUserTitle = equippedTitles.stream()
+            .filter(ut -> ut.getEquippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .orElse(null);
+
+        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
+        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+
+        // 가장 높은 등급 선택
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
+
+        String combinedTitle;
+        if (leftTitle != null && rightTitle != null) {
+            combinedTitle = leftTitle + " " + rightTitle;
+        } else if (leftTitle != null) {
+            combinedTitle = leftTitle;
+        } else {
+            combinedTitle = rightTitle;
+        }
+
+        return new DetailedTitleInfo(combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
+    }
+
+    /**
      * 두 등급 중 더 높은 등급 반환
      */
     private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {
@@ -134,6 +174,18 @@ public class TitleService {
      * 칭호 정보 (이름과 등급)
      */
     public record TitleInfo(String name, TitleRarity rarity) {}
+
+    /**
+     * 상세 칭호 정보 (조합된 이름 + 개별 좌/우 정보 포함)
+     */
+    public record DetailedTitleInfo(
+        String combinedName,
+        TitleRarity highestRarity,
+        String leftTitle,
+        TitleRarity leftRarity,
+        String rightTitle,
+        TitleRarity rightRarity
+    ) {}
 
     // 포지션별 장착된 칭호 조회
     public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position) {
@@ -184,7 +236,7 @@ public class TitleService {
 
     // 칭호 장착 (포지션별로 장착)
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = "userTitleInfo", key = "#userId")
+    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
     public UserTitleResponse equipTitle(String userId, Long titleId) {
         UserTitle userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
             .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
@@ -206,7 +258,7 @@ public class TitleService {
 
     // 특정 포지션 칭호 해제
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = "userTitleInfo", key = "#userId")
+    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
     public void unequipTitle(String userId, TitlePosition position) {
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
         log.info("칭호 해제: userId={}, position={}", userId, position);
@@ -217,7 +269,7 @@ public class TitleService {
 
     // 모든 칭호 해제
     @Transactional(transactionManager = "gamificationTransactionManager")
-    @CacheEvict(value = "userTitleInfo", key = "#userId")
+    @CacheEvict(value = {"userTitleInfo", "userDetailedTitleInfo"}, key = "#userId")
     public void unequipAllTitles(String userId) {
         userTitleRepository.unequipAllByUserId(userId);
         log.info("모든 칭호 해제: userId={}", userId);

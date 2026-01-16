@@ -19,15 +19,17 @@ public class ChatRoomInfoResponse {
     private String guildName;
     private String guildImageUrl;
     private Integer memberCount;
+    private Integer participantCount;
     private Integer unreadMessageCount;
     private Long lastReadMessageId;
 
-    public static ChatRoomInfoResponse of(Guild guild, int memberCount, int unreadMessageCount, Long lastReadMessageId) {
+    public static ChatRoomInfoResponse of(Guild guild, int memberCount, int participantCount, int unreadMessageCount, Long lastReadMessageId) {
         return ChatRoomInfoResponse.builder()
             .guildId(guild.getId())
             .guildName(guild.getName())
             .guildImageUrl(guild.getImageUrl())
             .memberCount(memberCount)
+            .participantCount(participantCount)
             .unreadMessageCount(unreadMessageCount)
             .lastReadMessageId(lastReadMessageId)
             .build();

@@ -2,15 +2,19 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatRoomInfoResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatMessage;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatParticipant;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatReadStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.ChatMessageType;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatMessageRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatParticipantRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatReadStatusRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -31,8 +35,10 @@ public class GuildChatService {
 
     private final GuildChatMessageRepository chatMessageRepository;
     private final GuildChatReadStatusRepository readStatusRepository;
+    private final GuildChatParticipantRepository participantRepository;
     private final GuildRepository guildRepository;
     private final GuildMemberRepository memberRepository;
+    private final UserProfileCacheService userProfileCacheService;
 
     // 메시지 전송
     @Transactional(transactionManager = "guildTransactionManager")
@@ -41,18 +47,24 @@ public class GuildChatService {
         Guild guild = findGuildById(guildId);
         validateMembership(guildId, userId);
 
+        // nickname이 null이면 UserProfileCacheService에서 가져옴
+        String effectiveNickname = nickname;
+        if (effectiveNickname == null || effectiveNickname.isBlank()) {
+            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+        }
+
         GuildChatMessage message;
         if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
             message = GuildChatMessage.builder()
                 .guild(guild)
                 .senderId(userId)
-                .senderNickname(nickname)
+                .senderNickname(effectiveNickname)
                 .messageType(ChatMessageType.IMAGE)
                 .content(request.getContent() != null ? request.getContent() : "")
                 .imageUrl(request.getImageUrl())
                 .build();
         } else {
-            message = GuildChatMessage.createTextMessage(guild, userId, nickname, request.getContent());
+            message = GuildChatMessage.createTextMessage(guild, userId, effectiveNickname, request.getContent());
         }
 
         GuildChatMessage saved = chatMessageRepository.save(message);
@@ -205,6 +217,7 @@ public class GuildChatService {
 
         Guild guild = findGuildById(guildId);
         int memberCount = (int) memberRepository.countActiveMembers(guildId);
+        int participantCount = (int) participantRepository.countActiveParticipants(guildId);
 
         // 사용자의 읽음 상태 조회
         GuildChatReadStatus readStatus = readStatusRepository.findByGuildIdAndUserId(guildId, userId)
@@ -217,7 +230,7 @@ public class GuildChatService {
             ? readStatusRepository.countUnreadMessagesForUser(guildId, readStatus.getLastReadMessageId())
             : (int) chatMessageRepository.countByGuildId(guildId);
 
-        return ChatRoomInfoResponse.of(guild, memberCount, unreadCount, lastReadMessageId);
+        return ChatRoomInfoResponse.of(guild, memberCount, participantCount, unreadCount, lastReadMessageId);
     }
 
     // 메시지 읽음 처리
@@ -308,5 +321,89 @@ public class GuildChatService {
         int totalMembers = (int) memberRepository.countActiveMembers(guildId);
         int readCount = getReadCount(guildId, messageId);
         return Math.max(0, totalMembers - readCount);
+    }
+
+    // ============ 채팅방 참여 관련 메서드 ============
+
+    // 채팅방 입장
+    @Transactional(transactionManager = "guildTransactionManager")
+    public ChatParticipantResponse joinChat(Long guildId, String userId, String nickname) {
+        validateMembership(guildId, userId);
+        Guild guild = findGuildById(guildId);
+
+        // nickname이 null이면 UserProfileCacheService에서 가져옴
+        String effectiveNickname = nickname;
+        if (effectiveNickname == null || effectiveNickname.isBlank()) {
+            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+        }
+        final String finalNickname = effectiveNickname;
+
+        GuildChatParticipant participant = participantRepository.findByGuildIdAndUserId(guildId, userId)
+            .map(existing -> {
+                if (!existing.isParticipating()) {
+                    existing.rejoin(finalNickname);
+                    // 재입장 시스템 메시지
+                    sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN,
+                        finalNickname + "님이 채팅방에 입장했습니다.");
+                }
+                return existing;
+            })
+            .orElseGet(() -> {
+                GuildChatParticipant newParticipant = GuildChatParticipant.create(guild, userId, finalNickname);
+                // 첫 입장 시스템 메시지
+                sendSystemMessage(guildId, ChatMessageType.SYSTEM_JOIN,
+                    finalNickname + "님이 채팅방에 입장했습니다.");
+                return participantRepository.save(newParticipant);
+            });
+
+        // 읽음 상태 초기화
+        initializeReadStatus(guildId, userId);
+
+        log.info("채팅방 입장: guildId={}, userId={}, nickname={}", guildId, userId, finalNickname);
+        return ChatParticipantResponse.from(participant);
+    }
+
+    // 채팅방 퇴장
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void leaveChat(Long guildId, String userId, String nickname) {
+        validateMembership(guildId, userId);
+
+        // nickname이 null이면 UserProfileCacheService에서 가져옴
+        String effectiveNickname = nickname;
+        if (effectiveNickname == null || effectiveNickname.isBlank()) {
+            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+        }
+        final String finalNickname = effectiveNickname;
+
+        participantRepository.findByGuildIdAndUserId(guildId, userId)
+            .ifPresent(participant -> {
+                if (participant.isParticipating()) {
+                    participant.leave();
+                    // 퇴장 시스템 메시지
+                    sendSystemMessage(guildId, ChatMessageType.SYSTEM_LEAVE,
+                        finalNickname + "님이 채팅방에서 퇴장했습니다.");
+                    log.info("채팅방 퇴장: guildId={}, userId={}, nickname={}", guildId, userId, finalNickname);
+                }
+            });
+    }
+
+    // 채팅방 참여 상태 확인
+    public boolean isParticipating(Long guildId, String userId) {
+        validateMembership(guildId, userId);
+        return participantRepository.isParticipating(guildId, userId);
+    }
+
+    // 현재 채팅방 참여자 목록
+    public List<ChatParticipantResponse> getActiveParticipants(Long guildId, String userId) {
+        validateMembership(guildId, userId);
+        return participantRepository.findActiveParticipants(guildId).stream()
+            .map(ChatParticipantResponse::from)
+            .toList();
+    }
+
+    // 채팅방 참여자 수
+    public long getParticipantCount(Long guildId, String userId) {
+        validateMembership(guildId, userId);
+        return participantRepository.countActiveParticipants(guildId);
     }
 }
