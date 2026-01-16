@@ -253,8 +253,12 @@ class HomeControllerTest {
                             fieldWithPath("value[].nickname").type(JsonFieldType.STRING).description("닉네임"),
                             fieldWithPath("value[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value[].level").type(JsonFieldType.NUMBER).description("레벨"),
-                            fieldWithPath("value[].title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
-                            fieldWithPath("value[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value[].title").type(JsonFieldType.STRING).description("장착 칭호 (LEFT + RIGHT 조합)").optional(),
+                            fieldWithPath("value[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
+                            fieldWithPath("value[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
+                            fieldWithPath("value[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
+                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value[].earned_exp").type(JsonFieldType.NUMBER).description("오늘 획득한 경험치"),
                             fieldWithPath("value[].rank").type(JsonFieldType.NUMBER).description("순위")
                         )
@@ -378,8 +382,8 @@ class HomeControllerTest {
         );
 
         List<SeasonMvpPlayerResponse> players = List.of(
-            SeasonMvpPlayerResponse.of("user-1", "플레이어1", "https://example.com/profile1.jpg", 15, "모험가", null, 50000L, 1),
-            SeasonMvpPlayerResponse.of("user-2", "플레이어2", "https://example.com/profile2.jpg", 12, "탐험가", null, 40000L, 2)
+            SeasonMvpPlayerResponse.of("user-1", "플레이어1", "https://example.com/profile1.jpg", 15, "모험가", null, null, null, null, null, 50000L, 1),
+            SeasonMvpPlayerResponse.of("user-2", "플레이어2", "https://example.com/profile2.jpg", 12, "탐험가", null, null, null, null, null, 40000L, 2)
         );
 
         List<SeasonMvpGuildResponse> guilds = List.of(
@@ -421,8 +425,12 @@ class HomeControllerTest {
                             fieldWithPath("value.season_mvp_players[].nickname").type(JsonFieldType.STRING).description("닉네임"),
                             fieldWithPath("value.season_mvp_players[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value.season_mvp_players[].level").type(JsonFieldType.NUMBER).description("레벨"),
-                            fieldWithPath("value.season_mvp_players[].title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
-                            fieldWithPath("value.season_mvp_players[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.season_mvp_players[].title").type(JsonFieldType.STRING).description("장착 칭호 (LEFT + RIGHT 조합)").optional(),
+                            fieldWithPath("value.season_mvp_players[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급").optional(),
+                            fieldWithPath("value.season_mvp_players[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
+                            fieldWithPath("value.season_mvp_players[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
+                            fieldWithPath("value.season_mvp_players[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
+                            fieldWithPath("value.season_mvp_players[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value.season_mvp_players[].season_exp").type(JsonFieldType.NUMBER).description("시즌 획득 경험치"),
                             fieldWithPath("value.season_mvp_players[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.season_mvp_guilds[]").type(JsonFieldType.ARRAY).description("시즌 MVP 길드 목록"),

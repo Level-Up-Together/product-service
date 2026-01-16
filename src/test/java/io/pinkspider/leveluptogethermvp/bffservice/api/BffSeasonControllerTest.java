@@ -121,6 +121,10 @@ class BffSeasonControllerTest {
             10 + rank,
             "모험가",
             TitleRarity.RARE,
+            null,
+            null,
+            null,
+            null,
             10000L - (rank * 100L),
             rank
         );
@@ -256,8 +260,12 @@ class BffSeasonControllerTest {
                                 .description("프로필 이미지 URL")
                                 .optional(),
                             fieldWithPath("value.player_rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
-                            fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호").optional(),
-                            fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호 (LEFT + RIGHT 조합)").optional(),
+                            fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급").optional(),
+                            fieldWithPath("value.player_rankings[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
+                            fieldWithPath("value.player_rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
+                            fieldWithPath("value.player_rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value.player_rankings[].season_exp").type(JsonFieldType.NUMBER).description("시즌 경험치"),
                             fieldWithPath("value.player_rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             // 길드 랭킹
@@ -362,8 +370,12 @@ class BffSeasonControllerTest {
                                 .description("프로필 이미지 URL")
                                 .optional(),
                             fieldWithPath("value.player_rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
-                            fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호").optional(),
-                            fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].title").type(JsonFieldType.STRING).description("칭호 (LEFT + RIGHT 조합)").optional(),
+                            fieldWithPath("value.player_rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급").optional(),
+                            fieldWithPath("value.player_rankings[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
+                            fieldWithPath("value.player_rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
+                            fieldWithPath("value.player_rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value.player_rankings[].season_exp").type(JsonFieldType.NUMBER).description("시즌 경험치"),
                             fieldWithPath("value.player_rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.guild_rankings[]").type(JsonFieldType.ARRAY).description("길드 랭킹"),
