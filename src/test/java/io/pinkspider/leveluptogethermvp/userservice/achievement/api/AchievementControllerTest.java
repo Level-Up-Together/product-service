@@ -564,7 +564,8 @@ class AchievementControllerTest {
                             fieldWithPath("value.last_activity_date").type(JsonFieldType.STRING).description("마지막 활동일").optional(),
                             fieldWithPath("value.total_achievements_completed").type(JsonFieldType.NUMBER).description("총 업적 완료 수"),
                             fieldWithPath("value.total_titles_acquired").type(JsonFieldType.NUMBER).description("총 칭호 획득 수"),
-                            fieldWithPath("value.ranking_points").type(JsonFieldType.NUMBER).description("랭킹 포인트")
+                            fieldWithPath("value.ranking_points").type(JsonFieldType.NUMBER).description("랭킹 포인트"),
+                            fieldWithPath("value.max_completed_mission_duration").type(JsonFieldType.NUMBER).description("최대 미션 수행 시간 (분)").optional()
                         )
                         .build()
                 )
