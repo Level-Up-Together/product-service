@@ -82,6 +82,15 @@ class GuildServiceTest {
     @Mock
     private FeaturedGuildRepository featuredGuildRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService titleService;
+
+    @Mock
+    private GuildImageStorageService guildImageStorageService;
+
+    @Mock
+    private GuildChatService guildChatService;
+
     @InjectMocks
     private GuildService guildService;
 

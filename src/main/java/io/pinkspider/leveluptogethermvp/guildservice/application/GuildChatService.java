@@ -154,6 +154,13 @@ public class GuildChatService {
             memberNickname + "님이 길드를 떠났습니다.");
     }
 
+    // 멤버 추방 시스템 메시지
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void notifyMemberKick(Long guildId, String memberNickname) {
+        sendSystemMessage(guildId, ChatMessageType.SYSTEM_KICK,
+            memberNickname + "님이 추방되었습니다.");
+    }
+
     // 업적 달성 시스템 메시지
     @Transactional(transactionManager = "guildTransactionManager")
     public void notifyAchievement(Long guildId, String memberNickname, String achievementName,
