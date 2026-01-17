@@ -10,10 +10,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentCreateRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostUpdateRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPostComment;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPost;
@@ -492,6 +495,171 @@ class GuildPostServiceTest {
             assertThatThrownBy(() -> guildPostService.togglePin(1L, 1L, memberId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("게시글 상단 고정은 길드 마스터 또는 부길드마스터만 할 수 있습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("댓글 작성 테스트")
+    class CreateCommentTest {
+
+        @Test
+        @DisplayName("댓글을 작성한다")
+        void createComment_success() {
+            // given
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("테스트 댓글")
+                .build();
+
+            GuildPostComment savedComment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("테스트 댓글")
+                .build();
+            setId(savedComment, GuildPostComment.class, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.save(any(GuildPostComment.class))).thenReturn(savedComment);
+
+            // when
+            GuildPostCommentResponse response = guildPostService.createComment(1L, 1L, memberId, "멤버닉네임", request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildPostCommentRepository).save(any(GuildPostComment.class));
+        }
+
+        @Test
+        @DisplayName("비회원은 댓글을 작성할 수 없다")
+        void createComment_notMember_fail() {
+            // given
+            String nonMemberId = "non-member-id";
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("테스트 댓글")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, nonMemberId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.createComment(1L, 1L, nonMemberId, "닉네임", request))
+                .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("댓글 조회 테스트")
+    class GetCommentsTest {
+
+        @Test
+        @DisplayName("댓글 목록을 조회한다")
+        void getComments_success() {
+            // given
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("테스트 댓글")
+                .build();
+            setId(comment, GuildPostComment.class, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findAllByPostId(1L)).thenReturn(List.of(comment));
+            when(guildPostCommentRepository.findRepliesByParentId(1L)).thenReturn(List.of());
+
+            // when
+            List<GuildPostCommentResponse> response = guildPostService.getComments(1L, 1L, memberId);
+
+            // then
+            assertThat(response).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("댓글 삭제 테스트")
+    class DeleteCommentTest {
+
+        @Test
+        @DisplayName("작성자가 댓글을 삭제한다")
+        void deleteComment_byAuthor_success() {
+            // given
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("테스트 댓글")
+                .build();
+            setId(comment, GuildPostComment.class, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when
+            guildPostService.deleteComment(1L, 1L, 1L, memberId);
+
+            // then
+            assertThat(comment.getIsDeleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("마스터가 다른 사람의 댓글을 삭제한다")
+        void deleteComment_byMaster_success() {
+            // given
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)  // 다른 사람이 작성
+                .authorNickname("멤버닉네임")
+                .content("테스트 댓글")
+                .build();
+            setId(comment, GuildPostComment.class, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when
+            guildPostService.deleteComment(1L, 1L, 1L, masterId);
+
+            // then
+            assertThat(comment.getIsDeleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("다른 멤버의 댓글을 삭제할 수 없다")
+        void deleteComment_byOtherMember_fail() {
+            // given
+            String otherMemberId = "other-member-id";
+            GuildMember otherMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(otherMemberId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .build();
+
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)  // 다른 사람이 작성
+                .authorNickname("멤버닉네임")
+                .content("테스트 댓글")
+                .build();
+            setId(comment, GuildPostComment.class, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, otherMemberId)).thenReturn(Optional.of(otherMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.deleteComment(1L, 1L, 1L, otherMemberId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("댓글을 삭제할 권한이 없습니다.");
         }
     }
 }

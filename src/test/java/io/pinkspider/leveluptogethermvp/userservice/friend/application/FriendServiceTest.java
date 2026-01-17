@@ -531,4 +531,94 @@ class FriendServiceTest {
             assertThat(result).isTrue();
         }
     }
+
+    @Nested
+    @DisplayName("getAllFriends 테스트")
+    class GetAllFriendsTest {
+
+        @Test
+        @DisplayName("전체 친구 목록을 조회한다")
+        void getAllFriends_success() {
+            // given
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+            Title title = createTestTitle(1L, "테스트 칭호");
+            UserTitle userTitle = createTestUserTitle(1L, FRIEND_USER_ID, title);
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(userExperienceRepository.findByUserId(FRIEND_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedByUserIdAndPosition(FRIEND_USER_ID, TitlePosition.LEFT))
+                .thenReturn(Optional.of(userTitle));
+
+            // when
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getPendingRequestsReceived 테스트")
+    class GetPendingRequestsReceivedTest {
+
+        @Test
+        @DisplayName("받은 친구 요청 목록을 조회한다")
+        void getPendingRequestsReceived_success() {
+            // given
+            Friendship pendingRequest = createTestFriendship(1L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+            Users requester = createTestUser(FRIEND_USER_ID, "요청자");
+
+            when(friendshipRepository.findPendingRequestsReceived(TEST_USER_ID)).thenReturn(List.of(pendingRequest));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(requester));
+            when(userExperienceRepository.findByUserId(FRIEND_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            List<FriendRequestResponse> result = friendService.getPendingRequestsReceived(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getPendingRequestsSent 테스트")
+    class GetPendingRequestsSentTest {
+
+        @Test
+        @DisplayName("보낸 친구 요청 목록을 조회한다")
+        void getPendingRequestsSent_success() {
+            // given
+            Friendship sentRequest = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+
+            when(friendshipRepository.findPendingRequestsSent(TEST_USER_ID)).thenReturn(List.of(sentRequest));
+
+            // when
+            List<FriendRequestResponse> result = friendService.getPendingRequestsSent(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getBlockedUsers 테스트")
+    class GetBlockedUsersTest {
+
+        @Test
+        @DisplayName("차단한 사용자 목록을 조회한다")
+        void getBlockedUsers_success() {
+            // given
+            Friendship blockedUser = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+
+            when(friendshipRepository.findBlockedUsers(TEST_USER_ID)).thenReturn(List.of(blockedUser));
+
+            // when
+            List<FriendResponse> result = friendService.getBlockedUsers(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
 }

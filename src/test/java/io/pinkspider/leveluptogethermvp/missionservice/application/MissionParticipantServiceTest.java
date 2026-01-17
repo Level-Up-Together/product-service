@@ -20,6 +20,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantS
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -313,4 +314,393 @@ class MissionParticipantServiceTest {
                 .hasMessage("미션 참여 정보를 찾을 수 없습니다.");
         }
     }
+
+    @Nested
+    @DisplayName("참여자 승인 테스트")
+    class AcceptParticipantTest {
+
+        @Test
+        @DisplayName("미션 생성자가 대기 중인 참여자를 승인한다")
+        void acceptParticipant_success() {
+            // given
+            Long missionId = 1L;
+            Long participantId = 1L;
+            Mission mission = Mission.builder()
+                .title("비공개 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(ADMIN_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+            setMissionSource(mission, MissionSource.USER);
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.PENDING)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant, participantId);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(participantRepository.findById(participantId)).thenReturn(Optional.of(participant));
+
+            // when
+            MissionParticipantResponse response = missionParticipantService.acceptParticipant(missionId, participantId, ADMIN_USER_ID);
+
+            // then
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            verify(missionExecutionService).generateExecutionsForParticipant(participant);
+        }
+
+        @Test
+        @DisplayName("미션 생성자가 아닌 사용자가 승인하면 예외가 발생한다")
+        void acceptParticipant_notOwner_throwsException() {
+            // given
+            Long missionId = 1L;
+            Long participantId = 1L;
+            Mission mission = Mission.builder()
+                .title("비공개 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(ADMIN_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+            setMissionSource(mission, MissionSource.USER);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+
+            // when & then
+            assertThatThrownBy(() -> missionParticipantService.acceptParticipant(missionId, participantId, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("참여자 목록 조회 테스트")
+    class GetMissionParticipantsTest {
+
+        @Test
+        @DisplayName("미션의 참여자 목록을 조회한다")
+        void getMissionParticipants_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant participant1 = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(50)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant1, 1L);
+
+            MissionParticipant participant2 = MissionParticipant.builder()
+                .mission(mission)
+                .userId("user-2")
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(30)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant2, 2L);
+
+            when(participantRepository.findByMissionId(missionId))
+                .thenReturn(List.of(participant1, participant2));
+
+            // when
+            List<MissionParticipantResponse> response = missionParticipantService.getMissionParticipants(missionId);
+
+            // then
+            assertThat(response).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("참여자가 없으면 빈 목록을 반환한다")
+        void getMissionParticipants_empty() {
+            // given
+            Long missionId = 1L;
+
+            when(participantRepository.findByMissionId(missionId)).thenReturn(List.of());
+
+            // when
+            List<MissionParticipantResponse> response = missionParticipantService.getMissionParticipants(missionId);
+
+            // then
+            assertThat(response).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("참여 여부 확인 테스트")
+    class IsParticipatingTest {
+
+        @Test
+        @DisplayName("참여 중이면 true를 반환한다")
+        void isParticipating_true() {
+            // given
+            Long missionId = 1L;
+
+            when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(true);
+
+            // when
+            boolean result = missionParticipantService.isParticipating(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("참여하지 않으면 false를 반환한다")
+        void isParticipating_false() {
+            // given
+            Long missionId = 1L;
+
+            when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
+
+            // when
+            boolean result = missionParticipantService.isParticipating(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("생성자 참여 테스트")
+    class AddCreatorAsParticipantTest {
+
+        @Test
+        @DisplayName("미션 생성자를 참여자로 추가한다")
+        void addCreatorAsParticipant_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            when(participantRepository.save(any(MissionParticipant.class)))
+                .thenAnswer(invocation -> {
+                    MissionParticipant saved = invocation.getArgument(0);
+                    setParticipantId(saved, 1L);
+                    return saved;
+                });
+
+            // when
+            missionParticipantService.addCreatorAsParticipant(mission, TEST_USER_ID);
+
+            // then
+            verify(participantRepository).save(any(MissionParticipant.class));
+            verify(missionExecutionService).generateExecutionsForParticipant(any(MissionParticipant.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 멤버 참여 테스트")
+    class AddGuildMemberAsParticipantTest {
+
+        @Test
+        @DisplayName("길드 멤버를 참여자로 추가한다")
+        void addGuildMemberAsParticipant_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            when(participantRepository.save(any(MissionParticipant.class)))
+                .thenAnswer(invocation -> {
+                    MissionParticipant saved = invocation.getArgument(0);
+                    setParticipantId(saved, 1L);
+                    return saved;
+                });
+
+            // when
+            missionParticipantService.addGuildMemberAsParticipant(mission, TEST_USER_ID);
+
+            // then
+            verify(participantRepository).save(any(MissionParticipant.class));
+            verify(missionExecutionService).generateExecutionsForParticipant(any(MissionParticipant.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("진행 상태 변경 테스트")
+    class ProgressStatusTest {
+
+        @Test
+        @DisplayName("참여자의 진행 상태를 IN_PROGRESS로 변경한다")
+        void startProgress_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            MissionParticipantResponse response = missionParticipantService.startProgress(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("참여자의 진행률을 업데이트한다")
+        void updateProgress_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+            int newProgress = 50;
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            MissionParticipantResponse response = missionParticipantService.updateProgress(missionId, TEST_USER_ID, newProgress);
+
+            // then
+            assertThat(response.getProgress()).isEqualTo(newProgress);
+        }
+
+        @Test
+        @DisplayName("참여자를 완료 상태로 변경한다")
+        void completeParticipant_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(100)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            MissionParticipantResponse response = missionParticipantService.completeParticipant(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response.getStatus()).isEqualTo(ParticipantStatus.COMPLETED);
+        }
+    }
+
+    @Nested
+    @DisplayName("내 참여 조회 테스트")
+    class GetMyParticipationsTest {
+
+        @Test
+        @DisplayName("내 참여 목록을 조회한다")
+        void getMyParticipations_success() {
+            // given
+            Mission mission1 = createOpenPublicMission(1L);
+            Mission mission2 = createOpenPublicMission(2L);
+
+            MissionParticipant participant1 = MissionParticipant.builder()
+                .mission(mission1)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(30)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant1, 1L);
+
+            MissionParticipant participant2 = MissionParticipant.builder()
+                .mission(mission2)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(60)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant2, 2L);
+
+            when(participantRepository.findByUserIdWithMission(TEST_USER_ID))
+                .thenReturn(List.of(participant1, participant2));
+
+            // when
+            List<MissionParticipantResponse> responses = missionParticipantService.getMyParticipations(TEST_USER_ID);
+
+            // then
+            assertThat(responses).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("참여한 미션이 없으면 빈 목록을 반환한다")
+        void getMyParticipations_empty() {
+            // given
+            when(participantRepository.findByUserIdWithMission(TEST_USER_ID)).thenReturn(List.of());
+
+            // when
+            List<MissionParticipantResponse> responses = missionParticipantService.getMyParticipations(TEST_USER_ID);
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+
+        @Test
+        @DisplayName("특정 미션에 대한 내 참여 정보를 조회한다")
+        void getMyParticipation_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(50)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setParticipantId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            MissionParticipantResponse response = missionParticipantService.getMyParticipation(missionId, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getProgress()).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("참여하지 않은 미션 정보를 조회하면 예외가 발생한다")
+        void getMyParticipation_notFound_throwsException() {
+            // given
+            Long missionId = 1L;
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> missionParticipantService.getMyParticipation(missionId, TEST_USER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
 }

@@ -411,4 +411,122 @@ class AchievementServiceTest {
             assertThat(result).hasSize(1);
         }
     }
+
+    @Nested
+    @DisplayName("getAchievementsByMissionCategoryId 테스트")
+    class GetAchievementsByMissionCategoryIdTest {
+
+        @Test
+        @DisplayName("미션 카테고리 ID로 업적을 조회한다")
+        void getAchievementsByMissionCategoryId_success() {
+            // given
+            Long missionCategoryId = 1L;
+            Achievement achievement = createTestAchievement(1L, "CATEGORY_MISSION_COMPLETE", 10, 100);
+
+            when(achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId))
+                .thenReturn(List.of(achievement));
+
+            // when
+            List<AchievementResponse> result = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("CATEGORY_MISSION_COMPLETE");
+        }
+
+        @Test
+        @DisplayName("해당 카테고리의 업적이 없으면 빈 목록을 반환한다")
+        void getAchievementsByMissionCategoryId_empty() {
+            // given
+            Long missionCategoryId = 999L;
+            when(achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId))
+                .thenReturn(List.of());
+
+            // when
+            List<AchievementResponse> result = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getInProgressAchievements 테스트")
+    class GetInProgressAchievementsTest {
+
+        @Test
+        @DisplayName("진행 중인 업적 목록을 조회한다")
+        void getInProgressAchievements_success() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
+            UserAchievement inProgressAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+
+            when(userAchievementRepository.findInProgressByUserId(TEST_USER_ID))
+                .thenReturn(List.of(inProgressAchievement));
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getInProgressAchievements(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsCompleted()).isFalse();
+            assertThat(result.get(0).getCurrentCount()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("진행 중인 업적이 없으면 빈 목록을 반환한다")
+        void getInProgressAchievements_empty() {
+            // given
+            when(userAchievementRepository.findInProgressByUserId(TEST_USER_ID))
+                .thenReturn(List.of());
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getInProgressAchievements(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("checkAchievementsByDataSource 테스트")
+    class CheckAchievementsByDataSourceTest {
+
+        @Test
+        @DisplayName("특정 데이터 소스의 업적을 체크한다")
+        void checkAchievementsByDataSource_success() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
+
+            when(achievementRepository.findByCheckLogicDataSourceAndIsActiveTrue("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, "totalMissionCompletions")).thenReturn(10);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.empty());
+            when(userAchievementRepository.save(any(UserAchievement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            // then
+            verify(achievementRepository).findByCheckLogicDataSourceAndIsActiveTrue("USER_STATS");
+            verify(strategyRegistry).getStrategy("USER_STATS");
+        }
+
+        @Test
+        @DisplayName("Strategy가 없으면 스킵한다")
+        void checkAchievementsByDataSource_noStrategy() {
+            // given
+            when(strategyRegistry.getStrategy("UNKNOWN_SOURCE")).thenReturn(null);
+
+            // when
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "UNKNOWN_SOURCE");
+
+            // then
+            verify(achievementRepository, never()).findByCheckLogicDataSourceAndIsActiveTrue(anyString());
+        }
+    }
 }

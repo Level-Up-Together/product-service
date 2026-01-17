@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.api;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -570,6 +571,251 @@ class AchievementControllerTest {
                         .build()
                 )
             )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/mission-category/{missionCategoryId} : 미션 카테고리별 업적 조회")
+    void getAchievementsByMissionCategoryIdTest() throws Exception {
+        // given
+        List<AchievementResponse> responses = List.of(
+            AchievementResponse.builder()
+                .id(1L)
+                .name("건강 미션 마스터")
+                .categoryCode("MISSION")
+                .missionCategoryId(1L)
+                .requiredCount(10)
+                .rewardExp(500)
+                .build()
+        );
+
+        when(achievementService.getAchievementsByMissionCategoryId(anyLong()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/mission-category/{missionCategoryId}", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/my/completed : 완료한 업적 조회")
+    void getMyCompletedAchievementsTest() throws Exception {
+        // given
+        List<UserAchievementResponse> responses = List.of(
+            UserAchievementResponse.builder()
+                .id(1L)
+                .achievementId(1L)
+                .name("첫 미션 완료")
+                .categoryCode("MISSION")
+                .currentCount(1)
+                .requiredCount(1)
+                .progressPercent(100.0)
+                .isCompleted(true)
+                .completedAt(LocalDateTime.now())
+                .build()
+        );
+
+        when(achievementService.getCompletedAchievements(anyString())).thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/my/completed")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/my/in-progress : 진행 중인 업적 조회")
+    void getMyInProgressAchievementsTest() throws Exception {
+        // given
+        List<UserAchievementResponse> responses = List.of(
+            UserAchievementResponse.builder()
+                .id(2L)
+                .achievementId(2L)
+                .name("7일 연속 활동")
+                .categoryCode("STREAK")
+                .currentCount(3)
+                .requiredCount(7)
+                .progressPercent(42.86)
+                .isCompleted(false)
+                .build()
+        );
+
+        when(achievementService.getInProgressAchievements(anyString())).thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/my/in-progress")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/my/claimable : 수령 가능한 보상 조회")
+    void getClaimableAchievementsTest() throws Exception {
+        // given
+        List<UserAchievementResponse> responses = List.of(
+            UserAchievementResponse.builder()
+                .id(1L)
+                .achievementId(1L)
+                .name("첫 미션 완료")
+                .categoryCode("MISSION")
+                .isCompleted(true)
+                .isRewardClaimed(false)
+                .rewardExp(100)
+                .build()
+        );
+
+        when(achievementService.getClaimableAchievements(anyString())).thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/my/claimable")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/titles/position/{position} : 포지션별 칭호 조회")
+    void getTitlesByPositionTest() throws Exception {
+        // given
+        List<TitleResponse> responses = List.of(
+            TitleResponse.builder()
+                .id(1L)
+                .name("신입")
+                .rarity(TitleRarity.COMMON)
+                .positionType(TitlePosition.LEFT)
+                .build()
+        );
+
+        when(titleService.getTitlesByPosition(any(TitlePosition.class))).thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/titles/position/{position}", "LEFT")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/achievements/titles/unequip/{position} : 포지션별 칭호 해제")
+    void unequipTitleByPositionTest() throws Exception {
+        // given
+        doNothing().when(titleService).unequipTitle(anyString(), any(TitlePosition.class));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/achievements/titles/unequip/{position}", "LEFT")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/titles/my/position/{position} : 내 포지션별 칭호 조회")
+    void getMyTitlesByPositionTest() throws Exception {
+        // given
+        List<UserTitleResponse> responses = List.of(
+            UserTitleResponse.builder()
+                .id(1L)
+                .titleId(1L)
+                .name("신입")
+                .rarity(TitleRarity.COMMON)
+                .positionType(TitlePosition.LEFT)
+                .isEquipped(true)
+                .acquiredAt(LocalDateTime.now())
+                .build()
+        );
+
+        when(titleService.getUserTitlesByPosition(anyString(), any(TitlePosition.class)))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/titles/my/position/{position}", "LEFT")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/titles/my/equipped : 장착된 칭호 조회")
+    void getEquippedTitlesTest() throws Exception {
+        // given
+        UserTitleResponse leftTitle = UserTitleResponse.builder()
+            .id(1L)
+            .titleId(1L)
+            .name("신입")
+            .rarity(TitleRarity.COMMON)
+            .positionType(TitlePosition.LEFT)
+            .isEquipped(true)
+            .equippedPosition(TitlePosition.LEFT)
+            .build();
+
+        when(titleService.getEquippedTitleByPosition(anyString(), any(TitlePosition.class)))
+            .thenReturn(java.util.Optional.of(leftTitle));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/titles/my/equipped")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/achievements/titles/my/equipped/{position} : 포지션별 장착 칭호 조회")
+    void getEquippedTitleByPositionTest() throws Exception {
+        // given
+        UserTitleResponse response = UserTitleResponse.builder()
+            .id(1L)
+            .titleId(1L)
+            .name("신입")
+            .rarity(TitleRarity.COMMON)
+            .positionType(TitlePosition.LEFT)
+            .isEquipped(true)
+            .build();
+
+        when(titleService.getEquippedTitleByPosition(anyString(), any(TitlePosition.class)))
+            .thenReturn(java.util.Optional.of(response));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/achievements/titles/my/equipped/{position}", "LEFT")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
         );
 
         // then

@@ -316,11 +316,14 @@ jacocoTestReport {
             fileTree(dir: it, exclude: [
                     '**/Q*.class',
                     '**/config/**',
+                    '**/constants/**',
                     '**/dto/**',
                     '**/entity/**',
                     '**/enums/**',
                     '**/exception/**',
                     '**/generated/**',
+                    '**/properties/**',
+                    '**/pagenation/**',
                     '**/types/**',
                     '**/DgsConstants*.class',
                     '**/*Application.class'

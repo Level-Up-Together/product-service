@@ -359,5 +359,254 @@ class RankingServiceTest {
             // then
             assertThat(result).isEmpty();
         }
+
+        @Test
+        @DisplayName("카테고리별 레벨 랭킹을 조회한다")
+        void getLevelRankingByCategory_success() {
+            // given
+            String category = "HEALTH";
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp = createTestUserExperience(1L, "user1", 10, 1000);
+            Users user = createTestUser("user1", "테스트유저");
+
+            Object[] row = new Object[]{"user1", 500L};
+            List<Object[]> rows = Collections.singletonList(row);
+            Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
+
+            when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(10L);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(category, pageable)).thenReturn(rankingPage);
+            when(userRepository.findAllByIdIn(List.of("user1"))).thenReturn(List.of(user));
+            when(userExperienceRepository.findByUserId("user1")).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId("user1")).thenReturn(Collections.emptyList());
+
+            // when
+            Page<LevelRankingResponse> result = rankingService.getLevelRankingByCategory(category, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("경험치 정보가 없어도 카테고리 랭킹을 반환한다")
+        void getLevelRankingByCategory_noExpInfo() {
+            // given
+            String category = "STUDY";
+            Pageable pageable = PageRequest.of(0, 10);
+            Users user = createTestUser("user2", "테스트유저2");
+
+            Object[] row = new Object[]{"user2", 300L};
+            List<Object[]> rows = Collections.singletonList(row);
+            Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
+
+            when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(5L);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(category, pageable)).thenReturn(rankingPage);
+            when(userRepository.findAllByIdIn(List.of("user2"))).thenReturn(List.of(user));
+            when(userExperienceRepository.findByUserId("user2")).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId("user2")).thenReturn(Collections.emptyList());
+
+            // when
+            Page<LevelRankingResponse> result = rankingService.getLevelRankingByCategory(category, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getCurrentLevel()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getLevelRanking 테스트")
+    class GetLevelRankingTest {
+
+        @Test
+        @DisplayName("전체 레벨 랭킹을 조회한다")
+        void getLevelRanking_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+            UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
+            Users user1 = createTestUser("user1", "유저1");
+            Users user2 = createTestUser("user2", "유저2");
+            Page<UserExperience> expPage = new PageImpl<>(List.of(exp1, exp2), pageable, 2);
+
+            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable)).thenReturn(expPage);
+            when(userRepository.findAllByIdIn(List.of("user1", "user2"))).thenReturn(List.of(user1, user2));
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+
+            // when
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(0).getCurrentLevel()).isEqualTo(20);
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("칭호 조합 테스트")
+    class EquippedTitleTest {
+
+        private UserTitle createUserTitle(Long id, String userId, Title title, TitlePosition position) {
+            UserTitle userTitle = UserTitle.builder()
+                .userId(userId)
+                .title(title)
+                .build();
+            userTitle.equip(position);
+            try {
+                Field idField = UserTitle.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(userTitle, id);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return userTitle;
+        }
+
+        private Title createTitle(Long id, String name, TitleRarity rarity) {
+            Title title = Title.builder()
+                .name(name)
+                .rarity(rarity)
+                .positionType(TitlePosition.LEFT)
+                .build();
+            try {
+                Field idField = Title.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(title, id);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return title;
+        }
+
+        @Test
+        @DisplayName("LEFT와 RIGHT 칭호가 모두 있으면 조합한다")
+        void getMyRanking_withBothTitles() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+
+            Title leftTitle = createTitle(1L, "용감한", TitleRarity.RARE);
+            Title rightTitle = createTitle(2L, "전사", TitleRarity.EPIC);
+            UserTitle leftUserTitle = createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getEquippedTitleName()).isEqualTo("용감한 전사");
+            assertThat(result.getEquippedTitleRarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("LEFT 칭호만 있으면 해당 칭호만 반환한다")
+        void getMyRanking_withLeftTitleOnly() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+
+            Title leftTitle = createTitle(1L, "강인한", TitleRarity.COMMON);
+            UserTitle leftUserTitle = createUserTitle(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle));
+
+            // when
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getEquippedTitleName()).isEqualTo("강인한");
+            assertThat(result.getEquippedTitleRarity()).isEqualTo(TitleRarity.COMMON);
+        }
+
+        @Test
+        @DisplayName("RIGHT 칭호만 있으면 해당 칭호만 반환한다")
+        void getMyRanking_withRightTitleOnly() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+
+            Title rightTitle = createTitle(2L, "모험가", TitleRarity.UNCOMMON);
+            UserTitle rightUserTitle = createUserTitle(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(rightUserTitle));
+
+            // when
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getEquippedTitleName()).isEqualTo("모험가");
+            assertThat(result.getEquippedTitleRarity()).isEqualTo(TitleRarity.UNCOMMON);
+        }
+    }
+
+    @Nested
+    @DisplayName("getMyLevelRanking 유저 정보 테스트")
+    class GetMyLevelRankingWithUserTest {
+
+        @Test
+        @DisplayName("유저 정보와 함께 레벨 랭킹을 조회한다")
+        void getMyLevelRanking_withUserInfo() {
+            // given
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 15, 5000);
+            Users user = createTestUser(TEST_USER_ID, "테스트닉네임");
+
+            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userExperienceRepository.calculateLevelRank(15, 5000)).thenReturn(10L);
+
+            // when
+            LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getRank()).isEqualTo(10L);
+            assertThat(result.getNickname()).isEqualTo("테스트닉네임");
+        }
+
+        @Test
+        @DisplayName("유저가 없어도 레벨 랭킹을 조회한다")
+        void getMyLevelRanking_noUser() {
+            // given
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 15, 5000);
+
+            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userExperienceRepository.calculateLevelRank(15, 5000)).thenReturn(10L);
+
+            // when
+            LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getRank()).isEqualTo(10L);
+            assertThat(result.getNickname()).isNull();
+        }
     }
 }

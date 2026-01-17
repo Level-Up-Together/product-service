@@ -163,6 +163,32 @@ class GuildExperienceServiceTest {
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentLevel()).isGreaterThanOrEqualTo(1);
         }
+
+        @Test
+        @DisplayName("레벨업 시 해당 레벨의 config가 없으면 기본 공식으로 maxMembers가 계산된다")
+        void addExperience_levelUpWithNoConfigForNewLevel() {
+            // given
+            testGuild.addExperience(400);
+
+            // 레벨1 config만 있고 레벨2 config는 없음
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(levelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(testLevelConfig)); // level 1만
+            when(levelConfigRepository.findByLevel(any())).thenReturn(Optional.of(testLevelConfig));
+            when(historyRepository.save(any(GuildExperienceHistory.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            when(userLevelConfigRepository.findByLevel(any())).thenReturn(Optional.of(LevelConfig.builder().level(1).requiredExp(100).build()));
+            when(userLevelConfigRepository.findMaxLevel()).thenReturn(50);
+
+            // when - 400 + 200 = 600 exp, requiredExp = 5 * 100 = 500, 레벨업 가능
+            GuildExperienceResponse response = guildExperienceService.addExperience(
+                1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상"
+            );
+
+            // then
+            assertThat(response).isNotNull();
+            // 기본 공식: 10 + (level - 1) * 5, level 2일 때 15
+            assertThat(testGuild.getMaxMembers()).isEqualTo(15);
+        }
     }
 
     @Nested
@@ -254,6 +280,116 @@ class GuildExperienceServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(testGuild.getCurrentExp()).isEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("경험치 차감으로 레벨 다운 시 0 이하면 레벨1로 초기화된다")
+        void subtractExperience_levelDownToMinimum() {
+            // given
+            testGuild.addExperience(100);
+
+            GuildLevelConfig level2Config = GuildLevelConfig.builder()
+                .level(2)
+                .requiredExp(800)
+                .cumulativeExp(500)
+                .maxMembers(30)
+                .title("성장하는 길드")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(levelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(testLevelConfig, level2Config));
+            when(levelConfigRepository.findByLevel(any())).thenReturn(Optional.of(testLevelConfig));
+            when(historyRepository.save(any(GuildExperienceHistory.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            when(userLevelConfigRepository.findByLevel(any())).thenReturn(Optional.of(LevelConfig.builder().level(1).requiredExp(100).build()));
+
+            // when - 현재 100인데 200 차감
+            GuildExperienceResponse response = guildExperienceService.subtractExperience(
+                1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소"
+            );
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
+            assertThat(testGuild.getCurrentExp()).isEqualTo(0);
+            assertThat(testGuild.getTotalExp()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("경험치 차감으로 레벨 다운이 발생하고 누적 경험치 기반으로 레벨이 재계산된다")
+        void subtractExperience_levelDownWithCumulativeExp() {
+            // given - 레벨2, totalExp 600, currentExp 100 (레벨2에서 100 exp 진행)
+            setGuildTotalExp(testGuild, 600);
+            setGuildCurrentExp(testGuild, 100);
+            setGuildLevel(testGuild, 2);
+
+            GuildLevelConfig level2Config = GuildLevelConfig.builder()
+                .level(2)
+                .requiredExp(800)
+                .cumulativeExp(500)
+                .maxMembers(30)
+                .title("성장하는 길드")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(levelConfigRepository.findAllByOrderByLevelAsc()).thenReturn(List.of(testLevelConfig, level2Config));
+            when(levelConfigRepository.findByLevel(any())).thenReturn(Optional.of(testLevelConfig));
+            when(historyRepository.save(any(GuildExperienceHistory.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            when(userLevelConfigRepository.findByLevel(any())).thenReturn(Optional.of(LevelConfig.builder().level(1).requiredExp(100).build()));
+
+            // when - currentExp 100에서 200 차감하면 -100이 되어 processLevelDown 호출
+            GuildExperienceResponse response = guildExperienceService.subtractExperience(
+                1L, 200, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소"
+            );
+
+            // then - totalExp = 400, 레벨1 (cumulativeExp 0 기준으로 계산)
+            assertThat(response).isNotNull();
+            assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드에서 경험치 차감 시 예외 발생")
+        void subtractExperience_failWhenGuildNotFound() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildExperienceService.subtractExperience(
+                999L, 100, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "보상 취소"
+            ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드를 찾을 수 없습니다");
+        }
+    }
+
+    private void setGuildLevel(Guild guild, int level) {
+        try {
+            java.lang.reflect.Field levelField = Guild.class.getDeclaredField("currentLevel");
+            levelField.setAccessible(true);
+            levelField.set(guild, level);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setGuildCurrentExp(Guild guild, int exp) {
+        try {
+            java.lang.reflect.Field expField = Guild.class.getDeclaredField("currentExp");
+            expField.setAccessible(true);
+            expField.set(guild, exp);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setGuildTotalExp(Guild guild, int exp) {
+        try {
+            java.lang.reflect.Field expField = Guild.class.getDeclaredField("totalExp");
+            expField.setAccessible(true);
+            expField.set(guild, exp);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

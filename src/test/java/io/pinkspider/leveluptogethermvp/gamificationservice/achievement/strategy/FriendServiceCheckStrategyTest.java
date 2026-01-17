@@ -1,0 +1,134 @@
+package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
+import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import java.lang.reflect.Field;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class FriendServiceCheckStrategyTest {
+
+    @Mock
+    private FriendshipRepository friendshipRepository;
+
+    @InjectMocks
+    private FriendServiceCheckStrategy strategy;
+
+    private static final String TEST_USER_ID = "test-user-123";
+
+    private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
+        Achievement achievement = Achievement.builder()
+            .name("테스트 업적")
+            .checkLogicDataSource("FRIEND_SERVICE")
+            .checkLogicDataField(dataField)
+            .comparisonOperator(operator)
+            .requiredCount(requiredCount)
+            .build();
+        try {
+            Field idField = Achievement.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(achievement, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return achievement;
+    }
+
+    @Nested
+    @DisplayName("getDataSource 테스트")
+    class GetDataSourceTest {
+
+        @Test
+        @DisplayName("데이터 소스를 반환한다")
+        void getDataSource_returnsFriendService() {
+            // when
+            String result = strategy.getDataSource();
+
+            // then
+            assertThat(result).isEqualTo("FRIEND_SERVICE");
+        }
+    }
+
+    @Nested
+    @DisplayName("fetchCurrentValue 테스트")
+    class FetchCurrentValueTest {
+
+        @Test
+        @DisplayName("friendCount 필드 값을 반환한다")
+        void fetchCurrentValue_friendCount() {
+            // given
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "friendCount");
+
+            // then
+            assertThat(result).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("알 수 없는 필드면 0을 반환한다")
+        void fetchCurrentValue_unknownField_returnsZero() {
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "unknownField");
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("checkCondition 테스트")
+    class CheckConditionTest {
+
+        @Test
+        @DisplayName("조건을 만족하면 true를 반환한다")
+        void checkCondition_satisfied_returnsTrue() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 5);
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+
+            // when
+            boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("조건을 만족하지 않으면 false를 반환한다")
+        void checkCondition_notSatisfied_returnsFalse() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 20);
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+
+            // when
+            boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("dataField가 null이면 false를 반환한다")
+        void checkCondition_nullDataField_returnsFalse() {
+            // given
+            Achievement achievement = createTestAchievement(1L, null, "GTE", 10);
+
+            // when
+            boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
+}
