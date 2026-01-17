@@ -692,4 +692,150 @@ class ActivityFeedControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/feeds/search : 피드 검색 (전체 카테고리)")
+    void searchFeedsTest() throws Exception {
+        // given
+        ActivityFeedResponse feedResponse = MockUtil.readJsonFileToClass(
+            "fixture/feed/activityFeedResponse.json", ActivityFeedResponse.class);
+        Page<ActivityFeedResponse> responses = new PageImpl<>(
+            List.of(feedResponse), PageRequest.of(0, 20), 1);
+
+        when(activityFeedService.searchFeeds(anyString(), anyString(), anyInt(), anyInt(), any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/feeds/search")
+                .with(user(MOCK_USER_ID))
+                .param("keyword", "운동")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("피드-10. 피드 검색",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Activity Feed")
+                        .description("피드 검색 (미션명/제목 기준) - 검색어 2글자 이상 필요")
+                        .queryParameters(
+                            parameterWithName("keyword").type(SimpleType.STRING).description("검색어 (2글자 이상)"),
+                            parameterWithName("category").type(SimpleType.STRING).description("카테고리 (없으면 전체 검색)").optional(),
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 피드 목록"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("피드 목록"),
+                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("피드 ID"),
+                            fieldWithPath("value.content[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.content[].user_nickname").type(JsonFieldType.STRING).description("사용자 닉네임"),
+                            fieldWithPath("value.content[].user_profile_image_url").type(JsonFieldType.STRING).description("사용자 프로필 이미지").optional(),
+                            fieldWithPath("value.content[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
+                            fieldWithPath("value.content[].user_title").type(JsonFieldType.STRING).description("사용자 칭호").optional(),
+                            fieldWithPath("value.content[].user_title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.content[].activity_type").type(JsonFieldType.STRING).description("활동 타입"),
+                            fieldWithPath("value.content[].activity_type_display_name").type(JsonFieldType.STRING).description("활동 타입 표시명"),
+                            fieldWithPath("value.content[].category").type(JsonFieldType.STRING).description("카테고리"),
+                            fieldWithPath("value.content[].title").type(JsonFieldType.STRING).description("피드 제목"),
+                            fieldWithPath("value.content[].description").type(JsonFieldType.STRING).description("피드 설명").optional(),
+                            fieldWithPath("value.content[].reference_type").type(JsonFieldType.STRING).description("참조 타입").optional(),
+                            fieldWithPath("value.content[].reference_id").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
+                            fieldWithPath("value.content[].reference_name").type(JsonFieldType.STRING).description("참조 이름").optional(),
+                            fieldWithPath("value.content[].visibility").type(JsonFieldType.STRING).description("공개 범위"),
+                            fieldWithPath("value.content[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID").optional(),
+                            fieldWithPath("value.content[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.content[].icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
+                            fieldWithPath("value.content[].like_count").type(JsonFieldType.NUMBER).description("좋아요 수"),
+                            fieldWithPath("value.content[].comment_count").type(JsonFieldType.NUMBER).description("댓글 수"),
+                            fieldWithPath("value.content[].liked_by_me").type(JsonFieldType.BOOLEAN).description("내가 좋아요 했는지"),
+                            fieldWithPath("value.content[].is_my_feed").type(JsonFieldType.BOOLEAN).description("내가 작성한 피드인지"),
+                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 일시"),
+                            fieldWithPath("value.content[].execution_id").type(JsonFieldType.NUMBER).description("미션 실행 ID").optional(),
+                            fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
+                            fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋"),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부"),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부"),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부"),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부"),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수"),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/feeds/search : 피드 검색 (카테고리 지정)")
+    void searchFeedsByCategoryTest() throws Exception {
+        // given
+        ActivityFeedResponse feedResponse = MockUtil.readJsonFileToClass(
+            "fixture/feed/activityFeedResponse.json", ActivityFeedResponse.class);
+        Page<ActivityFeedResponse> responses = new PageImpl<>(
+            List.of(feedResponse), PageRequest.of(0, 20), 1);
+
+        when(activityFeedService.searchFeedsByCategory(anyString(), anyString(), anyString(), anyInt(), anyInt(), any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/feeds/search")
+                .with(user(MOCK_USER_ID))
+                .param("keyword", "운동")
+                .param("category", "건강")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/feeds/search : 피드 검색 - 검색어 2글자 미만")
+    void searchFeedsShortKeywordTest() throws Exception {
+        // when - 검색어가 1글자인 경우 빈 결과 반환
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/feeds/search")
+                .with(user(MOCK_USER_ID))
+                .param("keyword", "운")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.empty").value(true))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.total_elements").value(0));
+    }
 }

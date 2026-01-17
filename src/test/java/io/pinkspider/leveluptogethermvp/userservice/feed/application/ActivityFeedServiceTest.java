@@ -857,4 +857,172 @@ class ActivityFeedServiceTest {
             verify(activityFeedRepository).save(any(ActivityFeed.class));
         }
     }
+
+
+    @Nested
+    @DisplayName("추가 알림 피드 생성 테스트")
+    class AdditionalNotifyTest {
+
+        @Test
+        @DisplayName("미션 완료 알림 피드를 생성한다")
+        void notifyMissionCompleted_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyMissionCompleted(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "테스트 미션", 50
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("미션 전체 완료 알림 피드를 생성한다")
+        void notifyMissionFullCompleted_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyMissionFullCompleted(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "테스트 미션"
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("업적 달성 알림 피드를 생성한다")
+        void notifyAchievementUnlocked_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyAchievementUnlocked(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "첫 미션 완료", "BRONZE"
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("칭호 획득 알림 피드를 생성한다")
+        void notifyTitleAcquired_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyTitleAcquired(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "전설적인"
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("길드 생성 알림 피드를 생성한다")
+        void notifyGuildCreated_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyGuildCreated(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "테스트 길드"
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("길드 레벨업 알림 피드를 생성한다")
+        void notifyGuildLevelUp_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyGuildLevelUp(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 1L, "테스트 길드", 10
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("친구 추가 알림 피드를 생성한다")
+        void notifyFriendAdded_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyFriendAdded(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, OTHER_USER_ID, "친구유저"
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("연속 출석 알림 피드를 생성한다")
+        void notifyAttendanceStreak_success() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            activityFeedService.notifyAttendanceStreak(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, 7
+            );
+
+            // then
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteFeedById 테스트")
+    class DeleteFeedByIdTest {
+
+        @Test
+        @DisplayName("ID로 피드를 삭제한다")
+        void deleteFeedById_success() {
+            // given
+            Long feedId = 1L;
+
+            // when
+            activityFeedService.deleteFeedById(feedId);
+
+            // then
+            verify(activityFeedRepository).deleteById(feedId);
+        }
+    }
 }

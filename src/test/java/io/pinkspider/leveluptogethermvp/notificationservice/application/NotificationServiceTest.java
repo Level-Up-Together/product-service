@@ -606,5 +606,175 @@ class NotificationServiceTest {
             // then
             verify(notificationRepository).save(any(Notification.class));
         }
+
+        @Test
+        @DisplayName("친구 수락 알림을 생성한다")
+        void notifyFriendAccepted_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_ACCEPTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyFriendAccepted(TEST_USER_ID, "친구이름", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("친구 거절 알림을 생성한다")
+        void notifyFriendRejected_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_REJECTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyFriendRejected(TEST_USER_ID, "친구이름", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 가입 요청 알림을 생성한다")
+        void notifyGuildJoinRequest_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_REQUEST);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildJoinRequest(TEST_USER_ID, "테스트길드", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 가입 승인 알림을 생성한다")
+        void notifyGuildJoinApproved_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_APPROVED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildJoinApproved(TEST_USER_ID, "테스트길드", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 가입 거절 알림을 생성한다")
+        void notifyGuildJoinRejected_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_REJECTED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildJoinRejected(TEST_USER_ID, "테스트길드", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 미션 도착 알림을 생성한다")
+        void notifyGuildMissionArrived_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_MISSION_ARRIVED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildMissionArrived(TEST_USER_ID, "테스트길드", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 게시판 알림을 생성한다")
+        void notifyGuildBulletin_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_BULLETIN);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildBulletin(TEST_USER_ID, "테스트길드", 100L, 1L, "게시글 제목");
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("길드 채팅 알림을 생성한다")
+        void notifyGuildChat_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_CHAT);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyGuildChat(TEST_USER_ID, "테스트길드", 100L, "작성자닉네임", 1L, "채팅 내용");
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("피드 댓글 알림을 생성한다")
+        void notifyCommentOnMyFeed_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.COMMENT_ON_MY_FEED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyCommentOnMyFeed(TEST_USER_ID, "댓글작성자", 100L);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("업적 완료 알림을 생성한다")
+        void notifyAchievementCompleted_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.notifyAchievementCompleted(TEST_USER_ID, 1L, "미션 마스터");
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
     }
 }

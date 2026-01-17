@@ -25,10 +25,18 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Achi
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import io.pinkspider.global.saga.SagaResult;
+import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
+import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.LocalMissionImageStorageService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -65,6 +73,18 @@ class MissionExecutionServiceTest {
 
     @Mock
     private MissionCompletionSaga missionCompletionSaga;
+
+    @Mock
+    private LocalMissionImageStorageService missionImageStorageService;
+
+    @Mock
+    private ActivityFeedService activityFeedService;
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private TitleService titleService;
 
     @InjectMocks
     private MissionExecutionService executionService;
@@ -596,6 +616,1094 @@ class MissionExecutionServiceTest {
                 // 마지막 실행 날짜가 오늘 + 30일인지 확인
                 return list.get(list.size() - 1).getExecutionDate().equals(today.plusDays(30));
             }));
+        }
+    }
+
+    @Nested
+    @DisplayName("미션 수행 시작 테스트")
+    class StartExecutionTest {
+
+        @Test
+        @DisplayName("정상적으로 미션 수행을 시작한다")
+        void startExecution_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.startExecution(testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(executionRepository).save(any(MissionExecution.class));
+        }
+
+        @Test
+        @DisplayName("이미 진행 중인 미션이 있으면 예외가 발생한다")
+        void startExecution_alreadyInProgress_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution inProgressExecution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setExecutionId(inProgressExecution, 1L);
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.of(inProgressExecution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.startExecution(testMission.getId(), testUserId, executionDate);
+            });
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void startExecution_noParticipant_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.startExecution(testMission.getId(), testUserId, executionDate);
+            });
+        }
+
+        @Test
+        @DisplayName("실행 레코드가 없으면 자동으로 생성한다")
+        void startExecution_noExecution_createsNew() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> {
+                    MissionExecution exec = invocation.getArgument(0);
+                    setExecutionId(exec, 1L);
+                    return exec;
+                });
+
+            // when
+            MissionExecutionResponse response = executionService.startExecution(testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(executionRepository, org.mockito.Mockito.times(2)).save(any(MissionExecution.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("미션 수행 취소 테스트")
+    class SkipExecutionTest {
+
+        @Test
+        @DisplayName("정상적으로 미션 수행을 취소한다")
+        void skipExecution_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.skipExecution(testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(executionRepository).save(any(MissionExecution.class));
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void skipExecution_noParticipant_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.skipExecution(testMission.getId(), testUserId, executionDate);
+            });
+        }
+
+        @Test
+        @DisplayName("수행 기록이 없으면 예외가 발생한다")
+        void skipExecution_noExecution_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.skipExecution(testMission.getId(), testUserId, executionDate);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("진행 중인 미션 조회 테스트")
+    class GetInProgressExecutionTest {
+
+        @Test
+        @DisplayName("진행 중인 미션이 있으면 반환한다")
+        void getInProgressExecution_found() {
+            // given
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("진행 중인 미션이 없으면 null을 반환한다")
+        void getInProgressExecution_notFound() {
+            // given
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.empty());
+
+            // when
+            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
+
+            // then
+            assertThat(response).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("오늘 수행 목록 조회 테스트")
+    class GetTodayExecutionsTest {
+
+        @Test
+        @DisplayName("오늘 수행 목록을 정상적으로 조회한다")
+        void getTodayExecutions_success() {
+            // given
+            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now(), 50, 30);
+            MissionExecution execution2 = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution2, 2L);
+
+            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
+                .thenReturn(List.of(execution1, execution2));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then
+            assertThat(responses).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("오늘 수행이 없으면 빈 목록을 반환한다")
+        void getTodayExecutions_empty() {
+            // given
+            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("참여자별 수행 목록 조회 테스트")
+    class GetExecutionsByParticipantTest {
+
+        @Test
+        @DisplayName("참여자의 수행 목록을 정상적으로 조회한다")
+        void getExecutionsByParticipant_success() {
+            // given
+            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30);
+            MissionExecution execution2 = createCompletedExecution(2L, LocalDate.now(), 50, 30);
+
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(execution1, execution2));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
+
+            // then
+            assertThat(responses).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("수행이 없으면 빈 목록을 반환한다")
+        void getExecutionsByParticipant_empty() {
+            // given
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of());
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("완료율 조회 테스트")
+    class GetCompletionRateTest {
+
+        @Test
+        @DisplayName("완료율을 정상적으로 계산한다")
+        void getCompletionRate_success() {
+            // given
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(
+                    createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
+                    createCompletedExecution(2L, LocalDate.now(), 50, 30)
+                ));
+            when(executionRepository.countByParticipantIdAndStatus(testParticipant.getId(), ExecutionStatus.COMPLETED))
+                .thenReturn(1L);
+
+            // when
+            double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
+
+            // then
+            assertThat(rate).isEqualTo(50.0);
+        }
+
+        @Test
+        @DisplayName("수행이 없으면 0을 반환한다")
+        void getCompletionRate_noExecutions() {
+            // given
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of());
+
+            // when
+            double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
+
+            // then
+            assertThat(rate).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void getCompletionRate_noParticipant_throwsException() {
+            // given
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.getCompletionRate(testMission.getId(), testUserId);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("기록 업데이트 테스트")
+    class UpdateExecutionNoteTest {
+
+        @Test
+        @DisplayName("완료된 미션의 기록을 업데이트한다")
+        void updateExecutionNote_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            String newNote = "오늘 운동 완료!";
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.updateExecutionNote(
+                testMission.getId(), testUserId, executionDate, newNote);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(executionRepository).save(any(MissionExecution.class));
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 미션의 기록 업데이트 시 예외가 발생한다")
+        void updateExecutionNote_notCompleted_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.updateExecutionNote(testMission.getId(), testUserId, executionDate, "새 노트");
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("Saga를 통한 미션 완료 테스트")
+    class CompleteExecutionWithSagaTest {
+
+        @Test
+        @DisplayName("Saga 성공 시 응답을 반환한다")
+        void completeExecution_sagaSuccess() {
+            // given
+            Long executionId = 1L;
+            String note = "완료!";
+            boolean shareToFeed = false;
+
+            MissionExecution execution = createCompletedExecution(executionId, LocalDate.now(), 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(missionCompletionSaga.execute(executionId, testUserId, note, shareToFeed))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecution(executionId, testUserId, note);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionCompletionSaga).execute(executionId, testUserId, note, false);
+        }
+
+        @Test
+        @DisplayName("Saga 실패 시 예외를 던진다")
+        void completeExecution_sagaFailure() {
+            // given
+            Long executionId = 1L;
+            String note = "완료!";
+            boolean shareToFeed = false;
+
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            SagaResult<MissionCompletionContext> failureResult = SagaResult.failure(
+                context, "미션 완료 처리 실패", new RuntimeException("테스트 에러"));
+
+            when(missionCompletionSaga.execute(executionId, testUserId, note, shareToFeed))
+                .thenReturn(failureResult);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.completeExecution(executionId, testUserId, note);
+            });
+        }
+
+        @Test
+        @DisplayName("피드 공유 옵션과 함께 Saga 성공 시 응답을 반환한다")
+        void completeExecution_withShareToFeed_sagaSuccess() {
+            // given
+            Long executionId = 1L;
+            String note = "완료!";
+            boolean shareToFeed = true;
+
+            MissionExecution execution = createCompletedExecution(executionId, LocalDate.now(), 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(missionCompletionSaga.execute(executionId, testUserId, note, shareToFeed))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecution(executionId, testUserId, note, shareToFeed);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionCompletionSaga).execute(executionId, testUserId, note, true);
+        }
+    }
+
+    @Nested
+    @DisplayName("날짜별 미션 완료 테스트")
+    class CompleteExecutionByDateTest {
+
+        @Test
+        @DisplayName("날짜별로 미션 수행을 완료한다")
+        void completeExecutionByDate_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            String note = "완료!";
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, false))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecutionByDate(
+                testMission.getId(), testUserId, executionDate, note);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void completeExecutionByDate_noParticipant_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.completeExecutionByDate(testMission.getId(), testUserId, executionDate, "노트");
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("오늘 날짜 기준 미션 시작/취소 테스트")
+    class TodayExecutionTest {
+
+        @Test
+        @DisplayName("오늘 날짜 기준으로 미션 수행을 시작한다")
+        void startExecutionToday_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(today)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(executionRepository.findInProgressByUserId(testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), today))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.startExecutionToday(testMission.getId(), testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("오늘 날짜 기준으로 미션 수행을 취소한다")
+        void skipExecutionToday_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(today)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), today))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.skipExecutionToday(testMission.getId(), testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("미실행 처리 테스트")
+    class MarkMissedExecutionsTest {
+
+        @Test
+        @DisplayName("미실행 기록을 정상적으로 처리한다")
+        void markMissedExecutions_success() {
+            // given
+            when(executionRepository.markMissedExecutions(any(LocalDate.class)))
+                .thenReturn(5);
+
+            // when
+            int count = executionService.markMissedExecutions();
+
+            // then
+            assertThat(count).isEqualTo(5);
+            verify(executionRepository).markMissedExecutions(any(LocalDate.class));
+        }
+
+        @Test
+        @DisplayName("미실행 기록이 없으면 0을 반환한다")
+        void markMissedExecutions_noMissed() {
+            // given
+            when(executionRepository.markMissedExecutions(any(LocalDate.class)))
+                .thenReturn(0);
+
+            // when
+            int count = executionService.markMissedExecutions();
+
+            // then
+            assertThat(count).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("날짜별 수행 조회 테스트")
+    class GetExecutionByDateTest {
+
+        @Test
+        @DisplayName("특정 날짜의 수행 기록을 조회한다")
+        void getExecutionByDate_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.getExecutionByDate(
+                testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("해당 날짜의 수행 기록이 없으면 예외가 발생한다")
+        void getExecutionByDate_noExecution_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.getExecutionByDate(testMission.getId(), testUserId, executionDate);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("날짜 범위별 수행 조회 테스트")
+    class GetExecutionsByDateRangeTest {
+
+        @Test
+        @DisplayName("날짜 범위 내의 수행 기록을 조회한다")
+        void getExecutionsByDateRange_success() {
+            // given
+            LocalDate startDate = LocalDate.now().minusDays(7);
+            LocalDate endDate = LocalDate.now();
+            List<MissionExecution> executions = List.of(
+                createCompletedExecution(1L, startDate.plusDays(1), 50, 30),
+                createCompletedExecution(2L, startDate.plusDays(3), 50, 30),
+                createCompletedExecution(3L, endDate, 50, 30)
+            );
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDateBetween(
+                testParticipant.getId(), startDate, endDate))
+                .thenReturn(executions);
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
+                testMission.getId(), testUserId, startDate, endDate);
+
+            // then
+            assertThat(responses).hasSize(3);
+        }
+
+        @Test
+        @DisplayName("날짜 범위 내에 수행 기록이 없으면 빈 목록을 반환한다")
+        void getExecutionsByDateRange_empty() {
+            // given
+            LocalDate startDate = LocalDate.now().minusDays(7);
+            LocalDate endDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDateBetween(
+                testParticipant.getId(), startDate, endDate))
+                .thenReturn(List.of());
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
+                testMission.getId(), testUserId, startDate, endDate);
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("미션용 수행 목록 조회 테스트")
+    class GetExecutionsForMissionTest {
+
+        @Test
+        @DisplayName("미션용 수행 목록을 조회한다")
+        void getExecutionsForMission_success() {
+            // given
+            List<MissionExecution> executions = List.of(
+                createCompletedExecution(1L, LocalDate.now().minusDays(2), 50, 30),
+                createCompletedExecution(2L, LocalDate.now().minusDays(1), 50, 30)
+            );
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(executions);
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
+                testMission.getId(), testUserId);
+
+            // then
+            assertThat(responses).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("미션과 사용자별 수행 목록 조회 테스트")
+    class GetExecutionsByMissionAndUserTest {
+
+        @Test
+        @DisplayName("미션과 사용자별 수행 목록을 조회한다")
+        void getExecutionsByMissionAndUser_success() {
+            // given
+            List<MissionExecution> executions = List.of(
+                createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
+                createCompletedExecution(2L, LocalDate.now(), 50, 30)
+            );
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(executions);
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsByMissionAndUser(
+                testMission.getId(), testUserId);
+
+            // then
+            assertThat(responses).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void getExecutionsByMissionAndUser_noParticipant_throwsException() {
+            // given
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.getExecutionsByMissionAndUser(testMission.getId(), testUserId);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("이미지 업로드/삭제 테스트")
+    class ImageManagementTest {
+
+        @Test
+        @DisplayName("완료된 미션에 이미지를 업로드한다")
+        void uploadExecutionImage_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            org.springframework.mock.web.MockMultipartFile mockFile =
+                new org.springframework.mock.web.MockMultipartFile(
+                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
+                .thenReturn("https://example.com/image.jpg");
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.uploadExecutionImage(
+                testMission.getId(), testUserId, executionDate, mockFile);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 미션에 이미지 업로드 시 예외가 발생한다")
+        void uploadExecutionImage_notCompleted_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+            org.springframework.mock.web.MockMultipartFile mockFile =
+                new org.springframework.mock.web.MockMultipartFile(
+                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.uploadExecutionImage(testMission.getId(), testUserId, executionDate, mockFile);
+            });
+        }
+
+        @Test
+        @DisplayName("기존 이미지가 있으면 삭제 후 새 이미지를 업로드한다")
+        void uploadExecutionImage_replacesExistingImage() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            // 기존 이미지 URL 설정
+            try {
+                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
+                imageUrlField.setAccessible(true);
+                imageUrlField.set(execution, "https://example.com/old-image.jpg");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            org.springframework.mock.web.MockMultipartFile mockFile =
+                new org.springframework.mock.web.MockMultipartFile(
+                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
+                .thenReturn("https://example.com/new-image.jpg");
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.uploadExecutionImage(
+                testMission.getId(), testUserId, executionDate, mockFile);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionImageStorageService).delete("https://example.com/old-image.jpg");
+            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
+        }
+
+        @Test
+        @DisplayName("이미지를 삭제한다")
+        void deleteExecutionImage_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            // 이미지 URL 설정
+            try {
+                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
+                imageUrlField.setAccessible(true);
+                imageUrlField.set(execution, "https://example.com/image.jpg");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.deleteExecutionImage(
+                testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionImageStorageService).delete("https://example.com/image.jpg");
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 미션의 이미지 삭제 시 예외가 발생한다")
+        void deleteExecutionImage_notCompleted_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.deleteExecutionImage(testMission.getId(), testUserId, executionDate);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("날짜와 피드 공유 옵션으로 미션 완료 테스트")
+    class CompleteExecutionWithDateAndShareTest {
+
+        @Test
+        @DisplayName("날짜와 노트로 미션 수행을 완료한다")
+        void completeExecution_withDateAndNote_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            String note = "완료!";
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, false))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecution(
+                testMission.getId(), testUserId, executionDate, note);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("날짜, 노트, 피드 공유 옵션으로 미션 수행을 완료한다")
+        void completeExecution_withDateNoteAndShare_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            String note = "완료!";
+            boolean shareToFeed = true;
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            context.setExecution(execution);
+            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, shareToFeed))
+                .thenReturn(successResult);
+            when(missionCompletionSaga.toResponse(successResult))
+                .thenReturn(MissionExecutionResponse.from(execution));
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecution(
+                testMission.getId(), testUserId, executionDate, note, shareToFeed);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, true);
+        }
+    }
+
+    @Nested
+    @DisplayName("피드 공유 테스트")
+    class ShareExecutionToFeedTest {
+
+        @Test
+        @DisplayName("완료되지 않은 미션 공유 시 예외가 발생한다")
+        void shareExecutionToFeed_notCompleted_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(execution, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.shareExecutionToFeed(testMission.getId(), testUserId, executionDate);
+            });
+        }
+
+        @Test
+        @DisplayName("이미 공유된 미션 공유 시 예외가 발생한다")
+        void shareExecutionToFeed_alreadyShared_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            try {
+                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
+                feedIdField.setAccessible(true);
+                feedIdField.set(execution, 100L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.shareExecutionToFeed(testMission.getId(), testUserId, executionDate);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("피드 공유 취소 테스트")
+    class UnshareExecutionFromFeedTest {
+
+        @Test
+        @DisplayName("공유된 피드를 취소한다")
+        void unshareExecutionFromFeed_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            try {
+                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
+                feedIdField.setAccessible(true);
+                feedIdField.set(execution, 100L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MissionExecutionResponse response = executionService.unshareExecutionFromFeed(
+                testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(activityFeedService).deleteFeedById(100L);
+        }
+
+        @Test
+        @DisplayName("공유되지 않은 피드 취소 시 예외가 발생한다")
+        void unshareExecutionFromFeed_notShared_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.unshareExecutionFromFeed(testMission.getId(), testUserId, executionDate);
+            });
         }
     }
 }

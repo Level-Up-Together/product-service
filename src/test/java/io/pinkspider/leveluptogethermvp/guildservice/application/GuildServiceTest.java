@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestDto;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -39,6 +41,8 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -980,6 +984,397 @@ class GuildServiceTest {
 
             // then
             assertThat(result).hasSize(5);  // 최대 5개
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 조회 테스트")
+    class GetGuildTest {
+
+        @Test
+        @DisplayName("공개 길드를 조회한다")
+        void getGuild_publicGuild_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            GuildResponse response = guildService.getGuild(1L, testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getName()).isEqualTo("테스트 길드");
+        }
+
+        @Test
+        @DisplayName("비공개 길드에 멤버가 아닌 사용자가 접근하면 예외가 발생한다")
+        void getGuild_privateGuild_notMember_throwsException() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .description("설명")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(privateGuild, 2L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(2L)).thenReturn(Optional.of(privateGuild));
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> guildService.getGuild(2L, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("비공개 길드에 접근할 수 없습니다.");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드 조회 시 예외가 발생한다")
+        void getGuild_notFound_throwsException() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildService.getGuild(999L, testUserId))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 수정 테스트")
+    class UpdateGuildTest {
+
+        @Test
+        @DisplayName("길드 마스터가 길드를 수정한다")
+        void updateGuild_success() {
+            // given
+            GuildUpdateRequest request = GuildUpdateRequest.builder()
+                .description("수정된 설명")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            GuildResponse response = guildService.updateGuild(1L, testMasterId, request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(testGuild.getDescription()).isEqualTo("수정된 설명");
+        }
+
+        @Test
+        @DisplayName("길드 마스터가 아닌 사용자가 수정하면 예외가 발생한다")
+        void updateGuild_notMaster_throwsException() {
+            // given
+            GuildUpdateRequest request = GuildUpdateRequest.builder()
+                .description("수정된 설명")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            // when & then
+            assertThatThrownBy(() -> guildService.updateGuild(1L, testUserId, request))
+                .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("중복 길드명으로 수정 시 예외가 발생한다")
+        void updateGuild_duplicateName_throwsException() {
+            // given
+            GuildUpdateRequest request = GuildUpdateRequest.builder()
+                .name("중복 길드명")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildRepository.existsByNameAndIsActiveTrue("중복 길드명")).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> guildService.updateGuild(1L, testMasterId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이미 존재하는 길드명입니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("가입 신청 거절 테스트")
+    class RejectJoinRequestTest {
+
+        @Test
+        @DisplayName("가입 신청을 거절한다")
+        void rejectJoinRequest_success() {
+            // given
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .status(JoinRequestStatus.PENDING)
+                .build();
+            setJoinRequestId(joinRequest, 1L);
+
+            when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
+                .thenReturn(Optional.of(testMasterMember));
+
+            // when
+            GuildJoinRequestResponse response = guildService.rejectJoinRequest(1L, testMasterId, "테스트 거절 사유");
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(joinRequest.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+        }
+
+        @Test
+        @DisplayName("이미 처리된 가입 신청을 거절하면 예외가 발생한다")
+        void rejectJoinRequest_alreadyProcessed_throwsException() {
+            // given
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .status(JoinRequestStatus.APPROVED)
+                .build();
+            setJoinRequestId(joinRequest, 1L);
+
+            when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
+
+            // when & then
+            assertThatThrownBy(() -> guildService.rejectJoinRequest(1L, testMasterId, "거절 사유"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("이미 처리된 가입 신청입니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 해체 테스트")
+    class DissolveGuildTest {
+
+        @Test
+        @DisplayName("길드 마스터가 혼자 남은 길드를 해체한다")
+        void dissolveGuild_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
+                .thenReturn(Optional.of(testMasterMember));
+
+            // when
+            guildService.dissolveGuild(1L, testMasterId);
+
+            // then
+            assertThat(testGuild.getIsActive()).isFalse();
+        }
+
+        @Test
+        @DisplayName("길드 마스터가 아닌 사용자가 해체하면 예외가 발생한다")
+        void dissolveGuild_notMaster_throwsException() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+
+            // when & then
+            assertThatThrownBy(() -> guildService.dissolveGuild(1L, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("길드 마스터만 길드를 해체할 수 있습니다.");
+        }
+
+        @Test
+        @DisplayName("다른 멤버가 있으면 길드를 해체할 수 없다")
+        void dissolveGuild_hasOtherMembers_throwsException() {
+            // given
+            GuildMember otherMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(testMasterMember, otherMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildService.dissolveGuild(1L, testMasterId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("모든 길드원을 내보내야 합니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("공개 길드 목록 조회 테스트")
+    class GetPublicGuildsTest {
+
+        @Test
+        @DisplayName("공개 길드 목록을 조회한다")
+        void getPublicGuilds_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.findPublicGuilds(any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("테스트 길드");
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 검색 테스트")
+    class SearchGuildsTest {
+
+        @Test
+        @DisplayName("키워드로 길드를 검색한다")
+        void searchGuilds_success() {
+            // given
+            String keyword = "테스트";
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(keyword, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("테스트 길드");
+        }
+    }
+
+    @Nested
+    @DisplayName("내 길드 목록 조회 테스트")
+    class GetMyGuildsTest {
+
+        @Test
+        @DisplayName("내가 속한 길드 목록을 조회한다")
+        void getMyGuilds_success() {
+            // given
+            GuildMember myMembership = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                .thenReturn(List.of(myMembership));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when
+            List<GuildResponse> result = guildService.getMyGuilds(testUserId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("테스트 길드");
+        }
+
+        @Test
+        @DisplayName("가입한 길드가 없으면 빈 목록을 반환한다")
+        void getMyGuilds_empty() {
+            // given
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<GuildResponse> result = guildService.getMyGuilds(testUserId);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("가입 신청 대기 목록 조회 테스트")
+    class GetPendingJoinRequestsTest {
+
+        @Test
+        @DisplayName("가입 신청 대기 목록을 조회한다")
+        void getPendingJoinRequests_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .message("가입 희망합니다")
+                .status(JoinRequestStatus.PENDING)
+                .build();
+            setJoinRequestId(joinRequest, 1L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
+                .thenReturn(Optional.of(testMasterMember));
+            when(joinRequestRepository.findPendingRequests(eq(1L), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(joinRequest)));
+
+            // when
+            org.springframework.data.domain.Page<GuildJoinRequestResponse> result =
+                guildService.getPendingJoinRequests(1L, testMasterId, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getStatus()).isEqualTo(JoinRequestStatus.PENDING);
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 멤버 목록 조회 테스트")
+    class GetGuildMembersTest {
+
+        @Test
+        @DisplayName("길드 멤버 목록을 조회한다")
+        void getGuildMembers_success() {
+            // given
+            GuildMember member = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L))
+                .thenReturn(List.of(testMasterMember, member));
+            when(userRepository.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
+
+            // when
+            List<GuildMemberResponse> result = guildService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("비공개 길드의 멤버가 아닌 사용자는 멤버 목록을 조회할 수 없다")
+        void getGuildMembers_notMember_throwsException() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .description("설명")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(privateGuild, 2L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(2L)).thenReturn(Optional.of(privateGuild));
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> guildService.getGuildMembers(2L, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("비공개 길드의 멤버 목록을 조회할 수 없습니다.");
         }
     }
 }

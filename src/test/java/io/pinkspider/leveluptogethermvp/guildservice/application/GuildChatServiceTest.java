@@ -9,13 +9,20 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatMessage;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatParticipant;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatReadStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.ChatMessageType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatMessageRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatParticipantRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatReadStatusRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,10 +46,19 @@ class GuildChatServiceTest {
     private GuildChatMessageRepository chatMessageRepository;
 
     @Mock
+    private GuildChatReadStatusRepository readStatusRepository;
+
+    @Mock
+    private GuildChatParticipantRepository participantRepository;
+
+    @Mock
     private GuildRepository guildRepository;
 
     @Mock
     private GuildMemberRepository memberRepository;
+
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     @InjectMocks
     private GuildChatService guildChatService;
@@ -390,6 +406,393 @@ class GuildChatServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.getContent()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("읽음 상태 테스트")
+    class ReadStatusTest {
+
+        @Test
+        @DisplayName("메시지를 읽음 처리한다")
+        void markAsRead_success() {
+            // given
+            GuildChatReadStatus readStatus = GuildChatReadStatus.create(testGuild, testUserId);
+            setId(readStatus, GuildChatReadStatus.class, 1L);
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.findById(1L)).thenReturn(Optional.of(testMessage));
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(readStatus));
+
+            // when
+            guildChatService.markAsRead(1L, testUserId, 1L);
+
+            // then
+            verify(readStatusRepository).findByGuildIdAndUserId(1L, testUserId);
+        }
+
+        @Test
+        @DisplayName("읽음 상태가 없으면 새로 생성한다")
+        void markAsRead_createNewStatus() {
+            // given
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.findById(1L)).thenReturn(Optional.of(testMessage));
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(readStatusRepository.save(any(GuildChatReadStatus.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            guildChatService.markAsRead(1L, testUserId, 1L);
+
+            // then
+            verify(readStatusRepository).save(any(GuildChatReadStatus.class));
+        }
+
+        @Test
+        @DisplayName("다른 길드의 메시지는 읽음 처리할 수 없다")
+        void markAsRead_wrongGuild_fail() {
+            // given
+            Guild otherGuild = Guild.builder()
+                .name("다른 길드")
+                .masterId("other-master")
+                .build();
+            setId(otherGuild, Guild.class, 2L);
+
+            GuildChatMessage otherMessage = GuildChatMessage.createTextMessage(otherGuild, testUserId, testNickname, "다른 메시지");
+            setId(otherMessage, GuildChatMessage.class, 2L);
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.findById(2L)).thenReturn(Optional.of(otherMessage));
+
+            // when & then
+            assertThatThrownBy(() -> guildChatService.markAsRead(1L, testUserId, 2L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("해당 길드의 메시지가 아닙니다");
+        }
+
+        @Test
+        @DisplayName("읽음 상태를 초기화한다")
+        void initializeReadStatus_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(readStatusRepository.save(any(GuildChatReadStatus.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            guildChatService.initializeReadStatus(1L, testUserId);
+
+            // then
+            verify(readStatusRepository).save(any(GuildChatReadStatus.class));
+        }
+
+        @Test
+        @DisplayName("읽음 상태를 삭제한다")
+        void deleteReadStatus_success() {
+            // when
+            guildChatService.deleteReadStatus(1L, testUserId);
+
+            // then
+            verify(readStatusRepository).deleteByGuildIdAndUserId(1L, testUserId);
+        }
+    }
+
+    @Nested
+    @DisplayName("채팅 참여 테스트")
+    class ChatParticipationTest {
+
+        @Test
+        @DisplayName("채팅방에 입장한다")
+        void joinChat_success() {
+            // given
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.save(any(GuildChatParticipant.class)))
+                .thenAnswer(inv -> {
+                    GuildChatParticipant p = inv.getArgument(0);
+                    setId(p, GuildChatParticipant.class, 1L);
+                    return p;
+                });
+            when(chatMessageRepository.save(any(GuildChatMessage.class)))
+                .thenAnswer(inv -> {
+                    GuildChatMessage msg = inv.getArgument(0);
+                    setId(msg, GuildChatMessage.class, 1L);
+                    return msg;
+                });
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(readStatusRepository.save(any(GuildChatReadStatus.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            ChatParticipantResponse response = guildChatService.joinChat(1L, testUserId, testNickname);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(participantRepository).save(any(GuildChatParticipant.class));
+        }
+
+        @Test
+        @DisplayName("닉네임이 없으면 프로필에서 가져온다")
+        void joinChat_withNullNickname_fetchFromProfile() {
+            // given
+            UserProfileCache profile = new UserProfileCache(
+                testUserId, "프로필닉네임", null, 1, null, null
+            );
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(profile);
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(participantRepository.save(any(GuildChatParticipant.class)))
+                .thenAnswer(inv -> {
+                    GuildChatParticipant p = inv.getArgument(0);
+                    setId(p, GuildChatParticipant.class, 1L);
+                    return p;
+                });
+            when(chatMessageRepository.save(any(GuildChatMessage.class)))
+                .thenAnswer(inv -> {
+                    GuildChatMessage msg = inv.getArgument(0);
+                    setId(msg, GuildChatMessage.class, 1L);
+                    return msg;
+                });
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(readStatusRepository.save(any(GuildChatReadStatus.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            ChatParticipantResponse response = guildChatService.joinChat(1L, testUserId, null);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(userProfileCacheService).getUserProfile(testUserId);
+        }
+
+        @Test
+        @DisplayName("채팅방에서 퇴장한다")
+        void leaveChat_success() {
+            // given
+            GuildChatParticipant participant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
+            setId(participant, GuildChatParticipant.class, 1L);
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(participant));
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.save(any(GuildChatMessage.class)))
+                .thenAnswer(inv -> {
+                    GuildChatMessage msg = inv.getArgument(0);
+                    setId(msg, GuildChatMessage.class, 1L);
+                    return msg;
+                });
+
+            // when
+            guildChatService.leaveChat(1L, testUserId, testNickname);
+
+            // then
+            assertThat(participant.isParticipating()).isFalse();
+        }
+
+        @Test
+        @DisplayName("참여 여부를 확인한다")
+        void isParticipating_true() {
+            // given
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.isParticipating(1L, testUserId)).thenReturn(true);
+
+            // when
+            boolean result = guildChatService.isParticipating(1L, testUserId);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("참여자가 없으면 false 반환")
+        void isParticipating_false() {
+            // given
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.isParticipating(1L, testUserId)).thenReturn(false);
+
+            // when
+            boolean result = guildChatService.isParticipating(1L, testUserId);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("활성 참여자 목록을 조회한다")
+        void getActiveParticipants_success() {
+            // given
+            GuildChatParticipant participant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
+            setId(participant, GuildChatParticipant.class, 1L);
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.findActiveParticipants(1L))
+                .thenReturn(List.of(participant));
+
+            // when
+            List<ChatParticipantResponse> result = guildChatService.getActiveParticipants(1L, testUserId);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("참여자 수를 조회한다")
+        void getParticipantCount_success() {
+            // given
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
+
+            // when
+            long count = guildChatService.getParticipantCount(1L, testUserId);
+
+            // then
+            assertThat(count).isEqualTo(5L);
+        }
+    }
+
+    @Nested
+    @DisplayName("읽음/안읽음 카운트 테스트")
+    class ReadUnreadCountTest {
+
+        @Test
+        @DisplayName("읽은 사람 수를 조회한다")
+        void getReadCount_success() {
+            // given
+            when(readStatusRepository.countReadersForMessage(1L, 1L)).thenReturn(3L);
+
+            // when
+            int count = guildChatService.getReadCount(1L, 1L);
+
+            // then
+            assertThat(count).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("안읽은 사람 수를 조회한다")
+        void getUnreadCount_success() {
+            // given
+            when(participantRepository.countActiveParticipants(1L)).thenReturn(10L);
+            when(readStatusRepository.countReadersForMessage(1L, 1L)).thenReturn(3L);
+
+            // when
+            int count = guildChatService.getUnreadCount(1L, 1L);
+
+            // then
+            assertThat(count).isEqualTo(7);
+        }
+    }
+
+    @Nested
+    @DisplayName("특정 ID 이전 메시지 조회 테스트")
+    class GetMessagesBeforeIdTest {
+
+        @Test
+        @DisplayName("특정 ID 이전의 메시지를 조회한다")
+        void getMessagesBeforeId_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
+
+            when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(chatMessageRepository.findMessagesBeforeId(eq(1L), eq(100L), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+            // when
+            Page<ChatMessageResponse> result = guildChatService.getMessagesBeforeId(1L, testUserId, 100L, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("알림 메시지 테스트")
+    class NotificationTest {
+
+        @Test
+        @DisplayName("멤버 강퇴 알림을 전송한다")
+        void notifyMemberKick_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
+                GuildChatMessage msg = inv.getArgument(0);
+                setId(msg, GuildChatMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            guildChatService.notifyMemberKick(1L, "강퇴멤버");
+
+            // then
+            verify(chatMessageRepository).save(any(GuildChatMessage.class));
+        }
+
+        @Test
+        @DisplayName("업적 달성 알림을 전송한다")
+        void notifyAchievement_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
+                GuildChatMessage msg = inv.getArgument(0);
+                setId(msg, GuildChatMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            guildChatService.notifyAchievement(1L, "테스터", "첫 미션 완료", 100L);
+
+            // then
+            verify(chatMessageRepository).save(any(GuildChatMessage.class));
+        }
+
+        @Test
+        @DisplayName("레벨업 알림을 전송한다")
+        void notifyLevelUp_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
+                GuildChatMessage msg = inv.getArgument(0);
+                setId(msg, GuildChatMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            guildChatService.notifyLevelUp(1L, "테스터", 10);
+
+            // then
+            verify(chatMessageRepository).save(any(GuildChatMessage.class));
+        }
+
+        @Test
+        @DisplayName("미션 완료 알림을 전송한다")
+        void notifyMissionComplete_success() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
+                GuildChatMessage msg = inv.getArgument(0);
+                setId(msg, GuildChatMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            guildChatService.notifyMissionComplete(1L, "테스터", "30일 운동 챌린지", 200L);
+
+            // then
+            verify(chatMessageRepository).save(any(GuildChatMessage.class));
         }
     }
 }
