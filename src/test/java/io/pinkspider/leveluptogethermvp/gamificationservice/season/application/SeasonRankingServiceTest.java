@@ -308,4 +308,225 @@ class SeasonRankingServiceTest {
             assertThat(result).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("getCurrentSeason 테스트")
+    class GetCurrentSeasonTest {
+
+        @Test
+        @DisplayName("현재 활성 시즌을 조회한다")
+        void getCurrentSeason_success() {
+            // given
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                .thenReturn(Optional.of(testSeason));
+
+            // when
+            var result = seasonRankingService.getCurrentSeason();
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().id()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("활성 시즌이 없으면 빈 Optional을 반환한다")
+        void getCurrentSeason_noActiveSeason() {
+            // given
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class)))
+                .thenReturn(Optional.empty());
+
+            // when
+            var result = seasonRankingService.getCurrentSeason();
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getSeasonById 테스트")
+    class GetSeasonByIdTest {
+
+        @Test
+        @DisplayName("시즌 ID로 활성 시즌을 조회한다")
+        void getSeasonById_success() {
+            // given
+            setSeasonActive(testSeason, true);
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+
+            // when
+            var result = seasonRankingService.getSeasonById(1L);
+
+            // then
+            assertThat(result).isPresent();
+        }
+
+        @Test
+        @DisplayName("비활성 시즌은 반환하지 않는다")
+        void getSeasonById_inactiveSeason() {
+            // given
+            setSeasonActive(testSeason, false);
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+
+            // when
+            var result = seasonRankingService.getSeasonById(1L);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getSeasonPlayerRankings 테스트")
+    class GetSeasonPlayerRankingsTest {
+
+        @Test
+        @DisplayName("시즌 플레이어 랭킹을 조회한다")
+        void getSeasonPlayerRankings_success() {
+            // given
+            Object[] row1 = {testUserId, 1000L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of());
+
+            // when
+            var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).userId()).isEqualTo(testUserId);
+            assertThat(result.get(0).seasonExp()).isEqualTo(1000L);
+        }
+
+        @Test
+        @DisplayName("카테고리별 플레이어 랭킹을 조회한다")
+        void getSeasonPlayerRankings_byCategory() {
+            // given
+            Object[] row1 = {testUserId, 500L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(any(), any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of());
+
+            // when
+            var result = seasonRankingService.getSeasonPlayerRankings(testSeason, "HEALTH", 10, null);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).seasonExp()).isEqualTo(500L);
+        }
+
+        @Test
+        @DisplayName("경험치 기록이 없으면 빈 목록을 반환한다")
+        void getSeasonPlayerRankings_empty() {
+            // given
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+
+            // when
+            var result = seasonRankingService.getSeasonPlayerRankings(testSeason, null, 10, null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getMySeasonRanking 테스트")
+    class GetMySeasonRankingTest {
+
+        @Test
+        @DisplayName("내 시즌 랭킹을 조회한다")
+        void getMySeasonRanking_success() {
+            // given
+            when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
+                .thenReturn(1000L);
+            when(experienceHistoryRepository.countUsersWithMoreExpByPeriod(any(), any(), any()))
+                .thenReturn(4L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(testUserId))
+                .thenReturn(List.of());
+
+            // when
+            var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.playerRank()).isEqualTo(5);
+            assertThat(result.playerSeasonExp()).isEqualTo(1000L);
+        }
+
+        @Test
+        @DisplayName("경험치가 없으면 랭킹 null 반환")
+        void getMySeasonRanking_noExp() {
+            // given
+            when(experienceHistoryRepository.sumExpByUserIdAndPeriod(any(), any(), any()))
+                .thenReturn(null);
+            when(guildMemberRepository.findAllActiveGuildMemberships(testUserId))
+                .thenReturn(List.of());
+
+            // when
+            var result = seasonRankingService.getMySeasonRanking(testSeason, testUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.playerRank()).isNull();
+            assertThat(result.playerSeasonExp()).isEqualTo(0L);
+        }
+    }
+
+    @Nested
+    @DisplayName("캐시 관리 테스트")
+    class CacheManagementTest {
+
+        @Test
+        @DisplayName("현재 시즌 캐시를 삭제한다")
+        void evictCurrentSeasonCache_success() {
+            // given
+            when(redisTemplate.keys("currentSeason::*")).thenReturn(java.util.Set.of("key1"));
+
+            // when
+            seasonRankingService.evictCurrentSeasonCache();
+
+            // then
+            org.mockito.Mockito.verify(redisTemplate).delete(java.util.Set.of("key1"));
+        }
+
+        @Test
+        @DisplayName("모든 시즌 캐시를 삭제한다")
+        void evictAllSeasonCaches_success() {
+            // given
+            when(redisTemplate.keys("currentSeason::*")).thenReturn(java.util.Set.of("key1"));
+            when(redisTemplate.keys("seasonMvpData::*")).thenReturn(java.util.Set.of("key2"));
+
+            // when
+            seasonRankingService.evictAllSeasonCaches();
+
+            // then
+            org.mockito.Mockito.verify(redisTemplate).delete(java.util.Set.of("key1"));
+            org.mockito.Mockito.verify(redisTemplate).delete(java.util.Set.of("key2"));
+        }
+    }
+
+    private void setSeasonActive(Season season, boolean isActive) {
+        try {
+            java.lang.reflect.Field activeField = Season.class.getDeclaredField("isActive");
+            activeField.setAccessible(true);
+            activeField.set(season, isActive);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

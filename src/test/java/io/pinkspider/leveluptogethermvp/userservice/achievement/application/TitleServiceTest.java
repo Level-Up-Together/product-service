@@ -444,4 +444,359 @@ class TitleServiceTest {
             verify(titleRepository, never()).save(any(Title.class));
         }
     }
+
+    @Nested
+    @DisplayName("getTitlesByRarity 테스트")
+    class GetTitlesByRarityTest {
+
+        @Test
+        @DisplayName("등급별 칭호를 조회한다")
+        void getTitlesByRarity_success() {
+            // given
+            Title rareTitle1 = createTestTitle(1L, "숙련된", TitlePosition.LEFT, TitleRarity.RARE);
+            Title rareTitle2 = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
+
+            when(titleRepository.findByRarityAndIsActiveTrue(TitleRarity.RARE))
+                .thenReturn(List.of(rareTitle1, rareTitle2));
+
+            // when
+            List<TitleResponse> result = titleService.getTitlesByRarity(TitleRarity.RARE);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result).allMatch(t -> t.getRarity() == TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("해당 등급의 칭호가 없으면 빈 목록을 반환한다")
+        void getTitlesByRarity_empty() {
+            // given
+            when(titleRepository.findByRarityAndIsActiveTrue(TitleRarity.LEGENDARY))
+                .thenReturn(List.of());
+
+            // when
+            List<TitleResponse> result = titleService.getTitlesByRarity(TitleRarity.LEGENDARY);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserTitlesByPosition 테스트")
+    class GetUserTitlesByPositionTest {
+
+        @Test
+        @DisplayName("사용자의 포지션별 칭호 목록을 조회한다")
+        void getUserTitlesByPosition_success() {
+            // given
+            Title leftTitle1 = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title leftTitle2 = createTestTitle(2L, "성실한", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title rightTitle = createTestTitle(3L, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+
+            UserTitle userTitle1 = createTestUserTitle(1L, TEST_USER_ID, leftTitle1, false, null);
+            UserTitle userTitle2 = createTestUserTitle(2L, TEST_USER_ID, leftTitle2, false, null);
+            UserTitle userTitle3 = createTestUserTitle(3L, TEST_USER_ID, rightTitle, false, null);
+
+            when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
+                .thenReturn(List.of(userTitle1, userTitle2, userTitle3));
+
+            // when
+            List<UserTitleResponse> result = titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
+
+            // then
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("해당 포지션의 칭호가 없으면 빈 목록을 반환한다")
+        void getUserTitlesByPosition_empty() {
+            // given
+            Title rightTitle = createTestTitle(1L, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, rightTitle, false, null);
+
+            when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
+                .thenReturn(List.of(userTitle));
+
+            // when
+            List<UserTitleResponse> result = titleService.getUserTitlesByPosition(TEST_USER_ID, TitlePosition.LEFT);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getEquippedTitleByPosition 테스트")
+    class GetEquippedTitleByPositionTest {
+
+        @Test
+        @DisplayName("포지션별 장착된 칭호를 조회한다")
+        void getEquippedTitleByPosition_success() {
+            // given
+            Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT))
+                .thenReturn(Optional.of(userTitle));
+
+            // when
+            Optional<UserTitleResponse> result = titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getEquippedPosition()).isEqualTo(TitlePosition.LEFT);
+        }
+
+        @Test
+        @DisplayName("장착된 칭호가 없으면 빈 Optional을 반환한다")
+        void getEquippedTitleByPosition_empty() {
+            // given
+            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.RIGHT))
+                .thenReturn(Optional.empty());
+
+            // when
+            Optional<UserTitleResponse> result = titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.RIGHT);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getDetailedEquippedTitleInfo 테스트")
+    class GetDetailedEquippedTitleInfoTest {
+
+        @Test
+        @DisplayName("LEFT와 RIGHT 모두 장착되어 있을 때 상세 정보를 반환한다")
+        void getDetailedEquippedTitleInfo_both() {
+            // given
+            Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
+            Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.combinedName()).isEqualTo("전설적인 영웅");
+            assertThat(result.highestRarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(result.leftTitle()).isEqualTo("전설적인");
+            assertThat(result.leftRarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(result.rightTitle()).isEqualTo("영웅");
+            assertThat(result.rightRarity()).isEqualTo(TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("LEFT만 장착되어 있을 때 상세 정보를 반환한다")
+        void getDetailedEquippedTitleInfo_onlyLeft() {
+            // given
+            Title leftTitle = createTestTitle(1L, "성실한", TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle));
+
+            // when
+            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.combinedName()).isEqualTo("성실한");
+            assertThat(result.highestRarity()).isEqualTo(TitleRarity.COMMON);
+            assertThat(result.leftTitle()).isEqualTo("성실한");
+            assertThat(result.leftRarity()).isEqualTo(TitleRarity.COMMON);
+            assertThat(result.rightTitle()).isNull();
+            assertThat(result.rightRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("RIGHT만 장착되어 있을 때 상세 정보를 반환한다")
+        void getDetailedEquippedTitleInfo_onlyRight() {
+            // given
+            Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.UNCOMMON);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(rightUserTitle));
+
+            // when
+            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.combinedName()).isEqualTo("모험가");
+            assertThat(result.highestRarity()).isEqualTo(TitleRarity.UNCOMMON);
+            assertThat(result.leftTitle()).isNull();
+            assertThat(result.leftRarity()).isNull();
+            assertThat(result.rightTitle()).isEqualTo("모험가");
+            assertThat(result.rightRarity()).isEqualTo(TitleRarity.UNCOMMON);
+        }
+
+        @Test
+        @DisplayName("장착된 칭호가 없으면 null로 구성된 상세 정보를 반환한다")
+        void getDetailedEquippedTitleInfo_empty() {
+            // given
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of());
+
+            // when
+            TitleService.DetailedTitleInfo result = titleService.getDetailedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.combinedName()).isNull();
+            assertThat(result.highestRarity()).isNull();
+            assertThat(result.leftTitle()).isNull();
+            assertThat(result.leftRarity()).isNull();
+            assertThat(result.rightTitle()).isNull();
+            assertThat(result.rightRarity()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("grantAndEquipDefaultTitles 테스트")
+    class GrantAndEquipDefaultTitlesTest {
+
+        @Test
+        @DisplayName("신규 사용자에게 기본 칭호를 부여하고 장착한다")
+        void grantAndEquipDefaultTitles_success() {
+            // given
+            Long leftTitleId = 1L;
+            Long rightTitleId = 26L;
+            Title leftTitle = createTestTitle(leftTitleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title rightTitle = createTestTitle(rightTitleId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, false, null);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
+
+            // grantTitle 설정
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, leftTitleId)).thenReturn(false);
+            when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, rightTitleId)).thenReturn(false);
+            when(titleRepository.findById(leftTitleId)).thenReturn(Optional.of(leftTitle));
+            when(titleRepository.findById(rightTitleId)).thenReturn(Optional.of(rightTitle));
+            when(userTitleRepository.save(any(UserTitle.class)))
+                .thenReturn(leftUserTitle)
+                .thenReturn(rightUserTitle);
+
+            // equipTitle 설정
+            when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, leftTitleId))
+                .thenReturn(Optional.of(leftUserTitle));
+            when(userTitleRepository.findByUserIdAndTitleId(TEST_USER_ID, rightTitleId))
+                .thenReturn(Optional.of(rightUserTitle));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+            when(activityFeedRepository.updateUserTitleByUserId(any(), any(), any())).thenReturn(0);
+
+            // when
+            titleService.grantAndEquipDefaultTitles(TEST_USER_ID);
+
+            // then
+            verify(userTitleRepository, atLeastOnce()).save(any(UserTitle.class));
+            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
+            verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.RIGHT);
+            // 이벤트가 발행되지 않음 확인 (기본 칭호는 notify=false)
+            verify(eventPublisher, never()).publishEvent(any(TitleAcquiredEvent.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getCombinedEquippedTitleName 테스트")
+    class GetCombinedEquippedTitleNameTest {
+
+        @Test
+        @DisplayName("장착된 칭호의 조합된 이름을 반환한다")
+        void getCombinedEquippedTitleName_success() {
+            // given
+            Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
+            Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            String result = titleService.getCombinedEquippedTitleName(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo("전설적인 영웅");
+        }
+
+        @Test
+        @DisplayName("장착된 칭호가 없으면 null을 반환한다")
+        void getCombinedEquippedTitleName_empty() {
+            // given
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of());
+
+            // when
+            String result = titleService.getCombinedEquippedTitleName(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getCombinedEquippedTitleInfo 추가 테스트")
+    class GetCombinedEquippedTitleInfoAdditionalTest {
+
+        @Test
+        @DisplayName("LEFT만 장착되어 있을 때 LEFT 칭호만 반환한다")
+        void getCombinedEquippedTitleInfo_onlyLeft() {
+            // given
+            Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.EPIC);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle));
+
+            // when
+            TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.name()).isEqualTo("전설적인");
+            assertThat(result.rarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("RIGHT만 장착되어 있을 때 RIGHT 칭호만 반환한다")
+        void getCombinedEquippedTitleInfo_onlyRight() {
+            // given
+            Title rightTitle = createTestTitle(2L, "영웅", TitlePosition.RIGHT, TitleRarity.RARE);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(rightUserTitle));
+
+            // when
+            TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.name()).isEqualTo("영웅");
+            assertThat(result.rarity()).isEqualTo(TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("LEFT가 더 높은 등급일 때 LEFT의 등급을 반환한다")
+        void getCombinedEquippedTitleInfo_leftHigherRarity() {
+            // given
+            Title leftTitle = createTestTitle(1L, "전설적인", TitlePosition.LEFT, TitleRarity.LEGENDARY);
+            Title rightTitle = createTestTitle(2L, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, true, TitlePosition.RIGHT);
+
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            TitleService.TitleInfo result = titleService.getCombinedEquippedTitleInfo(TEST_USER_ID);
+
+            // then
+            assertThat(result.name()).isEqualTo("전설적인 모험가");
+            assertThat(result.rarity()).isEqualTo(TitleRarity.LEGENDARY);
+        }
+    }
 }

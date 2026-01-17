@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.global.validation.KoreanTextNormalizer;
 import io.pinkspider.global.validation.NoProfanityValidator;
 import io.pinkspider.global.validation.ProfanityDetectionMode;
@@ -41,6 +43,12 @@ public class ControllerTestConfig implements WebMvcConfigurer {
     @Bean
     public JwtUtil jwtUtil() {
         return mock(JwtUtil.class);
+    }
+
+    @Bean
+    @Primary
+    public ObjectMapper objectMapper() {
+        return new LmObjectMapper();
     }
 
 

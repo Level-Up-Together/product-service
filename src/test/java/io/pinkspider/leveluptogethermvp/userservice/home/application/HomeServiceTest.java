@@ -8,8 +8,16 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedPlayer;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
+import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedPlayerRepository;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.HomeBannerRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
@@ -61,6 +69,15 @@ class HomeServiceTest {
 
     @Mock
     private MissionCategoryRepository missionCategoryRepository;
+
+    @Mock
+    private GuildExperienceHistoryRepository guildExperienceHistoryRepository;
+
+    @Mock
+    private GuildRepository guildRepository;
+
+    @Mock
+    private GuildMemberRepository guildMemberRepository;
 
     @InjectMocks
     private HomeService homeService;
@@ -536,6 +553,139 @@ class HomeServiceTest {
 
             // then
             assertThat(result).hasSize(5);  // 최대 5명
+        }
+    }
+
+    @Nested
+    @DisplayName("배너 조회 테스트")
+    class GetBannersTest {
+
+        private HomeBanner createTestBanner(Long id, String title, BannerType type) {
+            HomeBanner banner = HomeBanner.builder()
+                .title(title)
+                .bannerType(type)
+                .imageUrl("https://example.com/banner.jpg")
+                .isActive(true)
+                .build();
+            setBannerId(banner, id);
+            return banner;
+        }
+
+        private void setBannerId(HomeBanner banner, Long id) {
+            try {
+                java.lang.reflect.Field idField = HomeBanner.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(banner, id);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Test
+        @DisplayName("활성 배너 목록을 조회한다")
+        void getActiveBanners_success() {
+            // given
+            HomeBanner banner1 = createTestBanner(1L, "배너1", BannerType.NOTICE);
+            HomeBanner banner2 = createTestBanner(2L, "배너2", BannerType.EVENT);
+
+            when(homeBannerRepository.findActiveBanners(any(LocalDateTime.class)))
+                .thenReturn(List.of(banner1, banner2));
+
+            // when
+            List<HomeBannerResponse> result = homeService.getActiveBanners();
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).getTitle()).isEqualTo("배너1");
+        }
+
+        @Test
+        @DisplayName("특정 유형의 배너만 조회한다")
+        void getActiveBannersByType_success() {
+            // given
+            HomeBanner eventBanner = createTestBanner(1L, "이벤트배너", BannerType.EVENT);
+
+            when(homeBannerRepository.findActiveBannersByType(eq(BannerType.EVENT), any(LocalDateTime.class)))
+                .thenReturn(List.of(eventBanner));
+
+            // when
+            List<HomeBannerResponse> result = homeService.getActiveBannersByType(BannerType.EVENT);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTitle()).isEqualTo("이벤트배너");
+        }
+    }
+
+    @Nested
+    @DisplayName("MVP 길드 조회 테스트")
+    class GetMvpGuildsTest {
+
+        private Guild createTestGuild(Long id, String name) {
+            Guild guild = Guild.builder()
+                .name(name)
+                .imageUrl("https://example.com/guild.jpg")
+                .currentLevel(5)
+                .isActive(true)
+                .build();
+            setGuildId(guild, id);
+            return guild;
+        }
+
+        private void setGuildId(Guild guild, Long id) {
+            try {
+                java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(guild, id);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Test
+        @DisplayName("MVP 길드 목록을 조회한다")
+        void getMvpGuilds_success() {
+            // given
+            Long guildId = 1L;
+            Guild guild = createTestGuild(guildId, "테스트길드");
+
+            Object[] row1 = {guildId, 500L};
+            List<Object[]> topGuilds = new ArrayList<>();
+            topGuilds.add(row1);
+
+            when(guildExperienceHistoryRepository.findTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(topGuilds);
+            when(guildRepository.findByIdInAndIsActiveTrue(List.of(guildId)))
+                .thenReturn(List.of(guild));
+
+            Object[] memberCount = {guildId, 10L};
+            List<Object[]> memberCounts = new ArrayList<>();
+            memberCounts.add(memberCount);
+            when(guildMemberRepository.countActiveMembersByGuildIds(List.of(guildId)))
+                .thenReturn(memberCounts);
+
+            // when
+            List<MvpGuildResponse> result = homeService.getMvpGuilds();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("테스트길드");
+            assertThat(result.get(0).getEarnedExp()).isEqualTo(500L);
+            assertThat(result.get(0).getRank()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("경험치 획득 길드가 없으면 빈 목록을 반환한다")
+        void getMvpGuilds_empty() {
+            // given
+            when(guildExperienceHistoryRepository.findTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+
+            // when
+            List<MvpGuildResponse> result = homeService.getMvpGuilds();
+
+            // then
+            assertThat(result).isEmpty();
         }
     }
 }

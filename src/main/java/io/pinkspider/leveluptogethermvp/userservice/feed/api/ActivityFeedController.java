@@ -9,9 +9,11 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResp
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import jakarta.validation.Valid;
-import java.util.Map;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,8 +34,7 @@ public class ActivityFeedController {
     private final ActivityFeedService activityFeedService;
 
     /**
-     * 전체 공개 피드 조회
-     * - categoryId가 있으면 해당 카테고리별 피드 조회
+     * 전체 공개 피드 조회 - categoryId가 있으면 해당 카테고리별 피드 조회
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
@@ -112,10 +113,7 @@ public class ActivityFeedController {
     }
 
     /**
-     * 피드 검색 (미션명/제목 기준)
-     * - 검색어는 2글자 이상 필요
-     * - category가 없으면 전체 카테고리에서 검색
-     * - category가 있으면 해당 카테고리 내에서 검색
+     * 피드 검색 (미션명/제목 기준) - 검색어는 2글자 이상 필요 - category가 없으면 전체 카테고리에서 검색 - category가 있으면 해당 카테고리 내에서 검색
      */
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> searchFeeds(
@@ -129,7 +127,7 @@ public class ActivityFeedController {
         // 검색어 2글자 이상 검증
         if (keyword == null || keyword.trim().length() < 2) {
             return ResponseEntity.ok(ApiResult.<Page<ActivityFeedResponse>>builder()
-                .value(Page.empty())
+                .value(new PageImpl<>(List.of(), PageRequest.of(page, size), 0))
                 .build());
         }
 

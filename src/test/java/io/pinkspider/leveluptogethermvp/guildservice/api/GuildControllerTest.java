@@ -28,6 +28,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberRespo
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.TransferMasterRequest;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
@@ -637,6 +638,151 @@ class GuildControllerTest {
                         .build()
                 )
             )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/{guildId}/join-requests : 가입 신청 목록 조회")
+    void getPendingJoinRequestsTest() throws Exception {
+        // given
+        List<GuildJoinRequestResponse> requests = List.of(
+            GuildJoinRequestResponse.builder()
+                .id(1L)
+                .guildId(1L)
+                .requesterId("user-456")
+                .status(JoinRequestStatus.PENDING)
+                .message("가입하고 싶습니다")
+                .createdAt(LocalDateTime.now())
+                .build()
+        );
+        Page<GuildJoinRequestResponse> page = new PageImpl<>(requests, PageRequest.of(0, 20), 1);
+
+        when(guildService.getPendingJoinRequests(anyLong(), anyString(), any(Pageable.class)))
+            .thenReturn(page);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/join-requests", 1L)
+                .with(user(MOCK_USER_ID))
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/join-requests/{requestId}/approve : 가입 승인")
+    void approveJoinRequestTest() throws Exception {
+        // given
+        GuildMemberResponse response = GuildMemberResponse.builder()
+            .id(1L)
+            .guildId(1L)
+            .userId("user-456")
+            .role(GuildMemberRole.MEMBER)
+            .status(GuildMemberStatus.ACTIVE)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        when(guildService.approveJoinRequest(anyLong(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/guilds/join-requests/{requestId}/approve", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/join-requests/{requestId}/reject : 가입 거절")
+    void rejectJoinRequestTest() throws Exception {
+        // given
+        GuildJoinRequestResponse response = GuildJoinRequestResponse.builder()
+            .id(1L)
+            .guildId(1L)
+            .requesterId("user-456")
+            .status(JoinRequestStatus.REJECTED)
+            .message("가입하고 싶습니다")
+            .rejectReason("조건 미달")
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        when(guildService.rejectJoinRequest(anyLong(), anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/guilds/join-requests/{requestId}/reject", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reject_reason\":\"조건 미달\"}")
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/guilds/{guildId}/members/{targetUserId} : 멤버 추방")
+    void kickMemberTest() throws Exception {
+        // given
+        doNothing().when(guildService).kickMember(anyLong(), anyString(), anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}/members/{targetUserId}", 1L, "user-456")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/guilds/{guildId} : 길드 해체")
+    void dissolveGuildTest() throws Exception {
+        // given
+        doNothing().when(guildService).dissolveGuild(anyLong(), anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete("/api/v1/guilds/{guildId}", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/level-configs : 레벨 설정 조회")
+    void getLevelConfigsTest() throws Exception {
+        // given
+        List<GuildLevelConfig> configs = List.of(
+            GuildLevelConfig.builder()
+                .level(1)
+                .requiredExp(500)
+                .maxMembers(20)
+                .title("초보 길드")
+                .build()
+        );
+
+        when(guildExperienceService.getAllLevelConfigs()).thenReturn(configs);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/level-configs")
+                .contentType(MediaType.APPLICATION_JSON)
         );
 
         // then
