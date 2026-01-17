@@ -281,7 +281,7 @@ public class GuildChatService {
         validateMembership(guildId, userId);
 
         Page<GuildChatMessage> messages = chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable);
-        int totalMembers = (int) memberRepository.countActiveMembers(guildId);
+        int totalParticipants = (int) participantRepository.countActiveParticipants(guildId);
 
         // 메시지 ID 목록 추출
         List<Long> messageIds = messages.getContent().stream()
@@ -299,11 +299,11 @@ public class GuildChatService {
             }
         }
 
-        // 응답 변환 (안읽은 수 = 전체 멤버 - 읽은 사람 수)
+        // 응답 변환 (안읽은 수 = 참여 인원 - 읽은 사람 수)
         List<ChatMessageResponse> responses = messages.getContent().stream()
             .map(msg -> {
                 long readCount = readerCountMap.getOrDefault(msg.getId(), 0L);
-                int unreadCount = Math.max(0, totalMembers - (int) readCount);
+                int unreadCount = Math.max(0, totalParticipants - (int) readCount);
                 return ChatMessageResponse.from(msg, unreadCount);
             })
             .toList();
@@ -316,11 +316,11 @@ public class GuildChatService {
         return (int) readStatusRepository.countReadersForMessage(guildId, messageId);
     }
 
-    // 특정 메시지의 안읽은 사람 수 조회
+    // 특정 메시지의 안읽은 사람 수 조회 (참여 인원 기준)
     public int getUnreadCount(Long guildId, Long messageId) {
-        int totalMembers = (int) memberRepository.countActiveMembers(guildId);
+        int totalParticipants = (int) participantRepository.countActiveParticipants(guildId);
         int readCount = getReadCount(guildId, messageId);
-        return Math.max(0, totalMembers - readCount);
+        return Math.max(0, totalParticipants - readCount);
     }
 
     // ============ 채팅방 참여 관련 메서드 ============

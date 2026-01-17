@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.guildservice.api;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildChatParticipantRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.security.Principal;
@@ -20,6 +21,7 @@ public class GuildChatWebSocketController {
 
     private final GuildChatService chatService;
     private final GuildMemberRepository memberRepository;
+    private final GuildChatParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -27,10 +29,12 @@ public class GuildChatWebSocketController {
     public GuildChatWebSocketController(
             GuildChatService chatService,
             GuildMemberRepository memberRepository,
+            GuildChatParticipantRepository participantRepository,
             UserRepository userRepository,
             @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
         this.chatService = chatService;
         this.memberRepository = memberRepository;
+        this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.messagingTemplate = messagingTemplate;
     }
@@ -67,9 +71,9 @@ public class GuildChatWebSocketController {
             // 메시지 저장
             ChatMessageResponse response = chatService.sendMessage(guildId, userId, nickname, request);
 
-            // 메시지별 안읽은 수 계산 (방금 보낸 메시지이므로 전체 멤버 - 1)
-            int memberCount = (int) memberRepository.countActiveMembers(guildId);
-            int unreadCount = Math.max(0, memberCount - 1);  // 본인 제외
+            // 메시지별 안읽은 수 계산 (방금 보낸 메시지이므로 참여 인원 - 1)
+            int participantCount = (int) participantRepository.countActiveParticipants(guildId);
+            int unreadCount = Math.max(0, participantCount - 1);  // 본인 제외
 
             ChatMessageResponse responseWithUnread = ChatMessageResponse.builder()
                 .id(response.getId())
