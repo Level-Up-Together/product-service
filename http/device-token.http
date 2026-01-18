@@ -1,44 +1,46 @@
 ### ============================================================
-### 퀘스트 시스템 APIs
+### 디바이스 토큰 관리 APIs (Push Notification)
 ### ============================================================
 
 ### ----------------------------------------------------------
-### 전체 퀘스트 목록 조회
+### 디바이스 토큰 등록
 ### ----------------------------------------------------------
-GET {{baseUrl}}/api/v1/quests
+POST {{baseUrl}}/api/v1/device-tokens
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "fcmToken": "fcm-device-token-here",
+  "deviceType": "ANDROID",
+  "deviceModel": "Galaxy S24",
+  "osVersion": "14"
+}
+
+### ----------------------------------------------------------
+### 디바이스 토큰 해제
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/device-tokens?fcm_token=fcm-device-token-here
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
-### 일일 퀘스트 조회
+### 모든 디바이스 토큰 해제 (로그아웃)
 ### ----------------------------------------------------------
-GET {{baseUrl}}/api/v1/quests/daily
-X-User-Id: {{userId}}
+DELETE {{baseUrl}}/api/v1/device-tokens/all
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
-### 주간 퀘스트 조회
+### 등록된 토큰 목록 조회
 ### ----------------------------------------------------------
-GET {{baseUrl}}/api/v1/quests/weekly
-X-User-Id: {{userId}}
+GET {{baseUrl}}/api/v1/device-tokens
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
-### 수령 가능한 보상 조회
+### 배지 카운트 초기화 (앱 접속 시 호출)
 ### ----------------------------------------------------------
-GET {{baseUrl}}/api/v1/quests/claimable
-X-User-Id: {{userId}}
-Accept: application/json
-
-### ----------------------------------------------------------
-### 보상 수령
-### ----------------------------------------------------------
-POST {{baseUrl}}/api/v1/quests/1/claim
-X-User-Id: {{userId}}
-Accept: application/json
-
-### ----------------------------------------------------------
-### 보상 일괄 수령
-### ----------------------------------------------------------
-POST {{baseUrl}}/api/v1/quests/claim-all
-X-User-Id: {{userId}}
+POST {{baseUrl}}/api/v1/device-tokens/badge/reset
+Authorization: Bearer {{accessToken}}
 Accept: application/json
