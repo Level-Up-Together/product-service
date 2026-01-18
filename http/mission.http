@@ -6,14 +6,14 @@
 ### 미션 생성
 ### ----------------------------------------------------------
 POST {{baseUrl}}/api/v1/missions
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 Accept: application/json
 
 {
   "title": "Morning Exercise",
   "description": "30 minutes of morning exercise every day",
-  "category": "HEALTH",
+  "categoryId": 1,
   "visibility": "PUBLIC",
   "startDate": "2025-01-01",
   "endDate": "2025-01-31",
@@ -31,7 +31,7 @@ Accept: application/json
 ### 내 미션 목록 조회
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/my
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
@@ -43,14 +43,26 @@ Accept: application/json
 ### ----------------------------------------------------------
 ### 길드의 미션 목록 조회
 ### ----------------------------------------------------------
-GET {{baseUrl}}/api/v1/missions/guild/guild-id-here
+GET {{baseUrl}}/api/v1/missions/guild/1
+Accept: application/json
+
+### ----------------------------------------------------------
+### 시스템 미션 목록 조회 (미션북)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/system?page=0&size=20
+Accept: application/json
+
+### ----------------------------------------------------------
+### 카테고리별 시스템 미션 목록 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/system/category/1?page=0&size=20
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 수정
 ### ----------------------------------------------------------
 PUT {{baseUrl}}/api/v1/missions/1
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 Accept: application/json
 
@@ -64,35 +76,35 @@ Accept: application/json
 ### 미션 공개
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/open
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 시작
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/start
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 완료
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/complete
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 취소
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/cancel
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 삭제
 ### ----------------------------------------------------------
 DELETE {{baseUrl}}/api/v1/missions/1
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ============================================================
@@ -103,42 +115,42 @@ Accept: application/json
 ### 미션 참가
 ### ----------------------------------------------------------
 POST {{baseUrl}}/api/v1/missions/1/join
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 참가자 수락 (미션 생성자용)
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/participants/1/accept
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 진행 시작
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/start-progress
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 진행률 업데이트
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/progress?progress=50
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 참가 완료
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/complete-participation
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 탈퇴
 ### ----------------------------------------------------------
 PATCH {{baseUrl}}/api/v1/missions/1/withdraw
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
@@ -151,14 +163,21 @@ Accept: application/json
 ### 내 참가 정보 조회
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/1/my-participation
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 미션 참가 여부 확인
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/1/is-participating
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 내 미션 참가 목록
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/my-participations
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ============================================================
@@ -166,36 +185,143 @@ Accept: application/json
 ### ============================================================
 
 ### ----------------------------------------------------------
+### 미션 수행 시작 (오늘)
+### ----------------------------------------------------------
+PATCH {{baseUrl}}/api/v1/missions/1/executions/start
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 미션 수행 시작 (특정 날짜)
+### ----------------------------------------------------------
+PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/start
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
 ### 특정 날짜 실행 완료 처리
 ### ----------------------------------------------------------
-PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/complete?note=Completed morning run
-X-User-Id: {{userId}}
+PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/complete?note=Completed morning run&shareToFeed=true
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 모든 실행 기록 조회
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/1/executions
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 기간별 실행 기록 조회
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/1/executions/range?startDate=2025-01-01&endDate=2025-01-31
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 오늘 실행해야 할 미션 목록
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/executions/today
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
 ### 미션 완료율 조회
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/missions/1/executions/completion-rate
-X-User-Id: {{userId}}
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 미션 수행 취소 (오늘)
+### ----------------------------------------------------------
+PATCH {{baseUrl}}/api/v1/missions/1/executions/skip
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 미션 수행 취소 (특정 날짜)
+### ----------------------------------------------------------
+PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/skip
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 현재 진행 중인 미션 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/executions/in-progress
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 월별 캘린더 데이터 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/executions/monthly?year=2025&month=1
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 특정 날짜의 미션 실행 정보 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/missions/1/executions/2025-01-15
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 완료된 미션 실행의 노트 업데이트
+### ----------------------------------------------------------
+PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/note?note=Updated note
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 완료된 미션 실행에 이미지 업로드
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/image
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="image"; filename="execution-image.png"
+Content-Type: image/png
+
+< ./test-image.png
+--boundary--
+
+### ----------------------------------------------------------
+### 완료된 미션 실행의 이미지 삭제
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/image
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 완료된 미션 실행을 피드에 공유
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/share
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 피드 공유 취소
+### ----------------------------------------------------------
+DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/share
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ============================================================
+### 미션 카테고리 APIs
+### ============================================================
+
+### ----------------------------------------------------------
+### 활성화된 카테고리 목록 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/mission-categories
+Accept: application/json
+
+### ----------------------------------------------------------
+### 특정 카테고리 조회
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/mission-categories/1
 Accept: application/json
