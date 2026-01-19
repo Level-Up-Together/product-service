@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.metaservice.domain.entity;
+package io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import jakarta.persistence.Column;

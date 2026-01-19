@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class MissionCategoryService {
     /**
      * 카테고리 생성 (Admin용)
      */
+    @CacheEvict(value = "activeMissionCategories", allEntries = true)
     public MissionCategoryResponse createCategory(MissionCategoryCreateRequest request) {
         if (missionCategoryRepository.existsByName(request.getName())) {
             throw new CustomException("DUPLICATE_RESOURCE", "이미 존재하는 카테고리 이름입니다.");
@@ -48,7 +50,10 @@ public class MissionCategoryService {
     /**
      * 카테고리 수정 (Admin용)
      */
-    @CacheEvict(value = "missionCategories", key = "#categoryId")
+    @Caching(evict = {
+        @CacheEvict(value = "missionCategories", key = "#categoryId"),
+        @CacheEvict(value = "activeMissionCategories", allEntries = true)
+    })
     public MissionCategoryResponse updateCategory(Long categoryId, MissionCategoryUpdateRequest request) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -85,7 +90,10 @@ public class MissionCategoryService {
     /**
      * 카테고리 삭제 (Admin용)
      */
-    @CacheEvict(value = "missionCategories", key = "#categoryId")
+    @Caching(evict = {
+        @CacheEvict(value = "missionCategories", key = "#categoryId"),
+        @CacheEvict(value = "activeMissionCategories", allEntries = true)
+    })
     public void deleteCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -97,7 +105,10 @@ public class MissionCategoryService {
     /**
      * 카테고리 비활성화 (Admin용) - 삭제 대신 비활성화
      */
-    @CacheEvict(value = "missionCategories", key = "#categoryId")
+    @Caching(evict = {
+        @CacheEvict(value = "missionCategories", key = "#categoryId"),
+        @CacheEvict(value = "activeMissionCategories", allEntries = true)
+    })
     public MissionCategoryResponse deactivateCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
             .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -121,7 +132,9 @@ public class MissionCategoryService {
 
     /**
      * 활성화된 카테고리만 조회 (사용자용)
+     * 1시간 TTL로 캐싱됨 (홈 화면 로딩 속도 최적화)
      */
+    @Cacheable(value = "activeMissionCategories", key = "'all'")
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<MissionCategoryResponse> getActiveCategories() {
         return missionCategoryRepository.findAllActiveCategories().stream()

@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -65,7 +66,15 @@ class BffHomeServiceTest {
     @Mock
     private SeasonRankingService seasonRankingService;
 
-    @InjectMocks
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService eventService;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService achievementService;
+
+    // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
+    private final Executor directExecutor = Runnable::run;
+
     private BffHomeService bffHomeService;
 
     private String testUserId;
@@ -81,6 +90,19 @@ class BffHomeServiceTest {
 
     @BeforeEach
     void setUp() {
+        // BffHomeService 수동 생성 (Executor 주입을 위해)
+        bffHomeService = new BffHomeService(
+            activityFeedService,
+            homeService,
+            missionCategoryService,
+            guildService,
+            noticeService,
+            eventService,
+            seasonRankingService,
+            achievementService,
+            directExecutor
+        );
+
         testUserId = "test-user-id";
 
         testFeedResponse = ActivityFeedResponse.builder()

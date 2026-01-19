@@ -24,8 +24,14 @@ public class AsyncConfig {
     private static final int EVENT_MAX_POOL_SIZE = 8;
     private static final int EVENT_QUEUE_CAPACITY = 200;
 
+    // BFF 홈 화면 조회용 풀 사이즈 (병렬 데이터 조회 최적화)
+    private static final int BFF_POOL_SIZE = 10;
+    private static final int BFF_MAX_POOL_SIZE = 20;
+    private static final int BFF_QUEUE_CAPACITY = 50;
+
     public static final String GENERAL_EXECUTOR = "generalExecutor";
     public static final String EVENT_EXECUTOR = "eventExecutor";
+    public static final String BFF_EXECUTOR = "bffExecutor";
 
     @Bean(name = GENERAL_EXECUTOR)
     public TaskExecutor taskExecutor() {
@@ -39,6 +45,15 @@ public class AsyncConfig {
     @Bean(name = EVENT_EXECUTOR)
     public TaskExecutor eventTaskExecutor() {
         return generateThreadPoolTaskExecutor(EVENT_POOL_SIZE, EVENT_MAX_POOL_SIZE, EVENT_QUEUE_CAPACITY, "event-");
+    }
+
+    /**
+     * BFF 홈 화면 조회용 TaskExecutor
+     * 홈 화면 데이터 병렬 조회에 최적화된 스레드풀
+     */
+    @Bean(name = BFF_EXECUTOR)
+    public TaskExecutor bffTaskExecutor() {
+        return generateThreadPoolTaskExecutor(BFF_POOL_SIZE, BFF_MAX_POOL_SIZE, BFF_QUEUE_CAPACITY, "bff-home-");
     }
 
     // 지정된 풀 사이즈로 TaskExecutor을 설정한다.

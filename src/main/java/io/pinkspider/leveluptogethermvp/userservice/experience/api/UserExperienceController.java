@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.experience.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;

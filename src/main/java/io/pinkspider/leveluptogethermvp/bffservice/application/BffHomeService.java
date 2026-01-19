@@ -23,8 +23,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -35,7 +36,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class BffHomeService {
 
     private final ActivityFeedService activityFeedService;
@@ -46,6 +46,28 @@ public class BffHomeService {
     private final EventService eventService;
     private final SeasonRankingService seasonRankingService;
     private final AchievementService achievementService;
+    private final Executor bffExecutor;
+
+    public BffHomeService(
+            ActivityFeedService activityFeedService,
+            HomeService homeService,
+            MissionCategoryService missionCategoryService,
+            GuildService guildService,
+            NoticeService noticeService,
+            EventService eventService,
+            SeasonRankingService seasonRankingService,
+            AchievementService achievementService,
+            @Qualifier("bffExecutor") Executor bffExecutor) {
+        this.activityFeedService = activityFeedService;
+        this.homeService = homeService;
+        this.missionCategoryService = missionCategoryService;
+        this.guildService = guildService;
+        this.noticeService = noticeService;
+        this.eventService = eventService;
+        this.seasonRankingService = seasonRankingService;
+        this.achievementService = achievementService;
+        this.bffExecutor = bffExecutor;
+    }
 
     /**
      * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다.
@@ -75,16 +97,18 @@ public class BffHomeService {
     public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale) {
         log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}, locale={}", userId, categoryId, feedPage, feedSize, locale);
 
-        // 업적 동기화 - 기존 유저 업적 소급 적용 및 자동 보상 수령
-        try {
-            log.info("업적 동기화 호출 시작: userId={}", userId);
-            achievementService.syncUserAchievements(userId);
-            log.info("업적 동기화 호출 완료: userId={}", userId);
-        } catch (Exception e) {
-            log.error("업적 동기화 호출 중 오류: userId={}, error={}", userId, e.getMessage(), e);
-        }
+        // 업적 동기화 - 비동기로 처리하여 홈 로딩을 차단하지 않음
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.debug("업적 동기화 비동기 호출 시작: userId={}", userId);
+                achievementService.syncUserAchievements(userId);
+                log.debug("업적 동기화 비동기 호출 완료: userId={}", userId);
+            } catch (Exception e) {
+                log.error("업적 동기화 비동기 호출 중 오류: userId={}, error={}", userId, e.getMessage(), e);
+            }
+        }, bffExecutor);
 
-        // 병렬로 모든 데이터 조회
+        // 병렬로 모든 데이터 조회 (전용 Executor 사용으로 성능 최적화)
         CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<ActivityFeedResponse> feedPage1;
@@ -112,7 +136,7 @@ public class BffHomeService {
                     .totalPages(0)
                     .build();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -127,7 +151,7 @@ public class BffHomeService {
                 log.error("Failed to fetch rankings", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -136,7 +160,7 @@ public class BffHomeService {
                 log.error("Failed to fetch MVP guilds", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<MissionCategoryResponse>> categoriesFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -145,7 +169,7 @@ public class BffHomeService {
                 log.error("Failed to fetch categories", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<GuildResponse>> myGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -154,7 +178,7 @@ public class BffHomeService {
                 log.error("Failed to fetch my guilds", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<GuildPageData> publicGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -189,7 +213,7 @@ public class BffHomeService {
                     .totalPages(0)
                     .build();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<NoticeResponse>> noticesFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -198,7 +222,7 @@ public class BffHomeService {
                 log.error("Failed to fetch notices", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<EventResponse>> eventsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -207,7 +231,7 @@ public class BffHomeService {
                 log.error("Failed to fetch events", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<Optional<SeasonMvpData>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -216,7 +240,7 @@ public class BffHomeService {
                 log.error("Failed to fetch season MVP data", e);
                 return Optional.empty();
             }
-        });
+        }, bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(

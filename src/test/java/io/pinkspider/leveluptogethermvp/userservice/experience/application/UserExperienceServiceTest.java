@@ -13,8 +13,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSour
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
 import java.lang.reflect.Field;
 import java.util.Collections;

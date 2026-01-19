@@ -21,8 +21,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;

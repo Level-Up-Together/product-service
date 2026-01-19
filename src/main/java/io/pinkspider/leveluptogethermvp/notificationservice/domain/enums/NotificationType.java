@@ -9,6 +9,7 @@ public enum NotificationType {
     // 시스템
     SYSTEM("시스템", "SYSTEM"),
     ANNOUNCEMENT("공지사항", "SYSTEM"),
+    LEVEL_UP("레벨 업", "SYSTEM"),
 
     // 친구 관련
     FRIEND_REQUEST("친구 요청", "FRIEND"),
@@ -27,10 +28,12 @@ public enum NotificationType {
     // 소셜 관련 (댓글)
     COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL"),
 
-    // 미션 관련 (레거시 호환)
-    MISSION_COMPLETED("미션 완료", "SYSTEM"),
+    // 미션 관련
+    MISSION("미션", "MISSION"),
+    MISSION_COMPLETED("미션 완료", "MISSION"),
 
     // 업적/칭호 관련
+    ACHIEVEMENT("업적", "ACHIEVEMENT"),
     ACHIEVEMENT_COMPLETED("업적 달성", "ACHIEVEMENT"),
     TITLE_ACQUIRED("칭호 획득", "ACHIEVEMENT");
 

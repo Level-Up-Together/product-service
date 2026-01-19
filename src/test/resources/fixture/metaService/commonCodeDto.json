@@ -2,6 +2,8 @@
   "id": "AG11",
   "code_name": "privacy_usage_agreement",
   "code_title": "개인(신용)정보 조회 동의서",
+  "code_title_en": "Personal Credit Information Inquiry Agreement",
+  "code_title_ar": "اتفاقية الاستعلام عن المعلومات الائتمانية الشخصية",
   "description": "개인(신용)정보 조회 동의서",
   "parent_id": "AG10"
 }

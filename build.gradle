@@ -77,6 +77,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // Netty native DNS resolver for macOS (suppresses DNS resolution warning)
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos:4.1.119.Final:osx-aarch_64'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation "io.github.openfeign:feign-httpclient"

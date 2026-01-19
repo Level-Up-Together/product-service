@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.experience.application;
 
-import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.metaservice.infrastructure.LevelConfigRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;

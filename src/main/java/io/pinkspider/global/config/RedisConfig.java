@@ -123,6 +123,7 @@ public class RedisConfig implements CachingConfigurer {
         // Mission Category 캐시: 1시간 TTL (카테고리는 자주 변경되지 않음)
         RedisCacheConfiguration categoryConfig = defaultConfig.entryTtl(Duration.ofHours(1));
         cacheConfigurations.put("missionCategories", categoryConfig);
+        cacheConfigurations.put("activeMissionCategories", categoryConfig);
 
         // User Title 캐시: 5분 TTL (칭호 장착 변경 빈도 고려)
         RedisCacheConfiguration titleConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));

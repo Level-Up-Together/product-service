@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
-import io.pinkspider.global.translation.LocaleUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -59,25 +58,9 @@ public class AchievementCategory extends LocalDateTimeBaseEntity {
     @Comment("카테고리 이름")
     private String name;
 
-    @Column(name = "name_en", length = 50)
-    @Comment("카테고리 이름 (영어)")
-    private String nameEn;
-
-    @Column(name = "name_ar", length = 50)
-    @Comment("카테고리 이름 (아랍어)")
-    private String nameAr;
-
     @Column(name = "description", length = 200)
     @Comment("카테고리 설명")
     private String description;
-
-    @Column(name = "description_en", length = 200)
-    @Comment("카테고리 설명 (영어)")
-    private String descriptionEn;
-
-    @Column(name = "description_ar", length = 200)
-    @Comment("카테고리 설명 (아랍어)")
-    private String descriptionAr;
 
     @NotNull
     @Column(name = "sort_order", nullable = false)
@@ -90,18 +73,4 @@ public class AchievementCategory extends LocalDateTimeBaseEntity {
     @Comment("활성 여부")
     @Builder.Default
     private Boolean isActive = true;
-
-    /**
-     * locale에 따라 카테고리명을 반환합니다.
-     */
-    public String getLocalizedName(String locale) {
-        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
-    }
-
-    /**
-     * locale에 따라 카테고리 설명을 반환합니다.
-     */
-    public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
-    }
 }
