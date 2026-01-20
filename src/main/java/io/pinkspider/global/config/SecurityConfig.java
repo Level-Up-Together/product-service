@@ -89,6 +89,9 @@ public class SecurityConfig {
                     // JWT 토큰 재발급 - refresh_token 검증으로 보안 확보
                     .requestMatchers("/jwt/reissue").permitAll()
 
+                    // 약관 목록 API (공개)
+                    .requestMatchers("/terms/list").permitAll()
+
                     // 내부 캐시 관리 API (운영용)
                     .requestMatchers("/api/v1/bff/season/cache").permitAll()
 
