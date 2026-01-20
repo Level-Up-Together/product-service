@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long> {
@@ -104,6 +105,7 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // 사용자의 모든 피드의 userTitle과 userTitleRarity 업데이트
     @Modifying
+    @Transactional(transactionManager = "feedTransactionManager")
     @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity = :userTitleRarity WHERE f.userId = :userId")
     int updateUserTitleByUserId(
         @Param("userId") String userId,
@@ -112,6 +114,7 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // referenceId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
     @Modifying
+    @Transactional(transactionManager = "feedTransactionManager")
     @Query("DELETE FROM ActivityFeed f WHERE f.referenceId = :referenceId AND f.referenceType = :referenceType")
     int deleteByReferenceIdAndReferenceType(
         @Param("referenceId") Long referenceId,
@@ -119,6 +122,7 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
     @Modifying
+    @Transactional(transactionManager = "feedTransactionManager")
     @Query("DELETE FROM ActivityFeed f WHERE f.missionId = :missionId")
     int deleteByMissionId(@Param("missionId") Long missionId);
 }
