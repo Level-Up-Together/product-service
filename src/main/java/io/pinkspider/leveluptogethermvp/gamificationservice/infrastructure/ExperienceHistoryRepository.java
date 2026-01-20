@@ -159,4 +159,24 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate,
         @Param("myExp") Long myExp);
+
+    /**
+     * 특정 사용자의 카테고리별 경험치 통계 (기간)
+     * MVP 히스토리 저장 시 사용
+     */
+    @Query("""
+        SELECT eh.categoryName, eh.categoryName as categoryId,
+               SUM(eh.expAmount) as totalExp, COUNT(eh) as activityCount
+        FROM ExperienceHistory eh
+        WHERE eh.userId = :userId
+        AND eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.categoryName IS NOT NULL
+        AND eh.expAmount > 0
+        GROUP BY eh.categoryName
+        ORDER BY totalExp DESC
+        """)
+    List<Object[]> findUserCategoryExpByPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
 }
