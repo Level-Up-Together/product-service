@@ -268,25 +268,24 @@ public class Oauth2Service {
         }
 
         // 닉네임 중복 확인 및 처리
+        // 신규 사용자는 항상 닉네임 설정 단계를 거치도록 nicknameSet = false
         String nickname = userInfo.getNickname();
-        boolean nicknameSet = false;
 
         if (nickname != null && !nickname.isBlank()) {
             // 닉네임이 이미 존재하면 유니크한 닉네임 생성
             if (userRepository.existsByNickname(nickname)) {
                 nickname = generateUniqueNickname(nickname);
-                nicknameSet = false; // 자동 생성된 닉네임이므로 사용자가 다시 설정해야 함
-            } else {
-                nicknameSet = true; // 원래 닉네임을 그대로 사용
             }
+            // 소셜에서 받아온 닉네임은 임시값으로 사용하고, 사용자가 직접 설정하도록 함
         }
 
         // 신규 사용자 저장 (provider는 소문자로 정규화)
+        // nicknameSet = false: 신규 사용자는 반드시 닉네임 설정 단계를 거침
         Users newUsers = Users.builder()
             .email(userInfo.getEmail())
             .nickname(nickname)
             .provider(userInfo.getProvider().toLowerCase())
-            .nicknameSet(nicknameSet)
+            .nicknameSet(false)
             .build();
 
         Users savedUser = userRepository.save(newUsers);
