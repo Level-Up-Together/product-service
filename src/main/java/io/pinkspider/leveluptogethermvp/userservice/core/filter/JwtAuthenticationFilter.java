@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.core.filter;
 
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import jakarta.servlet.FilterChain;
@@ -26,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final MultiDeviceTokenService tokenService;
+    private final UserExistsCacheService userExistsCacheService;
 
     private static final String REISSUE_PATH = "/jwt/reissue";
 
@@ -65,6 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String deviceId = jwtUtil.getDeviceIdFromExpiredToken(token);
 
             if (userId != null) {
+                // DB에 사용자가 존재하는지 확인 (Redis 캐싱)
+                if (!userExistsCacheService.existsById(userId)) {
+                    log.warn("JWT 재발급 요청 - DB에 사용자가 존재하지 않음: userId={}", userId);
+                    return; // SecurityContext 설정 안함 → 401 반환
+                }
+
                 setAuthenticationContext(request, userId, email, deviceId);
                 request.setAttribute("X-Token-Expired", true);  // 토큰 만료 플래그
                 log.debug("JWT 재발급 요청 인증 성공 (만료된 토큰): userId={}, deviceId={}", userId, deviceId);
@@ -79,6 +87,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String userId = jwtUtil.getUserIdFromToken(token);
         String email = jwtUtil.getEmailFromToken(token);
         String deviceId = jwtUtil.getDeviceIdFromToken(token);
+
+        // DB에 사용자가 존재하는지 확인 (Redis 캐싱)
+        if (!userExistsCacheService.existsById(userId)) {
+            log.warn("JWT는 유효하나 DB에 사용자가 존재하지 않음: userId={}", userId);
+            return; // SecurityContext 설정 안함 → 401 반환
+        }
 
         setAuthenticationContext(request, userId, email, deviceId);
         log.debug("JWT 인증 성공: userId={}, deviceId={}", userId, deviceId);

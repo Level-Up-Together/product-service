@@ -137,6 +137,10 @@ public class RedisConfig implements CachingConfigurer {
         RedisCacheConfiguration profileConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
         cacheConfigurations.put("userProfile", profileConfig);
 
+        // User Exists 캐시: 5분 TTL (JWT 인증 필터에서 사용)
+        RedisCacheConfiguration userExistsConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
+        cacheConfigurations.put("userExists", userExistsConfig);
+
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(redisConnectionFactory())
                 .cacheDefaults(defaultConfig)
