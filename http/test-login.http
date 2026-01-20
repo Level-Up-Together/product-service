@@ -1,0 +1,45 @@
+### ============================================
+### 테스트 로그인 API
+### dev, test, local, local-dev 환경에서만 동작합니다.
+### ============================================
+
+### 테스트 로그인 - 기본
+POST {{baseUrl}}/api/test/login
+Content-Type: application/json
+
+{
+  "email": "e2e-test@level-up-together.com",
+  "nickname": "E2E테스터",
+  "device_type": "web",
+  "device_id": "test-device-001"
+}
+
+### 테스트 로그인 - 고정 사용자 ID 지정
+POST {{baseUrl}}/api/test/login
+Content-Type: application/json
+
+{
+  "test_user_id": "e2e-test-user-001",
+  "email": "e2e-fixed@level-up-together.com",
+  "nickname": "고정테스터",
+  "device_type": "web",
+  "device_id": "fixed-test-device"
+}
+
+### 테스트 로그인 - 모바일
+POST {{baseUrl}}/api/test/login
+Content-Type: application/json
+
+{
+  "email": "mobile-test@level-up-together.com",
+  "device_type": "mobile",
+  "device_id": "mobile-test-device-001"
+}
+
+### 테스트 로그인 - 최소 정보
+POST {{baseUrl}}/api/test/login
+Content-Type: application/json
+
+{
+  "email": "minimal-test@level-up-together.com"
+}
