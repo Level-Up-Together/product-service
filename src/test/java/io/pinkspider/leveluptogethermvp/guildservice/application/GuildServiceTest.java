@@ -875,7 +875,7 @@ class GuildServiceTest {
             when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, testCategoryId);
 
             // then
             assertThat(result).hasSize(2);
@@ -898,7 +898,7 @@ class GuildServiceTest {
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, testCategoryId);
 
             // then
             assertThat(result).hasSize(1);
@@ -930,7 +930,7 @@ class GuildServiceTest {
                 .thenReturn(List.of(testGuild));
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, testCategoryId);
 
             // then
             assertThat(result).hasSize(1);  // 중복 제거됨
@@ -947,7 +947,7 @@ class GuildServiceTest {
                 .thenReturn(Collections.emptyList());
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(null);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, null);
 
             // then
             assertThat(result).isEmpty();
@@ -987,7 +987,7 @@ class GuildServiceTest {
             lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, testCategoryId);
 
             // then
             assertThat(result).hasSize(5);  // 최대 5개
@@ -1226,7 +1226,7 @@ class GuildServiceTest {
             lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
 
             // when
-            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(pageable);
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(testUserId, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
@@ -1250,7 +1250,7 @@ class GuildServiceTest {
             lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
 
             // when
-            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(keyword, pageable);
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(testUserId, keyword, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
@@ -1425,7 +1425,7 @@ class GuildServiceTest {
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
 
             // when
-            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(pageable);
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(testUserId, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
@@ -1479,7 +1479,7 @@ class GuildServiceTest {
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
 
             // when
-            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(keyword, pageable);
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(testUserId, keyword, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
@@ -1503,7 +1503,7 @@ class GuildServiceTest {
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
 
             // when
-            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testUserId, testCategoryId);
 
             // then
             assertThat(result).hasSize(1);
@@ -1524,6 +1524,220 @@ class GuildServiceTest {
             // then
             assertThat(result).isEmpty();
             verify(reportService, never()).isUnderReviewBatch(any(), anyList());
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 재가입 테스트")
+    class RejoinGuildTest {
+
+        private void setGuildMemberId(GuildMember member, Long id) {
+            try {
+                java.lang.reflect.Field idField = GuildMember.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(member, id);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Test
+        @DisplayName("OPEN 길드에서 탈퇴 후 재가입하면 기존 멤버십이 재활성화된다")
+        void requestJoin_openGuild_rejoinAfterLeave_success() {
+            // given
+            Guild openGuild = Guild.builder()
+                .name("오픈 길드")
+                .description("오픈 길드 설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .joinType(GuildJoinType.OPEN)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(openGuild, 1L);
+
+            GuildMember leftMember = GuildMember.builder()
+                .guild(openGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now().minusDays(10))
+                .leftAt(LocalDateTime.now().minusDays(1))
+                .build();
+            setGuildMemberId(leftMember, 1L);
+
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder().build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(openGuild));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(leftMember));
+
+            // when
+            GuildJoinRequestResponse response = guildService.requestJoin(1L, testUserId, joinRequest);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(JoinRequestStatus.APPROVED);
+            assertThat(response.getIsMember()).isTrue();
+            assertThat(response.getCurrentMemberCount()).isNotNull();
+            assertThat(response.getGuildName()).isEqualTo("오픈 길드");
+            assertThat(leftMember.getStatus()).isEqualTo(GuildMemberStatus.ACTIVE);
+            assertThat(leftMember.getRole()).isEqualTo(GuildMemberRole.MEMBER);
+            assertThat(leftMember.getLeftAt()).isNull();
+            // save가 호출되지 않음 (기존 레코드 업데이트)
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+        }
+
+        @Test
+        @DisplayName("OPEN 길드에서 추방 후 재가입하면 기존 멤버십이 재활성화된다")
+        void requestJoin_openGuild_rejoinAfterKick_success() {
+            // given
+            Guild openGuild = Guild.builder()
+                .name("오픈 길드")
+                .description("오픈 길드 설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .joinType(GuildJoinType.OPEN)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(openGuild, 1L);
+
+            GuildMember kickedMember = GuildMember.builder()
+                .guild(openGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.KICKED)
+                .joinedAt(LocalDateTime.now().minusDays(10))
+                .leftAt(LocalDateTime.now().minusDays(1))
+                .build();
+            setGuildMemberId(kickedMember, 1L);
+
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder().build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(openGuild));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(kickedMember));
+
+            // when
+            GuildJoinRequestResponse response = guildService.requestJoin(1L, testUserId, joinRequest);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(JoinRequestStatus.APPROVED);
+            assertThat(response.getIsMember()).isTrue();
+            assertThat(response.getCurrentMemberCount()).isNotNull();
+            assertThat(kickedMember.getStatus()).isEqualTo(GuildMemberStatus.ACTIVE);
+            assertThat(kickedMember.getRole()).isEqualTo(GuildMemberRole.MEMBER);
+            assertThat(kickedMember.getLeftAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("APPROVAL_REQUIRED 길드에서 탈퇴 후 재가입 승인 시 기존 멤버십이 재활성화된다")
+        void approveJoinRequest_rejoinAfterLeave_success() {
+            // given
+            GuildMember leftMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now().minusDays(10))
+                .leftAt(LocalDateTime.now().minusDays(1))
+                .build();
+            setGuildMemberId(leftMember, 1L);
+
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .message("재가입 희망합니다")
+                .build();
+            setJoinRequestId(joinRequest, 1L);
+
+            when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(leftMember));
+
+            // when
+            GuildMemberResponse response = guildService.approveJoinRequest(1L, testMasterId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getUserId()).isEqualTo(testUserId);
+            assertThat(response.getRole()).isEqualTo(GuildMemberRole.MEMBER);
+            assertThat(leftMember.getStatus()).isEqualTo(GuildMemberStatus.ACTIVE);
+            assertThat(leftMember.getLeftAt()).isNull();
+            // save가 호출되지 않음 (기존 레코드 업데이트)
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+        }
+
+        @Test
+        @DisplayName("신규 가입자에 대한 OPEN 길드 가입은 새 멤버를 생성한다")
+        void requestJoin_openGuild_newMember_createsMembership() {
+            // given
+            Guild openGuild = Guild.builder()
+                .name("오픈 길드")
+                .description("오픈 길드 설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .joinType(GuildJoinType.OPEN)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setGuildId(openGuild, 1L);
+
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder().build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(openGuild));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.empty());
+            when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            GuildJoinRequestResponse response = guildService.requestJoin(1L, testUserId, joinRequest);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(JoinRequestStatus.APPROVED);
+            assertThat(response.getIsMember()).isTrue();
+            assertThat(response.getCurrentMemberCount()).isNotNull();
+            assertThat(response.getGuildName()).isEqualTo("오픈 길드");
+            verify(guildMemberRepository).save(any(GuildMember.class));
+        }
+
+        @Test
+        @DisplayName("신규 가입자에 대한 APPROVAL_REQUIRED 길드 승인은 새 멤버를 생성한다")
+        void approveJoinRequest_newMember_createsMembership() {
+            // given
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .message("가입 희망합니다")
+                .build();
+            setJoinRequestId(joinRequest, 1L);
+
+            when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.empty());
+            when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            GuildMemberResponse response = guildService.approveJoinRequest(1L, testMasterId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getUserId()).isEqualTo(testUserId);
+            assertThat(response.getRole()).isEqualTo(GuildMemberRole.MEMBER);
+            verify(guildMemberRepository).save(any(GuildMember.class));
         }
     }
 }

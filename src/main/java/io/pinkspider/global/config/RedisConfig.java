@@ -141,6 +141,11 @@ public class RedisConfig implements CachingConfigurer {
         RedisCacheConfiguration userExistsConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
         cacheConfigurations.put("userExists", userExistsConfig);
 
+        // Report Under Review 캐시: 1분 TTL (신고 상태는 자주 변경될 수 있음)
+        RedisCacheConfiguration reportConfig = defaultConfig.entryTtl(Duration.ofMinutes(1));
+        cacheConfigurations.put("reportUnderReview", reportConfig);
+        cacheConfigurations.put("reportUnderReviewBatch", reportConfig);
+
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(redisConnectionFactory())
                 .cacheDefaults(defaultConfig)

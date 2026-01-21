@@ -175,7 +175,8 @@ class GuildControllerTest {
                             fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
                             fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시"),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.is_pending_join_request").type(JsonFieldType.BOOLEAN).description("가입 신청 대기중 여부").optional()
                         )
                         .build()
                 )
@@ -225,7 +226,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildService.getPublicGuilds(any(Pageable.class))).thenReturn(page);
+        when(guildService.getPublicGuilds(any(), any(Pageable.class))).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -261,7 +262,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildService.searchGuilds(anyString(), any(Pageable.class))).thenReturn(page);
+        when(guildService.searchGuilds(any(), anyString(), any(Pageable.class))).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -385,7 +386,8 @@ class GuildControllerTest {
                             fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
                             fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시"),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.is_pending_join_request").type(JsonFieldType.BOOLEAN).description("가입 신청 대기중 여부").optional()
                         )
                         .build()
                 )
@@ -502,7 +504,7 @@ class GuildControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("가입 신청 정보"),
-                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("신청 ID"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("신청 ID").optional(),
                             fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
                             fieldWithPath("value.guild_name").type(JsonFieldType.STRING).description("길드 이름").optional(),
                             fieldWithPath("value.requester_id").type(JsonFieldType.STRING).description("신청자 ID"),
@@ -511,7 +513,9 @@ class GuildControllerTest {
                             fieldWithPath("value.reject_reason").type(JsonFieldType.STRING).description("거절 사유").optional(),
                             fieldWithPath("value.processed_by").type(JsonFieldType.STRING).description("처리자 ID").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("신청일시"),
-                            fieldWithPath("value.processed_at").type(JsonFieldType.STRING).description("처리일시").optional()
+                            fieldWithPath("value.processed_at").type(JsonFieldType.STRING).description("처리일시").optional(),
+                            fieldWithPath("value.is_member").type(JsonFieldType.BOOLEAN).description("멤버 여부 (APPROVED 시 true)").optional(),
+                            fieldWithPath("value.current_member_count").type(JsonFieldType.NUMBER).description("현재 멤버 수 (APPROVED 시 포함)").optional()
                         )
                         .build()
                 )

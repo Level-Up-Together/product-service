@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -145,6 +146,13 @@ public class GuildService {
         // 신고 처리중 여부 확인
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
 
+        // 가입 신청 대기중 여부 확인 (로그인한 사용자인 경우)
+        if (userId != null) {
+            response.setIsPendingJoinRequest(
+                joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(guildId, userId, JoinRequestStatus.PENDING)
+            );
+        }
+
         return response;
     }
 
@@ -167,38 +175,62 @@ public class GuildService {
         return GuildResponse.from(guild, memberCount, categoryName, categoryIcon);
     }
 
-    public Page<GuildResponse> getPublicGuilds(Pageable pageable) {
+    public Page<GuildResponse> getPublicGuilds(String userId, Pageable pageable) {
         Page<Guild> guilds = guildRepository.findPublicGuilds(pageable);
 
         // 배치로 신고 상태 조회
-        List<String> guildIds = guilds.getContent().stream()
-            .map(g -> String.valueOf(g.getId()))
+        List<Long> guildIdLongs = guilds.getContent().stream()
+            .map(Guild::getId)
+            .toList();
+        List<String> guildIds = guildIdLongs.stream()
+            .map(String::valueOf)
             .toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+
+        // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
+        Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
 
         return guilds.map(guild -> {
             int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
             GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
         });
     }
 
-    public Page<GuildResponse> searchGuilds(String keyword, Pageable pageable) {
+    public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable) {
         Page<Guild> guilds = guildRepository.searchPublicGuilds(keyword, pageable);
 
         // 배치로 신고 상태 조회
-        List<String> guildIds = guilds.getContent().stream()
-            .map(g -> String.valueOf(g.getId()))
+        List<Long> guildIdLongs = guilds.getContent().stream()
+            .map(Guild::getId)
+            .toList();
+        List<String> guildIds = guildIdLongs.stream()
+            .map(String::valueOf)
             .toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+
+        // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
+        Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
 
         return guilds.map(guild -> {
             int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
             GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
         });
+    }
+
+    /**
+     * 사용자가 가입 신청 대기중인 길드 ID Set 반환
+     */
+    private Set<Long> getPendingJoinRequestGuildIds(String userId, List<Long> guildIds) {
+        if (userId == null || guildIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(joinRequestRepository.findPendingGuildIdsByRequesterIdAndGuildIds(userId, guildIds));
     }
 
     /**
@@ -207,7 +239,7 @@ public class GuildService {
      * 2. 자동 선정 (해당 카테고리의 공개 길드, 멤버 수 순)
      * 3. 중복 제거 후 최대 5개 반환
      */
-    public List<GuildResponse> getPublicGuildsByCategory(Long categoryId) {
+    public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId) {
         LocalDateTime now = LocalDateTime.now();
         List<GuildResponse> result = new ArrayList<>();
         Set<Long> addedGuildIds = new HashSet<>();
@@ -249,13 +281,19 @@ public class GuildService {
             }
         }
 
-        // 배치로 신고 상태 조회
+        // 배치로 신고 상태 및 가입 신청 상태 조회
         if (!result.isEmpty()) {
-            List<String> guildIds = result.stream()
-                .map(r -> String.valueOf(r.getId()))
+            List<Long> guildIdLongs = new ArrayList<>(addedGuildIds);
+            List<String> guildIds = guildIdLongs.stream()
+                .map(String::valueOf)
                 .toList();
             Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
-            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+            Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
+
+            result.forEach(r -> {
+                r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false));
+                r.setIsPendingJoinRequest(pendingGuildIds.contains(r.getId()));
+            });
         }
 
         return result;
@@ -408,29 +446,39 @@ public class GuildService {
 
         // OPEN 길드는 바로 가입 처리
         if (guild.isOpenJoin()) {
-            GuildMember newMember = GuildMember.builder()
-                .guild(guild)
-                .userId(userId)
-                .role(GuildMemberRole.MEMBER)
-                .status(GuildMemberStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .build();
+            // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
+            Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guildId, userId);
 
-            guildMemberRepository.save(newMember);
+            if (existingMember.isPresent() && existingMember.get().hasLeft()) {
+                // 재가입 처리
+                GuildMember member = existingMember.get();
+                member.rejoin();
 
-            // 길드 가입 업적 이벤트 발행
-            publishGuildAchievementEvents(userId, guild, true, false);
+                // 길드 가입 업적 이벤트 발행
+                publishGuildAchievementEvents(userId, guild, true, false);
 
-            log.info("길드 바로 가입 (OPEN): guildId={}, userId={}", guildId, userId);
+                log.info("길드 재가입 (OPEN): guildId={}, userId={}", guildId, userId);
+            } else {
+                // 신규 가입
+                GuildMember newMember = GuildMember.builder()
+                    .guild(guild)
+                    .userId(userId)
+                    .role(GuildMemberRole.MEMBER)
+                    .status(GuildMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
 
-            // 바로 가입된 경우 APPROVED 상태의 응답 반환
-            return GuildJoinRequestResponse.builder()
-                .id(null)
-                .guildId(guildId)
-                .requesterId(userId)
-                .status(JoinRequestStatus.APPROVED)
-                .message("자동 가입되었습니다.")
-                .build();
+                guildMemberRepository.save(newMember);
+
+                // 길드 가입 업적 이벤트 발행
+                publishGuildAchievementEvents(userId, guild, true, false);
+
+                log.info("길드 바로 가입 (OPEN): guildId={}, userId={}", guildId, userId);
+            }
+
+            // 바로 가입된 경우 APPROVED 상태의 응답 반환 (멤버 정보 포함)
+            int updatedMemberCount = (int) guildMemberRepository.countActiveMembers(guildId);
+            return GuildJoinRequestResponse.forImmediateJoin(guildId, guild.getName(), userId, updatedMemberCount);
         }
 
         // APPROVAL_REQUIRED 길드는 가입 신청 처리
@@ -483,15 +531,29 @@ public class GuildService {
 
         request.approve(operatorId);
 
-        GuildMember newMember = GuildMember.builder()
-            .guild(guild)
-            .userId(request.getRequesterId())
-            .role(GuildMemberRole.MEMBER)
-            .status(GuildMemberStatus.ACTIVE)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
+        Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guild.getId(), request.getRequesterId());
+        GuildMember savedMember;
 
-        GuildMember savedMember = guildMemberRepository.save(newMember);
+        if (existingMember.isPresent() && existingMember.get().hasLeft()) {
+            // 재가입 처리
+            GuildMember member = existingMember.get();
+            member.rejoin();
+            savedMember = member;
+            log.info("길드 재가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
+        } else {
+            // 신규 가입
+            GuildMember newMember = GuildMember.builder()
+                .guild(guild)
+                .userId(request.getRequesterId())
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            savedMember = guildMemberRepository.save(newMember);
+            log.info("길드 가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
+        }
 
         // 길드 가입 업적 이벤트 발행
         publishGuildAchievementEvents(request.getRequesterId(), guild, true, false);
@@ -501,8 +563,6 @@ public class GuildService {
             .map(Users::getNickname)
             .orElse("새 멤버");
         guildChatService.notifyMemberJoin(guild.getId(), memberNickname);
-
-        log.info("길드 가입 승인: guildId={}, userId={}", guild.getId(), request.getRequesterId());
 
         return GuildMemberResponse.from(savedMember);
     }
@@ -548,15 +608,29 @@ public class GuildService {
             throw new IllegalStateException("길드 인원이 가득 찼습니다.");
         }
 
-        GuildMember newMember = GuildMember.builder()
-            .guild(guild)
-            .userId(inviteeId)
-            .role(GuildMemberRole.MEMBER)
-            .status(GuildMemberStatus.ACTIVE)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        // 이전에 탈퇴/추방된 멤버인지 확인하여 재가입 처리
+        Optional<GuildMember> existingMember = guildMemberRepository.findByGuildIdAndUserId(guildId, inviteeId);
+        GuildMember savedMember;
 
-        GuildMember savedMember = guildMemberRepository.save(newMember);
+        if (existingMember.isPresent() && existingMember.get().hasLeft()) {
+            // 재가입 처리
+            GuildMember member = existingMember.get();
+            member.rejoin();
+            savedMember = member;
+            log.info("길드 재초대 (비공개): guildId={}, inviteeId={}", guildId, inviteeId);
+        } else {
+            // 신규 초대
+            GuildMember newMember = GuildMember.builder()
+                .guild(guild)
+                .userId(inviteeId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            savedMember = guildMemberRepository.save(newMember);
+            log.info("길드 초대 (비공개): guildId={}, inviteeId={}", guildId, inviteeId);
+        }
 
         // 길드 가입 업적 이벤트 발행
         publishGuildAchievementEvents(inviteeId, guild, true, false);

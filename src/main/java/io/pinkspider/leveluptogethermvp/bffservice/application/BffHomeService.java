@@ -184,7 +184,7 @@ public class BffHomeService {
             try {
                 if (categoryId != null) {
                     // 카테고리별 공개 길드 조회 (하이브리드)
-                    List<GuildResponse> guilds = guildService.getPublicGuildsByCategory(categoryId);
+                    List<GuildResponse> guilds = guildService.getPublicGuildsByCategory(userId, categoryId);
                     return GuildPageData.builder()
                         .content(guilds)
                         .page(0)
@@ -194,7 +194,7 @@ public class BffHomeService {
                         .build();
                 } else {
                     // 전체 공개 길드 조회
-                    Page<GuildResponse> guildPage = guildService.getPublicGuilds(PageRequest.of(0, publicGuildSize));
+                    Page<GuildResponse> guildPage = guildService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize));
                     return GuildPageData.builder()
                         .content(guildPage.getContent())
                         .page(guildPage.getNumber())
