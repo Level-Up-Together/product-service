@@ -68,18 +68,20 @@ public class GuildController {
 
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> getPublicGuilds(
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildResponse> responses = guildService.getPublicGuilds(pageable);
+        Page<GuildResponse> responses = guildService.getPublicGuilds(userId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> searchGuilds(
+        @CurrentUser(required = false) String userId,
         @RequestParam String keyword,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildResponse> responses = guildService.searchGuilds(keyword, pageable);
+        Page<GuildResponse> responses = guildService.searchGuilds(userId, keyword, pageable);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 

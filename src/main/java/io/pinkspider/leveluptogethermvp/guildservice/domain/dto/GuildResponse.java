@@ -43,6 +43,9 @@ public class GuildResponse {
     // 신고 처리중 여부
     private Boolean isUnderReview;
 
+    // 가입 신청 대기중 여부 (현재 로그인한 사용자 기준)
+    private Boolean isPendingJoinRequest;
+
     public static GuildResponse from(Guild guild) {
         return GuildResponse.builder()
             .id(guild.getId())

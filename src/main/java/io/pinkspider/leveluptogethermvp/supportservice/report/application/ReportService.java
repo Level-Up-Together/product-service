@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.supportservice.report.application;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResponse;
@@ -14,16 +15,20 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ReportService {
+
+    private static final String CIRCUIT_BREAKER_NAME = "report-service";
 
     private final AdminReportFeignClient adminReportFeignClient;
     private final UserService userService;
@@ -88,45 +93,60 @@ public class ReportService {
         }
     }
 
+    @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "isUnderReviewFallback")
+    @Cacheable(value = "reportUnderReview", key = "#targetType.name() + ':' + #targetId", unless = "#result == false")
     public boolean isUnderReview(ReportTargetType targetType, String targetId) {
-        try {
-            AdminReportCheckResponse response = adminReportFeignClient.checkUnderReview(
-                targetType.name(),
-                targetId
-            );
-            return response.getValue() != null && response.getValue();
-        } catch (Exception e) {
-            log.warn("신고 상태 확인 중 오류 발생: targetType={}, targetId={}", targetType, targetId, e);
-            return false;
-        }
+        AdminReportCheckResponse response = adminReportFeignClient.checkUnderReview(
+            targetType.name(),
+            targetId
+        );
+        return response.getValue() != null && response.getValue();
     }
 
+    /**
+     * isUnderReview fallback - 실패 시 false 반환
+     */
+    public boolean isUnderReviewFallback(ReportTargetType targetType, String targetId, Throwable t) {
+        log.debug("신고 상태 확인 Circuit Breaker fallback: targetType={}, targetId={}, error={}",
+            targetType, targetId, t.getMessage());
+        return false;
+    }
+
+    @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "isUnderReviewBatchFallback")
+    @Cacheable(value = "reportUnderReviewBatch", key = "#targetType.name() + ':' + T(String).join(',', #targetIds)")
     public Map<String, Boolean> isUnderReviewBatch(ReportTargetType targetType, List<String> targetIds) {
         if (targetIds == null || targetIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        try {
-            AdminReportBatchCheckRequest request = AdminReportBatchCheckRequest.builder()
-                .targetType(targetType.name())
-                .targetIds(targetIds)
-                .build();
+        AdminReportBatchCheckRequest request = AdminReportBatchCheckRequest.builder()
+            .targetType(targetType.name())
+            .targetIds(targetIds)
+            .build();
 
-            AdminReportBatchCheckResponse response = adminReportFeignClient.checkUnderReviewBatch(request);
+        AdminReportBatchCheckResponse response = adminReportFeignClient.checkUnderReviewBatch(request);
 
-            if (response.getValue() != null) {
-                return response.getValue();
-            }
-            return Collections.emptyMap();
-        } catch (Exception e) {
-            log.warn("신고 상태 일괄 확인 중 오류 발생: targetType={}, targetIds count={}",
-                targetType, targetIds.size(), e);
-            // 오류 발생 시 모두 false로 반환 (failsafe)
-            return targetIds.stream()
-                .collect(java.util.stream.Collectors.toMap(
-                    id -> id,
-                    id -> false
-                ));
+        if (response.getValue() != null) {
+            return response.getValue();
         }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * isUnderReviewBatch fallback - 실패 시 모두 false 반환
+     */
+    public Map<String, Boolean> isUnderReviewBatchFallback(ReportTargetType targetType, List<String> targetIds, Throwable t) {
+        log.debug("신고 상태 일괄 확인 Circuit Breaker fallback: targetType={}, count={}, error={}",
+            targetType, targetIds != null ? targetIds.size() : 0, t.getMessage());
+
+        if (targetIds == null || targetIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return targetIds.stream()
+            .collect(Collectors.toMap(
+                id -> id,
+                id -> false
+            ));
     }
 }

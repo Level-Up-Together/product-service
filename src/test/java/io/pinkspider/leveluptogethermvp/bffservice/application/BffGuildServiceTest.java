@@ -210,7 +210,7 @@ class BffGuildServiceTest {
                 .build();
 
             when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(noticePost));
             when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
 
@@ -234,7 +234,7 @@ class BffGuildServiceTest {
             );
 
             when(guildService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
-            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -276,7 +276,7 @@ class BffGuildServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(Collections.emptyList());
 
             when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse, secondGuild));
-            when(guildService.getPublicGuilds(any())).thenReturn(guildPage);
+            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(notice1));
             when(guildPostService.getNotices(2L, testUserId)).thenReturn(List.of(notice2));
             when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
@@ -297,7 +297,7 @@ class BffGuildServiceTest {
         void getGuildList_myGuildsFetchFailed() {
             // given
             when(guildService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("조회 실패"));
-            when(guildService.getPublicGuilds(any())).thenReturn(Page.empty());
+            when(guildService.getPublicGuilds(any(), any())).thenReturn(Page.empty());
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
