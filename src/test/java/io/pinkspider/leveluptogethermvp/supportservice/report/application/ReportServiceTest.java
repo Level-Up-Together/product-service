@@ -252,4 +252,100 @@ class ReportServiceTest {
             assertThat(result).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("isUnderReviewBatch 테스트")
+    class IsUnderReviewBatchTest {
+
+        @Test
+        @DisplayName("일괄 조회 시 Map으로 결과를 반환한다")
+        void isUnderReviewBatch_success() {
+            // given
+            java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
+            java.util.Map<String, Boolean> expectedResult = new java.util.HashMap<>();
+            expectedResult.put("1", true);
+            expectedResult.put("2", false);
+            expectedResult.put("3", true);
+
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
+                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            try {
+                Field valueField = io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse.class.getDeclaredField("value");
+                valueField.setAccessible(true);
+                valueField.set(response, expectedResult);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
+
+            // when
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get("1")).isTrue();
+            assertThat(result.get("2")).isFalse();
+            assertThat(result.get("3")).isTrue();
+        }
+
+        @Test
+        @DisplayName("빈 리스트 조회 시 빈 Map을 반환한다")
+        void isUnderReviewBatch_emptyList_returnsEmptyMap() {
+            // given
+            java.util.List<String> targetIds = java.util.Collections.emptyList();
+
+            // when
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("null 리스트 조회 시 빈 Map을 반환한다")
+        void isUnderReviewBatch_nullList_returnsEmptyMap() {
+            // given & when
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("오류 발생 시 모든 값이 false인 Map을 반환한다")
+        void isUnderReviewBatch_error_returnsAllFalse() {
+            // given
+            java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
+            when(adminReportFeignClient.checkUnderReviewBatch(any()))
+                .thenThrow(new RuntimeException("서버 오류"));
+
+            // when
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get("1")).isFalse();
+            assertThat(result.get("2")).isFalse();
+            assertThat(result.get("3")).isFalse();
+        }
+
+        @Test
+        @DisplayName("응답 value가 null인 경우 빈 Map을 반환한다")
+        void isUnderReviewBatch_nullValue_returnsEmptyMap() {
+            // given
+            java.util.List<String> targetIds = java.util.Arrays.asList("1", "2");
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
+                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            // value는 null로 유지
+
+            when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
+
+            // when
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
 }

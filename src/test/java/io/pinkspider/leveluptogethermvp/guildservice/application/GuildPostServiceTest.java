@@ -3,7 +3,9 @@ package io.pinkspider.leveluptogethermvp.guildservice.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,8 +30,13 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostCommentRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +69,9 @@ class GuildPostServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private ReportService reportService;
 
     @InjectMocks
     private GuildPostService guildPostService;
@@ -306,6 +316,7 @@ class GuildPostServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(1L, pageable)).thenReturn(postPage);
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList())).thenReturn(Collections.emptyMap());
 
             // when
             Page<GuildPostListResponse> result = guildPostService.getPosts(1L, memberId, pageable);
@@ -333,6 +344,7 @@ class GuildPostServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.findNotices(1L)).thenReturn(List.of(noticePost));
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList())).thenReturn(Collections.emptyMap());
 
             // when
             List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId);
@@ -351,6 +363,7 @@ class GuildPostServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(reportService.isUnderReview(any(ReportTargetType.class), anyString())).thenReturn(false);
 
             // when
             GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId);

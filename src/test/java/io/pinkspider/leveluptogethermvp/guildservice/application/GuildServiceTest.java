@@ -18,6 +18,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateReque
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildJoinRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildLevelConfig;
@@ -39,7 +41,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategor
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -94,6 +98,9 @@ class GuildServiceTest {
 
     @Mock
     private GuildChatService guildChatService;
+
+    @Mock
+    private ReportService reportService;
 
     @InjectMocks
     private GuildService guildService;
@@ -998,6 +1005,7 @@ class GuildServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
             lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(reportService.isUnderReview(ReportTargetType.GUILD, "1")).thenReturn(false);
 
             // when
             GuildResponse response = guildService.getGuild(1L, testUserId);
@@ -1005,6 +1013,8 @@ class GuildServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getName()).isEqualTo("테스트 길드");
+            assertThat(response.getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReview(ReportTargetType.GUILD, "1");
         }
 
         @Test
@@ -1375,6 +1385,145 @@ class GuildServiceTest {
             assertThatThrownBy(() -> guildService.getGuildMembers(2L, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("비공개 길드의 멤버 목록을 조회할 수 없습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("신고 처리중 상태 통합 테스트")
+    class IsUnderReviewIntegrationTest {
+
+        @Test
+        @DisplayName("길드 상세 조회 시 신고 처리중 상태가 true로 반환된다")
+        void getGuild_underReview_true() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(reportService.isUnderReview(ReportTargetType.GUILD, "1")).thenReturn(true);
+
+            // when
+            GuildResponse response = guildService.getGuild(1L, testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.GUILD, "1");
+        }
+
+        @Test
+        @DisplayName("공개 길드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getPublicGuilds_batchUnderReviewCheck() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.findPublicGuilds(any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
+
+            // when
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.getPublicGuilds(pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList());
+        }
+
+        @Test
+        @DisplayName("내 길드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getMyGuilds_batchUnderReviewCheck() {
+            // given
+            GuildMember myMembership = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                .thenReturn(List.of(myMembership));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", false);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
+
+            // when
+            List<GuildResponse> result = guildService.getMyGuilds(testUserId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList());
+        }
+
+        @Test
+        @DisplayName("길드 검색 시 신고 처리중 상태가 일괄 조회된다")
+        void searchGuilds_batchUnderReviewCheck() {
+            // given
+            String keyword = "테스트";
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
+
+            // when
+            org.springframework.data.domain.Page<GuildResponse> result = guildService.searchGuilds(keyword, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList());
+        }
+
+        @Test
+        @DisplayName("카테고리별 공개 길드 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getPublicGuildsByCategory_batchUnderReviewCheck() {
+            // given
+            when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
+                .thenReturn(Collections.emptyList());
+            when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
+                .thenReturn(List.of(testGuild));
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList())).thenReturn(underReviewMap);
+
+            // when
+            List<GuildResponse> result = guildService.getPublicGuildsByCategory(testCategoryId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.GUILD), anyList());
+        }
+
+        @Test
+        @DisplayName("빈 길드 목록 조회 시 신고 상태 일괄 조회가 호출되지 않는다")
+        void getMyGuilds_emptyList_noReportServiceCall() {
+            // given
+            when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<GuildResponse> result = guildService.getMyGuilds(testUserId);
+
+            // then
+            assertThat(result).isEmpty();
+            verify(reportService, never()).isUnderReviewBatch(any(), anyList());
         }
     }
 }

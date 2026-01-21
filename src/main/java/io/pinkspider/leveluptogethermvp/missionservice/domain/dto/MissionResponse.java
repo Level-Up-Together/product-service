@@ -67,6 +67,9 @@ public class MissionResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime modifiedAt;
 
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
+
     public static MissionResponse from(Mission mission) {
         return MissionResponse.builder()
             .id(mission.getId())

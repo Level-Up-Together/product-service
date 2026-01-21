@@ -174,7 +174,8 @@ class GuildControllerTest {
                             fieldWithPath("value.base_latitude").type(JsonFieldType.NUMBER).description("거점 위도").optional(),
                             fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
                             fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
-                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시")
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시"),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -383,7 +384,8 @@ class GuildControllerTest {
                             fieldWithPath("value.base_latitude").type(JsonFieldType.NUMBER).description("거점 위도").optional(),
                             fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
                             fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("길드 이미지").optional(),
-                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시")
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시"),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )

@@ -137,6 +137,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -234,6 +235,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -325,7 +327,8 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간(분)").optional(),
                             fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
-                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -428,6 +431,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("작성 일시"),
                             fieldWithPath("value.content[].is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -505,7 +509,8 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성 일시"),
                             fieldWithPath("value.is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
-                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -661,6 +666,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -761,6 +767,7 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),

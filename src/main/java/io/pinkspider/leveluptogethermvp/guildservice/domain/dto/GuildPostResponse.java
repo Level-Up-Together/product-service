@@ -10,8 +10,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -33,6 +35,9 @@ public class GuildPostResponse {
 
     // 번역 정보 (다국어 지원)
     private TranslationInfo translation;
+
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
 
     public static GuildPostResponse from(GuildPost post) {
         return from(post, null);

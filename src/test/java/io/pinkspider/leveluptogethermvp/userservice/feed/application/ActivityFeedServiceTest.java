@@ -27,6 +27,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRe
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
@@ -40,7 +42,9 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -86,6 +90,9 @@ class ActivityFeedServiceTest {
 
     @Mock
     private TranslationService translationService;
+
+    @Mock
+    private ReportService reportService;
 
     @InjectMocks
     private ActivityFeedService activityFeedService;
@@ -1023,6 +1030,229 @@ class ActivityFeedServiceTest {
 
             // then
             verify(activityFeedRepository).deleteById(feedId);
+        }
+    }
+
+    @Nested
+    @DisplayName("신고 처리중 상태 통합 테스트")
+    class IsUnderReviewIntegrationTest {
+
+        @Test
+        @DisplayName("피드 상세 조회 시 신고 처리중 상태가 true로 반환된다")
+        void getFeed_underReview_true() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(false);
+            when(reportService.isUnderReview(ReportTargetType.FEED, "1")).thenReturn(true);
+
+            // when
+            ActivityFeedResponse result = activityFeedService.getFeed(feedId, TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.FEED, "1");
+        }
+
+        @Test
+        @DisplayName("피드 상세 조회 시 신고 처리중 상태가 false로 반환된다")
+        void getFeed_underReview_false() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(false);
+            when(reportService.isUnderReview(ReportTargetType.FEED, "1")).thenReturn(false);
+
+            // when
+            ActivityFeedResponse result = activityFeedService.getFeed(feedId, TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getIsUnderReview()).isFalse();
+        }
+
+        @Test
+        @DisplayName("전체 공개 피드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getPublicFeeds_batchUnderReviewCheck() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED), anyList());
+        }
+
+        @Test
+        @DisplayName("타임라인 피드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getTimelineFeeds_batchUnderReviewCheck() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", false);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.getTimelineFeeds(TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED), anyList());
+        }
+
+        @Test
+        @DisplayName("사용자 피드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getUserFeeds_batchUnderReviewCheck() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(friendshipRepository.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED), anyList());
+        }
+
+        @Test
+        @DisplayName("길드 피드 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getGuildFeeds_batchUnderReviewCheck() {
+            // given
+            Long guildId = 1L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findGuildFeeds(eq(guildId), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.getGuildFeeds(guildId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED), anyList());
+        }
+
+        @Test
+        @DisplayName("피드 검색 시 신고 처리중 상태가 일괄 조회된다")
+        void searchFeeds_batchUnderReviewCheck() {
+            // given
+            String keyword = "테스트";
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.searchByKeyword(eq(keyword), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", false);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.searchFeeds(keyword, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED), anyList());
+        }
+
+        @Test
+        @DisplayName("빈 피드 목록 조회 시 빈 맵이 반환되어도 정상 동작한다")
+        void getPublicFeeds_emptyList_emptyMapReturned() {
+            // given
+            Page<ActivityFeed> emptyPage = new PageImpl<>(Collections.emptyList());
+
+            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+                .thenReturn(emptyPage);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList()))
+                .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = activityFeedService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("댓글 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getComments_batchUnderReviewCheck() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("테스트 댓글")
+                .isDeleted(false)
+                .build();
+            setCommentId(comment, 1L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<FeedCommentResponse> result = activityFeedService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList());
         }
     }
 }

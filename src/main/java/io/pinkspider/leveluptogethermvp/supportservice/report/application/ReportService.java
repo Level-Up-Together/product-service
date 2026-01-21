@@ -6,9 +6,14 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResp
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportApiResponse;
+import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckRequest;
+import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import lombok.RequiredArgsConstructor;
@@ -93,6 +98,35 @@ public class ReportService {
         } catch (Exception e) {
             log.warn("신고 상태 확인 중 오류 발생: targetType={}, targetId={}", targetType, targetId, e);
             return false;
+        }
+    }
+
+    public Map<String, Boolean> isUnderReviewBatch(ReportTargetType targetType, List<String> targetIds) {
+        if (targetIds == null || targetIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            AdminReportBatchCheckRequest request = AdminReportBatchCheckRequest.builder()
+                .targetType(targetType.name())
+                .targetIds(targetIds)
+                .build();
+
+            AdminReportBatchCheckResponse response = adminReportFeignClient.checkUnderReviewBatch(request);
+
+            if (response.getValue() != null) {
+                return response.getValue();
+            }
+            return Collections.emptyMap();
+        } catch (Exception e) {
+            log.warn("신고 상태 일괄 확인 중 오류 발생: targetType={}, targetIds count={}",
+                targetType, targetIds.size(), e);
+            // 오류 발생 시 모두 false로 반환 (failsafe)
+            return targetIds.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    id -> id,
+                    id -> false
+                ));
         }
     }
 }

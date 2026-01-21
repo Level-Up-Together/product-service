@@ -22,4 +22,9 @@ public interface AdminReportFeignClient {
         @RequestParam("targetType") String targetType,
         @RequestParam("targetId") String targetId
     );
+
+    @PostMapping("/api/admin/reports/check-batch")
+    AdminReportBatchCheckResponse checkUnderReviewBatch(
+        @RequestBody AdminReportBatchCheckRequest request
+    );
 }

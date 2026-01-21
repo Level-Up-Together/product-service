@@ -11,8 +11,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -47,6 +49,9 @@ public class FeedCommentResponse {
 
     // 번역 정보 (다국어 지원)
     private TranslationInfo translation;
+
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
 
     public static FeedCommentResponse from(FeedComment comment) {
         return from(comment, null, null);

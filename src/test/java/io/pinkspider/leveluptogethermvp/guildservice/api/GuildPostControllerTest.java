@@ -144,7 +144,8 @@ class GuildPostControllerTest {
                             fieldWithPath("value.comment_count").type(JsonFieldType.NUMBER).description("댓글 수"),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성일시"),
                             fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시"),
-                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -459,7 +460,8 @@ class GuildPostControllerTest {
                             fieldWithPath("value.is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성일시"),
                             fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시"),
-                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -623,7 +625,8 @@ class GuildPostControllerTest {
                             fieldWithPath("value.comment_count").type(JsonFieldType.NUMBER).description("댓글 수"),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성일시"),
                             fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시"),
-                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional()
+                            fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -700,7 +703,8 @@ class GuildPostControllerTest {
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("상단 고정 여부"),
                             fieldWithPath("value[].view_count").type(JsonFieldType.NUMBER).description("조회수"),
                             fieldWithPath("value[].comment_count").type(JsonFieldType.NUMBER).description("댓글 수"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("작성일시")
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("작성일시"),
+                            fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
