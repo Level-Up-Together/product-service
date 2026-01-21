@@ -113,4 +113,21 @@ public class GuildMember extends LocalDateTimeBaseEntity {
         this.status = GuildMemberStatus.KICKED;
         this.leftAt = LocalDateTime.now();
     }
+
+    /**
+     * 재가입 처리 (탈퇴/추방 후 재가입 시 사용)
+     */
+    public void rejoin() {
+        this.status = GuildMemberStatus.ACTIVE;
+        this.role = GuildMemberRole.MEMBER;
+        this.joinedAt = LocalDateTime.now();
+        this.leftAt = null;
+    }
+
+    /**
+     * 탈퇴 또는 추방된 상태인지 확인
+     */
+    public boolean hasLeft() {
+        return this.status == GuildMemberStatus.LEFT || this.status == GuildMemberStatus.KICKED;
+    }
 }

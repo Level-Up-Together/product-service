@@ -239,14 +239,14 @@ class ReportServiceTest {
         }
 
         @Test
-        @DisplayName("오류 발생 시 false를 반환한다")
-        void isUnderReview_error_returnsFalse() {
+        @DisplayName("fallback 메서드는 오류 발생 시 false를 반환한다")
+        void isUnderReviewFallback_returnsFalse() {
             // given
-            when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID))
-                .thenThrow(new RuntimeException("서버 오류"));
+            RuntimeException exception = new RuntimeException("서버 오류");
 
-            // when
-            boolean result = reportService.isUnderReview(ReportTargetType.USER_PROFILE, TARGET_USER_ID);
+            // when - fallback 메서드 직접 호출 (Circuit Breaker는 단위 테스트에서 비활성화)
+            boolean result = reportService.isUnderReviewFallback(
+                ReportTargetType.USER_PROFILE, TARGET_USER_ID, exception);
 
             // then
             assertThat(result).isFalse();
@@ -313,15 +313,15 @@ class ReportServiceTest {
         }
 
         @Test
-        @DisplayName("오류 발생 시 모든 값이 false인 Map을 반환한다")
-        void isUnderReviewBatch_error_returnsAllFalse() {
+        @DisplayName("fallback 메서드는 오류 발생 시 모든 값이 false인 Map을 반환한다")
+        void isUnderReviewBatchFallback_returnsAllFalse() {
             // given
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
-            when(adminReportFeignClient.checkUnderReviewBatch(any()))
-                .thenThrow(new RuntimeException("서버 오류"));
+            RuntimeException exception = new RuntimeException("서버 오류");
 
-            // when
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+            // when - fallback 메서드 직접 호출 (Circuit Breaker는 단위 테스트에서 비활성화)
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatchFallback(
+                ReportTargetType.FEED, targetIds, exception);
 
             // then
             assertThat(result).hasSize(3);

@@ -145,7 +145,7 @@ public class BffGuildService {
         CompletableFuture<GuildPageData> recommendedGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<GuildResponse> guildsPage = guildService.getPublicGuilds(
-                    PageRequest.of(0, recommendedGuildSize));
+                    userId, PageRequest.of(0, recommendedGuildSize));
                 return GuildPageData.builder()
                     .content(guildsPage.getContent())
                     .page(guildsPage.getNumber())
