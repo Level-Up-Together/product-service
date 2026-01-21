@@ -9,8 +9,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,6 +30,9 @@ public class GuildPostListResponse {
     private Integer viewCount;
     private Integer commentCount;
     private LocalDateTime createdAt;
+
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
 
     public static GuildPostListResponse from(GuildPost post) {
         return GuildPostListResponse.builder()

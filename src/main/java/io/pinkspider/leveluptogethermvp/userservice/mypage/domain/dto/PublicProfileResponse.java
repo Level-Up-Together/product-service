@@ -8,11 +8,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * 공개 프로필 응답 DTO (타인이 볼 수 있는 정보)
  */
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -47,6 +49,9 @@ public class PublicProfileResponse {
 
     // 친구 요청 ID (PENDING_RECEIVED일 때 수락/거절에 사용)
     private Long friendRequestId;
+
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
 
     @Getter
     @NoArgsConstructor

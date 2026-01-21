@@ -30,7 +30,11 @@ import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -69,6 +73,9 @@ class MissionServiceTest {
 
     @Mock
     private ActivityFeedService activityFeedService;
+
+    @Mock
+    private ReportService reportService;
 
     @Captor
     private ArgumentCaptor<GuildMissionArrivedEvent> eventCaptor;
@@ -1288,6 +1295,227 @@ class MissionServiceTest {
 
             // then
             verify(missionRepository).delete(mission);
+        }
+    }
+
+    @Nested
+    @DisplayName("신고 처리중 상태 통합 테스트")
+    class IsUnderReviewIntegrationTest {
+
+        @Test
+        @DisplayName("미션 상세 조회 시 신고 처리중 상태가 true로 반환된다")
+        void getMission_underReview_true() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
+            when(reportService.isUnderReview(ReportTargetType.MISSION, "1")).thenReturn(true);
+
+            // when
+            MissionResponse response = missionService.getMission(missionId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.MISSION, "1");
+        }
+
+        @Test
+        @DisplayName("미션 상세 조회 시 신고 처리중 상태가 false로 반환된다")
+        void getMission_underReview_false() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, missionId);
+
+            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
+            when(reportService.isUnderReview(ReportTargetType.MISSION, "1")).thenReturn(false);
+
+            // when
+            MissionResponse response = missionService.getMission(missionId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getIsUnderReview()).isFalse();
+        }
+
+        @Test
+        @DisplayName("내 미션 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getMyMissions_batchUnderReviewCheck() {
+            // given
+            Mission mission1 = Mission.builder()
+                .title("미션1")
+                .description("설명1")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission1, 1L);
+
+            Mission mission2 = Mission.builder()
+                .title("미션2")
+                .description("설명2")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission2, 2L);
+
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
+                .thenReturn(List.of(mission1, mission2));
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            underReviewMap.put("2", false);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any())).thenReturn(underReviewMap);
+
+            // when
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).getIsUnderReview()).isTrue();
+            assertThat(result.get(1).getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
+        }
+
+        @Test
+        @DisplayName("공개 미션 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getPublicOpenMissions_batchUnderReviewCheck() {
+            // given
+            Mission mission = Mission.builder()
+                .title("공개 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, 1L);
+
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+            org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
+
+            when(missionRepository.findOpenPublicMissions(pageable)).thenReturn(page);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any())).thenReturn(underReviewMap);
+
+            // when
+            org.springframework.data.domain.Page<MissionResponse> result = missionService.getPublicOpenMissions(pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
+        }
+
+        @Test
+        @DisplayName("길드 미션 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getGuildMissions_batchUnderReviewCheck() {
+            // given
+            String guildId = "100";
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setMissionId(mission, 1L);
+
+            List<MissionStatus> activeStatuses = List.of(
+                MissionStatus.DRAFT,
+                MissionStatus.OPEN,
+                MissionStatus.IN_PROGRESS
+            );
+
+            when(missionRepository.findGuildMissions(guildId, activeStatuses))
+                .thenReturn(List.of(mission));
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any())).thenReturn(underReviewMap);
+
+            // when
+            List<MissionResponse> result = missionService.getGuildMissions(guildId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
+        }
+
+        @Test
+        @DisplayName("시스템 미션 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
+        void getSystemMissions_batchUnderReviewCheck() {
+            // given
+            Mission mission = Mission.builder()
+                .title("시스템 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(ADMIN_USER_ID)
+                .build();
+            setMissionId(mission, 1L);
+            setMissionSource(mission, MissionSource.SYSTEM);
+
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+            org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
+
+            when(missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable))
+                .thenReturn(page);
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", false);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any())).thenReturn(underReviewMap);
+
+            // when
+            org.springframework.data.domain.Page<MissionResponse> result = missionService.getSystemMissions(pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isFalse();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
+        }
+
+        @Test
+        @DisplayName("빈 미션 목록 조회 시 신고 상태 일괄 조회가 호출되지 않는다")
+        void getMyMissions_emptyList_noReportServiceCall() {
+            // given
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
+                .thenReturn(List.of());
+
+            // when
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEmpty();
+            verify(reportService, never()).isUnderReviewBatch(any(), any());
         }
     }
 }

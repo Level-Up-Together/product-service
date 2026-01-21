@@ -34,6 +34,8 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -83,6 +85,9 @@ class MyPageServiceTest {
     @Mock
     private org.springframework.transaction.PlatformTransactionManager feedTransactionManager;
 
+    @Mock
+    private ReportService reportService;
+
     private MyPageService myPageService;
 
     @org.junit.jupiter.api.BeforeEach
@@ -98,7 +103,8 @@ class MyPageServiceTest {
             imageModerationService,
             activityFeedRepository,
             guildMemberRepository,
-            feedTransactionManager
+            feedTransactionManager,
+            reportService
         );
     }
 
@@ -588,6 +594,103 @@ class MyPageServiceTest {
             assertThatThrownBy(() -> myPageService.changeTitles(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("code", "TITLE_003");
+        }
+    }
+
+    @Nested
+    @DisplayName("신고 처리중 상태 통합 테스트")
+    class IsUnderReviewIntegrationTest {
+
+        @Test
+        @DisplayName("공개 프로필 조회 시 신고 처리중 상태가 true로 반환된다")
+        void getPublicProfile_underReview_true() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("공개 프로필 조회 시 신고 처리중 상태가 false로 반환된다")
+        void getPublicProfile_underReview_false() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(false);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getIsUnderReview()).isFalse();
+        }
+
+        @Test
+        @DisplayName("본인 프로필 조회 시에도 신고 처리중 상태가 조회된다")
+        void getPublicProfile_owner_underReviewCheck() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            // then
+            assertThat(result.getIsOwner()).isTrue();
+            assertThat(result.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("다른 사용자 프로필 조회 시 신고 처리중 상태가 조회된다")
+        void getPublicProfile_otherUser_underReviewCheck() {
+            // given
+            String otherUserId = "other-user-456";
+            Users user = createTestUser(otherUserId, "다른유저");
+
+            when(userRepository.findById(otherUserId)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(otherUserId)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(otherUserId)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(otherUserId)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(otherUserId)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(otherUserId)).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, otherUserId)).thenReturn(true);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(otherUserId, TEST_USER_ID);
+
+            // then
+            assertThat(result.getIsOwner()).isFalse();
+            assertThat(result.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, otherUserId);
         }
     }
 }

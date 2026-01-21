@@ -31,6 +31,8 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse.UserTitleItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -63,6 +65,7 @@ public class MyPageService {
     private final ActivityFeedRepository activityFeedRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final TransactionTemplate feedTransactionTemplate;
+    private final ReportService reportService;
 
     public MyPageService(
             UserRepository userRepository,
@@ -75,7 +78,8 @@ public class MyPageService {
             ImageModerationService imageModerationService,
             ActivityFeedRepository activityFeedRepository,
             GuildMemberRepository guildMemberRepository,
-            @Qualifier("feedTransactionManager") PlatformTransactionManager feedTransactionManager) {
+            @Qualifier("feedTransactionManager") PlatformTransactionManager feedTransactionManager,
+            ReportService reportService) {
         this.userRepository = userRepository;
         this.userExperienceRepository = userExperienceRepository;
         this.userTitleRepository = userTitleRepository;
@@ -87,6 +91,7 @@ public class MyPageService {
         this.activityFeedRepository = activityFeedRepository;
         this.guildMemberRepository = guildMemberRepository;
         this.feedTransactionTemplate = new TransactionTemplate(feedTransactionManager);
+        this.reportService = reportService;
     }
 
     /**
@@ -176,6 +181,9 @@ public class MyPageService {
             }
         }
 
+        // 신고 처리중 여부 확인
+        boolean isUnderReview = reportService.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
+
         return PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname(user.getDisplayName())
@@ -192,6 +200,7 @@ public class MyPageService {
             .isOwner(isOwner)
             .friendshipStatus(friendshipStatusStr)
             .friendRequestId(friendRequestId)
+            .isUnderReview(isUnderReview)
             .build();
     }
 

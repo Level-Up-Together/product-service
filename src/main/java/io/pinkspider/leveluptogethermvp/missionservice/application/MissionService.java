@@ -18,7 +18,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCat
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -41,6 +44,7 @@ public class MissionService {
     private final GuildRepository guildRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ActivityFeedService activityFeedService;
+    private final ReportService reportService;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse createMission(String creatorId, MissionCreateRequest request) {
@@ -116,20 +120,48 @@ public class MissionService {
     public MissionResponse getMission(Long missionId) {
         Mission mission = findMissionById(missionId);
         int participantCount = (int) participantRepository.countActiveParticipants(missionId);
-        return MissionResponse.from(mission, participantCount);
+        MissionResponse response = MissionResponse.from(mission, participantCount);
+
+        // 신고 처리중 여부 확인
+        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.MISSION, String.valueOf(missionId)));
+
+        return response;
     }
 
     public List<MissionResponse> getMyMissions(String userId) {
         // 사용자가 참여중인 미션 목록 (ACCEPTED 상태)
         // 고정미션 > 길드미션 > 일반미션 순으로 정렬된 목록 반환
-        return missionRepository.findByParticipantUserIdSorted(userId).stream()
+        List<Mission> missions = missionRepository.findByParticipantUserIdSorted(userId);
+        List<MissionResponse> result = missions.stream()
             .map(MissionResponse::from)
             .toList();
+
+        // 배치로 신고 상태 조회
+        if (!result.isEmpty()) {
+            List<String> missionIds = result.stream()
+                .map(r -> String.valueOf(r.getId()))
+                .toList();
+            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+        }
+
+        return result;
     }
 
     public Page<MissionResponse> getPublicOpenMissions(Pageable pageable) {
-        return missionRepository.findOpenPublicMissions(pageable)
-            .map(MissionResponse::from);
+        Page<Mission> missions = missionRepository.findOpenPublicMissions(pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> missionIds = missions.getContent().stream()
+            .map(m -> String.valueOf(m.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+
+        return missions.map(mission -> {
+            MissionResponse response = MissionResponse.from(mission);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
+            return response;
+        });
     }
 
     public List<MissionResponse> getGuildMissions(String guildId) {
@@ -138,9 +170,21 @@ public class MissionService {
             MissionStatus.OPEN,
             MissionStatus.IN_PROGRESS
         );
-        return missionRepository.findGuildMissions(guildId, activeStatuses).stream()
+        List<Mission> missions = missionRepository.findGuildMissions(guildId, activeStatuses);
+        List<MissionResponse> result = missions.stream()
             .map(MissionResponse::from)
             .toList();
+
+        // 배치로 신고 상태 조회
+        if (!result.isEmpty()) {
+            List<String> missionIds = result.stream()
+                .map(r -> String.valueOf(r.getId()))
+                .toList();
+            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+        }
+
+        return result;
     }
 
     /**
@@ -148,20 +192,43 @@ public class MissionService {
      * 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
      */
     public Page<MissionResponse> getSystemMissions(Pageable pageable) {
-        return missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable)
-            .map(MissionResponse::from);
+        Page<Mission> missions = missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> missionIds = missions.getContent().stream()
+            .map(m -> String.valueOf(m.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+
+        return missions.map(mission -> {
+            MissionResponse response = MissionResponse.from(mission);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
+            return response;
+        });
     }
 
     /**
      * 카테고리별 시스템 미션 목록 조회
      */
     public Page<MissionResponse> getSystemMissionsByCategory(Long categoryId, Pageable pageable) {
-        return missionRepository.findBySourceAndStatusAndCategoryId(
+        Page<Mission> missions = missionRepository.findBySourceAndStatusAndCategoryId(
             MissionSource.SYSTEM,
             MissionStatus.OPEN,
             categoryId,
             pageable
-        ).map(MissionResponse::from);
+        );
+
+        // 배치로 신고 상태 조회
+        List<String> missionIds = missions.getContent().stream()
+            .map(m -> String.valueOf(m.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
+
+        return missions.map(mission -> {
+            MissionResponse response = MissionResponse.from(mission);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
+            return response;
+        });
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

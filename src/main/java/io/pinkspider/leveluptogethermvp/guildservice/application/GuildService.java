@@ -29,6 +29,8 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -65,6 +67,7 @@ public class GuildService {
     private final TitleService titleService;
     private final GuildImageStorageService guildImageStorageService;
     private final GuildChatService guildChatService;
+    private final ReportService reportService;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -137,7 +140,12 @@ public class GuildService {
         }
 
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        return buildGuildResponseWithCategory(guild, memberCount);
+        GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+
+        // 신고 처리중 여부 확인
+        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
+
+        return response;
     }
 
     private GuildResponse buildGuildResponseWithCategory(Guild guild, int memberCount) {
@@ -160,19 +168,37 @@ public class GuildService {
     }
 
     public Page<GuildResponse> getPublicGuilds(Pageable pageable) {
-        return guildRepository.findPublicGuilds(pageable)
-            .map(guild -> {
-                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-                return buildGuildResponseWithCategory(guild, memberCount);
-            });
+        Page<Guild> guilds = guildRepository.findPublicGuilds(pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> guildIds = guilds.getContent().stream()
+            .map(g -> String.valueOf(g.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+
+        return guilds.map(guild -> {
+            int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+            GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+            return response;
+        });
     }
 
     public Page<GuildResponse> searchGuilds(String keyword, Pageable pageable) {
-        return guildRepository.searchPublicGuilds(keyword, pageable)
-            .map(guild -> {
-                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-                return buildGuildResponseWithCategory(guild, memberCount);
-            });
+        Page<Guild> guilds = guildRepository.searchPublicGuilds(keyword, pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> guildIds = guilds.getContent().stream()
+            .map(g -> String.valueOf(g.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+
+        return guilds.map(guild -> {
+            int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+            GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+            return response;
+        });
     }
 
     /**
@@ -223,17 +249,38 @@ public class GuildService {
             }
         }
 
+        // 배치로 신고 상태 조회
+        if (!result.isEmpty()) {
+            List<String> guildIds = result.stream()
+                .map(r -> String.valueOf(r.getId()))
+                .toList();
+            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+        }
+
         return result;
     }
 
     public List<GuildResponse> getMyGuilds(String userId) {
-        return guildMemberRepository.findActiveGuildsByUserId(userId).stream()
+        List<GuildMember> members = guildMemberRepository.findActiveGuildsByUserId(userId);
+        List<GuildResponse> result = members.stream()
             .map(member -> {
                 Guild guild = member.getGuild();
                 int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
                 return buildGuildResponseWithCategory(guild, memberCount);
             })
             .toList();
+
+        // 배치로 신고 상태 조회
+        if (!result.isEmpty()) {
+            List<String> guildIds = result.stream()
+                .map(r -> String.valueOf(r.getId()))
+                .toList();
+            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+        }
+
+        return result;
     }
 
     @Transactional(transactionManager = "guildTransactionManager")

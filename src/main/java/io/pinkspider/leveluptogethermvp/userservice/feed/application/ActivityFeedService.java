@@ -26,6 +26,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
@@ -66,6 +68,7 @@ public class ActivityFeedService {
     private final UserTitleRepository userTitleRepository;
     private final UserProfileCacheService userProfileCacheService;
     private final TranslationService translationService;
+    private final ReportService reportService;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -164,14 +167,21 @@ public class ActivityFeedService {
         Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsInTimeRange(startTime, endTime, pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(
+            ActivityFeedResponse response = ActivityFeedResponse.from(
                 feed,
                 likedFeedIds.contains(feed.getId()),
                 currentUserId != null && feed.getUserId().equals(currentUserId),
                 translation
             );
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -278,15 +288,22 @@ public class ActivityFeedService {
         }
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, combinedFeeds);
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = combinedFeeds.stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         List<ActivityFeedResponse> responseList = combinedFeeds.stream()
             .map(feed -> {
                 TranslationInfo translation = translateFeed(feed, targetLocale);
-                return ActivityFeedResponse.from(
+                ActivityFeedResponse response = ActivityFeedResponse.from(
                     feed,
                     likedFeedIds.contains(feed.getId()),
                     currentUserId != null && feed.getUserId().equals(currentUserId),
                     translation
                 );
+                response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+                return response;
             })
             .toList();
 
@@ -320,9 +337,16 @@ public class ActivityFeedService {
         }
 
         Set<Long> likedFeedIds = getLikedFeedIds(userId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -347,17 +371,26 @@ public class ActivityFeedService {
         boolean isFriend = friendshipRepository.areFriends(currentUserId, targetUserId);
         boolean isSelf = currentUserId.equals(targetUserId);
 
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds
             .map(feed -> {
                 TranslationInfo translation = translateFeed(feed, targetLocale);
+                ActivityFeedResponse response;
                 // 본인 피드이면 모두 표시
                 if (isSelf) {
-                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), true, translation);
+                    response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), true, translation);
+                    response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+                    return response;
                 }
                 // 공개 피드만 표시 (친구면 FRIENDS까지)
                 if (feed.getVisibility() == FeedVisibility.PUBLIC ||
                     (isFriend && feed.getVisibility() == FeedVisibility.FRIENDS)) {
-                    return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+                    response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+                    response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+                    return response;
                 }
                 return null;
             });
@@ -379,9 +412,16 @@ public class ActivityFeedService {
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -406,9 +446,16 @@ public class ActivityFeedService {
 
         Page<ActivityFeed> feeds = activityFeedRepository.findByCategoryTypes(types, pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -428,9 +475,16 @@ public class ActivityFeedService {
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -455,9 +509,16 @@ public class ActivityFeedService {
 
         Page<ActivityFeed> feeds = activityFeedRepository.searchByKeywordAndCategory(keyword, types, pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+
+        // 신고 상태 일괄 조회
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
         return feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
-            return ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
         });
     }
 
@@ -479,7 +540,11 @@ public class ActivityFeedService {
         boolean likedByMe = currentUserId != null && feedLikeRepository.existsByFeedIdAndUserId(feedId, currentUserId);
         boolean isMyFeed = currentUserId != null && feed.getUserId().equals(currentUserId);
         TranslationInfo translation = translateFeed(feed, targetLocale);
-        return ActivityFeedResponse.from(feed, likedByMe, isMyFeed, translation);
+        ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedByMe, isMyFeed, translation);
+
+        // 신고 상태 조회
+        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.FEED, String.valueOf(feedId)));
+        return response;
     }
 
     /**
@@ -565,6 +630,10 @@ public class ActivityFeedService {
         Page<FeedComment> comments = feedCommentRepository.findByFeedId(feedId, pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
+        // 신고 상태 일괄 조회
+        List<String> commentIds = comments.getContent().stream().map(c -> String.valueOf(c.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED_COMMENT, commentIds);
+
         return comments.map(comment -> {
             TranslationInfo translation = translateComment(comment, targetLocale);
             // 모든 댓글에 대해 현재 유저 레벨 조회
@@ -576,7 +645,9 @@ public class ActivityFeedService {
                 log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());
                 userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
             }
-            return FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
+            FeedCommentResponse response = FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(comment.getId()), false));
+            return response;
         });
     }
 

@@ -593,7 +593,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (본인 조회 시 null)").optional(),
-                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional()
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -674,7 +675,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)").optional(),
-                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional()
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -743,7 +745,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (PENDING_RECEIVED)"),
-                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)")
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)"),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )
@@ -812,7 +815,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (ACCEPTED)"),
-                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional()
+                            fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
                 )

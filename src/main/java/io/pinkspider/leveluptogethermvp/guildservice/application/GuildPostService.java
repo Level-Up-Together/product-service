@@ -18,7 +18,10 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostCom
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
+import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +42,7 @@ public class GuildPostService {
     private final GuildPostRepository guildPostRepository;
     private final GuildPostCommentRepository guildPostCommentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ReportService reportService;
 
     /**
      * 게시글 작성
@@ -87,8 +91,19 @@ public class GuildPostService {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
-        return guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(guildId, pageable)
-            .map(GuildPostListResponse::from);
+        Page<GuildPost> posts = guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(guildId, pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> postIds = posts.getContent().stream()
+            .map(p -> String.valueOf(p.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
+
+        return posts.map(post -> {
+            GuildPostListResponse response = GuildPostListResponse.from(post);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
+            return response;
+        });
     }
 
     /**
@@ -98,8 +113,19 @@ public class GuildPostService {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
-        return guildPostRepository.findByGuildIdAndPostType(guildId, postType, pageable)
-            .map(GuildPostListResponse::from);
+        Page<GuildPost> posts = guildPostRepository.findByGuildIdAndPostType(guildId, postType, pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> postIds = posts.getContent().stream()
+            .map(p -> String.valueOf(p.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
+
+        return posts.map(post -> {
+            GuildPostListResponse response = GuildPostListResponse.from(post);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
+            return response;
+        });
     }
 
     /**
@@ -109,9 +135,21 @@ public class GuildPostService {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
-        return guildPostRepository.findNotices(guildId).stream()
+        List<GuildPost> posts = guildPostRepository.findNotices(guildId);
+        List<GuildPostListResponse> result = posts.stream()
             .map(GuildPostListResponse::from)
             .collect(Collectors.toList());
+
+        // 배치로 신고 상태 조회
+        if (!result.isEmpty()) {
+            List<String> postIds = result.stream()
+                .map(r -> String.valueOf(r.getId()))
+                .toList();
+            Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
+            result.forEach(r -> r.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(r.getId()), false)));
+        }
+
+        return result;
     }
 
     /**
@@ -121,8 +159,19 @@ public class GuildPostService {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
-        return guildPostRepository.searchPosts(guildId, keyword, pageable)
-            .map(GuildPostListResponse::from);
+        Page<GuildPost> posts = guildPostRepository.searchPosts(guildId, keyword, pageable);
+
+        // 배치로 신고 상태 조회
+        List<String> postIds = posts.getContent().stream()
+            .map(p -> String.valueOf(p.getId()))
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
+
+        return posts.map(post -> {
+            GuildPostListResponse response = GuildPostListResponse.from(post);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
+            return response;
+        });
     }
 
     /**
@@ -138,7 +187,11 @@ public class GuildPostService {
 
         post.incrementViewCount();
 
-        return GuildPostResponse.from(post);
+        GuildPostResponse response = GuildPostResponse.from(post);
+        // 신고 처리중 여부 확인
+        response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD_NOTICE, String.valueOf(postId)));
+
+        return response;
     }
 
     /**

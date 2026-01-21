@@ -10,8 +10,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,6 +39,9 @@ public class GuildResponse {
     private Double baseLatitude;
     private Double baseLongitude;
     private LocalDateTime createdAt;
+
+    // 신고 처리중 여부
+    private Boolean isUnderReview;
 
     public static GuildResponse from(Guild guild) {
         return GuildResponse.builder()
