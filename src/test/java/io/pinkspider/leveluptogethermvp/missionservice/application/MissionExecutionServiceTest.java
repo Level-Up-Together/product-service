@@ -838,6 +838,10 @@ class MissionExecutionServiceTest {
                 .build();
             setExecutionId(execution2, 2L);
 
+            // 고정 미션 조회 mock (없음)
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(List.of());
+
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of(execution1, execution2));
 
@@ -852,6 +856,10 @@ class MissionExecutionServiceTest {
         @DisplayName("오늘 수행이 없으면 빈 목록을 반환한다")
         void getTodayExecutions_empty() {
             // given
+            // 고정 미션 조회 mock (없음)
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(List.of());
+
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of());
 
@@ -860,6 +868,122 @@ class MissionExecutionServiceTest {
 
             // then
             assertThat(responses).isEmpty();
+        }
+
+        @Test
+        @DisplayName("고정 미션의 오늘 execution이 없으면 자동 생성한다")
+        void getTodayExecutions_createsPinnedMissionExecution() {
+            // given
+            LocalDate today = LocalDate.now();
+
+            // 고정 미션 설정
+            Mission pinnedMission = Mission.builder()
+                .title("고정 미션")
+                .description("매일 반복")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .isPinned(true)
+                .expPerCompletion(10)
+                .build();
+            setMissionId(pinnedMission, 100L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setParticipantId(pinnedParticipant, 100L);
+
+            // 고정 미션 참여자 반환
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(List.of(pinnedParticipant));
+
+            // 오늘 날짜의 execution이 없음
+            when(executionRepository.findByParticipantIdAndExecutionDate(eq(100L), eq(today)))
+                .thenReturn(Optional.empty());
+
+            // execution 저장 mock
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> {
+                    MissionExecution exec = invocation.getArgument(0);
+                    setExecutionId(exec, 200L);
+                    return exec;
+                });
+
+            // 저장 후 오늘 execution 조회 시 새로 생성된 것 반환
+            MissionExecution newExecution = MissionExecution.builder()
+                .participant(pinnedParticipant)
+                .executionDate(today)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(newExecution, 200L);
+
+            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
+                .thenReturn(List.of(newExecution));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then
+            assertThat(responses).hasSize(1);
+            verify(executionRepository).save(any(MissionExecution.class));
+        }
+
+        @Test
+        @DisplayName("고정 미션의 오늘 execution이 이미 있으면 생성하지 않는다")
+        void getTodayExecutions_doesNotCreateIfExists() {
+            // given
+            LocalDate today = LocalDate.now();
+
+            // 고정 미션 설정
+            Mission pinnedMission = Mission.builder()
+                .title("고정 미션")
+                .description("매일 반복")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .isPinned(true)
+                .expPerCompletion(10)
+                .build();
+            setMissionId(pinnedMission, 100L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setParticipantId(pinnedParticipant, 100L);
+
+            MissionExecution existingExecution = MissionExecution.builder()
+                .participant(pinnedParticipant)
+                .executionDate(today)
+                .status(ExecutionStatus.PENDING)
+                .build();
+            setExecutionId(existingExecution, 200L);
+
+            // 고정 미션 참여자 반환
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(List.of(pinnedParticipant));
+
+            // 오늘 날짜의 execution이 이미 있음
+            when(executionRepository.findByParticipantIdAndExecutionDate(eq(100L), eq(today)))
+                .thenReturn(Optional.of(existingExecution));
+
+            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
+                .thenReturn(List.of(existingExecution));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then
+            assertThat(responses).hasSize(1);
+            // save가 호출되지 않음
+            verify(executionRepository, org.mockito.Mockito.never()).save(any(MissionExecution.class));
         }
     }
 

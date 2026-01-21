@@ -35,4 +35,15 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
 
     @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId ORDER BY mp.createdAt DESC")
     List<MissionParticipant> findByUserIdWithMission(@Param("userId") String userId);
+
+    /**
+     * 사용자가 참여 중인 고정 미션(isPinned=true) 참여자 목록 조회
+     * ACCEPTED 상태인 참여자만 조회
+     */
+    @Query("SELECT mp FROM MissionParticipant mp " +
+           "JOIN FETCH mp.mission m " +
+           "WHERE mp.userId = :userId " +
+           "AND mp.status = 'ACCEPTED' " +
+           "AND m.isPinned = true")
+    List<MissionParticipant> findPinnedMissionParticipants(@Param("userId") String userId);
 }

@@ -353,10 +353,47 @@ public class MissionExecutionService {
             .toList();
     }
 
+    /**
+     * 오늘 실행해야 할 미션 목록 조회
+     * 고정 미션(isPinned=true)인 경우 오늘 날짜의 execution이 없으면 자동 생성
+     */
+    @Transactional
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
-        return executionRepository.findByUserIdAndExecutionDate(userId, LocalDate.now()).stream()
+        LocalDate today = LocalDate.now();
+
+        // 고정 미션의 오늘 execution 자동 생성
+        ensurePinnedMissionExecutionsForToday(userId, today);
+
+        return executionRepository.findByUserIdAndExecutionDate(userId, today).stream()
             .map(MissionExecutionResponse::from)
             .toList();
+    }
+
+    /**
+     * 고정 미션(isPinned=true)에 대해 오늘 날짜의 execution이 없으면 자동 생성
+     */
+    private void ensurePinnedMissionExecutionsForToday(String userId, LocalDate today) {
+        List<MissionParticipant> pinnedParticipants = participantRepository.findPinnedMissionParticipants(userId);
+
+        for (MissionParticipant participant : pinnedParticipants) {
+            // 오늘 날짜의 execution이 있는지 확인
+            boolean hasExecution = executionRepository
+                .findByParticipantIdAndExecutionDate(participant.getId(), today)
+                .isPresent();
+
+            if (!hasExecution) {
+                // 고정 미션의 오늘 execution 자동 생성
+                MissionExecution execution = MissionExecution.builder()
+                    .participant(participant)
+                    .executionDate(today)
+                    .status(ExecutionStatus.PENDING)
+                    .build();
+                executionRepository.save(execution);
+
+                log.info("고정 미션 오늘 execution 자동 생성: missionId={}, userId={}, date={}",
+                    participant.getMission().getId(), userId, today);
+            }
+        }
     }
 
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date) {
