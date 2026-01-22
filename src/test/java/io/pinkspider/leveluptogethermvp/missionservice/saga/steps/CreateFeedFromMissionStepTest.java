@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -54,7 +55,9 @@ class CreateFeedFromMissionStepTest {
     @Mock
     private MissionExecutionRepository executionRepository;
 
-    @InjectMocks
+    @Mock
+    private CreateFeedFromMissionStep selfMock;
+
     private CreateFeedFromMissionStep createFeedFromMissionStep;
 
     private static final String TEST_USER_ID = "test-user-123";
@@ -71,6 +74,14 @@ class CreateFeedFromMissionStepTest {
 
     @BeforeEach
     void setUp() {
+        // self-injection mock을 사용하여 CreateFeedFromMissionStep 생성
+        createFeedFromMissionStep = new CreateFeedFromMissionStep(
+            activityFeedService,
+            userProfileCacheService,
+            executionRepository,
+            selfMock
+        );
+
         category = MissionCategory.builder()
             .name("운동")
             .description("운동 관련 미션")
@@ -186,8 +197,7 @@ class CreateFeedFromMissionStepTest {
                 anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
                 any(), anyInt()
             )).thenReturn(activityFeed);
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
@@ -198,7 +208,7 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("피드 생성 시 execution에 feedId가 저장된다")
+        @DisplayName("피드 생성 시 execution feedId 업데이트 메서드가 호출된다")
         void execute_savesFeedIdToExecution() {
             // given
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
@@ -207,15 +217,13 @@ class CreateFeedFromMissionStepTest {
                 anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
                 any(), anyInt()
             )).thenReturn(activityFeed);
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
 
             // when
             createFeedFromMissionStep.execute(context);
 
             // then
-            assertThat(execution.getFeedId()).isEqualTo(FEED_ID);
-            verify(executionRepository).save(execution);
+            verify(selfMock).updateExecutionFeedId(EXECUTION_ID, FEED_ID);
         }
 
         @Test
