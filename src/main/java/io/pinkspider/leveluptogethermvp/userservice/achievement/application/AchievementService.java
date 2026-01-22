@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
 import static io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
+import io.pinkspider.global.cache.AchievementCacheService;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
@@ -37,22 +38,25 @@ public class AchievementService {
     private final TitleService titleService;
     private final ApplicationEventPublisher eventPublisher;
     private final AchievementCheckStrategyRegistry strategyRegistry;
+    private final AchievementCacheService achievementCacheService;
 
-    // 업적 목록 조회
+    // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
-        return achievementRepository.findVisibleAchievements().stream()
+        return achievementCacheService.getVisibleAchievements().stream()
             .map(AchievementResponse::from)
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode) {
-        return achievementRepository.findVisibleAchievementsByCategoryCode(categoryCode).stream()
+        return achievementCacheService.getAchievementsByCategoryCode(categoryCode).stream()
+            .filter(a -> !a.getIsHidden())
             .map(AchievementResponse::from)
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId) {
-        return achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId).stream()
+        return achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId).stream()
+            .filter(a -> !a.getIsHidden())
             .map(AchievementResponse::from)
             .toList();
     }
@@ -214,7 +218,8 @@ public class AchievementService {
             return;
         }
 
-        List<Achievement> achievements = achievementRepository.findByCheckLogicDataSourceAndIsActiveTrue(dataSource);
+        // 캐시 사용
+        List<Achievement> achievements = achievementCacheService.getAchievementsByDataSource(dataSource);
 
         for (Achievement achievement : achievements) {
             checkAndUpdateAchievementDynamic(userId, achievement, strategy);
@@ -228,7 +233,8 @@ public class AchievementService {
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void checkAllDynamicAchievements(String userId) {
-        List<Achievement> achievements = achievementRepository.findAllWithCheckLogicAndIsActiveTrue();
+        // 캐시 사용
+        List<Achievement> achievements = achievementCacheService.getAchievementsWithCheckLogic();
 
         for (Achievement achievement : achievements) {
             String dataSource = achievement.getCheckLogicDataSource();
