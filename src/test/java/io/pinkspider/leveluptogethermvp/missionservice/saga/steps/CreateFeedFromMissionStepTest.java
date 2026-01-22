@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
@@ -49,6 +50,9 @@ class CreateFeedFromMissionStepTest {
 
     @Mock
     private UserProfileCacheService userProfileCacheService;
+
+    @Mock
+    private MissionExecutionRepository executionRepository;
 
     @InjectMocks
     private CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -182,6 +186,8 @@ class CreateFeedFromMissionStepTest {
                 anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
                 any(), anyInt()
             )).thenReturn(activityFeed);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
@@ -189,6 +195,27 @@ class CreateFeedFromMissionStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             assertThat(context.getCreatedFeedId()).isEqualTo(FEED_ID);
+        }
+
+        @Test
+        @DisplayName("피드 생성 시 execution에 feedId가 저장된다")
+        void execute_savesFeedIdToExecution() {
+            // given
+            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(activityFeedService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
+                any(), anyInt()
+            )).thenReturn(activityFeed);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(execution.getFeedId()).isEqualTo(FEED_ID);
+            verify(executionRepository).save(execution);
         }
 
         @Test
@@ -237,6 +264,24 @@ class CreateFeedFromMissionStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             verify(activityFeedService).deleteFeedById(FEED_ID);
+        }
+
+        @Test
+        @DisplayName("보상 시 execution의 feedId도 초기화한다")
+        void compensate_clearsFeedIdFromExecution() {
+            // given
+            context.setCreatedFeedId(FEED_ID);
+            execution.setFeedId(FEED_ID);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.compensate(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getFeedId()).isNull();
+            verify(executionRepository).save(execution);
         }
 
         @Test
