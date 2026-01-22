@@ -55,7 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, transactionManager = "feedTransactionManager")
 public class ActivityFeedService {
 
     private final ActivityFeedRepository activityFeedRepository;
@@ -73,7 +73,7 @@ public class ActivityFeedService {
     /**
      * 시스템에서 자동 생성되는 활동 피드
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed createActivityFeed(String userId, String userNickname, String userProfileImageUrl,
                                            Integer userLevel, String userTitle, TitleRarity userTitleRarity,
                                            ActivityType activityType, String title, String description,
@@ -109,7 +109,7 @@ public class ActivityFeedService {
     /**
      * 사용자가 직접 생성하는 피드
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeedResponse createFeed(String userId, CreateFeedRequest request) {
         // 사용자 정보 조회
         Users user = userRepository.findById(userId)
@@ -550,7 +550,7 @@ public class ActivityFeedService {
     /**
      * 좋아요 토글
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public FeedLikeResponse toggleLike(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
@@ -588,7 +588,7 @@ public class ActivityFeedService {
     /**
      * 댓글 작성
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
@@ -654,7 +654,7 @@ public class ActivityFeedService {
     /**
      * 댓글 삭제
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void deleteComment(Long feedId, Long commentId, String userId) {
         FeedComment comment = feedCommentRepository.findById(commentId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "댓글을 찾을 수 없습니다"));
@@ -680,7 +680,7 @@ public class ActivityFeedService {
     /**
      * 피드 삭제
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeed(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
@@ -779,7 +779,7 @@ public class ActivityFeedService {
 
     // ========== System Activity Feed 생성 헬퍼 메서드 ==========
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionJoined(String userId, String userNickname, String userProfileImageUrl,
                                     Integer userLevel, Long missionId, String missionTitle) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -793,7 +793,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionCompleted(String userId, String userNickname, String userProfileImageUrl,
                                        Integer userLevel, Long missionId, String missionTitle, int completionRate) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -808,7 +808,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionFullCompleted(String userId, String userNickname, String userProfileImageUrl,
                                            Integer userLevel, Long missionId, String missionTitle) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -822,7 +822,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyAchievementUnlocked(String userId, String userNickname, String userProfileImageUrl,
                                           Integer userLevel, Long achievementId, String achievementName, String achievementDescription) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -836,7 +836,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyTitleAcquired(String userId, String userNickname, String userProfileImageUrl,
                                     Integer userLevel, Long titleId, String titleName) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -850,7 +850,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyLevelUp(String userId, String userNickname, String userProfileImageUrl,
                               int newLevel, int totalExp) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -865,7 +865,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildCreated(String userId, String userNickname, String userProfileImageUrl,
                                    Integer userLevel, Long guildId, String guildName) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -879,7 +879,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, guildId, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildJoined(String userId, String userNickname, String userProfileImageUrl,
                                   Integer userLevel, Long guildId, String guildName) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -893,7 +893,7 @@ public class ActivityFeedService {
             FeedVisibility.PUBLIC, guildId, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildLevelUp(String userId, String userNickname, String userProfileImageUrl,
                                    Integer userLevel, Long guildId, String guildName, int newGuildLevel) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -907,7 +907,7 @@ public class ActivityFeedService {
             FeedVisibility.GUILD, guildId, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyFriendAdded(String userId, String userNickname, String userProfileImageUrl,
                                   Integer userLevel, String friendId, String friendNickname) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -921,7 +921,7 @@ public class ActivityFeedService {
             FeedVisibility.FRIENDS, null, null, null);
     }
 
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void notifyAttendanceStreak(String userId, String userNickname, String userProfileImageUrl,
                                        Integer userLevel, int streakDays) {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
@@ -942,7 +942,7 @@ public class ActivityFeedService {
      * - 미션 실행 정보(note, imageUrl, duration, expEarned) 포함
      * - 공개 피드로 생성
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
                                                 Integer userLevel, String userTitle, TitleRarity userTitleRarity,
                                                 Long executionId, Long missionId, String missionTitle,
@@ -984,7 +984,7 @@ public class ActivityFeedService {
     /**
      * 피드 삭제 (ID로 직접 삭제 - 보상 처리용)
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedById(Long feedId) {
         activityFeedRepository.deleteById(feedId);
         log.info("Feed deleted by id: feedId={}", feedId);
@@ -993,7 +993,7 @@ public class ActivityFeedService {
     /**
      * referenceId와 referenceType으로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public int deleteFeedsByReferenceId(Long referenceId, String referenceType) {
         int deletedCount = activityFeedRepository.deleteByReferenceIdAndReferenceType(referenceId, referenceType);
         log.info("Feeds deleted by referenceId: referenceId={}, referenceType={}, deletedCount={}",
@@ -1004,7 +1004,7 @@ public class ActivityFeedService {
     /**
      * missionId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public int deleteFeedsByMissionId(Long missionId) {
         int deletedCount = activityFeedRepository.deleteByMissionId(missionId);
         log.info("Feeds deleted by missionId: missionId={}, deletedCount={}", missionId, deletedCount);
@@ -1014,7 +1014,7 @@ public class ActivityFeedService {
     /**
      * 피드 이미지 URL 업데이트 (미션 실행 이미지 업로드/삭제 시 연동)
      */
-    @Transactional
+    @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedImageUrl(Long feedId, String imageUrl) {
         activityFeedRepository.findById(feedId).ifPresent(feed -> {
             feed.setImageUrl(imageUrl);
