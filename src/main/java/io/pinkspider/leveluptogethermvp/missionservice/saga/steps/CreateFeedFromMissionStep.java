@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProf
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +23,23 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionContext> {
 
     private final ActivityFeedService activityFeedService;
     private final UserProfileCacheService userProfileCacheService;
     private final MissionExecutionRepository executionRepository;
+    private final CreateFeedFromMissionStep self;
+
+    public CreateFeedFromMissionStep(
+            ActivityFeedService activityFeedService,
+            UserProfileCacheService userProfileCacheService,
+            MissionExecutionRepository executionRepository,
+            @Lazy CreateFeedFromMissionStep self) {
+        this.activityFeedService = activityFeedService;
+        this.userProfileCacheService = userProfileCacheService;
+        this.executionRepository = executionRepository;
+        this.self = self;
+    }
 
     @Override
     public String getName() {
@@ -96,8 +108,8 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             context.setCreatedFeedId(feed.getId());
 
             // execution 엔티티에도 feedId 저장 (나중에 이미지 업로드 시 피드 동기화용)
-            execution.setFeedId(feed.getId());
-            executionRepository.save(execution);
+            // 별도 트랜잭션으로 실행하여 missionTransactionManager 사용
+            self.updateExecutionFeedId(execution.getId(), feed.getId());
 
             log.info("Mission shared feed created: userId={}, feedId={}, executionId={}",
                 userId, feed.getId(), execution.getId());
@@ -137,5 +149,18 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             log.warn("Failed to compensate feed: feedId={}, error={}", feedId, e.getMessage());
             return SagaStepResult.failure("피드 보상 실패", e);
         }
+    }
+
+    /**
+     * execution의 feedId를 업데이트 (별도 트랜잭션)
+     * missionTransactionManager를 사용하여 mission_db에 저장
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void updateExecutionFeedId(Long executionId, Long feedId) {
+        MissionExecution execution = executionRepository.findById(executionId)
+            .orElseThrow(() -> new IllegalArgumentException("Execution not found: " + executionId));
+        execution.setFeedId(feedId);
+        executionRepository.save(execution);
+        log.info("Execution feedId updated: executionId={}, feedId={}", executionId, feedId);
     }
 }
