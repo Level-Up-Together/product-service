@@ -69,7 +69,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Service | Database | Purpose |
 |---------|----------|---------|
 | `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, friends, quests |
-| `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book |
+| `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book, daily mission instances (pinned missions) |
 | `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
 | `metaservice` | meta_db | Common codes, calendar holidays, Redis-cached metadata, level configuration |
 | `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
@@ -104,6 +104,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Monitoring**: Actuator at `/showmethemoney`
 - **Saga Pattern**: `io.pinkspider.global.saga` - 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Rate Limiting**: Resilience4j rate limiter (`io.pinkspider.global.config.RateLimiterConfig`)
+- **Scheduled Tasks**: Spring `@Scheduled` for batch jobs (e.g., `DailyMissionInstanceScheduler`)
 
 ### Transaction Manager 주의사항
 
@@ -139,6 +140,8 @@ Each service module follows a consistent layered structure:
 - `application/` - Business logic services with `@Transactional`
 - `domain/` - Entities, DTOs, enums
 - `infrastructure/` - JPA repositories
+- `scheduler/` - Scheduled batch jobs (optional, e.g., `DailyMissionInstanceScheduler`)
+- `saga/` - Saga orchestration steps (optional, e.g., `MissionCompletionSaga`)
 
 ### API Response Format
 
@@ -285,3 +288,33 @@ class YourServiceTest {
 
 ### Integration Tests 실패
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있음. `@ActiveProfiles("test")` 확인
+
+## Mission Service: Pinned Mission (고정 미션)
+
+고정 미션은 Template-Instance 패턴으로 구현됩니다:
+
+### DailyMissionInstance 엔티티
+- 고정 미션(`isPinned=true`)은 `DailyMissionInstance` 엔티티를 사용
+- 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 5 0 * * *`)
+- 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
+- 피드와 1:1 관계 (`feedId` 필드)
+
+### API 라우팅 (하위 호환성 유지)
+```java
+// MissionExecutionService에서 isPinned 체크 후 분기
+if (isPinnedMission(missionId, userId)) {
+    return dailyMissionInstanceService.startInstanceByMission(...);
+}
+```
+
+### 관련 파일
+- `domain/entity/DailyMissionInstance.java` - 일일 인스턴스 엔티티
+- `application/DailyMissionInstanceService.java` - 인스턴스 서비스
+- `scheduler/DailyMissionInstanceScheduler.java` - 배치 스케줄러
+- `infrastructure/DailyMissionInstanceRepository.java` - 리포지토리
+
+### 마이그레이션
+```bash
+# mission_db에서 실행
+psql -d mission_db -f level-up-together-sql/queries/migration/20260122_create_daily_mission_instance.sql
+```
