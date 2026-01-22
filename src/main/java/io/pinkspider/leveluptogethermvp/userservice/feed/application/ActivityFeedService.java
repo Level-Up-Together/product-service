@@ -1010,4 +1010,16 @@ public class ActivityFeedService {
         log.info("Feeds deleted by missionId: missionId={}, deletedCount={}", missionId, deletedCount);
         return deletedCount;
     }
+
+    /**
+     * 피드 이미지 URL 업데이트 (미션 실행 이미지 업로드/삭제 시 연동)
+     */
+    @Transactional
+    public void updateFeedImageUrl(Long feedId, String imageUrl) {
+        activityFeedRepository.findById(feedId).ifPresent(feed -> {
+            feed.setImageUrl(imageUrl);
+            activityFeedRepository.save(feed);
+            log.info("Feed image updated: feedId={}, imageUrl={}", feedId, imageUrl);
+        });
+    }
 }

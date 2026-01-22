@@ -4,6 +4,7 @@ import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
@@ -12,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfi
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Step: 피드 생성
@@ -25,6 +27,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     private final ActivityFeedService activityFeedService;
     private final UserProfileCacheService userProfileCacheService;
+    private final MissionExecutionRepository executionRepository;
 
     @Override
     public String getName() {
@@ -89,8 +92,12 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 execution.getExpEarned()
             );
 
-            // 생성된 피드 ID 저장
+            // 생성된 피드 ID 저장 (Saga 컨텍스트)
             context.setCreatedFeedId(feed.getId());
+
+            // execution 엔티티에도 feedId 저장 (나중에 이미지 업로드 시 피드 동기화용)
+            execution.setFeedId(feed.getId());
+            executionRepository.save(execution);
 
             log.info("Mission shared feed created: userId={}, feedId={}, executionId={}",
                 userId, feed.getId(), execution.getId());
@@ -104,6 +111,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
     }
 
     @Override
+    @Transactional(transactionManager = "missionTransactionManager")
     public SagaStepResult compensate(MissionCompletionContext context) {
         Long feedId = context.getCreatedFeedId();
 
@@ -113,6 +121,15 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         }
 
         try {
+            // execution의 feedId도 초기화
+            MissionExecution execution = context.getExecution();
+            if (execution != null && execution.getFeedId() != null) {
+                execution.setFeedId(null);
+                executionRepository.save(execution);
+                log.info("Execution feedId cleared: executionId={}", execution.getId());
+            }
+
+            // 피드 삭제
             activityFeedService.deleteFeedById(feedId);
             log.info("Compensated feed deletion: feedId={}", feedId);
             return SagaStepResult.success("피드 삭제 완료");
