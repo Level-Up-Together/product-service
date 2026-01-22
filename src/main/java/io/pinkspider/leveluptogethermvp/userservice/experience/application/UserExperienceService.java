@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.experience.application;
 
+import io.pinkspider.global.cache.LevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
@@ -29,7 +30,8 @@ public class UserExperienceService {
     private final UserExperienceRepository userExperienceRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
-    private final LevelConfigRepository levelConfigRepository;
+    private final LevelConfigCacheService levelConfigCacheService;
+    private final LevelConfigRepository levelConfigRepository; // for write operations
     private final ApplicationContext applicationContext;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -134,7 +136,7 @@ public class UserExperienceService {
     }
 
     private void processLevelUp(UserExperience userExp) {
-        List<LevelConfig> levelConfigs = levelConfigRepository.findAllByOrderByLevelAsc();
+        List<LevelConfig> levelConfigs = levelConfigCacheService.getAllLevelConfigs();
         if (levelConfigs.isEmpty()) {
             processLevelUpWithDefaultFormula(userExp);
             return;
@@ -158,7 +160,7 @@ public class UserExperienceService {
                 break;
             }
 
-            Integer maxLevel = levelConfigRepository.findMaxLevel();
+            Integer maxLevel = levelConfigCacheService.getMaxLevel();
             if (maxLevel != null && userExp.getCurrentLevel() >= maxLevel) {
                 break;
             }
@@ -181,13 +183,12 @@ public class UserExperienceService {
     }
 
     private Integer getNextLevelRequiredExp(int currentLevel) {
-        return levelConfigRepository.findByLevel(currentLevel)
-            .map(LevelConfig::getRequiredExp)
-            .orElse(calculateDefaultRequiredExp(currentLevel));
+        LevelConfig config = levelConfigCacheService.getLevelConfigByLevel(currentLevel);
+        return config != null ? config.getRequiredExp() : calculateDefaultRequiredExp(currentLevel);
     }
 
     public List<LevelConfig> getAllLevelConfigs() {
-        return levelConfigRepository.findAllByOrderByLevelAsc();
+        return levelConfigCacheService.getAllLevelConfigs();
     }
 
     /**
@@ -275,7 +276,7 @@ public class UserExperienceService {
      * 레벨 다운 처리 (경험치 차감으로 인한)
      */
     private void processLevelDown(UserExperience userExp, int targetTotalExp) {
-        List<LevelConfig> levelConfigs = levelConfigRepository.findAllByOrderByLevelAsc();
+        List<LevelConfig> levelConfigs = levelConfigCacheService.getAllLevelConfigs();
 
         if (targetTotalExp <= 0) {
             userExp.setCurrentLevel(1);
