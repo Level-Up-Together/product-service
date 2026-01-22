@@ -46,4 +46,24 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
            "AND mp.status = 'ACCEPTED' " +
            "AND m.isPinned = true")
     List<MissionParticipant> findPinnedMissionParticipants(@Param("userId") String userId);
+
+    /**
+     * 모든 활성 고정 미션 참여자 조회 (배치 스케줄러용)
+     * ACCEPTED 상태이고, 미션이 활성(isPinned=true)인 참여자만 조회
+     */
+    @Query("SELECT mp FROM MissionParticipant mp " +
+           "JOIN FETCH mp.mission m " +
+           "LEFT JOIN FETCH m.category c " +
+           "WHERE mp.status = 'ACCEPTED' " +
+           "AND m.isPinned = true")
+    List<MissionParticipant> findAllActivePinnedMissionParticipants();
+
+    /**
+     * 활성 고정 미션 참여자 ID 목록만 조회 (메모리 효율적인 배치 처리용)
+     */
+    @Query("SELECT mp.id FROM MissionParticipant mp " +
+           "JOIN mp.mission m " +
+           "WHERE mp.status = 'ACCEPTED' " +
+           "AND m.isPinned = true")
+    List<Long> findAllActivePinnedMissionParticipantIds();
 }
