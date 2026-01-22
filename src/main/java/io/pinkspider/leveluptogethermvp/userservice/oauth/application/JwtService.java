@@ -108,14 +108,8 @@ public class JwtService {
             String token = getTokenFromRequest(request);
             if (token != null && jwtUtil.validateToken(token)) {
                 String userId = jwtUtil.getSubjectFromToken(token);
-                String deviceId = jwtUtil.getDeviceIdFromToken(token);
-                String deviceType = request.getHeader("X-Device-Type");
-
-                if (deviceType == null) {
-                    deviceType = "web";
-                }
-
-                tokenService.logout(userId, deviceType, deviceId);
+                // 모든 기기에서 로그아웃 (보안 강화)
+                tokenService.logoutAllDevices(userId);
             }
         } catch (Exception e) {
             throw new CustomException(UserApiStatus.LOGOUT_FAILED.getResultCode(), UserApiStatus.LOGOUT_FAILED.getResultMessage());

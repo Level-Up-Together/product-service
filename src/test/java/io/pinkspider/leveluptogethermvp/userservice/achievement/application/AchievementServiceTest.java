@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.cache.AchievementCacheService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategy;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
@@ -58,6 +59,9 @@ class AchievementServiceTest {
 
     @Mock
     private AchievementCheckStrategy mockStrategy;
+
+    @Mock
+    private AchievementCacheService achievementCacheService;
 
     @InjectMocks
     private AchievementService achievementService;
@@ -124,7 +128,7 @@ class AchievementServiceTest {
             Achievement achievement1 = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
             Achievement achievement2 = createTestAchievement(2L, "MISSION_COMPLETE_10", 10, 100);
 
-            when(achievementRepository.findVisibleAchievements()).thenReturn(List.of(achievement1, achievement2));
+            when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement1, achievement2));
 
             // when
             List<AchievementResponse> result = achievementService.getAllAchievements();
@@ -146,7 +150,7 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
 
-            when(achievementRepository.findVisibleAchievementsByCategoryCode("MISSION"))
+            when(achievementCacheService.getAchievementsByCategoryCode("MISSION"))
                 .thenReturn(List.of(achievement));
 
             // when
@@ -250,7 +254,7 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
 
-            when(achievementRepository.findAllWithCheckLogicAndIsActiveTrue())
+            when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(anyString(), any(Achievement.class))).thenReturn(false);
@@ -266,7 +270,7 @@ class AchievementServiceTest {
             achievementService.syncUserAchievements(TEST_USER_ID);
 
             // then
-            verify(achievementRepository).findAllWithCheckLogicAndIsActiveTrue();
+            verify(achievementCacheService).getAchievementsWithCheckLogic();
             verify(strategyRegistry).getStrategy("USER_STATS");
         }
     }
@@ -283,7 +287,7 @@ class AchievementServiceTest {
             // 진행 중인 업적 (currentCount=5, 아직 미완료)
             UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
-            when(achievementRepository.findAllWithCheckLogicAndIsActiveTrue())
+            when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
@@ -309,7 +313,7 @@ class AchievementServiceTest {
             Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
             UserAchievement completedAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
 
-            when(achievementRepository.findAllWithCheckLogicAndIsActiveTrue())
+            when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
@@ -328,7 +332,7 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "UNKNOWN_ACHIEVEMENT", 1, 50);
 
-            when(achievementRepository.findAllWithCheckLogicAndIsActiveTrue())
+            when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(null);
 
@@ -423,7 +427,7 @@ class AchievementServiceTest {
             Long missionCategoryId = 1L;
             Achievement achievement = createTestAchievement(1L, "CATEGORY_MISSION_COMPLETE", 10, 100);
 
-            when(achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId))
+            when(achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId))
                 .thenReturn(List.of(achievement));
 
             // when
@@ -439,7 +443,7 @@ class AchievementServiceTest {
         void getAchievementsByMissionCategoryId_empty() {
             // given
             Long missionCategoryId = 999L;
-            when(achievementRepository.findVisibleAchievementsByMissionCategoryId(missionCategoryId))
+            when(achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId))
                 .thenReturn(List.of());
 
             // when
@@ -498,7 +502,7 @@ class AchievementServiceTest {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
 
-            when(achievementRepository.findByCheckLogicDataSourceAndIsActiveTrue("USER_STATS"))
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
@@ -512,7 +516,7 @@ class AchievementServiceTest {
             achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
 
             // then
-            verify(achievementRepository).findByCheckLogicDataSourceAndIsActiveTrue("USER_STATS");
+            verify(achievementCacheService).getAchievementsByDataSource("USER_STATS");
             verify(strategyRegistry).getStrategy("USER_STATS");
         }
 

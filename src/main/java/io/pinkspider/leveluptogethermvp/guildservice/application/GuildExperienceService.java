@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.cache.LevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildExperienceHistory;
@@ -10,7 +11,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildLevelCo
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ public class GuildExperienceService {
     private final GuildLevelConfigRepository guildLevelConfigRepository;
     private final GuildExperienceHistoryRepository historyRepository;
     private final GuildMemberRepository guildMemberRepository;
-    private final LevelConfigRepository userLevelConfigRepository;
+    private final LevelConfigCacheService levelConfigCacheService;
 
     @Transactional
     public GuildExperienceResponse addExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
@@ -90,9 +90,8 @@ public class GuildExperienceService {
         // 최소 1명으로 계산 (마스터만 있는 경우)
         memberCount = Math.max(1, memberCount);
 
-        int userRequiredExp = userLevelConfigRepository.findByLevel(level)
-            .map(LevelConfig::getRequiredExp)
-            .orElse(calculateDefaultUserRequiredExp(level));
+        LevelConfig config = levelConfigCacheService.getLevelConfigByLevel(level);
+        int userRequiredExp = config != null ? config.getRequiredExp() : calculateDefaultUserRequiredExp(level);
 
         return memberCount * userRequiredExp;
     }
@@ -254,7 +253,7 @@ public class GuildExperienceService {
             }
 
             // 최대 레벨 체크 (유저 레벨 기준)
-            Integer maxUserLevel = userLevelConfigRepository.findMaxLevel();
+            Integer maxUserLevel = levelConfigCacheService.getMaxLevel();
             if (maxUserLevel != null && guild.getCurrentLevel() >= maxUserLevel) {
                 break;
             }

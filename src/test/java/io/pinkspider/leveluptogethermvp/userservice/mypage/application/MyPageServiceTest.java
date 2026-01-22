@@ -20,9 +20,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRa
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
+import io.pinkspider.global.cache.LevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
@@ -68,7 +68,7 @@ class MyPageServiceTest {
     private FriendshipRepository friendshipRepository;
 
     @Mock
-    private LevelConfigRepository levelConfigRepository;
+    private LevelConfigCacheService levelConfigCacheService;
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
@@ -98,7 +98,7 @@ class MyPageServiceTest {
             userTitleRepository,
             userStatsRepository,
             friendshipRepository,
-            levelConfigRepository,
+            levelConfigCacheService,
             profileImageStorageService,
             imageModerationService,
             activityFeedRepository,
@@ -183,7 +183,7 @@ class MyPageServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(3L);
-            when(levelConfigRepository.findByLevel(1)).thenReturn(Optional.of(LevelConfig.builder().requiredExp(100).build()));
+            when(levelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(LevelConfig.builder().requiredExp(100).build());
             when(userStatsRepository.countTotalUsers()).thenReturn(100L);
             when(userStatsRepository.calculateRank(0L)).thenReturn(50L);
 
