@@ -293,6 +293,7 @@ erDiagram
         mission_participant FK
         mission_execution FK
         mission_state_history
+        daily_mission_instance FK
     }
 
     guild_db {
@@ -369,7 +370,7 @@ erDiagram
 | 데이터베이스 | 서비스 | Transaction Manager | 주요 테이블 |
 |-------------|--------|---------------------|------------|
 | `user_db` | userservice | `userTransactionManager` (Primary) | users, quest, friend |
-| `mission_db` | missionservice | `missionTransactionManager` | mission, mission_execution, mission_participant |
+| `mission_db` | missionservice | `missionTransactionManager` | mission, mission_execution, mission_participant, daily_mission_instance |
 | `guild_db` | guildservice | `guildTransactionManager` | guild, guild_member, guild_post, guild_chat |
 | `meta_db` | metaservice | `metaTransactionManager` | common_code, level_config, calendar_holiday |
 | `feed_db` | feedservice | `feedTransactionManager` | activity_feed, feed_comment, feed_like |
@@ -468,6 +469,10 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 미션 완료 시 경험치 지급
 - 미션북 (시스템 미션 라이브러리)
 - Saga 패턴 기반 분산 트랜잭션 관리
+- **고정 미션 (Pinned Mission)**: Template-Instance 패턴
+  - `DailyMissionInstance`: 매일 자동 생성되는 일일 인스턴스
+  - 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
+  - 배치 스케줄러: 매일 00:05 자동 생성 (`DailyMissionInstanceScheduler`)
 
 ### 길드 (Guild Service)
 - 길드 생성 및 관리
@@ -636,6 +641,13 @@ public void updateGuild(...) { ... }
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있습니다. `@ActiveProfiles("test")` 확인이 필요합니다.
 
 ## 최근 업데이트
+
+### 2026-01 고정 미션 Template-Instance 패턴
+- `DailyMissionInstance` 엔티티 추가 (고정 미션 일일 인스턴스)
+- `DailyMissionInstanceService` 서비스 추가
+- `DailyMissionInstanceScheduler` 배치 스케줄러 추가 (매일 00:05 자동 생성)
+- `MissionExecutionService`에서 고정 미션 분기 처리 (API 하위 호환성 유지)
+- `CreateFeedFromMissionStep`에서 feedId 저장 버그 수정
 
 ### 2026-01 칭호 시스템 개선
 - LEFT/RIGHT 칭호 개별 희귀도 표시 기능 추가
