@@ -34,11 +34,11 @@ public class CryptoMetaDataLoader {
         Object obj;
         // test code 실행시 redis에 cryptoMetaData가 없을 경우를 대비한다.
         if (environment.acceptsProfiles(Profiles.of("test"))) {
-            // 운영 키와 동일한 암호화 키 사용
+            // 테스트 전용 암호화 키 (운영 환경과 무관)
             obj = CryptoMetaData.builder()
-                .secretKey("***REDACTED_KEY***=")
+                .secretKey("km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=")
                 .cipher("AES/CBC/PKCS5Padding")
-                .iv("***REDACTED_IV***==")
+                .iv("K4Dw+xcX91fMfi3SNU0gQg==")
                 .build();
         } else {
             obj = redisTemplateForObject.opsForValue().get(MetaServiceConstants.CRYPTO_META_DATA);

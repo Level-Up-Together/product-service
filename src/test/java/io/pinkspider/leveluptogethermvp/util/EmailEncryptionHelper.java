@@ -19,8 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("이메일 암호화 헬퍼")
 class EmailEncryptionHelper {
 
-    private static final String PRODUCTION_SECRET_KEY = "***REDACTED_KEY***=";
-    private static final String PRODUCTION_IV = "***REDACTED_IV***==";
+    // 테스트 전용 키 (운영 환경과 무관)
+    private static final String PRODUCTION_SECRET_KEY = "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
+    private static final String PRODUCTION_IV = "K4Dw+xcX91fMfi3SNU0gQg==";
     private static final String PRODUCTION_CIPHER = "AES/CBC/PKCS5Padding";
 
     private CryptoMetaData productionCryptoMetaData;
