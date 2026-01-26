@@ -6,38 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `http/` 폴더에 IntelliJ HTTP Client 형식의 API 테스트 파일이 있습니다:
 
-| 파일                     | 설명                                |
-|------------------------|-----------------------------------|
-| `oauth-jwt.http`       | OAuth2 로그인, JWT 토큰 관리, 모바일 소셜 로그인 |
-| `mission.http`         | 미션 CRUD, 참가자, 실행 추적, 캘린더          |
-| `guild.http`           | 길드 관리, 채팅, 게시판, 거점, DM            |
-| `activity-feed.http`   | 피드, 좋아요, 댓글, 검색                   |
-| `friend.http`          | 친구 요청/수락/거절/차단                    |
-| `mypage.http`          | 프로필, 닉네임, 칭호 관리                   |
-| `achievement.http`     | 업적, 칭호, 레벨 랭킹                     |
-| `attendance.http`      | 출석 체크                             |
-| `notification.http`    | 알림 관리, 읽음 처리                      |
-| `device-token.http`    | FCM 토큰 등록/삭제                      |
-| `event.http`           | 이벤트 API                           |
-| `bff.http`             | BFF 홈, 통합 검색, 시즌                  |
-| `home.http`            | 홈 배너, 추천 콘텐츠                      |
-| `meta.http`            | 메타데이터, 공통 코드                      |
-| `user-terms.http`      | 약관 동의                             |
-| `user-experience.http` | 경험치, 레벨                           |
+| 파일 | 설명 |
+|------|------|
+| `oauth-jwt.http` | OAuth2 로그인, JWT 토큰 관리, 모바일 소셜 로그인 |
+| `mission.http` | 미션 CRUD, 참가자, 실행 추적, 캘린더 |
+| `guild.http` | 길드 관리, 채팅, 게시판, 거점, DM |
+| `activity-feed.http` | 피드, 좋아요, 댓글, 검색 |
+| `friend.http` | 친구 요청/수락/거절/차단 |
+| `mypage.http` | 프로필, 닉네임, 칭호 관리 |
+| `achievement.http` | 업적, 칭호, 레벨 랭킹 |
+| `attendance.http` | 출석 체크 |
+| `notification.http` | 알림 관리, 읽음 처리 |
+| `device-token.http` | FCM 토큰 등록/삭제 |
+| `event.http` | 이벤트 API |
+| `bff.http` | BFF 홈, 통합 검색, 시즌 |
+| `home.http` | 홈 배너, 추천 콘텐츠 |
+| `meta.http` | 메타데이터, 공통 코드 |
+| `user-terms.http` | 약관 동의 |
+| `user-experience.http` | 경험치, 레벨 |
 
 환경 설정: `http/http-client.env.json`
-
 ```json
 {
-  "dev": {
-    "baseUrl": "https://dev-api.level-up-together.com"
-  },
-  "local": {
-    "baseUrl": "https://local.level-up-together.com:8443"
-  },
-  "test": {
-    "baseUrl": "http://localhost:18080"
-  }
+  "dev": { "baseUrl": "https://dev-api.level-up-together.com" },
+  "local": { "baseUrl": "https://local.level-up-together.com:8443" },
+  "test": { "baseUrl": "http://localhost:18080" }
 }
 ```
 
@@ -69,43 +62,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-**Multi-Service Monolith**: Spring Boot 3.4.5 application with service modules sharing a single deployment unit but
-using separate databases per service. Designed for future MSA migration with Saga pattern.
+**Multi-Service Monolith**: Spring Boot 3.4.5 application with service modules sharing a single deployment unit but using separate databases per service. Designed for future MSA migration with Saga pattern.
 
 ### Service Modules (`src/main/java/io/pinkspider/leveluptogethermvp/`)
 
-| Service               | Database        | Purpose                                                                                                            |
-|-----------------------|-----------------|--------------------------------------------------------------------------------------------------------------------|
-| `userservice`         | user_db         | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, friends, quests                                |
-| `missionservice`      | mission_db      | Mission definition, progress tracking, Saga orchestration, mission book, daily mission instances (pinned missions) |
-| `guildservice`        | guild_db        | Guild creation/management, members, experience/levels, bulletin board, chat, territory                             |
-| `metaservice`         | meta_db         | Common codes, calendar holidays, Redis-cached metadata, level configuration                                        |
-| `feedservice`         | feed_db         | Activity feed, likes, comments, feed visibility management                                                         |
-| `notificationservice` | notification_db | Push notifications, notification preferences, notification management                                              |
-| `adminservice`        | admin_db        | Home banners, featured content (players, guilds, feeds)                                                            |
-| `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons                          |
-| `bffservice`          | -               | Backend-for-Frontend API aggregation, unified search                                                               |
-| `noticeservice`       | -               | Notice/announcement management                                                                                     |
-| `supportservice`      | -               | Support/help functionality                                                                                         |
-| `loggerservice`       | MongoDB         | Event logging with MongoDB and Kafka                                                                               |
-| `profanity`           | meta_db         | Profanity detection and filtering                                                                                  |
+| Service | Database | Purpose |
+|---------|----------|---------|
+| `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, friends, quests |
+| `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book, daily mission instances (pinned missions) |
+| `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, chat, territory |
+| `metaservice` | meta_db | Common codes, calendar holidays, Redis-cached metadata, level configuration |
+| `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
+| `notificationservice` | notification_db | Push notifications, notification preferences, notification management |
+| `adminservice` | admin_db | Home banners, featured content (players, guilds, feeds) |
+| `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons |
+| `bffservice` | - | Backend-for-Frontend API aggregation, unified search |
+| `noticeservice` | - | Notice/announcement management |
+| `supportservice` | - | Support/help functionality |
+| `loggerservice` | MongoDB | Event logging with MongoDB and Kafka |
+| `profanity` | meta_db | Profanity detection and filtering |
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
-- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db,
-  gamification_db, saga_db) with Hikari pooling
+- **Multi-datasource**: Separate databases (user_db, mission_db, guild_db, meta_db, feed_db, notification_db, admin_db, gamification_db, saga_db) with Hikari pooling
 - **Security**: JWT filter (`JwtAuthenticationFilter`), OAuth2 providers
 - **Caching**: Redis with Lettuce client (two templates: `redisTemplateForString`, `redisTemplateForObject`)
-- **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic,
-  userCommunicationTopic)
+- **Messaging**: Kafka topics (loggerTopic, httpLoggerTopic, alimTalkTopic, appPushTopic, emailTopic, userCommunicationTopic)
 - **Events**: Spring Events for notification system and cross-service communication (`io.pinkspider.global.event`)
-    - `@TransactionalEventListener(phase = AFTER_COMMIT)` for event handlers
-    - Event records: `GuildJoinedEvent`, `GuildMasterAssignedEvent`, `FriendRequestEvent`, etc.
+  - `@TransactionalEventListener(phase = AFTER_COMMIT)` for event handlers
+  - Event records: `GuildJoinedEvent`, `GuildMasterAssignedEvent`, `FriendRequestEvent`, etc.
 - **Caching**: Redis caching with `@Cacheable`/`@CacheEvict` annotations
-    - `FriendCacheService` - 친구 목록 캐싱 (TTL 10분)
-    - `UserProfileCacheService` - 유저 프로필 캐싱 (TTL 5분)
-    - `TitleService` - 칭호 정보 캐싱 (TTL 5분)
-    - `MissionCategoryService` - 카테고리 캐싱 (TTL 1시간)
+  - `FriendCacheService` - 친구 목록 캐싱 (TTL 10분)
+  - `UserProfileCacheService` - 유저 프로필 캐싱 (TTL 5분)
+  - `TitleService` - 칭호 정보 캐싱 (TTL 5분)
+  - `MissionCategoryService` - 카테고리 캐싱 (TTL 1시간)
 - **Exception Handling**: Extend `CustomException` from `io.pinkspider.global.exception`
 - **Encryption**: `CryptoConverter` for sensitive field encryption
 - **Translation**: Google Translation API integration (`io.pinkspider.global.translation`)
@@ -123,11 +113,11 @@ using separate databases per service. Designed for future MSA migration with Sag
 ```java
 // GuildService 예시
 @Transactional(transactionManager = "guildTransactionManager")
-public void updateGuild(...) { ...}
+public void updateGuild(...) { ... }
 
 // MissionService 예시
 @Transactional(transactionManager = "missionTransactionManager")
-public void updateMission(...) { ...}
+public void updateMission(...) { ... }
 ```
 
 트랜잭션 매니저 매핑:
@@ -146,7 +136,6 @@ public void updateMission(...) { ...}
 ### Service Layer Pattern
 
 Each service module follows a consistent layered structure:
-
 - `api/` - REST controllers returning `ApiResult<T>` wrapper
 - `application/` - Business logic services with `@Transactional`
 - `domain/` - Entities, DTOs, enums
@@ -157,13 +146,12 @@ Each service module follows a consistent layered structure:
 ### API Response Format
 
 All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
-
 ```java
 {
-    "code":"0000",      // ApiStatus code
-    "message":"success",
-    "value":{...}     // Response payload
-    }
+  "code": "0000",      // ApiStatus code
+  "message": "success",
+  "value": { ... }     // Response payload
+}
 ```
 
 ### Key Technologies
@@ -177,10 +165,8 @@ All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
 ### Exception Handling
 
 Custom exceptions should extend `CustomException` from `io.pinkspider.global.exception`:
-
 ```java
 public class YourServiceException extends CustomException {
-
     public YourServiceException() {
         super("XXXXXX", "Error message");
     }
@@ -216,17 +202,13 @@ Each service has its own datasource configuration in `io.pinkspider.global.confi
 Tests exclude classes in `io/pinkspider/global/**`. JaCoCo 최소 커버리지: **70%**
 
 ### Test Fixtures
-
 JSON fixtures in `src/test/resources/fixture/{servicename}/` are loaded via `MockUtil`:
-
 ```java
-MockUtil.readJsonFileToClass("fixture/userservice/oauth/mockCreateJwtResponseDto.json",CreateJwtResponseDto .class);
+MockUtil.readJsonFileToClass("fixture/userservice/oauth/mockCreateJwtResponseDto.json", CreateJwtResponseDto.class);
 ```
 
 ### Controller Tests
-
 Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
-
 ```java
 @WebMvcTest(controllers = YourController.class, excludeAutoConfiguration = {...})
 @Import(ControllerTestConfig.class)
@@ -236,14 +218,10 @@ Use `@WebMvcTest` with `ControllerTestConfig` for isolated controller testing:
 ```
 
 ### Unit Tests (Service Layer)
-
 Use `@ExtendWith(MockitoExtension.class)` for service layer unit testing:
-
 ```java
-
 @ExtendWith(MockitoExtension.class)
 class YourServiceTest {
-
     @Mock
     private YourRepository repository;
 
@@ -288,31 +266,27 @@ class YourServiceTest {
 
 ## 관련 프로젝트
 
-| 프로젝트             | 경로                                                                                  |
-|------------------|-------------------------------------------------------------------------------------|
-| Admin Backend    | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin`      |
-| Admin Frontend   | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend` |
-| Product Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend`       |
-| SQL Scripts      | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries`    |
-| Config Server    | `/Users/pink-spider/Code/github/Level-Up-Together/config-repository`                |
-| React Native App | `/Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative`       |
+| 프로젝트 | 경로 |
+|---------|------|
+| Admin Backend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin` |
+| Admin Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend` |
+| Product Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend` |
+| SQL Scripts | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries` |
+| Config Server | `/Users/pink-spider/Code/github/Level-Up-Together/config-repository` |
+| React Native App | `/Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative` |
 
 ## 자주 발생하는 이슈
 
 ### QueryDSL 빌드 오류
-
 `Attempt to recreate a file for type Q*` 오류 발생 시:
-
 ```bash
 ./gradlew clean compileJava
 ```
 
 ### 트랜잭션 매니저 미지정 오류
-
 데이터가 저장되지 않거나 조회되지 않는 경우, `@Transactional`에 올바른 트랜잭션 매니저가 지정되어 있는지 확인
 
 ### Integration Tests 실패
-
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있음. `@ActiveProfiles("test")` 확인
 
 ## Mission Service: Pinned Mission (고정 미션)
@@ -320,37 +294,27 @@ SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 
 고정 미션은 Template-Instance 패턴으로 구현됩니다:
 
 ### DailyMissionInstance 엔티티
-
 - 고정 미션(`isPinned=true`)은 `DailyMissionInstance` 엔티티를 사용
 - 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 5 0 * * *`)
 - 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
 - 피드와 1:1 관계 (`feedId` 필드)
 
 ### API 라우팅 (하위 호환성 유지)
-
 ```java
 // MissionExecutionService에서 isPinned 체크 후 분기
-if(isPinnedMission(missionId, userId)){
-    return dailyMissionInstanceService.
-
-startInstanceByMission(...);
+if (isPinnedMission(missionId, userId)) {
+    return dailyMissionInstanceService.startInstanceByMission(...);
 }
 ```
 
 ### 관련 파일
-
 - `domain/entity/DailyMissionInstance.java` - 일일 인스턴스 엔티티
 - `application/DailyMissionInstanceService.java` - 인스턴스 서비스
 - `scheduler/DailyMissionInstanceScheduler.java` - 배치 스케줄러
 - `infrastructure/DailyMissionInstanceRepository.java` - 리포지토리
 
 ### 마이그레이션
-
 ```bash
 # mission_db에서 실행
 psql -d mission_db -f level-up-together-sql/queries/migration/20260122_create_daily_mission_instance.sql
 ```
-
-### init
-
-- claude code 시작할떄, /add-all 자동실행

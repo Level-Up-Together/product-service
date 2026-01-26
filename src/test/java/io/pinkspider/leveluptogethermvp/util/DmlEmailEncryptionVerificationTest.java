@@ -20,9 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("DML 이메일 암호화 검증 테스트")
 class DmlEmailEncryptionVerificationTest {
 
-    // 실제 사용하는 암호화 키 (application-test.yml, application-local.yml에 정의된 값)
-    private static final String PRODUCTION_SECRET_KEY = "IH6iH219wyxeCyCFrRmolOGhrtv8E0gys0nNx4K2Ilw=";
-    private static final String PRODUCTION_IV = "dlHxWdmF20IF8gCDyrLtqQ==";
+    // 테스트 전용 키 (운영 환경과 무관)
+    private static final String PRODUCTION_SECRET_KEY = "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
+    private static final String PRODUCTION_IV = "K4Dw+xcX91fMfi3SNU0gQg==";
     private static final String PRODUCTION_CIPHER = "AES/CBC/PKCS5Padding";
 
     private CryptoMetaData productionCryptoMetaData;

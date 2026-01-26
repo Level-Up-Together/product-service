@@ -852,7 +852,7 @@ class MissionExecutionServiceTest {
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of(execution1, execution2));
 
-            // 고정 미션 인스턴스 조회 mock (없음)
+            // DailyMissionInstance 조회 mock (없음)
             when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of());
 
@@ -874,7 +874,7 @@ class MissionExecutionServiceTest {
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of());
 
-            // 고정 미션 인스턴스 조회 mock (없음)
+            // DailyMissionInstance 조회 mock (없음)
             when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
                 .thenReturn(List.of());
 
@@ -939,7 +939,7 @@ class MissionExecutionServiceTest {
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
                 .thenReturn(List.of(newExecution));
 
-            // 고정 미션 인스턴스 조회 mock (없음)
+            // DailyMissionInstance 조회 mock (없음)
             when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
                 .thenReturn(List.of());
 
@@ -996,7 +996,7 @@ class MissionExecutionServiceTest {
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
                 .thenReturn(List.of(existingExecution));
 
-            // 고정 미션 인스턴스 조회 mock (없음)
+            // DailyMissionInstance 조회 mock (없음)
             when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
                 .thenReturn(List.of());
 
