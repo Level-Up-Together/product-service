@@ -8,10 +8,10 @@ eureka:
 encrypt:
   key: key-brian
 
-# Crypto 설정 (운영 키와 동일)
+# Crypto 설정 (운영 키와 별도)
 crypto:
-  secret-key: ***REDACTED_KEY***=
-  iv: ***REDACTED_IV***==
+  secret-key: km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=
+  iv: K4Dw+xcX91fMfi3SNU0gQg==
   cipher: AES/CBC/PKCS5Padding
 
 spring:

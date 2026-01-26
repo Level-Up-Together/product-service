@@ -18,8 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("CryptoConverter 테스트")
 class CryptoConverterTest {
 
-    private static final String TEST_SECRET_KEY = "***REDACTED_KEY***=";
-    private static final String TEST_IV = "***REDACTED_IV***==";
+    // 테스트 전용 키 (운영 환경과 무관)
+    private static final String TEST_SECRET_KEY = "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
+    private static final String TEST_IV = "K4Dw+xcX91fMfi3SNU0gQg==";
     private static final String TEST_CIPHER = "AES/CBC/PKCS5Padding";
 
     private CryptoConverter cryptoConverter;
@@ -113,9 +114,9 @@ class CryptoConverterTest {
                 encrypted = cryptoConverter.convertToDatabaseColumn("test@example.com");
             }
 
-            // 다른 키로 복호화 시도
+            // 다른 키로 복호화 시도 (테스트 전용)
             CryptoMetaData differentKeyMetaData = CryptoMetaData.builder()
-                .secretKey("***REDACTED_KEY2***=") // 다른 키
+                .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
                 .iv(TEST_IV)
                 .cipher(TEST_CIPHER)
                 .build();
