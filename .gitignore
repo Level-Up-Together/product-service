@@ -55,3 +55,4 @@ logs
 ### Firebase ###
 firebase-service-account.json
 src/main/resources/firebase-service-account.json
+/firebase-debug.log
