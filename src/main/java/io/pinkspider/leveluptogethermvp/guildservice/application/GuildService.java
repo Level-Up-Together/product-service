@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,6 +57,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(transactionManager = "guildTransactionManager", readOnly = true)
 public class GuildService {
 
+    private static final int GUILD_CREATION_MIN_LEVEL = 20;
+
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
@@ -69,9 +72,18 @@ public class GuildService {
     private final GuildImageStorageService guildImageStorageService;
     private final GuildChatService guildChatService;
     private final ReportService reportService;
+    private final UserExperienceService userExperienceService;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
+        // 레벨 체크: 길드 창설은 레벨 20 이상부터 가능
+        int userLevel = userExperienceService.getOrCreateUserExperience(userId).getCurrentLevel();
+        if (userLevel < GUILD_CREATION_MIN_LEVEL) {
+            throw new IllegalStateException(
+                String.format("길드 창설은 레벨 %d 이상부터 가능합니다. (현재 레벨: %d)",
+                    GUILD_CREATION_MIN_LEVEL, userLevel));
+        }
+
         // 카테고리 유효성 검증
         MissionCategoryResponse category = missionCategoryService.getCategory(request.getCategoryId());
         if (category == null || !category.getIsActive()) {

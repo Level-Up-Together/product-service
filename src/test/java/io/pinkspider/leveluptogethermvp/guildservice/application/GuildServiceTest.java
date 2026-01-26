@@ -39,6 +39,7 @@ import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedGuil
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,6 +102,9 @@ class GuildServiceTest {
 
     @Mock
     private ReportService reportService;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService userExperienceService;
 
     @InjectMocks
     private GuildService guildService;
@@ -181,6 +185,11 @@ class GuildServiceTest {
                 .categoryId(testCategoryId)
                 .build();
 
+            UserExperience userExperience = UserExperience.builder()
+                .userId(testUserId)
+                .currentLevel(20)
+                .build();
+            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
@@ -216,6 +225,11 @@ class GuildServiceTest {
                 .categoryId(testCategoryId)
                 .build();
 
+            UserExperience userExperience = UserExperience.builder()
+                .userId(testUserId)
+                .currentLevel(20)
+                .build();
+            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
 
@@ -238,6 +252,11 @@ class GuildServiceTest {
                 .categoryId(testCategoryId)
                 .build();
 
+            UserExperience userExperience = UserExperience.builder()
+                .userId(testUserId)
+                .currentLevel(20)
+                .build();
+            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("중복 길드")).thenReturn(true);
