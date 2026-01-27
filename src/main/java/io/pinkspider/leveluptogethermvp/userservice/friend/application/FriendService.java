@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -282,14 +283,15 @@ public class FriendService {
 
     // 칭호 정보 조회 헬퍼 메서드 (LEFT 포지션의 칭호를 대표 칭호로 사용)
     private Map<String, String> getTitleMap(List<String> userIds) {
-        return userIds.stream()
-            .collect(Collectors.toMap(
-                id -> id,
-                id -> userTitleRepository.findEquippedByUserIdAndPosition(id, TitlePosition.LEFT)
-                    .map(UserTitle::getTitle)
-                    .map(title -> title.getDisplayName())
-                    .orElse(null)
-            ));
+        Map<String, String> result = new HashMap<>();
+        for (String id : userIds) {
+            String title = userTitleRepository.findEquippedByUserIdAndPosition(id, TitlePosition.LEFT)
+                .map(UserTitle::getTitle)
+                .map(t -> t.getDisplayName())
+                .orElse(null);
+            result.put(id, title);
+        }
+        return result;
     }
 
     // 받은 친구 요청 목록
