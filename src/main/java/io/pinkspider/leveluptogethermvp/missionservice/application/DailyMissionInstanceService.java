@@ -175,6 +175,7 @@ public class DailyMissionInstanceService {
             ExpSourceType.MISSION_EXECUTION,
             mission.getId(),
             "고정 미션 수행 완료: " + instance.getMissionTitle(),
+            instance.getCategoryId(),
             instance.getCategoryName()
         );
 
