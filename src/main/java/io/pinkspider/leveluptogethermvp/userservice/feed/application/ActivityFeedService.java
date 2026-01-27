@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.application;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.translation.TranslationService;
 import io.pinkspider.global.translation.dto.TranslationInfo;
@@ -46,6 +47,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -69,6 +71,7 @@ public class ActivityFeedService {
     private final UserProfileCacheService userProfileCacheService;
     private final TranslationService translationService;
     private final ReportService reportService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -611,6 +614,17 @@ public class ActivityFeedService {
         activityFeedRepository.save(feed);
 
         log.info("Comment added: feedId={}, commentId={}, userId={}", feedId, saved.getId(), userId);
+
+        // 피드 댓글 알림 이벤트 발행 (자신의 글에 자신이 댓글 단 경우 제외)
+        if (!userId.equals(feed.getUserId())) {
+            eventPublisher.publishEvent(new FeedCommentEvent(
+                userId,
+                feed.getUserId(),
+                userProfile.nickname(),
+                feedId
+            ));
+        }
+
         return FeedCommentResponse.from(saved);
     }
 

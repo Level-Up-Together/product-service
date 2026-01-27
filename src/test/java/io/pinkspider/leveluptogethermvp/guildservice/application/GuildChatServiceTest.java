@@ -60,6 +60,9 @@ class GuildChatServiceTest {
     @Mock
     private UserProfileCacheService userProfileCacheService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private GuildChatService guildChatService;
 
@@ -111,6 +114,7 @@ class GuildChatServiceTest {
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(memberRepository.findActiveMembers(1L)).thenReturn(java.util.Collections.emptyList());
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
                 setId(msg, GuildChatMessage.class, 1L);
@@ -138,6 +142,7 @@ class GuildChatServiceTest {
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(memberRepository.findActiveMembers(1L)).thenReturn(java.util.Collections.emptyList());
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
                 setId(msg, GuildChatMessage.class, 1L);

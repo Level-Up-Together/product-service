@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.ChatParticipantResponse;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +41,7 @@ public class GuildChatService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository memberRepository;
     private final UserProfileCacheService userProfileCacheService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 메시지 전송
     @Transactional(transactionManager = "guildTransactionManager")
@@ -69,6 +72,24 @@ public class GuildChatService {
 
         GuildChatMessage saved = chatMessageRepository.save(message);
         log.debug("채팅 메시지 전송: guildId={}, userId={}", guildId, userId);
+
+        // 길드 채팅 알림 이벤트 발행 (발신자 제외한 길드 멤버들에게)
+        List<String> memberIds = memberRepository.findActiveMembers(guildId).stream()
+            .map(member -> member.getUserId())
+            .filter(memberId -> !memberId.equals(userId))
+            .toList();
+
+        if (!memberIds.isEmpty()) {
+            eventPublisher.publishEvent(new GuildChatMessageEvent(
+                userId,
+                effectiveNickname,
+                guildId,
+                guild.getName(),
+                saved.getId(),
+                saved.getContent(),
+                memberIds
+            ));
+        }
 
         return ChatMessageResponse.from(saved);
     }

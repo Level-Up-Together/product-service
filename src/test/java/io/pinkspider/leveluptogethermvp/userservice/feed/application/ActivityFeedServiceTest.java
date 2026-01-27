@@ -94,6 +94,9 @@ class ActivityFeedServiceTest {
     @Mock
     private ReportService reportService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private ActivityFeedService activityFeedService;
 
