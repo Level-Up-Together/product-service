@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
-import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import java.lang.reflect.Field;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,20 +17,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class MissionCategoryCheckStrategyTest {
+class UserCategoryExperienceCheckStrategyTest {
 
     @Mock
-    private MissionExecutionRepository missionExecutionRepository;
+    private UserCategoryExperienceRepository userCategoryExperienceRepository;
 
     @InjectMocks
-    private MissionCategoryCheckStrategy strategy;
+    private UserCategoryExperienceCheckStrategy strategy;
 
     private static final String TEST_USER_ID = "test-user-123";
 
     private Achievement createTestAchievement(Long id, String dataField, String operator, int requiredCount) {
         Achievement achievement = Achievement.builder()
             .name("테스트 업적")
-            .checkLogicDataSource("MISSION_CATEGORY")
+            .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
             .checkLogicDataField(dataField)
             .comparisonOperator(operator)
             .requiredCount(requiredCount)
@@ -43,18 +45,27 @@ class MissionCategoryCheckStrategyTest {
         return achievement;
     }
 
+    private UserCategoryExperience createCategoryExperience(Long categoryId, Long totalExp) {
+        return UserCategoryExperience.builder()
+            .userId(TEST_USER_ID)
+            .categoryId(categoryId)
+            .categoryName("테스트 카테고리")
+            .totalExp(totalExp)
+            .build();
+    }
+
     @Nested
     @DisplayName("getDataSource 테스트")
     class GetDataSourceTest {
 
         @Test
         @DisplayName("데이터 소스를 반환한다")
-        void getDataSource_returnsMissionCategory() {
+        void getDataSource_returnsUserCategoryExperience() {
             // when
             String result = strategy.getDataSource();
 
             // then
-            assertThat(result).isEqualTo("MISSION_CATEGORY");
+            assertThat(result).isEqualTo("USER_CATEGORY_EXPERIENCE");
         }
     }
 
@@ -63,17 +74,32 @@ class MissionCategoryCheckStrategyTest {
     class FetchCurrentValueTest {
 
         @Test
-        @DisplayName("특정 카테고리의 미션 완료 횟수를 반환한다")
+        @DisplayName("특정 카테고리의 누적 경험치를 반환한다")
         void fetchCurrentValue_categoryField() {
             // given
-            when(missionExecutionRepository.countCompletedByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(10L);
+            UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(categoryExp));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "category_1");
 
             // then
-            assertThat(result).isEqualTo(10L);
+            assertThat(result).isEqualTo(500L);
+        }
+
+        @Test
+        @DisplayName("해당 카테고리 경험치가 없으면 0을 반환한다")
+        void fetchCurrentValue_noCategoryExp_returnsZero() {
+            // given
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.empty());
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "category_1");
+
+            // then
+            assertThat(result).isEqualTo(0L);
         }
 
         @Test
@@ -115,9 +141,26 @@ class MissionCategoryCheckStrategyTest {
         @DisplayName("조건을 만족하면 true를 반환한다")
         void checkCondition_satisfied_returnsTrue() {
             // given
-            Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 5);
-            when(missionExecutionRepository.countCompletedByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(10L);
+            Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 500);
+            UserCategoryExperience categoryExp = createCategoryExperience(1L, 1000L);
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(categoryExp));
+
+            // when
+            boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("조건이 정확히 일치해도 GTE는 true를 반환한다")
+        void checkCondition_equalValue_returnsTrue() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 500);
+            UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -130,9 +173,10 @@ class MissionCategoryCheckStrategyTest {
         @DisplayName("조건을 만족하지 않으면 false를 반환한다")
         void checkCondition_notSatisfied_returnsFalse() {
             // given
-            Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 20);
-            when(missionExecutionRepository.countCompletedByUserIdAndCategoryId(TEST_USER_ID, 1L))
-                .thenReturn(10L);
+            Achievement achievement = createTestAchievement(1L, "category_1", "GTE", 1000);
+            UserCategoryExperience categoryExp = createCategoryExperience(1L, 500L);
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(categoryExp));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);

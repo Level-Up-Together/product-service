@@ -2,27 +2,27 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strateg
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ComparisonOperator;
-import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * MISSION_CATEGORY 데이터 소스에 대한 업적 체크 전략
- * 특정 미션 카테고리별 완료 횟수를 체크합니다.
+ * USER_CATEGORY_EXPERIENCE 데이터 소스에 대한 업적 체크 전략
+ * 특정 미션 카테고리별 누적 경험치를 체크합니다.
  *
  * dataField 형식: "category_{categoryId}" (예: "category_1", "category_2")
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class MissionCategoryCheckStrategy implements AchievementCheckStrategy {
+public class UserCategoryExperienceCheckStrategy implements AchievementCheckStrategy {
 
-    private final MissionExecutionRepository missionExecutionRepository;
+    private final UserCategoryExperienceRepository userCategoryExperienceRepository;
 
     @Override
     public String getDataSource() {
-        return "MISSION_CATEGORY";
+        return "USER_CATEGORY_EXPERIENCE";
     }
 
     @Override
@@ -33,9 +33,12 @@ public class MissionCategoryCheckStrategy implements AchievementCheckStrategy {
             return 0L;
         }
 
-        long completedCount = missionExecutionRepository.countCompletedByUserIdAndCategoryId(userId, categoryId);
-        log.debug("미션 카테고리별 완료 횟수 조회: userId={}, categoryId={}, count={}", userId, categoryId, completedCount);
-        return completedCount;
+        Long totalExp = userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
+            .map(exp -> exp.getTotalExp())
+            .orElse(0L);
+
+        log.debug("카테고리별 경험치 조회: userId={}, categoryId={}, totalExp={}", userId, categoryId, totalExp);
+        return totalExp;
     }
 
     @Override
@@ -54,7 +57,7 @@ public class MissionCategoryCheckStrategy implements AchievementCheckStrategy {
         int requiredCount = achievement.getRequiredCount();
 
         boolean result = operator.compare((Number) currentValue, requiredCount);
-        log.debug("MissionCategory 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
+        log.debug("UserCategoryExperience 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
             userId, dataField, currentValue, requiredCount, operator, result);
 
         return result;

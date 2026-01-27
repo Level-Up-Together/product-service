@@ -198,12 +198,14 @@ public class MissionExecutionService {
         int expEarned = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 10;
         execution.setExpEarned(expEarned);
 
+        Long categoryId = mission.getCategory() != null ? mission.getCategory().getId() : null;
         userExperienceService.addExperience(
             userId,
             expEarned,
             ExpSourceType.MISSION_EXECUTION,
             mission.getId(),
             "미션 수행 완료: " + mission.getTitle(),
+            categoryId,
             mission.getCategoryName()
         );
 
@@ -570,12 +572,14 @@ public class MissionExecutionService {
             int bonusExp = mission.getBonusExpOnFullCompletion() != null
                 ? mission.getBonusExpOnFullCompletion() : 50;
 
+            Long bonusCategoryId = mission.getCategory() != null ? mission.getCategory().getId() : null;
             userExperienceService.addExperience(
                 participant.getUserId(),
                 bonusExp,
                 ExpSourceType.MISSION_FULL_COMPLETION,
                 mission.getId(),
                 "미션 전체 완료 보너스: " + mission.getTitle(),
+                bonusCategoryId,
                 mission.getCategoryName()
             );
 
