@@ -28,6 +28,7 @@ public enum NotificationType {
 
     // 소셜 관련 (댓글)
     COMMENT_ON_MY_FEED("내 글에 댓글", "SOCIAL"),
+    COMMENT_ON_MY_MISSION("내 미션에 댓글", "SOCIAL"),
 
     // 미션 관련
     MISSION("미션", "MISSION"),

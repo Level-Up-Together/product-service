@@ -13,6 +13,7 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -209,6 +210,26 @@ public class NotificationEventListener {
             );
         } catch (Exception e) {
             log.error("피드 댓글 알림 생성 실패: error={}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 미션 댓글 이벤트 처리
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionComment(MissionCommentEvent event) {
+        try {
+            log.debug("미션 댓글 이벤트 처리: commenter={}, missionCreator={}",
+                event.userId(), event.missionCreatorId());
+            notificationService.notifyCommentOnMyMission(
+                event.missionCreatorId(),
+                event.commenterNickname(),
+                event.missionId(),
+                event.missionTitle()
+            );
+        } catch (Exception e) {
+            log.error("미션 댓글 알림 생성 실패: error={}", e.getMessage(), e);
         }
     }
 

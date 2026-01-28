@@ -321,6 +321,16 @@ public class NotificationService {
             "FEED", feedId, "/feed/" + feedId);
     }
 
+    // 내 미션에 댓글 알림
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void notifyCommentOnMyMission(String missionCreatorId, String commenterNickname,
+                                         Long missionId, String missionTitle) {
+        createNotification(missionCreatorId, NotificationType.COMMENT_ON_MY_MISSION,
+            "새 댓글",
+            commenterNickname + "님이 '" + missionTitle + "' 미션에 댓글을 남겼습니다.",
+            "MISSION", missionId, "/mission/" + missionId);
+    }
+
     // 칭호 획득 알림
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
