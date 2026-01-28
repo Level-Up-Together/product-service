@@ -87,8 +87,13 @@ public class ReportService {
 
         } catch (CustomException e) {
             throw e;
+        } catch (feign.FeignException e) {
+            log.error("Admin 서버 연결 실패 - status: {}, message: {}, url: {}",
+                e.status(), e.getMessage(), e.request() != null ? e.request().url() : "unknown", e);
+            throw new CustomException("REPORT_001", "신고 접수 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         } catch (Exception e) {
-            log.error("신고 생성 중 오류 발생", e);
+            log.error("신고 생성 중 오류 발생 - type: {}, message: {}",
+                e.getClass().getSimpleName(), e.getMessage(), e);
             throw new CustomException("REPORT_001", "신고 접수 중 오류가 발생했습니다.");
         }
     }

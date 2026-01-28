@@ -11,7 +11,8 @@ public enum ReportTargetType {
     FEED_COMMENT("피드 댓글"),
     GUILD("길드"),
     GUILD_NOTICE("길드 공지"),
-    MISSION("미션");
+    MISSION("미션"),
+    MISSION_COMMENT("미션 댓글");
 
     private final String description;
 }
