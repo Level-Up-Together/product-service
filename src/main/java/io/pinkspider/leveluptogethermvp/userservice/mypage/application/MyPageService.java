@@ -164,20 +164,34 @@ public class MyPageService {
         String friendshipStatusStr = "NONE";
         Long friendRequestId = null;
         if (!isOwner && currentUserId != null) {
-            Optional<Friendship> friendshipOpt = friendshipRepository.findFriendship(currentUserId, targetUserId);
-            if (friendshipOpt.isPresent()) {
-                Friendship friendship = friendshipOpt.get();
-                if (friendship.getStatus() == FriendshipStatus.ACCEPTED) {
-                    friendshipStatusStr = "ACCEPTED";
-                } else if (friendship.getStatus() == FriendshipStatus.PENDING) {
-                    // 내가 보낸 요청인지, 받은 요청인지 구분
-                    if (friendship.getUserId().equals(currentUserId)) {
-                        friendshipStatusStr = "PENDING_SENT";
-                    } else {
-                        friendshipStatusStr = "PENDING_RECEIVED";
-                        friendRequestId = friendship.getId();
+            try {
+                Optional<Friendship> friendshipOpt = friendshipRepository.findFriendship(currentUserId, targetUserId);
+                if (friendshipOpt.isPresent()) {
+                    Friendship friendship = friendshipOpt.get();
+                    FriendshipStatus status = friendship.getStatus();
+                    if (status == FriendshipStatus.ACCEPTED) {
+                        friendshipStatusStr = "ACCEPTED";
+                    } else if (status == FriendshipStatus.PENDING) {
+                        // 내가 보낸 요청인지, 받은 요청인지 구분
+                        if (friendship.getUserId().equals(currentUserId)) {
+                            friendshipStatusStr = "PENDING_SENT";
+                        } else {
+                            friendshipStatusStr = "PENDING_RECEIVED";
+                            friendRequestId = friendship.getId();
+                        }
+                    } else if (status == FriendshipStatus.REJECTED) {
+                        // 거절된 경우: 새로운 친구 요청 가능 (NONE으로 표시)
+                        friendshipStatusStr = "NONE";
+                        log.debug("Friendship was rejected: currentUserId={}, targetUserId={}", currentUserId, targetUserId);
+                    } else if (status == FriendshipStatus.BLOCKED) {
+                        // 차단된 경우
+                        friendshipStatusStr = "BLOCKED";
                     }
                 }
+            } catch (Exception e) {
+                log.error("친구 관계 조회 중 오류 발생: currentUserId={}, targetUserId={}, error={}",
+                    currentUserId, targetUserId, e.getMessage(), e);
+                // 오류 발생 시 기본값 NONE 유지
             }
         }
 

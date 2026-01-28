@@ -70,10 +70,9 @@ class UserTermsControllerTest {
     @DisplayName("GET /terms/list : 최신버전 약관 전체 읽기")
     void getRecentAllTermsTest() throws Exception {
         // given
-        List<RecentTermsResponseDto> mockRecentTermsResponseDtoList = MockUtil.convertJsonToProjectionList(
+        List<RecentTermsResponseDto> mockRecentTermsResponseDtoList = MockUtil.readJsonFileToClassList(
             "fixture/userservice/terms/mockRecentTermsResponseDtoList.json",
-            new TypeReference<List<RecentTermsResponseDto>>() {
-            });
+            new TypeReference<List<RecentTermsResponseDto>>() {});
 
         when(userTermsService.getRecentAllTerms())
             .thenReturn(mockRecentTermsResponseDtoList);
@@ -120,10 +119,9 @@ class UserTermsControllerTest {
     void getTermAgreementsByUser() throws Exception {
         // given
         String mockUserId = "mockUserId";
-        List<TermAgreementsByUserResponseDto> mockTermAgreementsByUserResponseDtoList = MockUtil.convertJsonToProjectionList(
+        List<TermAgreementsByUserResponseDto> mockTermAgreementsByUserResponseDtoList = MockUtil.readJsonFileToClassList(
             "fixture/userservice/terms/mockTermAgreementsByUserResponseDtoList.json",
-            new TypeReference<List<TermAgreementsByUserResponseDto>>() {
-            });
+            new TypeReference<List<TermAgreementsByUserResponseDto>>() {});
 
         when(userTermsService.getTermAgreementsByUser(anyString()))
             .thenReturn(mockTermAgreementsByUserResponseDtoList);

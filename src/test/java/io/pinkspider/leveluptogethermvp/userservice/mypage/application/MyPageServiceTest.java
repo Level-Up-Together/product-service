@@ -23,6 +23,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserT
 import io.pinkspider.global.cache.LevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
+import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
+import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
@@ -254,6 +256,81 @@ class MyPageServiceTest {
 
             // then
             assertThat(result.getIsOwner()).isTrue();
+        }
+
+        @Test
+        @DisplayName("친구 요청이 거절된 경우 프로필 조회가 정상 동작한다")
+        void getPublicProfile_rejectedFriendship_success() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            Friendship rejectedFriendship = Friendship.builder()
+                .userId(currentUserId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.REJECTED)
+                .build();
+            try {
+                Field idField = Friendship.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(rejectedFriendship, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.of(rejectedFriendship));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
+            assertThat(result.getIsOwner()).isFalse();
+            // REJECTED 상태에서는 friendshipStatus가 "NONE"으로 반환되어야 함
+            assertThat(result.getFriendshipStatus()).isEqualTo("NONE");
+        }
+
+        @Test
+        @DisplayName("차단된 경우 프로필 조회 시 BLOCKED 상태가 반환된다")
+        void getPublicProfile_blockedFriendship_returnsBlockedStatus() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            Friendship blockedFriendship = Friendship.builder()
+                .userId(currentUserId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.BLOCKED)
+                .build();
+            try {
+                Field idField = Friendship.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(blockedFriendship, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.of(blockedFriendship));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getFriendshipStatus()).isEqualTo("BLOCKED");
         }
     }
 

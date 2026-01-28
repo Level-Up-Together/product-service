@@ -1,12 +1,14 @@
 package io.pinkspider.leveluptogethermvp.userservice.terms.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.RecentTermsResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.TermAgreementsByUserResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.infrastructure.TermsRepository;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -28,47 +30,43 @@ class TermsServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    // Interface mock implementation
-    private RecentTermsResponseDto createMockRecentTerms(String termId, String termTitle, boolean isRequired) {
-        return new RecentTermsResponseDto() {
-            @Override
-            public String getTermId() { return termId; }
-            @Override
-            public String getTermTitle() { return termTitle; }
-            @Override
-            public String getCode() { return "TERMS_001"; }
-            @Override
-            public String getType() { return "REQUIRED"; }
-            @Override
-            public boolean getIsRequired() { return isRequired; }
-            @Override
-            public String getVersionId() { return "1"; }
-            @Override
-            public String getVersion() { return "1.0"; }
-            @Override
-            public String getCreatedAt() { return "2024-01-01"; }
-            @Override
-            public String getContent() { return "약관 내용"; }
+    // Object[] 형태로 RecentTerms 데이터 생성
+    // 컬럼 순서: term_id(0), term_title(1), code(2), type(3), is_required(4), version_id(5), version(6), created_at(7), content(8)
+    private Object[] createRawRecentTerms(Long termId, String termTitle, boolean isRequired) {
+        return new Object[] {
+            termId,           // term_id
+            termTitle,        // term_title
+            "TERMS_001",      // code
+            "REQUIRED",       // type
+            isRequired,       // is_required
+            1L,               // version_id
+            "1.0",            // version
+            "2024-01-01",     // created_at
+            "약관 내용"        // content
         };
     }
 
-    private TermAgreementsByUserResponseDto createMockTermAgreement(String termId, String termTitle, boolean isAgreed) {
-        return new TermAgreementsByUserResponseDto() {
-            @Override
-            public String getTermId() { return termId; }
-            @Override
-            public String getTermTitle() { return termTitle; }
-            @Override
-            public boolean getIsRequired() { return true; }
-            @Override
-            public String getLatestVersionId() { return "1"; }
-            @Override
-            public String getVersion() { return "1.0"; }
-            @Override
-            public boolean getIsAgreed() { return isAgreed; }
-            @Override
-            public String getAgreedAt() { return isAgreed ? "2024-01-01" : null; }
+    // Object[] 형태로 TermAgreement 데이터 생성
+    // 컬럼 순서: term_id(0), term_title(1), is_required(2), latest_version_id(3), version(4), is_agreed(5), agreed_at(6)
+    private Object[] createRawTermAgreement(Long termId, String termTitle, boolean isAgreed) {
+        return new Object[] {
+            termId,                           // term_id
+            termTitle,                        // term_title
+            true,                             // is_required
+            1L,                               // latest_version_id
+            "1.0",                            // version
+            isAgreed,                         // is_agreed
+            isAgreed ? "2024-01-01" : null    // agreed_at
         };
+    }
+
+    // Helper method to create List<Object[]>
+    private List<Object[]> createObjectArrayList(Object[]... arrays) {
+        List<Object[]> result = new ArrayList<>();
+        for (Object[] array : arrays) {
+            result.add(array);
+        }
+        return result;
     }
 
     @Nested
@@ -79,24 +77,28 @@ class TermsServiceTest {
         @DisplayName("최근 약관 목록을 조회한다")
         void getRecentAllTerms_success() {
             // given
-            RecentTermsResponseDto term1 = createMockRecentTerms("1", "이용약관", true);
-            RecentTermsResponseDto term2 = createMockRecentTerms("2", "개인정보처리방침", true);
+            Object[] term1 = createRawRecentTerms(1L, "이용약관", true);
+            Object[] term2 = createRawRecentTerms(2L, "개인정보처리방침", true);
 
-            when(termsRepository.getRecentAllTerms()).thenReturn(List.of(term1, term2));
+            doReturn(createObjectArrayList(term1, term2)).when(termsRepository).getRecentAllTermsRaw();
 
             // when
             List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
 
             // then
             assertThat(result).hasSize(2);
-            verify(termsRepository).getRecentAllTerms();
+            assertThat(result.get(0).getTermId()).isEqualTo("1");
+            assertThat(result.get(0).getTermTitle()).isEqualTo("이용약관");
+            assertThat(result.get(1).getTermId()).isEqualTo("2");
+            assertThat(result.get(1).getTermTitle()).isEqualTo("개인정보처리방침");
+            verify(termsRepository).getRecentAllTermsRaw();
         }
 
         @Test
         @DisplayName("약관이 없으면 빈 목록을 반환한다")
         void getRecentAllTerms_empty() {
             // given
-            when(termsRepository.getRecentAllTerms()).thenReturn(Collections.emptyList());
+            when(termsRepository.getRecentAllTermsRaw()).thenReturn(Collections.emptyList());
 
             // when
             List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
@@ -114,15 +116,17 @@ class TermsServiceTest {
         @DisplayName("사용자별 약관 동의 내역을 조회한다")
         void getTermAgreementsByUser_success() {
             // given
-            TermAgreementsByUserResponseDto agreement = createMockTermAgreement("1", "이용약관", true);
+            Object[] agreement = createRawTermAgreement(1L, "이용약관", true);
 
-            when(termsRepository.getTermAgreementsByUser(TEST_USER_ID)).thenReturn(List.of(agreement));
+            doReturn(createObjectArrayList(agreement)).when(termsRepository).getTermAgreementsByUserRaw(TEST_USER_ID);
 
             // when
             List<TermAgreementsByUserResponseDto> result = termsService.getTermAgreementsByUser(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTermId()).isEqualTo("1");
+            assertThat(result.get(0).getTermTitle()).isEqualTo("이용약관");
             assertThat(result.get(0).getIsAgreed()).isTrue();
         }
     }
@@ -135,15 +139,16 @@ class TermsServiceTest {
         @DisplayName("사용자가 동의하지 않은 약관 목록을 조회한다")
         void getPendingTermsByUser_success() {
             // given
-            TermAgreementsByUserResponseDto pendingTerm = createMockTermAgreement("1", "이용약관", false);
+            Object[] pendingTerm = createRawTermAgreement(1L, "이용약관", false);
 
-            when(termsRepository.getPendingTermsByUser(TEST_USER_ID)).thenReturn(List.of(pendingTerm));
+            doReturn(createObjectArrayList(pendingTerm)).when(termsRepository).getPendingTermsByUserRaw(TEST_USER_ID);
 
             // when
             List<TermAgreementsByUserResponseDto> result = termsService.getPendingTermsByUser(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTermId()).isEqualTo("1");
             assertThat(result.get(0).getIsAgreed()).isFalse();
         }
 
@@ -151,7 +156,7 @@ class TermsServiceTest {
         @DisplayName("동의하지 않은 약관이 없으면 빈 목록을 반환한다")
         void getPendingTermsByUser_empty() {
             // given
-            when(termsRepository.getPendingTermsByUser(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(termsRepository.getPendingTermsByUserRaw(TEST_USER_ID)).thenReturn(Collections.emptyList());
 
             // when
             List<TermAgreementsByUserResponseDto> result = termsService.getPendingTermsByUser(TEST_USER_ID);
