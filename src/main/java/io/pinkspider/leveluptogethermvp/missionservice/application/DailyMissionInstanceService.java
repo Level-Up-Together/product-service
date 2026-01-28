@@ -153,6 +153,8 @@ public class DailyMissionInstanceService {
 
     /**
      * 인스턴스 완료 (경험치 지급 + 피드 공유 옵션)
+     *
+     * 고정 미션은 완료 후 자동으로 PENDING 상태로 리셋되어 하루에 여러 번 수행 가능
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, boolean shareToFeed) {
@@ -196,12 +198,25 @@ public class DailyMissionInstanceService {
             }
         }
 
+        // 완료 정보 저장
         instanceRepository.save(instance);
 
-        log.info("고정 미션 인스턴스 완료: instanceId={}, userId={}, expEarned={}, shareToFeed={}",
-            instanceId, userId, expEarned, shareToFeed);
+        int completionCount = instance.getCompletionCount();
+        int totalExpEarned = instance.getTotalExpEarned();
 
-        return DailyMissionInstanceResponse.from(instance);
+        log.info("고정 미션 인스턴스 완료: instanceId={}, userId={}, expEarned={}, shareToFeed={}, completionCount={}, totalExpEarned={}",
+            instanceId, userId, expEarned, shareToFeed, completionCount, totalExpEarned);
+
+        // 응답은 완료 상태로 반환 (completionCount, totalExpEarned 포함)
+        DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
+
+        // 고정 미션은 완료 후 자동으로 PENDING 상태로 리셋 (하루에 여러 번 수행 가능)
+        instance.resetToPending();
+        instanceRepository.save(instance);
+
+        log.info("고정 미션 인스턴스 자동 리셋: instanceId={}, userId={}, 다음 수행 가능", instanceId, userId);
+
+        return response;
     }
 
     /**

@@ -55,6 +55,8 @@ public class DailyMissionInstanceResponse {
 
     private Integer durationMinutes;
     private Integer expEarned;
+    private Integer completionCount;
+    private Integer totalExpEarned;
     private String note;
     private String imageUrl;
 
@@ -91,6 +93,8 @@ public class DailyMissionInstanceResponse {
             .completedAt(instance.getCompletedAt())
             .durationMinutes(instance.getDurationMinutes())
             .expEarned(instance.getExpEarned())
+            .completionCount(instance.getCompletionCount())
+            .totalExpEarned(instance.getTotalExpEarned())
             .note(instance.getNote())
             .imageUrl(instance.getImageUrl())
             .feedId(instance.getFeedId())

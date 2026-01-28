@@ -459,6 +459,108 @@ class DailyMissionInstanceTest {
     }
 
     @Nested
+    @DisplayName("resetToPending 메서드 테스트 (고정 미션 반복 수행)")
+    class ResetToPendingTest {
+
+        @Test
+        @DisplayName("완료된 인스턴스를 PENDING 상태로 리셋한다")
+        void resetToPending_fromCompleted_success() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            instance.start();
+            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            instance.complete();
+
+            // when
+            instance.resetToPending();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+            assertThat(instance.getStartedAt()).isNull();
+            assertThat(instance.getCompletedAt()).isNull();
+            assertThat(instance.getExpEarned()).isEqualTo(0);
+            // completionCount와 totalExpEarned는 유지됨
+            assertThat(instance.getCompletionCount()).isEqualTo(1);
+            assertThat(instance.getTotalExpEarned()).isGreaterThanOrEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("PENDING 상태에서는 리셋할 수 없다")
+        void resetToPending_fromPending_throwsException() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+
+            // when & then
+            assertThatThrownBy(instance::resetToPending)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("IN_PROGRESS 상태에서는 리셋할 수 없다")
+        void resetToPending_fromInProgress_throwsException() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            instance.start();
+
+            // when & then
+            assertThatThrownBy(instance::resetToPending)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("완료 상태의 인스턴스만 리셋할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("여러 번 완료-리셋을 반복하면 completionCount가 누적된다")
+        void resetToPending_multipleCompletions_accumulatesCount() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+
+            // 첫 번째 완료
+            instance.start();
+            setStartedAt(instance, LocalDateTime.now().minusMinutes(10));
+            instance.complete();
+            assertThat(instance.getCompletionCount()).isEqualTo(1);
+            int firstExpEarned = instance.getTotalExpEarned();
+            instance.resetToPending();
+
+            // 두 번째 완료
+            instance.start();
+            setStartedAt(instance, LocalDateTime.now().minusMinutes(20));
+            instance.complete();
+            assertThat(instance.getCompletionCount()).isEqualTo(2);
+            assertThat(instance.getTotalExpEarned()).isGreaterThan(firstExpEarned);
+            instance.resetToPending();
+
+            // 세 번째 완료
+            instance.start();
+            setStartedAt(instance, LocalDateTime.now().minusMinutes(15));
+            instance.complete();
+
+            // then
+            assertThat(instance.getCompletionCount()).isEqualTo(3);
+            assertThat(instance.getTotalExpEarned()).isGreaterThanOrEqualTo(45); // 최소 10+20+15 = 45
+        }
+
+        @Test
+        @DisplayName("리셋 후 다시 시작할 수 있다")
+        void resetToPending_canStartAgain() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            instance.start();
+            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            instance.complete();
+            instance.resetToPending();
+
+            // when
+            instance.start();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.IN_PROGRESS);
+            assertThat(instance.getStartedAt()).isNotNull();
+        }
+    }
+
+    @Nested
     @DisplayName("getDurationMinutes 메서드 테스트")
     class GetDurationMinutesTest {
 

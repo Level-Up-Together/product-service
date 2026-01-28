@@ -114,9 +114,19 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     private LocalDateTime completedAt;
 
     @Column(name = "exp_earned")
-    @Comment("획득한 경험치 (시간 기반 계산)")
+    @Comment("획득한 경험치 (현재 회차, 시간 기반 계산)")
     @Builder.Default
     private Integer expEarned = 0;
+
+    @Column(name = "completion_count")
+    @Comment("오늘 완료 횟수 (고정 미션용)")
+    @Builder.Default
+    private Integer completionCount = 0;
+
+    @Column(name = "total_exp_earned")
+    @Comment("오늘 획득한 총 경험치 (고정 미션용)")
+    @Builder.Default
+    private Integer totalExpEarned = 0;
 
     // ============ 기록 내용 ============
 
@@ -190,6 +200,27 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = now;
         this.expEarned = calculateExpByDuration();
+
+        // 완료 횟수 및 총 경험치 누적
+        this.completionCount = (this.completionCount == null ? 0 : this.completionCount) + 1;
+        this.totalExpEarned = (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
+    }
+
+    /**
+     * 완료된 인스턴스를 PENDING 상태로 리셋 (고정 미션의 재시작용)
+     * completionCount, totalExpEarned는 유지하여 오늘 수행 내역 기록
+     */
+    public void resetToPending() {
+        if (this.status != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료 상태의 인스턴스만 리셋할 수 있습니다.");
+        }
+        this.status = ExecutionStatus.PENDING;
+        this.startedAt = null;
+        this.completedAt = null;
+        this.expEarned = 0;
+        this.note = null;
+        this.imageUrl = null;
+        // feedId와 isSharedToFeed는 유지 (마지막 완료의 피드 연동 정보)
     }
 
     /**

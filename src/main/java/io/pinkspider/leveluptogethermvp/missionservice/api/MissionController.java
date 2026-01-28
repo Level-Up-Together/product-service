@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
@@ -9,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionComment
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
+import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,8 +75,7 @@ public class MissionController {
     }
 
     /**
-     * 시스템 미션 목록 조회 (미션북용)
-     * 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
+     * 시스템 미션 목록 조회 (미션북용) 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
      */
     @GetMapping("/system")
     public ResponseEntity<ApiResult<Page<MissionResponse>>> getSystemMissions(
