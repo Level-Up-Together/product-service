@@ -3,25 +3,30 @@ package io.pinkspider.leveluptogethermvp.notificationservice.application;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import com.google.firebase.messaging.*;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.Notification;
+import java.io.IOException;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 
-import java.io.IOException;
-import java.util.Map;
-
 /**
  * FCM 푸시 알림 통합 테스트
- *
- * 실제 Firebase로 푸시를 전송하는 테스트입니다.
- * 테스트 실행 전 아래 사항을 확인하세요:
- * 1. src/main/resources/firebase-service-account.json 파일 존재
- * 2. 아래 FCM_TOKEN을 실제 앱에서 발급받은 토큰으로 교체
+ * <p>
+ * 실제 Firebase로 푸시를 전송하는 테스트입니다. 테스트 실행 전 아래 사항을 확인하세요: 1. src/main/resources/firebase-service-account.json 파일 존재 2. 아래 FCM_TOKEN을 실제 앱에서 발급받은 토큰으로
+ * 교체
  *
  * @Disabled 어노테이션을 제거하고 실행하세요.
  */
+@Disabled
 class FcmPushIntegrationTest {
 
     // ⚠️ 실제 앱에서 발급받은 FCM 토큰으로 교체하세요
