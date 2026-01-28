@@ -318,6 +318,16 @@ public class TitleService {
         final Long DEFAULT_LEFT_TITLE_ID = 1L;   // 신입
         final Long DEFAULT_RIGHT_TITLE_ID = 26L; // 모험가
 
+        // 기본 칭호 존재 확인
+        boolean leftExists = titleRepository.existsById(DEFAULT_LEFT_TITLE_ID);
+        boolean rightExists = titleRepository.existsById(DEFAULT_RIGHT_TITLE_ID);
+
+        if (!leftExists || !rightExists) {
+            log.error("기본 칭호가 title 테이블에 없습니다. leftExists={}, rightExists={}. " +
+                "gamification_db의 title 테이블 초기화가 필요합니다.", leftExists, rightExists);
+            throw new IllegalStateException("기본 칭호가 초기화되지 않았습니다. title 테이블을 확인하세요.");
+        }
+
         // LEFT 칭호 "신입" 부여 및 장착 (기본 칭호는 알림 제외)
         grantTitle(userId, DEFAULT_LEFT_TITLE_ID, false);
         equipTitle(userId, DEFAULT_LEFT_TITLE_ID);

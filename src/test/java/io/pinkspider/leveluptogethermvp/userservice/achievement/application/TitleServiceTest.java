@@ -671,6 +671,10 @@ class TitleServiceTest {
             UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, false, null);
             UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
 
+            // 기본 칭호 존재 확인 설정
+            when(titleRepository.existsById(leftTitleId)).thenReturn(true);
+            when(titleRepository.existsById(rightTitleId)).thenReturn(true);
+
             // grantTitle 설정
             when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, leftTitleId)).thenReturn(false);
             when(userTitleRepository.existsByUserIdAndTitleId(TEST_USER_ID, rightTitleId)).thenReturn(false);

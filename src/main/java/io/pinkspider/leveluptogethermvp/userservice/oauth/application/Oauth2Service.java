@@ -292,7 +292,13 @@ public class Oauth2Service {
         log.info("신규 사용자 가입: userId={}, provider={}", savedUser.getId(), userInfo.getProvider());
 
         // 신규 사용자에게 기본 칭호 부여 (LEFT: 신입, RIGHT: 모험가)
-        titleService.grantAndEquipDefaultTitles(savedUser.getId());
+        // 칭호 부여 실패해도 회원가입은 완료되어야 함
+        try {
+            titleService.grantAndEquipDefaultTitles(savedUser.getId());
+        } catch (Exception e) {
+            log.error("기본 칭호 부여 실패: userId={}, error={}", savedUser.getId(), e.getMessage(), e);
+            // 칭호 부여 실패는 회원가입을 막지 않음 - 추후 배치로 복구 가능
+        }
 
         return savedUser;
     }
