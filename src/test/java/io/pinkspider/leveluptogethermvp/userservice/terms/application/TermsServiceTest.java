@@ -165,4 +165,156 @@ class TermsServiceTest {
             assertThat(result).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("DTO 매핑 엣지 케이스 테스트")
+    class DtoMappingEdgeCasesTest {
+
+        @Test
+        @DisplayName("null 값이 포함된 데이터도 정상적으로 매핑된다")
+        void mapToDto_withNullValues() {
+            // given
+            Object[] termWithNulls = new Object[] {
+                1L,               // term_id
+                "약관",           // term_title
+                "CODE_001",       // code
+                "REQUIRED",       // type
+                true,             // is_required
+                1L,               // version_id
+                "1.0",            // version
+                null,             // created_at (null)
+                null              // content (null)
+            };
+
+            doReturn(createObjectArrayList(termWithNulls)).when(termsRepository).getRecentAllTermsRaw();
+
+            // when
+            List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTermId()).isEqualTo("1");
+            assertThat(result.get(0).getCreatedAt()).isNull();
+            assertThat(result.get(0).getContent()).isNull();
+        }
+
+        @Test
+        @DisplayName("Boolean null 값은 false로 매핑된다")
+        void mapToDto_nullBoolean_becomeFalse() {
+            // given
+            Object[] termWithNullBoolean = new Object[] {
+                1L,               // term_id
+                "약관",           // term_title
+                "CODE_001",       // code
+                "REQUIRED",       // type
+                null,             // is_required (null)
+                1L,               // version_id
+                "1.0",            // version
+                "2024-01-01",     // created_at
+                "내용"            // content
+            };
+
+            doReturn(createObjectArrayList(termWithNullBoolean)).when(termsRepository).getRecentAllTermsRaw();
+
+            // when
+            List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsRequired()).isFalse();
+        }
+
+        @Test
+        @DisplayName("약관 동의 상태에서 null 값이 포함되어도 정상 매핑된다")
+        void mapToTermAgreementDto_withNullValues() {
+            // given
+            Object[] agreementWithNulls = new Object[] {
+                1L,               // term_id
+                "약관",           // term_title
+                null,             // is_required (null -> false)
+                null,             // latest_version_id (null)
+                null,             // version (null)
+                null,             // is_agreed (null -> false)
+                null              // agreed_at (null)
+            };
+
+            doReturn(createObjectArrayList(agreementWithNulls)).when(termsRepository).getTermAgreementsByUserRaw(TEST_USER_ID);
+
+            // when
+            List<TermAgreementsByUserResponseDto> result = termsService.getTermAgreementsByUser(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTermId()).isEqualTo("1");
+            assertThat(result.get(0).getIsRequired()).isFalse();
+            assertThat(result.get(0).getLatestVersionId()).isNull();
+            assertThat(result.get(0).getIsAgreed()).isFalse();
+            assertThat(result.get(0).getAgreedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("다양한 타입의 ID가 String으로 변환된다")
+        void mapToDto_differentIdTypes() {
+            // given - Integer 타입 ID
+            Object[] termWithIntegerId = new Object[] {
+                Integer.valueOf(99),  // term_id (Integer)
+                "약관",
+                "CODE_001",
+                "REQUIRED",
+                true,
+                Integer.valueOf(50),  // version_id (Integer)
+                "1.0",
+                "2024-01-01",
+                "내용"
+            };
+
+            doReturn(createObjectArrayList(termWithIntegerId)).when(termsRepository).getRecentAllTermsRaw();
+
+            // when
+            List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTermId()).isEqualTo("99");
+            assertThat(result.get(0).getVersionId()).isEqualTo("50");
+        }
+
+        @Test
+        @DisplayName("여러 개의 약관을 한번에 조회한다")
+        void getRecentAllTerms_multipleTerms() {
+            // given
+            Object[] term1 = createRawRecentTerms(1L, "이용약관", true);
+            Object[] term2 = createRawRecentTerms(2L, "개인정보처리방침", true);
+            Object[] term3 = createRawRecentTerms(3L, "마케팅 동의", false);
+
+            doReturn(createObjectArrayList(term1, term2, term3)).when(termsRepository).getRecentAllTermsRaw();
+
+            // when
+            List<RecentTermsResponseDto> result = termsService.getRecentAllTerms();
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get(0).getTermTitle()).isEqualTo("이용약관");
+            assertThat(result.get(1).getTermTitle()).isEqualTo("개인정보처리방침");
+            assertThat(result.get(2).getTermTitle()).isEqualTo("마케팅 동의");
+            assertThat(result.get(2).getIsRequired()).isFalse();
+        }
+
+        @Test
+        @DisplayName("여러 개의 미동의 약관을 조회한다")
+        void getPendingTermsByUser_multipleTerms() {
+            // given
+            Object[] pending1 = createRawTermAgreement(1L, "이용약관", false);
+            Object[] pending2 = createRawTermAgreement(2L, "개인정보처리방침", false);
+
+            doReturn(createObjectArrayList(pending1, pending2)).when(termsRepository).getPendingTermsByUserRaw(TEST_USER_ID);
+
+            // when
+            List<TermAgreementsByUserResponseDto> result = termsService.getPendingTermsByUser(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result).allMatch(dto -> !dto.getIsAgreed());
+        }
+    }
 }

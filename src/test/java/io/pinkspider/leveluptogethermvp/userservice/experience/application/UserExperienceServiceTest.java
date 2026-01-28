@@ -194,6 +194,94 @@ class UserExperienceServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.getCurrentLevel()).isEqualTo(1);
+            assertThat(result.getCurrentExp()).isEqualTo(0);
+            assertThat(result.getTotalExp()).isEqualTo(0);
+            verify(userExperienceRepository).save(any(UserExperience.class));
+        }
+
+        @Test
+        @DisplayName("신규 사용자 생성 시 레벨 1, 경험치 0으로 초기화된다")
+        void getUserExperience_newUser_initialValues() {
+            // given
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
+                UserExperience saved = invocation.getArgument(0);
+                setUserExperienceId(saved, 1L);
+                return saved;
+            });
+            when(levelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createLevelConfig(1, 100, 0));
+
+            // when
+            UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result.getCurrentLevel()).isEqualTo(1);
+            assertThat(result.getCurrentExp()).isEqualTo(0);
+            assertThat(result.getTotalExp()).isEqualTo(0);
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("LevelConfig가 없어도 기본 공식으로 다음 레벨 경험치를 계산한다")
+        void getUserExperience_noLevelConfig_usesDefaultFormula() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 3, 50, 300);
+
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(levelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(null); // config 없음
+
+            // when
+            UserExperienceResponse result = userExperienceService.getUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getCurrentLevel()).isEqualTo(3);
+            // 기본 공식: 100 + (level - 1) * 50 = 100 + 2 * 50 = 200
+            assertThat(result.getNextLevelRequiredExp()).isEqualTo(200);
+        }
+    }
+
+    @Nested
+    @DisplayName("getOrCreateUserExperience 테스트")
+    class GetOrCreateUserExperienceTest {
+
+        @Test
+        @DisplayName("기존 경험치가 있으면 그대로 반환한다")
+        void getOrCreateUserExperience_existingUser() {
+            // given
+            UserExperience existingExp = createTestUserExperience(1L, TEST_USER_ID, 5, 100, 500);
+
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(existingExp));
+
+            // when
+            UserExperience result = userExperienceService.getOrCreateUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(existingExp);
+            verify(userExperienceRepository, never()).save(any(UserExperience.class));
+        }
+
+        @Test
+        @DisplayName("경험치가 없으면 새로 생성한다")
+        void getOrCreateUserExperience_newUser() {
+            // given
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
+                UserExperience saved = invocation.getArgument(0);
+                setUserExperienceId(saved, 1L);
+                return saved;
+            });
+
+            // when
+            UserExperience result = userExperienceService.getOrCreateUserExperience(TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
+            assertThat(result.getCurrentLevel()).isEqualTo(1);
+            assertThat(result.getCurrentExp()).isEqualTo(0);
+            assertThat(result.getTotalExp()).isEqualTo(0);
+            verify(userExperienceRepository).save(any(UserExperience.class));
         }
     }
 

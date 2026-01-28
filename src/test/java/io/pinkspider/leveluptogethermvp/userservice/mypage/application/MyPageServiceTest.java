@@ -332,6 +332,166 @@ class MyPageServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.getFriendshipStatus()).isEqualTo("BLOCKED");
         }
+
+        @Test
+        @DisplayName("친구 관계가 없는 경우 NONE 상태가 반환된다")
+        void getPublicProfile_noFriendship_returnsNoneStatus() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getFriendshipStatus()).isEqualTo("NONE");
+        }
+
+        @Test
+        @DisplayName("친구 관계 조회 중 예외 발생해도 프로필 조회는 성공한다")
+        void getPublicProfile_friendshipQueryError_stillReturnsProfile() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID))
+                .thenThrow(new RuntimeException("Database connection error"));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then - 예외가 발생해도 프로필은 반환되어야 함
+            assertThat(result).isNotNull();
+            assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
+            // 예외 발생 시 기본값 NONE으로 처리
+            assertThat(result.getFriendshipStatus()).isEqualTo("NONE");
+        }
+
+        @Test
+        @DisplayName("ACCEPTED 상태면 ACCEPTED가 반환된다")
+        void getPublicProfile_acceptedFriendship_returnsAcceptedStatus() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            Friendship acceptedFriendship = Friendship.builder()
+                .userId(currentUserId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.ACCEPTED)
+                .build();
+            try {
+                Field idField = Friendship.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(acceptedFriendship, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.of(acceptedFriendship));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getFriendshipStatus()).isEqualTo("ACCEPTED");
+        }
+
+        @Test
+        @DisplayName("내가 보낸 PENDING 요청이면 PENDING_SENT가 반환된다")
+        void getPublicProfile_pendingSent_returnsPendingSentStatus() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            // currentUserId가 요청자, TEST_USER_ID가 수신자
+            Friendship pendingFriendship = Friendship.builder()
+                .userId(currentUserId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.PENDING)
+                .build();
+            try {
+                Field idField = Friendship.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(pendingFriendship, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.of(pendingFriendship));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getFriendshipStatus()).isEqualTo("PENDING_SENT");
+        }
+
+        @Test
+        @DisplayName("내가 받은 PENDING 요청이면 PENDING_RECEIVED와 friendRequestId가 반환된다")
+        void getPublicProfile_pendingReceived_returnsPendingReceivedStatus() {
+            // given
+            String currentUserId = "current-user-123";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            // TEST_USER_ID가 요청자, currentUserId가 수신자
+            Friendship pendingFriendship = Friendship.builder()
+                .userId(TEST_USER_ID)
+                .friendId(currentUserId)
+                .status(FriendshipStatus.PENDING)
+                .build();
+            try {
+                Field idField = Friendship.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(pendingFriendship, 99L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(0L);
+            when(guildMemberRepository.findAllActiveGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.findFriendship(currentUserId, TEST_USER_ID)).thenReturn(Optional.of(pendingFriendship));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, currentUserId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getFriendshipStatus()).isEqualTo("PENDING_RECEIVED");
+            assertThat(result.getFriendRequestId()).isEqualTo(99L);
+        }
     }
 
     @Nested
