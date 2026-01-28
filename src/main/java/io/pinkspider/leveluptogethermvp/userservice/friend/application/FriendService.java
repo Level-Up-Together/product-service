@@ -64,6 +64,21 @@ public class FriendService {
             if (friendship.isBlocked()) {
                 throw new IllegalStateException("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
             }
+            // REJECTED 상태인 경우: 기존 레코드를 재사용하여 다시 요청
+            if (friendship.isRejected()) {
+                friendship.resendRequest(userId, friendId, message);
+                Friendship saved = friendshipRepository.save(friendship);
+
+                // 친구 요청 이벤트 발행
+                Users requester = userRepository.findById(userId).orElse(null);
+                String requesterNickname = requester != null ? requester.getNickname() : "사용자";
+                eventPublisher.publishEvent(new FriendRequestEvent(
+                    userId, friendId, requesterNickname, saved.getId()
+                ));
+
+                log.info("친구 요청 재전송 (거절 후): {} -> {}", userId, friendId);
+                return FriendRequestResponse.simpleFrom(saved);
+            }
         }
 
         Friendship friendship = Friendship.createRequest(userId, friendId, message);

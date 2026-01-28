@@ -12,6 +12,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TermsRepository extends JpaRepository<Term, Long> {
 
+    /**
+     * 최근 약관 목록 조회 (Object[] 반환으로 TupleBackedMap 버그 방지)
+     * 컬럼 순서: term_id, term_title, code, type, is_required, version_id, version, created_at, content
+     */
     @Query(value = """
         WITH latest_versions AS (
             SELECT
@@ -20,20 +24,24 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
             FROM term_versions tv
         )
         SELECT
-            t.id AS termId,
-            t.title AS termTitle,
+            t.id AS term_id,
+            t.title AS term_title,
             t.code,
             t.type,
-            t.is_required AS isRequired,
-            lv.id AS versionId,
+            t.is_required,
+            lv.id AS version_id,
             lv.version,
-            lv.created_at AS createdAt,
+            lv.created_at,
             lv.content
         FROM terms t
         JOIN latest_versions lv ON t.id = lv.term_id AND lv.rn = 1;
         """, nativeQuery = true)
-    List<RecentTermsResponseDto> getRecentAllTerms();
+    List<Object[]> getRecentAllTermsRaw();
 
+    /**
+     * 사용자의 약관 동의 상태 조회 (Object[] 반환으로 TupleBackedMap 버그 방지)
+     * 컬럼 순서: term_id, term_title, is_required, latest_version_id, version, is_agreed, agreed_at
+     */
     @Query(value = """
         WITH latest_term_versions AS (SELECT tv.*,
                                              ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.created_at DESC) AS rn
@@ -50,11 +58,11 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
                  LEFT JOIN user_term_agreements uta
                            ON uta.term_version_id = ltv.id AND uta.user_id = :userId;
         """, nativeQuery = true)
-    List<TermAgreementsByUserResponseDto> getTermAgreementsByUser(@Param("userId") String userId);
+    List<Object[]> getTermAgreementsByUserRaw(@Param("userId") String userId);
 
     /**
-     * 사용자가 아직 동의하지 않은 최신 버전 약관 조회
-     * (신규 가입 또는 약관 버전 업데이트 시 동의 필요한 약관)
+     * 사용자가 아직 동의하지 않은 최신 버전 약관 조회 (Object[] 반환으로 TupleBackedMap 버그 방지)
+     * 컬럼 순서: term_id, term_title, is_required, latest_version_id, version, is_agreed, agreed_at
      */
     @Query(value = """
         WITH latest_term_versions AS (
@@ -75,5 +83,5 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
                            ON uta.term_version_id = ltv.id AND uta.user_id = :userId
         WHERE uta.id IS NULL OR uta.is_agreed = false;
         """, nativeQuery = true)
-    List<TermAgreementsByUserResponseDto> getPendingTermsByUser(@Param("userId") String userId);
+    List<Object[]> getPendingTermsByUserRaw(@Param("userId") String userId);
 }

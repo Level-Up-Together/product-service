@@ -123,6 +123,7 @@ public class UserExperienceService {
             userId, categoryId, categoryExp.getTotalExp());
     }
 
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse getUserExperience(String userId) {
         UserExperience userExp = getOrCreateUserExperience(userId);
         return UserExperienceResponse.from(userExp, getNextLevelRequiredExp(userExp.getCurrentLevel()));

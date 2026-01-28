@@ -217,6 +217,28 @@ class FriendServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
         }
+
+        @Test
+        @DisplayName("거절된 후 다시 친구 요청을 보낼 수 있다")
+        void sendFriendRequest_afterRejected_success() {
+            // given
+            Friendship rejectedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.REJECTED);
+            Users requester = createTestUser(TEST_USER_ID, "테스터");
+
+            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.of(rejectedFriendship));
+            when(friendshipRepository.save(any(Friendship.class))).thenReturn(rejectedFriendship);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(requester));
+
+            // when
+            FriendRequestResponse result = friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "다시 친구하자!");
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(rejectedFriendship.getStatus()).isEqualTo(FriendshipStatus.PENDING);
+            verify(friendshipRepository).save(rejectedFriendship);
+            verify(eventPublisher).publishEvent(any(FriendRequestEvent.class));
+        }
     }
 
     @Nested

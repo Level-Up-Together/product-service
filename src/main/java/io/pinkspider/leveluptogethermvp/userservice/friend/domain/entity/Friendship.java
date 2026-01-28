@@ -119,4 +119,28 @@ public class Friendship extends LocalDateTimeBaseEntity {
     public boolean isBlocked() {
         return this.status == FriendshipStatus.BLOCKED;
     }
+
+    public boolean isRejected() {
+        return this.status == FriendshipStatus.REJECTED;
+    }
+
+    /**
+     * 거절된 친구 요청을 다시 보내기
+     * 기존 레코드를 재사용하여 unique constraint 위반 방지
+     *
+     * @param newRequesterId 새로운 요청자 ID
+     * @param newRecipientId 새로운 수신자 ID
+     * @param newMessage 새로운 메시지
+     */
+    public void resendRequest(String newRequesterId, String newRecipientId, String newMessage) {
+        if (this.status != FriendshipStatus.REJECTED) {
+            throw new IllegalStateException("거절된 요청만 다시 보낼 수 있습니다.");
+        }
+        this.userId = newRequesterId;
+        this.friendId = newRecipientId;
+        this.status = FriendshipStatus.PENDING;
+        this.requestedAt = LocalDateTime.now();
+        this.message = newMessage;
+        this.acceptedAt = null;
+    }
 }

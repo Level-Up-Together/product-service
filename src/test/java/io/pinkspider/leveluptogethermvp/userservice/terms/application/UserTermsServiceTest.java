@@ -93,47 +93,31 @@ class UserTermsServiceTest {
         return agreement;
     }
 
-    // Interface mock implementations
+    // Class-based DTO factory methods
     private RecentTermsResponseDto createMockRecentTerms(String termId, String termTitle, boolean isRequired) {
-        return new RecentTermsResponseDto() {
-            @Override
-            public String getTermId() { return termId; }
-            @Override
-            public String getTermTitle() { return termTitle; }
-            @Override
-            public String getCode() { return "TERMS_001"; }
-            @Override
-            public String getType() { return "REQUIRED"; }
-            @Override
-            public boolean getIsRequired() { return isRequired; }
-            @Override
-            public String getVersionId() { return "1"; }
-            @Override
-            public String getVersion() { return "1.0"; }
-            @Override
-            public String getCreatedAt() { return "2024-01-01"; }
-            @Override
-            public String getContent() { return "약관 내용"; }
-        };
+        return RecentTermsResponseDto.builder()
+            .termId(termId)
+            .termTitle(termTitle)
+            .code("TERMS_001")
+            .type("REQUIRED")
+            .isRequired(isRequired)
+            .versionId("1")
+            .version("1.0")
+            .createdAt("2024-01-01")
+            .content("약관 내용")
+            .build();
     }
 
     private TermAgreementsByUserResponseDto createMockTermAgreement(String termId, String termTitle, boolean isAgreed) {
-        return new TermAgreementsByUserResponseDto() {
-            @Override
-            public String getTermId() { return termId; }
-            @Override
-            public String getTermTitle() { return termTitle; }
-            @Override
-            public boolean getIsRequired() { return true; }
-            @Override
-            public String getLatestVersionId() { return "1"; }
-            @Override
-            public String getVersion() { return "1.0"; }
-            @Override
-            public boolean getIsAgreed() { return isAgreed; }
-            @Override
-            public String getAgreedAt() { return isAgreed ? "2024-01-01" : null; }
-        };
+        return TermAgreementsByUserResponseDto.builder()
+            .termId(termId)
+            .termTitle(termTitle)
+            .isRequired(true)
+            .latestVersionId("1")
+            .version("1.0")
+            .isAgreed(isAgreed)
+            .agreedAt(isAgreed ? "2024-01-01" : null)
+            .build();
     }
 
     @Nested
