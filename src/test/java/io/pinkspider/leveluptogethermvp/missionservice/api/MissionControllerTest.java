@@ -19,6 +19,7 @@ import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
@@ -67,6 +68,9 @@ class MissionControllerTest {
 
     @MockitoBean
     private MissionService missionService;
+
+    @MockitoBean
+    private MissionCommentService missionCommentService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 

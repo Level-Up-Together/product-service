@@ -2,7 +2,10 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MissionController {
 
     private final MissionService missionService;
+    private final MissionCommentService missionCommentService;
 
     @PostMapping
     public ResponseEntity<ApiResult<MissionResponse>> createMission(
@@ -148,5 +152,47 @@ public class MissionController {
 
         missionService.deleteMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    // ===== 댓글 API =====
+
+    /**
+     * 댓글 목록 조회
+     */
+    @GetMapping("/{missionId}/comments")
+    public ResponseEntity<ApiResult<Page<MissionCommentResponse>>> getComments(
+        @PathVariable Long missionId,
+        @CurrentUser(required = false) String currentUserId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size) {
+
+        Page<MissionCommentResponse> comments = missionCommentService.getComments(missionId, currentUserId, page, size);
+        return ResponseEntity.ok(ApiResult.<Page<MissionCommentResponse>>builder().value(comments).build());
+    }
+
+    /**
+     * 댓글 작성
+     */
+    @PostMapping("/{missionId}/comments")
+    public ResponseEntity<ApiResult<MissionCommentResponse>> addComment(
+        @PathVariable Long missionId,
+        @CurrentUser String userId,
+        @Valid @RequestBody MissionCommentRequest request) {
+
+        MissionCommentResponse comment = missionCommentService.addComment(missionId, userId, request);
+        return ResponseEntity.ok(ApiResult.<MissionCommentResponse>builder().value(comment).build());
+    }
+
+    /**
+     * 댓글 삭제
+     */
+    @DeleteMapping("/{missionId}/comments/{commentId}")
+    public ResponseEntity<ApiResult<Void>> deleteComment(
+        @PathVariable Long missionId,
+        @PathVariable Long commentId,
+        @CurrentUser String userId) {
+
+        missionCommentService.deleteComment(missionId, commentId, userId);
+        return ResponseEntity.ok(ApiResult.<Void>builder().build());
     }
 }
