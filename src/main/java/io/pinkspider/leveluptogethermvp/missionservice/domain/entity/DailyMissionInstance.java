@@ -155,6 +155,11 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isSharedToFeed = false;
 
+    @Column(name = "is_auto_completed", nullable = false)
+    @Comment("자동 종료 여부 (2시간 초과)")
+    @Builder.Default
+    private Boolean isAutoCompleted = false;
+
     // ============ 낙관적 락 ============
 
     @Version
@@ -165,6 +170,8 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     // ============ 비즈니스 로직 ============
 
     private static final long MINIMUM_EXECUTION_MINUTES = 1;
+    // 최대 미션 수행 시간 (분) - 어뷰징 방지 (2시간)
+    private static final long MAXIMUM_EXECUTION_MINUTES = 120;
 
     /**
      * 미션 수행 시작
@@ -288,6 +295,48 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
             return null;
         }
         return (int) Duration.between(this.startedAt, this.completedAt).toMinutes();
+    }
+
+    /**
+     * 2시간 초과 미션 자동 완료 (어뷰징 방지)
+     * 스케줄러에서 호출하여 시작 후 2시간이 경과한 미션을 자동 종료
+     *
+     * @return 자동 완료 처리 여부
+     */
+    public boolean autoCompleteIfExpired() {
+        if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        long elapsedMinutes = Duration.between(this.startedAt, now).toMinutes();
+
+        if (elapsedMinutes < MAXIMUM_EXECUTION_MINUTES) {
+            return false;
+        }
+
+        // 2시간(120분) 기준으로 완료 처리
+        this.status = ExecutionStatus.COMPLETED;
+        this.completedAt = this.startedAt.plusMinutes(MAXIMUM_EXECUTION_MINUTES);
+        this.expEarned = (int) MAXIMUM_EXECUTION_MINUTES; // 최대 120 EXP
+        this.isAutoCompleted = true;
+
+        // 완료 횟수 및 총 경험치 누적
+        this.completionCount = (this.completionCount == null ? 0 : this.completionCount) + 1;
+        this.totalExpEarned = (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
+
+        return true;
+    }
+
+    /**
+     * 수행 시작 후 경과 시간이 최대 수행 시간을 초과했는지 확인
+     */
+    public boolean isExpired() {
+        if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
+            return false;
+        }
+        long elapsedMinutes = Duration.between(this.startedAt, LocalDateTime.now()).toMinutes();
+        return elapsedMinutes >= MAXIMUM_EXECUTION_MINUTES;
     }
 
     // ============ 팩토리 메서드 ============

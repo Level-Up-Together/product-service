@@ -76,4 +76,20 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
            "WHERE gm.guild.id IN :guildIds AND gm.status = 'ACTIVE' " +
            "GROUP BY gm.guild.id")
     List<Object[]> countActiveMembersByGuildIds(@Param("guildIds") List<Long> guildIds);
+
+    /**
+     * 사용자가 이미 다른 길드의 마스터인지 확인 (1인 1길드 마스터 정책)
+     */
+    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END FROM GuildMember gm " +
+           "JOIN gm.guild g WHERE gm.userId = :userId AND gm.role = 'MASTER' " +
+           "AND gm.status = 'ACTIVE' AND g.isActive = true")
+    boolean isGuildMaster(@Param("userId") String userId);
+
+    /**
+     * 사용자가 마스터로 있는 활성 길드 조회
+     */
+    @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g " +
+           "WHERE gm.userId = :userId AND gm.role = 'MASTER' " +
+           "AND gm.status = 'ACTIVE' AND g.isActive = true")
+    Optional<GuildMember> findGuildMastership(@Param("userId") String userId);
 }

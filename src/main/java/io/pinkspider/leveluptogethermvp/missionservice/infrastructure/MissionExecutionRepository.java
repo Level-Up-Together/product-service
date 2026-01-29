@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -108,5 +109,15 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     long countCompletedByUserIdAndCategoryId(
         @Param("userId") String userId,
         @Param("categoryId") Long categoryId
+    );
+
+    /**
+     * 2시간 초과 진행 중인 미션 조회 (자동 종료 대상)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "WHERE me.status = 'IN_PROGRESS' " +
+           "AND me.startedAt < :expireThreshold")
+    List<MissionExecution> findExpiredInProgressExecutions(
+        @Param("expireThreshold") LocalDateTime expireThreshold
     );
 }

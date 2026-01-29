@@ -50,6 +50,9 @@ public class MissionExecutionResponse {
     private String imageUrl;
     private Long feedId;
 
+    // 자동 종료 여부 (2시간 초과 시 true, 프론트엔드에서 알림 모달 표시용)
+    private Boolean isAutoCompleted;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -77,6 +80,7 @@ public class MissionExecutionResponse {
             .note(execution.getNote())
             .imageUrl(execution.getImageUrl())
             .feedId(execution.getFeedId())
+            .isAutoCompleted(execution.getIsAutoCompleted())
             .createdAt(execution.getCreatedAt())
             .build();
     }
@@ -103,6 +107,7 @@ public class MissionExecutionResponse {
             .note(instance.getNote())
             .imageUrl(instance.getImageUrl())
             .feedId(instance.getFeedId())
+            .isAutoCompleted(instance.getIsAutoCompleted())
             .createdAt(instance.getCreatedAt())
             .build();
     }

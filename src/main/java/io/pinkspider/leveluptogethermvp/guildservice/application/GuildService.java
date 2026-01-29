@@ -84,6 +84,12 @@ public class GuildService {
                     GUILD_CREATION_MIN_LEVEL, userLevel));
         }
 
+        // 길드 마스터 1인 1길드 정책: 이미 다른 길드의 마스터인지 확인
+        if (guildMemberRepository.isGuildMaster(userId)) {
+            throw new IllegalStateException(
+                "이미 다른 길드의 마스터입니다. 새 길드를 창설하려면 기존 길드를 폐쇄하거나 마스터를 위임해주세요.");
+        }
+
         // 카테고리 유효성 검증
         MissionCategoryResponse category = missionCategoryService.getCategory(request.getCategoryId());
         if (category == null || !category.getIsActive()) {
