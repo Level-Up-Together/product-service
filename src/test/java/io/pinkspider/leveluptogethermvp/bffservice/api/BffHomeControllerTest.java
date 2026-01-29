@@ -781,6 +781,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.today_executions[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
                             fieldWithPath("value.today_executions[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value.today_executions[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.today_executions[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
                             fieldWithPath("value.completed_count").type(JsonFieldType.NUMBER).description("오늘 완료한 미션 수"),
                             fieldWithPath("value.in_progress_count").type(JsonFieldType.NUMBER).description("진행 중인 미션 수"),
                             fieldWithPath("value.pending_count").type(JsonFieldType.NUMBER).description("미완료 미션 수")

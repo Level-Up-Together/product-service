@@ -152,7 +152,8 @@ class Oauth2ControllerTest {
                             fieldWithPath("value.expired_time").type(JsonFieldType.STRING).description("expired_time"),
                             fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("expires_in"),
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("user_id"),
-                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("device_id")
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("device_id"),
+                            fieldWithPath("value.nickname_set").type(JsonFieldType.BOOLEAN).description("닉네임 설정 여부")
                         )
                         .build()
                 )
@@ -212,7 +213,8 @@ class Oauth2ControllerTest {
                             fieldWithPath("value.expired_time").type(JsonFieldType.STRING).description("만료 시간"),
                             fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("만료까지 남은 시간 (초)"),
                             fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
-                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("디바이스 ID")
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("디바이스 ID"),
+                            fieldWithPath("value.nickname_set").type(JsonFieldType.BOOLEAN).description("닉네임 설정 여부")
                         )
                         .build()
                 )

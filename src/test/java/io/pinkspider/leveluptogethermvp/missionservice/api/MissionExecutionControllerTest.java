@@ -153,7 +153,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
-                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
                         )
                         .build()
                 )
@@ -207,7 +208,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
-                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
+                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
                         )
                         .build()
                 )
@@ -317,7 +319,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
-                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional()
+                            fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
                         )
                         .build()
                 )
