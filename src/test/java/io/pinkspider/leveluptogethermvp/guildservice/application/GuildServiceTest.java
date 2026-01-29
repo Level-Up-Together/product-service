@@ -190,6 +190,7 @@ class GuildServiceTest {
                 .currentLevel(20)
                 .build();
             when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
@@ -257,6 +258,7 @@ class GuildServiceTest {
                 .currentLevel(20)
                 .build();
             when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("중복 길드")).thenReturn(true);
@@ -265,6 +267,32 @@ class GuildServiceTest {
             assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("이미 존재하는 길드명입니다");
+        }
+
+        @Test
+        @DisplayName("1인 1길드 마스터 정책: 이미 다른 길드의 마스터인 사용자는 길드를 생성할 수 없다")
+        void createGuild_failWhenAlreadyGuildMaster() {
+            // given
+            GuildCreateRequest request = GuildCreateRequest.builder()
+                .name("새 길드")
+                .description("새 길드 설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .categoryId(testCategoryId)
+                .build();
+
+            UserExperience userExperience = UserExperience.builder()
+                .userId(testUserId)
+                .currentLevel(20)
+                .build();
+            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 다른 길드의 마스터입니다");
+
+            verify(guildRepository, never()).save(any(Guild.class));
         }
     }
 

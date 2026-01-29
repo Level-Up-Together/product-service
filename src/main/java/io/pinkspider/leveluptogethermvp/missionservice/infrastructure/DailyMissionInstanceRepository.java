@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -178,4 +179,14 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
            "  WHERE dmi.participant.id = p.id AND dmi.instanceDate = :date" +
            ")")
     List<Long> findParticipantIdsWithoutInstanceForDate(@Param("date") LocalDate date);
+
+    /**
+     * 2시간 초과 진행 중인 인스턴스 조회 (자동 종료 대상)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "WHERE dmi.status = 'IN_PROGRESS' " +
+           "AND dmi.startedAt < :expireThreshold")
+    List<DailyMissionInstance> findExpiredInProgressInstances(
+        @Param("expireThreshold") LocalDateTime expireThreshold
+    );
 }
