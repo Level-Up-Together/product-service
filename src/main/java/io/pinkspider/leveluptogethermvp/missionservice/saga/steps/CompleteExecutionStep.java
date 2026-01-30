@@ -2,7 +2,9 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -60,6 +62,21 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
             executionRepository.save(execution);
 
             log.info("Execution completed: id={}, durationExp={}", execution.getId(), execution.getExpEarned());
+
+            // 일반 미션(isPinned=false)인 경우 미래 PENDING execution 삭제
+            // 일반 미션은 한 번 완료하면 미래 수행 일정이 필요 없음
+            Mission mission = context.getMission();
+            MissionParticipant participant = context.getParticipant();
+            if (mission != null && !Boolean.TRUE.equals(mission.getIsPinned()) && participant != null) {
+                int deletedCount = executionRepository.deleteFuturePendingExecutions(
+                    participant.getId(),
+                    execution.getExecutionDate()
+                );
+                if (deletedCount > 0) {
+                    log.info("일반 미션 완료 후 미래 PENDING execution 삭제: missionId={}, participantId={}, deletedCount={}",
+                        mission.getId(), participant.getId(), deletedCount);
+                }
+            }
 
             return SagaStepResult.success("미션 수행 완료 처리됨");
 

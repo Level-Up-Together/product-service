@@ -120,4 +120,18 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     List<MissionExecution> findExpiredInProgressExecutions(
         @Param("expireThreshold") LocalDateTime expireThreshold
     );
+
+    /**
+     * 일반 미션 완료 시 미래 PENDING execution 삭제
+     * 일반 미션은 한 번 완료하면 미래 날짜의 수행 일정이 필요 없음
+     */
+    @Modifying
+    @Query("DELETE FROM MissionExecution me " +
+           "WHERE me.participant.id = :participantId " +
+           "AND me.executionDate > :completedDate " +
+           "AND me.status = 'PENDING'")
+    int deleteFuturePendingExecutions(
+        @Param("participantId") Long participantId,
+        @Param("completedDate") LocalDate completedDate
+    );
 }
