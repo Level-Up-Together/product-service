@@ -461,6 +461,7 @@ public class DailyMissionInstanceService {
                 userLevel,
                 titleInfo.name(),
                 titleInfo.rarity(),
+                titleInfo.colorCode(),
                 instance.getId(),  // executionId 대신 instanceId 사용
                 instance.getParticipant().getMission().getId(),
                 instance.getMissionTitle(),

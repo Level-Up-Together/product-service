@@ -831,6 +831,7 @@ public class MissionExecutionService {
                 userLevel,
                 titleInfo.name(),
                 titleInfo.rarity(),
+                titleInfo.colorCode(),
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),

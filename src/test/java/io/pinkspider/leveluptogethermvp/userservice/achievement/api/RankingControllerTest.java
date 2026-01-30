@@ -132,6 +132,7 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value.content[].equipped_title_name").type(JsonFieldType.STRING).description("장착 칭호").optional(),
                             fieldWithPath("value.content[].equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value.content[].equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
@@ -316,7 +317,8 @@ class RankingControllerTest {
                             fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
                             fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value.equipped_title_name").type(JsonFieldType.STRING).description("장착 칭호").optional(),
-                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional()
+                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value.equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional()
                         )
                         .build()
                 )
@@ -371,7 +373,8 @@ class RankingControllerTest {
                             fieldWithPath("value[].nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
                             fieldWithPath("value[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value[].equipped_title_name").type(JsonFieldType.STRING).description("장착 칭호").optional(),
-                            fieldWithPath("value[].equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional()
+                            fieldWithPath("value[].equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value[].equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional()
                         )
                         .build()
                 )

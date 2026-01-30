@@ -120,6 +120,7 @@ class MissionCommentServiceTest {
             "https://example.com/profile.jpg",
             5,
             null,
+            null,
             null
         );
     }
@@ -196,7 +197,7 @@ class MissionCommentServiceTest {
                 .content("생성자의 댓글입니다")
                 .build();
             UserProfileCache userProfile = new UserProfileCache(
-                CREATOR_USER_ID, "미션생성자", "https://example.com/creator.jpg", 10, null, null
+                CREATOR_USER_ID, "미션생성자", "https://example.com/creator.jpg", 10, null, null, null
             );
 
             when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));

@@ -14,15 +14,16 @@ public record UserProfileCache(
     String picture,
     Integer level,
     String titleName,
-    TitleRarity titleRarity
+    TitleRarity titleRarity,
+    String titleColorCode
 ) implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     /**
      * 기본값으로 생성 (사용자 정보를 찾을 수 없는 경우)
      */
     public static UserProfileCache defaultProfile(String userId) {
-        return new UserProfileCache(userId, "사용자", null, 1, null, null);
+        return new UserProfileCache(userId, "사용자", null, 1, null, null, null);
     }
 }

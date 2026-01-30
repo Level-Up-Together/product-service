@@ -103,14 +103,15 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     @Query("SELECT f FROM ActivityFeed f WHERE f.id IN :feedIds ORDER BY f.createdAt DESC")
     List<ActivityFeed> findByIdIn(@Param("feedIds") List<Long> feedIds);
 
-    // 사용자의 모든 피드의 userTitle과 userTitleRarity 업데이트
+    // 사용자의 모든 피드의 userTitle, userTitleRarity, userTitleColorCode 업데이트
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity = :userTitleRarity WHERE f.userId = :userId")
+    @Query("UPDATE ActivityFeed f SET f.userTitle = :userTitle, f.userTitleRarity = :userTitleRarity, f.userTitleColorCode = :userTitleColorCode WHERE f.userId = :userId")
     int updateUserTitleByUserId(
         @Param("userId") String userId,
         @Param("userTitle") String userTitle,
-        @Param("userTitleRarity") TitleRarity userTitleRarity);
+        @Param("userTitleRarity") TitleRarity userTitleRarity,
+        @Param("userTitleColorCode") String userTitleColorCode);
 
     // referenceId로 피드 삭제 (미션 삭제 시 관련 피드 삭제용)
     @Modifying

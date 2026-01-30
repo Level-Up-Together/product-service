@@ -87,7 +87,7 @@ public class RankingService {
 
         TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
 
-        return RankingResponse.from(stats, rank, null, userLevel, titleInfo.name(), titleInfo.rarity());
+        return RankingResponse.from(stats, rank, null, userLevel, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode());
     }
 
     // 주변 랭킹 조회 (내 위아래 N명)
@@ -127,7 +127,7 @@ public class RankingService {
             TitleInfo titleInfo = getCombinedEquippedTitleInfo(stats.getUserId());
 
             responses.add(RankingResponse.from(stats, startRank++, null, userLevel,
-                titleInfo.name(), titleInfo.rarity()));
+                titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode()));
         }
 
         return new PageImpl<>(responses, pageable, statsPage.getTotalElements());
@@ -145,14 +145,15 @@ public class RankingService {
         String nickname = user != null ? user.getDisplayName() : null;
         String profileImageUrl = user != null ? user.getPicture() : null;
 
-        // 장착된 칭호 조회
-        String equippedTitle = getCombinedEquippedTitleName(userId);
+        // 장착된 칭호 조회 (이름, 등급, 색상 코드)
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
 
         UserExperience userExp = userExperienceRepository.findByUserId(userId)
             .orElse(null);
 
         if (userExp == null) {
-            return LevelRankingResponse.defaultResponse(userId, totalUsers, nickname, profileImageUrl, equippedTitle);
+            return LevelRankingResponse.defaultResponse(userId, totalUsers, nickname, profileImageUrl,
+                titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode());
         }
 
         long rank = userExperienceRepository.calculateLevelRank(
@@ -160,7 +161,8 @@ public class RankingService {
             userExp.getTotalExp()
         );
 
-        return LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl, equippedTitle);
+        return LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl,
+            titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode());
     }
 
     /**
@@ -180,11 +182,10 @@ public class RankingService {
         Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
             .collect(Collectors.toMap(Users::getId, u -> u));
 
-        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
-        // Collectors.toMap()은 null 값을 허용하지 않으므로 HashMap 직접 사용
-        Map<String, String> titleMap = new HashMap<>();
+        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합, 등급, 색상 코드 포함)
+        Map<String, TitleInfo> titleInfoMap = new HashMap<>();
         for (String id : userIds) {
-            titleMap.put(id, getCombinedEquippedTitleName(id));
+            titleInfoMap.put(id, getCombinedEquippedTitleInfo(id));
         }
 
         List<LevelRankingResponse> responses = new ArrayList<>();
@@ -194,10 +195,11 @@ public class RankingService {
             Users user = userMap.get(exp.getUserId());
             String nickname = user != null ? user.getDisplayName() : null;
             String profileImageUrl = user != null ? user.getPicture() : null;
-            String equippedTitle = titleMap.get(exp.getUserId());
+            TitleInfo titleInfo = titleInfoMap.get(exp.getUserId());
 
             responses.add(LevelRankingResponse.from(
-                exp, startRank++, totalUsers, nickname, profileImageUrl, equippedTitle
+                exp, startRank++, totalUsers, nickname, profileImageUrl,
+                titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode()
             ));
         }
 
@@ -238,10 +240,10 @@ public class RankingService {
             expMap.put(id, userExperienceRepository.findByUserId(id).orElse(null));
         }
 
-        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합)
-        Map<String, String> titleMap = new HashMap<>();
+        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합, 등급, 색상 코드 포함)
+        Map<String, TitleInfo> titleInfoMap = new HashMap<>();
         for (String id : userIds) {
-            titleMap.put(id, getCombinedEquippedTitleName(id));
+            titleInfoMap.put(id, getCombinedEquippedTitleInfo(id));
         }
 
         List<LevelRankingResponse> responses = new ArrayList<>();
@@ -253,10 +255,10 @@ public class RankingService {
 
             Users user = userMap.get(odayUserId);
             UserExperience userExp = expMap.get(odayUserId);
+            TitleInfo titleInfo = titleInfoMap.get(odayUserId);
 
             String nickname = user != null ? user.getDisplayName() : null;
             String profileImageUrl = user != null ? user.getPicture() : null;
-            String equippedTitle = titleMap.get(odayUserId);
 
             // 카테고리별 랭킹은 카테고리 내 경험치를 기준으로 함
             if (userExp != null) {
@@ -265,7 +267,9 @@ public class RankingService {
                     .userId(odayUserId)
                     .nickname(nickname)
                     .profileImageUrl(profileImageUrl)
-                    .equippedTitle(equippedTitle)
+                    .equippedTitle(titleInfo.name())
+                    .equippedTitleRarity(titleInfo.rarity())
+                    .equippedTitleColorCode(titleInfo.colorCode())
                     .currentLevel(userExp.getCurrentLevel())
                     .currentExp(userExp.getCurrentExp())
                     .totalExp(categoryExp.intValue()) // 카테고리 내 총 경험치
@@ -278,7 +282,9 @@ public class RankingService {
                     .userId(odayUserId)
                     .nickname(nickname)
                     .profileImageUrl(profileImageUrl)
-                    .equippedTitle(equippedTitle)
+                    .equippedTitle(titleInfo.name())
+                    .equippedTitleRarity(titleInfo.rarity())
+                    .equippedTitleColorCode(titleInfo.colorCode())
                     .currentLevel(1)
                     .currentExp(0)
                     .totalExp(categoryExp.intValue())
@@ -297,18 +303,18 @@ public class RankingService {
     }
 
     /**
-     * 칭호 정보 (이름과 등급)를 담는 레코드
+     * 칭호 정보 (이름, 등급, 색상 코드)를 담는 레코드
      */
-    public record TitleInfo(String name, TitleRarity rarity) {}
+    public record TitleInfo(String name, TitleRarity rarity, String colorCode) {}
 
     /**
      * 사용자의 장착된 칭호 조합 정보 조회 (LEFT + RIGHT)
-     * 예: "용감한 전사", 최고 등급
+     * 예: "용감한 전사", 최고 등급, 색상 코드
      */
     private TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null);
+            return new TitleInfo(null, null, null);
         }
 
         UserTitle leftUserTitle = equippedTitles.stream()
@@ -336,12 +342,22 @@ public class RankingService {
             combinedTitle = leftTitle + " " + rightTitle;
         }
 
-        // 두 칭호 중 더 높은 등급 사용
+        // 두 칭호 중 더 높은 등급과 색상 코드 사용
         TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
         TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
         TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
 
-        return new TitleInfo(combinedTitle, highestRarity);
+        // 가장 높은 등급의 색상 코드 선택
+        String colorCode = null;
+        if (highestRarity != null) {
+            if (leftRarity == highestRarity && leftUserTitle != null) {
+                colorCode = leftUserTitle.getTitle().getColorCode();
+            } else if (rightUserTitle != null) {
+                colorCode = rightUserTitle.getTitle().getColorCode();
+            }
+        }
+
+        return new TitleInfo(combinedTitle, highestRarity, colorCode);
     }
 
     /**

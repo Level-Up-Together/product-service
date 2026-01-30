@@ -93,6 +93,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 profile.level(),
                 profile.titleName(),
                 profile.titleRarity(),
+                profile.titleColorCode(),
                 execution.getId(),
                 mission.getId(),
                 mission.getTitle(),
