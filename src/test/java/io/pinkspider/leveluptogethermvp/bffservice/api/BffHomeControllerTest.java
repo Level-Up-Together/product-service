@@ -707,6 +707,7 @@ class BffHomeControllerTest {
                 createMockMissionExecutionResponse(ExecutionStatus.COMPLETED),
                 createMockMissionExecutionResponse(ExecutionStatus.PENDING)
             ))
+            .completedPinnedInstances(List.of())
             .completedCount(1)
             .inProgressCount(0)
             .pendingCount(1)
@@ -782,7 +783,26 @@ class BffHomeControllerTest {
                             fieldWithPath("value.today_executions[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
                             fieldWithPath("value.today_executions[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.today_executions[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
-                            fieldWithPath("value.completed_count").type(JsonFieldType.NUMBER).description("오늘 완료한 미션 수"),
+                            fieldWithPath("value.completed_pinned_instances[]").type(JsonFieldType.ARRAY).description("오늘 완료된 고정 미션 인스턴스 목록 (오늘 수행 기록용)").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].id").type(JsonFieldType.NUMBER).description("인스턴스 ID").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].user_id").type(JsonFieldType.STRING).description("사용자 ID").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].execution_date").type(JsonFieldType.STRING).description("인스턴스 날짜").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].status").type(JsonFieldType.STRING).description("실행 상태 (COMPLETED)").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].started_at").type(JsonFieldType.STRING).description("시작일시").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].completed_at").type(JsonFieldType.STRING).description("완료일시").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].duration_minutes").type(JsonFieldType.NUMBER).description("수행 시간 (분)").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].feed_id").type(JsonFieldType.NUMBER).description("피드 ID").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.completed_count").type(JsonFieldType.NUMBER).description("오늘 완료한 미션 수 (일반 + 고정)"),
                             fieldWithPath("value.in_progress_count").type(JsonFieldType.NUMBER).description("진행 중인 미션 수"),
                             fieldWithPath("value.pending_count").type(JsonFieldType.NUMBER).description("미완료 미션 수")
                         )

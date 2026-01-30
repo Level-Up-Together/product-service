@@ -409,6 +409,30 @@ public class MissionExecutionService {
     }
 
     /**
+     * 오늘 완료된 고정 미션 인스턴스 조회 (오늘 수행 기록용)
+     *
+     * 고정 미션은 하루에 여러 번 수행 가능하므로, 완료된 인스턴스를 별도로 반환합니다.
+     * 프론트엔드에서 '오늘 수행 기록' 섹션에 표시하는 데 사용됩니다.
+     *
+     * @param userId 사용자 ID
+     * @return 완료된 고정 미션 인스턴스 목록
+     */
+    public List<MissionExecutionResponse> getCompletedPinnedInstancesForToday(String userId) {
+        LocalDate today = LocalDate.now();
+
+        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
+            .findCompletedByUserIdAndInstanceDate(userId, today);
+
+        List<MissionExecutionResponse> responses = completedInstances.stream()
+            .map(MissionExecutionResponse::fromDailyMissionInstance)
+            .toList();
+
+        log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
+
+        return responses;
+    }
+
+    /**
      * 고정 미션(isPinned=true)에 대해 오늘 날짜의 execution이 없으면 자동 생성
      */
     private void ensurePinnedMissionExecutionsForToday(String userId, LocalDate today) {
@@ -501,21 +525,30 @@ public class MissionExecutionService {
     /**
      * 월별 캘린더 데이터 조회
      * 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환
+     * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함
      */
     public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        // 완료된 미션 실행 내역 조회
+        // 1. 일반 미션 - 완료된 미션 실행 내역 조회
         List<MissionExecution> completedExecutions = executionRepository
             .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
 
-        // 월별 총 획득 경험치 조회
-        int totalExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+        // 2. 고정 미션 - 완료된 인스턴스 조회
+        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
+            .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
 
-        // 날짜별 미션 그룹화
+        // 3. 월별 총 획득 경험치 조회 (일반 미션 + 고정 미션)
+        int regularMissionExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+        int pinnedMissionExp = dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+        int totalExp = regularMissionExp + pinnedMissionExp;
+
+        // 4. 날짜별 미션 그룹화
         Map<String, List<DailyMission>> dailyMissions = new HashMap<>();
+
+        // 4-1. 일반 미션 추가
         for (MissionExecution execution : completedExecutions) {
             String dateKey = execution.getExecutionDate().toString();
 
@@ -535,12 +568,32 @@ public class MissionExecutionService {
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
         }
 
-        // 완료된 미션이 있는 날짜 목록
+        // 4-2. 고정 미션 추가
+        for (DailyMissionInstance instance : completedInstances) {
+            String dateKey = instance.getInstanceDate().toString();
+
+            Integer durationMinutes = null;
+            if (instance.getStartedAt() != null && instance.getCompletedAt() != null) {
+                durationMinutes = (int) java.time.Duration.between(
+                    instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+            }
+
+            DailyMission dailyMission = DailyMission.builder()
+                .missionId(instance.getParticipant().getMission().getId())
+                .missionTitle(instance.getMissionTitle())
+                .expEarned(instance.getExpEarned())
+                .durationMinutes(durationMinutes)
+                .build();
+
+            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
+        }
+
+        // 5. 완료된 미션이 있는 날짜 목록
         List<String> completedDates = new ArrayList<>(dailyMissions.keySet());
         completedDates.sort(String::compareTo);
 
-        log.info("월별 캘린더 데이터 조회: userId={}, year={}, month={}, totalExp={}, completedDays={}",
-            userId, year, month, totalExp, completedDates.size());
+        log.info("월별 캘린더 데이터 조회: userId={}, year={}, month={}, totalExp={}, completedDays={}, regularMissions={}, pinnedMissions={}",
+            userId, year, month, totalExp, completedDates.size(), completedExecutions.size(), completedInstances.size());
 
         return MonthlyCalendarResponse.builder()
             .year(year)

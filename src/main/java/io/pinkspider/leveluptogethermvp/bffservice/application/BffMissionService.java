@@ -53,16 +53,27 @@ public class BffMissionService {
             }
         });
 
+        CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return missionExecutionService.getCompletedPinnedInstancesForToday(userId);
+            } catch (Exception e) {
+                log.error("Failed to fetch completed pinned instances", e);
+                return Collections.emptyList();
+            }
+        });
+
         // 모든 결과 취합
-        CompletableFuture.allOf(myMissionsFuture, todayExecutionsFuture).join();
+        CompletableFuture.allOf(myMissionsFuture, todayExecutionsFuture, completedPinnedFuture).join();
 
         List<MissionResponse> myMissions = myMissionsFuture.join();
         List<MissionExecutionResponse> todayExecutions = todayExecutionsFuture.join();
+        List<MissionExecutionResponse> completedPinnedInstances = completedPinnedFuture.join();
 
-        // 통계 계산
-        int completedCount = (int) todayExecutions.stream()
+        // 통계 계산 (일반 미션 완료 + 고정 미션 완료 횟수)
+        int regularCompletedCount = (int) todayExecutions.stream()
             .filter(e -> e.getStatus() == ExecutionStatus.COMPLETED)
             .count();
+        int completedCount = regularCompletedCount + completedPinnedInstances.size();
 
         int inProgressCount = (int) todayExecutions.stream()
             .filter(e -> e.getStatus() == ExecutionStatus.IN_PROGRESS)
@@ -75,13 +86,14 @@ public class BffMissionService {
         MissionTodayDataResponse response = MissionTodayDataResponse.builder()
             .myMissions(myMissions)
             .todayExecutions(todayExecutions)
+            .completedPinnedInstances(completedPinnedInstances)
             .completedCount(completedCount)
             .inProgressCount(inProgressCount)
             .pendingCount(pendingCount)
             .build();
 
-        log.info("BFF getTodayMissions completed: userId={}, missionCount={}, executionCount={}",
-            userId, myMissions.size(), todayExecutions.size());
+        log.info("BFF getTodayMissions completed: userId={}, missionCount={}, executionCount={}, completedPinnedCount={}",
+            userId, myMissions.size(), todayExecutions.size(), completedPinnedInstances.size());
         return response;
     }
 }

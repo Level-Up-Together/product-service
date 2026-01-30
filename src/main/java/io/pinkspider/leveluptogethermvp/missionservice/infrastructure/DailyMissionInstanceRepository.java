@@ -46,13 +46,35 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
 
     /**
      * 사용자의 오늘 인스턴스 조회 (참여자, 미션 정보 함께 로드)
+     *
+     * PENDING 인스턴스가 마지막에 오도록 정렬하여
+     * 프론트엔드에서 mission_id를 key로 Map에 저장할 때 PENDING이 유지됩니다.
+     * 따라서 고정 미션은 항상 '해야할 미션' 섹션에 표시됩니다.
+     * 완료된 고정 미션은 별도 필드(completedPinnedInstances)로 반환됩니다.
      */
     @Query("SELECT dmi FROM DailyMissionInstance dmi " +
            "JOIN FETCH dmi.participant p " +
            "JOIN FETCH p.mission m " +
            "WHERE p.userId = :userId AND dmi.instanceDate = :date " +
-           "ORDER BY dmi.id")
+           "ORDER BY dmi.id DESC")
     List<DailyMissionInstance> findByUserIdAndInstanceDateWithMission(
+        @Param("userId") String userId,
+        @Param("date") LocalDate date
+    );
+
+    /**
+     * 사용자의 오늘 완료된 인스턴스 조회 (오늘 수행 기록용)
+     *
+     * 고정 미션의 완료된 인스턴스만 반환합니다.
+     * 이 데이터는 프론트엔드의 '오늘 수행 기록' 섹션에 표시됩니다.
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE p.userId = :userId AND dmi.instanceDate = :date " +
+           "AND dmi.status = 'COMPLETED' " +
+           "ORDER BY dmi.completedAt DESC")
+    List<DailyMissionInstance> findCompletedByUserIdAndInstanceDate(
         @Param("userId") String userId,
         @Param("date") LocalDate date
     );
