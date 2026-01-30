@@ -319,13 +319,13 @@ public class TitleService {
 
     /**
      * 신규 사용자에게 기본 칭호 부여 및 장착
-     * LEFT: 신입 (id: 1), RIGHT: 모험가 (id: 26)
+     * LEFT: 신입 (id: 77), RIGHT: 수련생 (id: 78)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void grantAndEquipDefaultTitles(String userId) {
         // 기본 칭호 ID (DML에서 정의된 값)
-        final Long DEFAULT_LEFT_TITLE_ID = 1L;   // 신입
-        final Long DEFAULT_RIGHT_TITLE_ID = 26L; // 모험가
+        final Long DEFAULT_LEFT_TITLE_ID = 77L;  // 신입 (COMMON, LEFT)
+        final Long DEFAULT_RIGHT_TITLE_ID = 78L; // 수련생 (COMMON, RIGHT)
 
         // 기본 칭호 존재 확인
         boolean leftExists = titleRepository.existsById(DEFAULT_LEFT_TITLE_ID);
