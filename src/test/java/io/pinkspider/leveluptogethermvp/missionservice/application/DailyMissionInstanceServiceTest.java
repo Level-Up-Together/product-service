@@ -13,9 +13,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -85,6 +88,9 @@ class DailyMissionInstanceServiceTest {
 
     @Mock
     private MissionImageStorageService missionImageStorageService;
+
+    @Mock
+    private PinnedMissionCompletionSaga pinnedMissionCompletionSaga;
 
     @InjectMocks
     private DailyMissionInstanceService service;
@@ -183,6 +189,16 @@ class DailyMissionInstanceServiceTest {
             Field field = DailyMissionInstance.class.getDeclaredField("completedAt");
             field.setAccessible(true);
             field.set(instance, completedAt);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setNote(DailyMissionInstance instance, String note) {
+        try {
+            Field field = DailyMissionInstance.class.getDeclaredField("note");
+            field.setAccessible(true);
+            field.set(instance, note);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -312,16 +328,29 @@ class DailyMissionInstanceServiceTest {
     class CompleteInstanceTest {
 
         @Test
-        @DisplayName("인스턴스를 완료하고 경험치를 지급한다")
+        @DisplayName("인스턴스를 완료하고 경험치를 지급한다 (Saga 패턴)")
+        @SuppressWarnings("unchecked")
         void completeInstance_success() {
             // given
             instance.start();
             setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            // 인스턴스 완료 상태로 설정
+            instance.complete();
+            setNote(instance, "완료 메모");
 
-            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            // Saga 결과 mock
+            PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
+                INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
+            context.setInstance(instance);
+            context.setExpEarned(50);
+
+            SagaResult<PinnedMissionCompletionContext> sagaResult =
+                SagaResult.success(context, "성공");
+
+            when(pinnedMissionCompletionSaga.execute(INSTANCE_ID, TEST_USER_ID, "완료 메모", false))
+                .thenReturn(sagaResult);
+            when(pinnedMissionCompletionSaga.toResponse(any(SagaResult.class)))
+                .thenReturn(DailyMissionInstanceResponse.from(instance));
 
             // when
             DailyMissionInstanceResponse response = service.completeInstance(INSTANCE_ID, TEST_USER_ID, "완료 메모");
@@ -329,44 +358,42 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getNote()).isEqualTo("완료 메모");
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID),
-                anyInt(),
-                eq(ExpSourceType.MISSION_EXECUTION),
-                eq(MISSION_ID),
-                anyString(),
-                anyLong(),
-                anyString()
-            );
-            verify(userStatsService).recordMissionCompletion(TEST_USER_ID, false);
-            verify(achievementService).checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+            verify(pinnedMissionCompletionSaga).execute(INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
         }
 
         @Test
-        @DisplayName("피드 공유 실패해도 인스턴스 완료는 유지된다")
-        void completeInstance_feedFailureDoesNotAffectCompletion() {
+        @DisplayName("피드 공유 옵션으로 인스턴스 완료 (Saga 패턴)")
+        @SuppressWarnings("unchecked")
+        void completeInstance_withFeedSharing() {
             // given - IN_PROGRESS 상태로 시작된 인스턴스
             setStatus(instance, ExecutionStatus.IN_PROGRESS);
             setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            // 인스턴스 완료 상태로 설정
+            instance.complete();
+            setNote(instance, "완료!");
 
-            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-            // 피드 생성 시 필요한 서비스에서 예외 발생
-            when(userService.findByUserId(TEST_USER_ID))
-                .thenThrow(new RuntimeException("유저 조회 실패"));
+            // Saga 결과 mock
+            PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
+                INSTANCE_ID, TEST_USER_ID, "완료!", true);
+            context.setInstance(instance);
+            context.setExpEarned(50);
 
-            // when - 피드 공유 요청했지만 피드 생성 실패
+            SagaResult<PinnedMissionCompletionContext> sagaResult =
+                SagaResult.success(context, "성공");
+
+            when(pinnedMissionCompletionSaga.execute(INSTANCE_ID, TEST_USER_ID, "완료!", true))
+                .thenReturn(sagaResult);
+            when(pinnedMissionCompletionSaga.toResponse(any(SagaResult.class)))
+                .thenReturn(DailyMissionInstanceResponse.from(instance));
+
+            // when - 피드 공유 요청
             DailyMissionInstanceResponse response = service.completeInstance(INSTANCE_ID, TEST_USER_ID, "완료!", true);
 
-            // then - 피드 실패해도 인스턴스 완료는 성공
+            // then
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(response.getNote()).isEqualTo("완료!");
-            // 경험치 지급은 됨
-            verify(userExperienceService).addExperience(
-                eq(TEST_USER_ID), anyInt(), any(), anyLong(), anyString(), anyLong(), anyString());
+            verify(pinnedMissionCompletionSaga).execute(INSTANCE_ID, TEST_USER_ID, "완료!", true);
         }
     }
 

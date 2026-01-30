@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
@@ -11,6 +12,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.scheduler.DailyMissionInstanceScheduler;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
@@ -51,6 +54,7 @@ public class DailyMissionInstanceService {
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
     private final MissionImageStorageService missionImageStorageService;
+    private final PinnedMissionCompletionSaga pinnedMissionCompletionSaga;
 
     // ============ 조회 ============
 
@@ -151,8 +155,9 @@ public class DailyMissionInstanceService {
 
     /**
      * 인스턴스 완료 (경험치 지급 포함)
+     *
+     * Saga 패턴을 사용하여 분산 트랜잭션 관리
      */
-    @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note) {
         return completeInstance(instanceId, userId, note, false);
     }
@@ -160,74 +165,26 @@ public class DailyMissionInstanceService {
     /**
      * 인스턴스 완료 (경험치 지급 + 피드 공유 옵션)
      *
-     * 고정 미션은 완료 후 자동으로 PENDING 상태로 리셋되어 하루에 여러 번 수행 가능
+     * Saga 패턴을 사용하여 여러 DB에 걸친 트랜잭션을 안전하게 처리
+     * - mission_db: 인스턴스 완료, 다음 인스턴스 생성
+     * - gamification_db: 경험치 지급, 통계 업데이트
+     * - feed_db: 피드 생성 (선택적)
+     *
+     * 실패 시 자동으로 보상 트랜잭션 실행
      */
-    @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, boolean shareToFeed) {
-        DailyMissionInstance instance = findInstanceById(instanceId);
-        validateInstanceOwner(instance, userId);
+        log.info("고정 미션 완료 요청 (Saga): instanceId={}, userId={}, shareToFeed={}",
+            instanceId, userId, shareToFeed);
 
-        // 완료 처리
-        instance.complete();
-        if (note != null) {
-            instance.setNote(note);
+        // Saga 실행
+        SagaResult<PinnedMissionCompletionContext> result =
+            pinnedMissionCompletionSaga.execute(instanceId, userId, note, shareToFeed);
+
+        if (!result.isSuccess()) {
+            throw new IllegalStateException("고정 미션 완료 실패: " + result.getMessage());
         }
 
-        // 경험치 지급 (시간 기반으로 계산된 expEarned 사용)
-        int expEarned = instance.getExpEarned();
-        Mission mission = instance.getParticipant().getMission();
-
-        userExperienceService.addExperience(
-            userId,
-            expEarned,
-            ExpSourceType.MISSION_EXECUTION,
-            mission.getId(),
-            "고정 미션 수행 완료: " + instance.getMissionTitle(),
-            instance.getCategoryId(),
-            instance.getCategoryName()
-        );
-
-        // 통계 및 업적 업데이트
-        try {
-            userStatsService.recordMissionCompletion(userId, false);
-            achievementService.checkAchievementsByDataSource(userId, "USER_STATS");
-        } catch (Exception e) {
-            log.warn("업적 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-        }
-
-        // 피드 공유 요청 시 피드 생성
-        if (shareToFeed) {
-            try {
-                createFeedFromInstance(instance, userId);
-            } catch (Exception e) {
-                log.warn("피드 생성 실패 (인스턴스 완료는 유지): instanceId={}, error={}", instanceId, e.getMessage());
-            }
-        }
-
-        // 완료 정보 저장
-        instanceRepository.save(instance);
-
-        log.info("고정 미션 인스턴스 완료: instanceId={}, userId={}, expEarned={}, shareToFeed={}, sequenceNumber={}",
-            instanceId, userId, expEarned, shareToFeed, instance.getSequenceNumber());
-
-        // 응답은 완료 상태로 반환
-        DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
-
-        // 다음 수행을 위한 새 인스턴스 생성 (PENDING 상태)
-        createNextInstance(instance.getParticipant(), instance.getInstanceDate());
-
-        return response;
-    }
-
-    /**
-     * 다음 수행을 위한 새 인스턴스 생성
-     */
-    private void createNextInstance(MissionParticipant participant, LocalDate date) {
-        int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), date) + 1;
-        DailyMissionInstance newInstance = DailyMissionInstance.createFrom(participant, date, nextSequence);
-        instanceRepository.save(newInstance);
-        log.info("다음 수행용 새 인스턴스 생성: participantId={}, date={}, sequenceNumber={}",
-            participant.getId(), date, nextSequence);
+        return pinnedMissionCompletionSaga.toResponse(result);
     }
 
     /**
