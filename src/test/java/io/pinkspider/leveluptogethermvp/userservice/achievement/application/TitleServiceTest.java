@@ -663,10 +663,10 @@ class TitleServiceTest {
         @DisplayName("신규 사용자에게 기본 칭호를 부여하고 장착한다")
         void grantAndEquipDefaultTitles_success() {
             // given
-            Long leftTitleId = 1L;
-            Long rightTitleId = 26L;
+            Long leftTitleId = 77L;  // 신입 (COMMON, LEFT)
+            Long rightTitleId = 78L; // 수련생 (COMMON, RIGHT)
             Title leftTitle = createTestTitle(leftTitleId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
-            Title rightTitle = createTestTitle(rightTitleId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            Title rightTitle = createTestTitle(rightTitleId, "수련생", TitlePosition.RIGHT, TitleRarity.COMMON);
 
             UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, false, null);
             UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
