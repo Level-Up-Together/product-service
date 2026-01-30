@@ -58,7 +58,7 @@ class UserProfileCacheServiceTest {
                 .currentLevel(15)
                 .build();
 
-            TitleInfo titleInfo = new TitleInfo("전설적인 모험가", TitleRarity.LEGENDARY);
+            TitleInfo titleInfo = new TitleInfo("전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(userExperienceRepository.findByUserId(userId)).thenReturn(Optional.of(experience));
@@ -105,7 +105,7 @@ class UserProfileCacheServiceTest {
                 .build();
             setUserId(user, userId);
 
-            TitleInfo titleInfo = new TitleInfo(null, null);
+            TitleInfo titleInfo = new TitleInfo(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(userExperienceRepository.findByUserId(userId)).thenReturn(Optional.empty());
@@ -133,7 +133,7 @@ class UserProfileCacheServiceTest {
                 .currentLevel(5)
                 .build();
 
-            TitleInfo titleInfo = new TitleInfo(null, null);
+            TitleInfo titleInfo = new TitleInfo(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
             when(userExperienceRepository.findByUserId(userId)).thenReturn(Optional.of(experience));

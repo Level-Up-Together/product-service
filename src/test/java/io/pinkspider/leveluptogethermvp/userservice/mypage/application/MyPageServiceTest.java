@@ -825,7 +825,7 @@ class MyPageServiceTest {
             when(userTitleRepository.findById(1L)).thenReturn(Optional.of(leftUserTitle));
             when(userTitleRepository.findById(2L)).thenReturn(Optional.of(rightUserTitle));
             when(userTitleRepository.save(any(UserTitle.class))).thenAnswer(i -> i.getArgument(0));
-            when(activityFeedRepository.updateUserTitleByUserId(anyString(), anyString(), any(TitleRarity.class))).thenReturn(1);
+            when(activityFeedRepository.updateUserTitleByUserId(anyString(), anyString(), any(TitleRarity.class), any())).thenReturn(1);
 
             // feedTransactionManager mock 설정 (TransactionTemplate.execute()가 동작하도록)
             org.springframework.transaction.TransactionStatus mockStatus = org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class);

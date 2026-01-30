@@ -5,6 +5,8 @@
   "user_profile_image_url": "https://example.com/profile.jpg",
   "user_level": 1,
   "user_title": null,
+  "user_title_rarity": null,
+  "user_title_color_code": null,
   "activity_type": "MISSION_COMPLETED",
   "activity_type_display_name": "미션 완료",
   "category": "MISSION",

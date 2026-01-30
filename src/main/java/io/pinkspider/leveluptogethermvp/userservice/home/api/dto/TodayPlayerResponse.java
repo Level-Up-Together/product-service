@@ -21,10 +21,13 @@ public class TodayPlayerResponse {
     private Integer level;
     private String title;
     private TitleRarity titleRarity;
+    private String titleColorCode;
     private String leftTitle;
     private TitleRarity leftTitleRarity;
+    private String leftTitleColorCode;
     private String rightTitle;
     private TitleRarity rightTitleRarity;
+    private String rightTitleColorCode;
     private Long earnedExp;
     private Integer rank;
 
@@ -35,10 +38,13 @@ public class TodayPlayerResponse {
         Integer level,
         String title,
         TitleRarity titleRarity,
+        String titleColorCode,
         String leftTitle,
         TitleRarity leftTitleRarity,
+        String leftTitleColorCode,
         String rightTitle,
         TitleRarity rightTitleRarity,
+        String rightTitleColorCode,
         Long earnedExp,
         Integer rank
     ) {
@@ -49,10 +55,13 @@ public class TodayPlayerResponse {
             .level(level)
             .title(title)
             .titleRarity(titleRarity)
+            .titleColorCode(titleColorCode)
             .leftTitle(leftTitle)
             .leftTitleRarity(leftTitleRarity)
+            .leftTitleColorCode(leftTitleColorCode)
             .rightTitle(rightTitle)
             .rightTitleRarity(rightTitleRarity)
+            .rightTitleColorCode(rightTitleColorCode)
             .earnedExp(earnedExp)
             .rank(rank)
             .build();

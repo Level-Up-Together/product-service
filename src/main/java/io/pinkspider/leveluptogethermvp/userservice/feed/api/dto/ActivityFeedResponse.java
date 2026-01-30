@@ -30,6 +30,7 @@ public class ActivityFeedResponse {
     private Integer userLevel;
     private String userTitle;
     private TitleRarity userTitleRarity;
+    private String userTitleColorCode;
     private ActivityType activityType;
     private String activityTypeDisplayName;
     private String category;
@@ -76,6 +77,7 @@ public class ActivityFeedResponse {
             .userLevel(feed.getUserLevel() != null ? feed.getUserLevel() : 1)
             .userTitle(feed.getUserTitle())
             .userTitleRarity(feed.getUserTitleRarity())
+            .userTitleColorCode(feed.getUserTitleColorCode())
             .activityType(feed.getActivityType())
             .activityTypeDisplayName(feed.getActivityType().getDisplayName())
             .category(feed.getActivityType().getCategory())

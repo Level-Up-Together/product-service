@@ -550,7 +550,7 @@ class GuildChatServiceTest {
         void joinChat_withNullNickname_fetchFromProfile() {
             // given
             UserProfileCache profile = new UserProfileCache(
-                testUserId, "프로필닉네임", null, 1, null, null
+                testUserId, "프로필닉네임", null, 1, null, null, null
             );
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,6 +21,8 @@ public class LevelRankingResponse {
     private String nickname;
     private String profileImageUrl;
     private String equippedTitle;
+    private TitleRarity equippedTitleRarity;
+    private String equippedTitleColorCode;
     private Integer currentLevel;
     private Integer currentExp;
     private Integer totalExp;
@@ -48,7 +51,9 @@ public class LevelRankingResponse {
         long totalUsers,
         String nickname,
         String profileImageUrl,
-        String equippedTitle
+        String equippedTitle,
+        TitleRarity equippedTitleRarity,
+        String equippedTitleColorCode
     ) {
         double percentile = totalUsers > 0
             ? Math.round((double) rank / totalUsers * 1000) / 10.0
@@ -60,6 +65,8 @@ public class LevelRankingResponse {
             .nickname(nickname)
             .profileImageUrl(profileImageUrl)
             .equippedTitle(equippedTitle)
+            .equippedTitleRarity(equippedTitleRarity)
+            .equippedTitleColorCode(equippedTitleColorCode)
             .currentLevel(exp.getCurrentLevel())
             .currentExp(exp.getCurrentExp())
             .totalExp(exp.getTotalExp())
@@ -76,7 +83,9 @@ public class LevelRankingResponse {
         long totalUsers,
         String nickname,
         String profileImageUrl,
-        String equippedTitle
+        String equippedTitle,
+        TitleRarity equippedTitleRarity,
+        String equippedTitleColorCode
     ) {
         return LevelRankingResponse.builder()
             .rank(totalUsers + 1)
@@ -84,6 +93,8 @@ public class LevelRankingResponse {
             .nickname(nickname)
             .profileImageUrl(profileImageUrl)
             .equippedTitle(equippedTitle)
+            .equippedTitleRarity(equippedTitleRarity)
+            .equippedTitleColorCode(equippedTitleColorCode)
             .currentLevel(1)
             .currentExp(0)
             .totalExp(0)

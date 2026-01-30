@@ -79,6 +79,7 @@ public class ActivityFeedService {
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed createActivityFeed(String userId, String userNickname, String userProfileImageUrl,
                                            Integer userLevel, String userTitle, TitleRarity userTitleRarity,
+                                           String userTitleColorCode,
                                            ActivityType activityType, String title, String description,
                                            String referenceType, Long referenceId, String referenceName,
                                            FeedVisibility visibility, Long guildId,
@@ -90,6 +91,7 @@ public class ActivityFeedService {
             .userLevel(userLevel != null ? userLevel : 1)
             .userTitle(userTitle)
             .userTitleRarity(userTitleRarity)
+            .userTitleColorCode(userTitleColorCode)
             .activityType(activityType)
             .title(title)
             .description(description)
@@ -122,6 +124,7 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         ActivityFeed feed = ActivityFeed.builder()
             .userId(userId)
@@ -129,6 +132,7 @@ public class ActivityFeedService {
             .userProfileImageUrl(user.getPicture())
             .userTitle(userTitle)
             .userTitleRarity(userTitleRarity)
+            .userTitleColorCode(userTitleColorCode)
             .activityType(request.getActivityType())
             .title(request.getTitle())
             .description(request.getDescription())
@@ -761,17 +765,18 @@ public class ActivityFeedService {
 
     /**
      * 사용자의 장착된 칭호 정보 조회
-     * @return [0]: 조합된 칭호 이름, [1]: 가장 높은 등급
+     * @return [0]: 조합된 칭호 이름, [1]: 가장 높은 등급, [2]: 가장 높은 등급의 색상 코드
      */
     private Object[] getUserEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return new Object[]{null, null};
+            return new Object[]{null, null, null};
         }
 
         Title leftTitle = null;
         Title rightTitle = null;
         TitleRarity maxRarity = null;
+        String maxRarityColorCode = null;
 
         for (UserTitle ut : equippedTitles) {
             Title title = ut.getTitle();
@@ -781,14 +786,15 @@ public class ActivityFeedService {
                 rightTitle = title;
             }
 
-            // 가장 높은 등급 찾기
+            // 가장 높은 등급과 색상 코드 찾기
             if (maxRarity == null || title.getRarity().ordinal() > maxRarity.ordinal()) {
                 maxRarity = title.getRarity();
+                maxRarityColorCode = title.getColorCode();
             }
         }
 
         String combinedName = Title.getCombinedDisplayName(leftTitle, rightTitle);
-        return new Object[]{combinedName.isEmpty() ? null : combinedName, maxRarity};
+        return new Object[]{combinedName.isEmpty() ? null : combinedName, maxRarity, maxRarityColorCode};
     }
 
     // ========== System Activity Feed 생성 헬퍼 메서드 ==========
@@ -799,10 +805,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("%s 미션에 참여했습니다!", missionTitle);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.MISSION_JOINED, title, null,
+            userTitleColorCode, ActivityType.MISSION_JOINED, title, null,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -813,11 +820,12 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("%s 미션 인터벌을 완료했습니다!", missionTitle);
         String description = String.format("달성률: %d%%", completionRate);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.MISSION_COMPLETED, title, description,
+            userTitleColorCode, ActivityType.MISSION_COMPLETED, title, description,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -828,10 +836,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("%s 미션을 100%% 완료했습니다!", missionTitle);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.MISSION_FULL_COMPLETED, title, null,
+            userTitleColorCode, ActivityType.MISSION_FULL_COMPLETED, title, null,
             "MISSION", missionId, missionTitle,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -842,10 +851,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("[%s] 업적을 달성했습니다!", achievementName);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.ACHIEVEMENT_UNLOCKED, title, achievementDescription,
+            userTitleColorCode, ActivityType.ACHIEVEMENT_UNLOCKED, title, achievementDescription,
             "ACHIEVEMENT", achievementId, achievementName,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -856,10 +866,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("[%s] 칭호를 획득했습니다!", titleName);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.TITLE_ACQUIRED, title, null,
+            userTitleColorCode, ActivityType.TITLE_ACQUIRED, title, null,
             "TITLE", titleId, titleName,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -870,11 +881,12 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("레벨 %d 달성!", newLevel);
         String description = String.format("누적 경험치: %,d", totalExp);
         createActivityFeed(userId, userNickname, userProfileImageUrl, newLevel, userTitle, userTitleRarity,
-            ActivityType.LEVEL_UP, title, description,
+            userTitleColorCode, ActivityType.LEVEL_UP, title, description,
             "LEVEL", (long) newLevel, "레벨 " + newLevel,
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -885,10 +897,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("[%s] 길드를 창설했습니다!", guildName);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.GUILD_CREATED, title, null,
+            userTitleColorCode, ActivityType.GUILD_CREATED, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.PUBLIC, guildId, null, null);
     }
@@ -899,10 +912,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("[%s] 길드에 가입했습니다!", guildName);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.GUILD_JOINED, title, null,
+            userTitleColorCode, ActivityType.GUILD_JOINED, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.PUBLIC, guildId, null, null);
     }
@@ -913,10 +927,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("[%s] 길드가 레벨 %d로 성장했습니다!", guildName, newGuildLevel);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.GUILD_LEVEL_UP, title, null,
+            userTitleColorCode, ActivityType.GUILD_LEVEL_UP, title, null,
             "GUILD", guildId, guildName,
             FeedVisibility.GUILD, guildId, null, null);
     }
@@ -927,10 +942,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("%s님과 친구가 되었습니다!", friendNickname);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.FRIEND_ADDED, title, null,
+            userTitleColorCode, ActivityType.FRIEND_ADDED, title, null,
             "USER", null, friendNickname,
             FeedVisibility.FRIENDS, null, null, null);
     }
@@ -941,10 +957,11 @@ public class ActivityFeedService {
         Object[] titleInfo = getUserEquippedTitleInfo(userId);
         String userTitle = (String) titleInfo[0];
         TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
+        String userTitleColorCode = (String) titleInfo[2];
 
         String title = String.format("%d일 연속 출석 달성!", streakDays);
         createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            ActivityType.ATTENDANCE_STREAK, title, null,
+            userTitleColorCode, ActivityType.ATTENDANCE_STREAK, title, null,
             "ATTENDANCE", (long) streakDays, streakDays + "일 연속 출석",
             FeedVisibility.PUBLIC, null, null, null);
     }
@@ -959,6 +976,7 @@ public class ActivityFeedService {
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
                                                 Integer userLevel, String userTitle, TitleRarity userTitleRarity,
+                                                String userTitleColorCode,
                                                 Long executionId, Long missionId, String missionTitle,
                                                 String missionDescription, Long categoryId,
                                                 String note, String imageUrl,
@@ -972,6 +990,7 @@ public class ActivityFeedService {
             .userLevel(userLevel != null ? userLevel : 1)
             .userTitle(userTitle)
             .userTitleRarity(userTitleRarity)
+            .userTitleColorCode(userTitleColorCode)
             .activityType(ActivityType.MISSION_SHARED)
             .title(title)
             .description(note)

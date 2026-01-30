@@ -131,7 +131,8 @@ class CreateFeedFromMissionStepTest {
             "https://example.com/profile.jpg",
             10,
             "초보 모험가",
-            TitleRarity.COMMON
+            TitleRarity.COMMON,
+            "#FFFFFF"
         );
 
         activityFeed = ActivityFeed.builder()
@@ -182,8 +183,8 @@ class CreateFeedFromMissionStepTest {
             assertThat(result.getMessage()).contains("피드 공유 미요청");
             verify(activityFeedService, never()).createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
-                anyInt(), anyInt()
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt()
             );
         }
 
@@ -194,8 +195,8 @@ class CreateFeedFromMissionStepTest {
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(activityFeedService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
-                any(), anyInt()
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
 
@@ -214,8 +215,8 @@ class CreateFeedFromMissionStepTest {
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(activityFeedService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyLong(), anyLong(), anyString(), anyString(), any(), anyString(), anyString(),
-                any(), anyInt()
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
 

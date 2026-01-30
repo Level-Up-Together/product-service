@@ -454,10 +454,16 @@ public class MyPageService {
 
         // 피드의 칭호도 업데이트 (별도 트랜잭션 - feed_db)
         String combinedTitle = leftUserTitle.getTitle().getDisplayName() + " " + rightUserTitle.getTitle().getDisplayName();
-        TitleRarity highestRarity = getHighestRarity(leftUserTitle.getTitle().getRarity(), rightUserTitle.getTitle().getRarity());
+        TitleRarity leftRarity = leftUserTitle.getTitle().getRarity();
+        TitleRarity rightRarity = rightUserTitle.getTitle().getRarity();
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
+        // 가장 높은 등급의 색상 코드 선택
+        String highestColorCode = (leftRarity == highestRarity)
+            ? leftUserTitle.getTitle().getColorCode()
+            : rightUserTitle.getTitle().getColorCode();
         final String finalUserId = userId;
         int updatedCount = feedTransactionTemplate.execute(status ->
-            activityFeedRepository.updateUserTitleByUserId(finalUserId, combinedTitle, highestRarity)
+            activityFeedRepository.updateUserTitleByUserId(finalUserId, combinedTitle, highestRarity, highestColorCode)
         );
 
         log.info("칭호 변경: userId={}, leftTitleId={}, rightTitleId={}, feedsUpdated={}",

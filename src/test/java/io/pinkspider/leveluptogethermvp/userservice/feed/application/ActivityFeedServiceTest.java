@@ -189,7 +189,7 @@ class ActivityFeedServiceTest {
             // when
             ActivityFeed result = activityFeedService.createActivityFeed(
                 TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, "테스트칭호", TitleRarity.RARE,
+                5, "테스트칭호", TitleRarity.RARE, "#FFFFFF",
                 ActivityType.MISSION_COMPLETED, "미션 완료", "설명",
                 "MISSION", 1L, "테스트미션",
                 FeedVisibility.PUBLIC, null, null, null
@@ -475,7 +475,7 @@ class ActivityFeedServiceTest {
             ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
             UserProfileCache userProfile = new UserProfileCache(
                 TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, null, null
+                5, null, null, null
             );
             FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
 
@@ -855,7 +855,7 @@ class ActivityFeedServiceTest {
             // when
             ActivityFeed result = activityFeedService.createMissionSharedFeed(
                 TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
-                5, "테스트칭호", TitleRarity.RARE,
+                5, "테스트칭호", TitleRarity.RARE, "#FFFFFF",
                 1L, 2L, "테스트미션", "미션 설명", 1L,
                 "노트 내용", "https://example.com/image.jpg",
                 30, 100

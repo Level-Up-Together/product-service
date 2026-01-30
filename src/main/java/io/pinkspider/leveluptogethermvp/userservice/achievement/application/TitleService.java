@@ -81,13 +81,13 @@ public class TitleService {
     }
 
     /**
-     * 장착된 칭호의 조합된 정보 반환 (이름과 가장 높은 등급)
+     * 장착된 칭호의 조합된 정보 반환 (이름, 가장 높은 등급, 색상 코드)
      */
     @Cacheable(value = "userTitleInfo", key = "#userId")
     public TitleInfo getCombinedEquippedTitleInfo(String userId) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null);
+            return new TitleInfo(null, null, null);
         }
 
         UserTitle leftUserTitle = equippedTitles.stream()
@@ -103,11 +103,20 @@ public class TitleService {
         String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
         String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
 
-        // 가장 높은 등급 선택
-        TitleRarity highestRarity = getHighestRarity(
-            leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null,
-            rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null
-        );
+        // 가장 높은 등급과 색상 코드 선택
+        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.getTitle().getRarity() : null;
+        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.getTitle().getRarity() : null;
+        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
+
+        // 가장 높은 등급의 색상 코드 선택
+        String colorCode = null;
+        if (highestRarity != null) {
+            if (leftRarity == highestRarity && leftUserTitle != null) {
+                colorCode = leftUserTitle.getTitle().getColorCode();
+            } else if (rightUserTitle != null) {
+                colorCode = rightUserTitle.getTitle().getColorCode();
+            }
+        }
 
         String combinedTitle;
         if (leftTitle != null && rightTitle != null) {
@@ -118,7 +127,7 @@ public class TitleService {
             combinedTitle = rightTitle;
         }
 
-        return new TitleInfo(combinedTitle, highestRarity);
+        return new TitleInfo(combinedTitle, highestRarity, colorCode);
     }
 
     /**
@@ -171,9 +180,9 @@ public class TitleService {
     }
 
     /**
-     * 칭호 정보 (이름과 등급)
+     * 칭호 정보 (이름, 등급, 색상 코드)
      */
-    public record TitleInfo(String name, TitleRarity rarity) {}
+    public record TitleInfo(String name, TitleRarity rarity, String colorCode) {}
 
     /**
      * 상세 칭호 정보 (조합된 이름 + 개별 좌/우 정보 포함)
@@ -281,9 +290,9 @@ public class TitleService {
     // 사용자의 모든 피드의 칭호 업데이트
     private void updateUserFeedsTitle(String userId) {
         TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
-        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, titleInfo.name(), titleInfo.rarity());
-        log.info("피드 칭호 업데이트: userId={}, title={}, rarity={}, count={}",
-            userId, titleInfo.name(), titleInfo.rarity(), updatedCount);
+        int updatedCount = activityFeedRepository.updateUserTitleByUserId(userId, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode());
+        log.info("피드 칭호 업데이트: userId={}, title={}, rarity={}, colorCode={}, count={}",
+            userId, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(), updatedCount);
     }
 
     // 칭호 생성 (관리자용)

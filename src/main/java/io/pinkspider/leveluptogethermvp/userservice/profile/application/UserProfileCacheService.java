@@ -31,7 +31,7 @@ public class UserProfileCacheService {
 
     /**
      * 사용자 프로필 정보 조회 (캐싱)
-     * - nickname, picture, level, titleName, titleRarity 포함
+     * - nickname, picture, level, titleName, titleRarity, titleColorCode 포함
      * - TTL: 5분 (RedisConfig에서 설정)
      */
     @Cacheable(value = "userProfile", key = "#userId")
@@ -59,7 +59,8 @@ public class UserProfileCacheService {
             user.getPicture(),
             level,
             titleInfo.name(),
-            titleInfo.rarity()
+            titleInfo.rarity(),
+            titleInfo.colorCode()
         );
     }
 

@@ -74,6 +74,10 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Comment("사용자 칭호 등급 (피드 생성 시점)")
     private TitleRarity userTitleRarity;
 
+    @Column(name = "user_title_color_code", length = 10)
+    @Comment("사용자 칭호 색상 코드 (피드 생성 시점)")
+    private String userTitleColorCode;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "activity_type", nullable = false, length = 30)
