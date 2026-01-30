@@ -156,16 +156,20 @@ public class UserExperienceService {
 
         while (true) {
             int currentLevel = userExp.getCurrentLevel();
-            LevelConfig currentLevelConfig = levelConfigs.stream()
-                .filter(lc -> lc.getLevel().equals(currentLevel))
+            int nextLevel = currentLevel + 1;
+
+            // 다음 레벨의 설정을 조회하여 필요 경험치 확인
+            LevelConfig nextLevelConfig = levelConfigs.stream()
+                .filter(lc -> lc.getLevel().equals(nextLevel))
                 .findFirst()
                 .orElse(null);
 
-            if (currentLevelConfig == null) {
+            // 다음 레벨 설정이 없으면 최대 레벨 도달
+            if (nextLevelConfig == null) {
                 break;
             }
 
-            int requiredExp = currentLevelConfig.getRequiredExp();
+            int requiredExp = nextLevelConfig.getRequiredExp();
             if (userExp.getCurrentExp() >= requiredExp) {
                 userExp.levelUp(requiredExp);
             } else {
