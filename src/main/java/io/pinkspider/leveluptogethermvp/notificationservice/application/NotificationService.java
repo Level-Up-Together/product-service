@@ -348,7 +348,7 @@ public class NotificationService {
         createNotification(userId, NotificationType.ACHIEVEMENT_COMPLETED,
             "업적 달성!",
             "'" + achievementName + "' 업적을 달성했습니다!",
-            "ACHIEVEMENT", achievementId, "/mypage/achievements");
+            "ACHIEVEMENT", achievementId, "/mypage");
     }
 
     // 길드 창설 가능 알림 (레벨 20 도달)
