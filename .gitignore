@@ -46,6 +46,7 @@ logs
 /docs/deploy.sh
 /docs/deploy.sh.org
 /docs/test.puml
+/docs/*.xlsx
 
 ### Claude Code ###
 *-command-message*.txt
@@ -59,3 +60,4 @@ logs
 firebase-service-account.json
 src/main/resources/firebase-service-account.json
 /firebase-debug.log
+
