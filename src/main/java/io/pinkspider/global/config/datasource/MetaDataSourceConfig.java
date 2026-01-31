@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "metaEntityManagerFactory",
     transactionManagerRef = "metaTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class MetaDataSourceConfig {
 

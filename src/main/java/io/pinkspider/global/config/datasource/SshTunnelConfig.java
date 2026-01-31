@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 
 @Configuration
 @Slf4j
-@Profile("!test")
+@Profile("!test & !push-test")
 public class SshTunnelConfig {
 
     @Bean(name = "sshTunnel", initMethod = "start", destroyMethod = "stop")

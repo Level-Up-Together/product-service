@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "gamificationEntityManagerFactory",
     transactionManagerRef = "gamificationTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class GamificationDataSourceConfig {
 

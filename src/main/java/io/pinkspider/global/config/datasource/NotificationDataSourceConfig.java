@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "notificationEntityManagerFactory",
     transactionManagerRef = "notificationTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class NotificationDataSourceConfig {
 

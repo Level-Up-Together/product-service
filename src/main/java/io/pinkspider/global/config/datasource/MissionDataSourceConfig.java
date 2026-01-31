@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "missionEntityManagerFactory",
     transactionManagerRef = "missionTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class MissionDataSourceConfig {
 

@@ -1,0 +1,154 @@
+# Kafka 앱 푸시 통합 테스트용 설정
+# 실제 Kafka 및 Firebase를 사용하여 앱에 알림이 도착하는지 테스트
+
+server:
+  port: 18081
+
+eureka:
+  client:
+    enabled: false
+
+encrypt:
+  key: key-brian
+
+crypto:
+  secret-key: km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=
+  iv: K4Dw+xcX91fMfi3SNU0gQg==
+  cipher: AES/CBC/PKCS5Padding
+
+spring:
+  application:
+    name: level-up-together-mvp-push-test
+  cloud:
+    config:
+      enabled: false
+
+  # H2 database (테스트용)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  datasource:
+    user:
+      jdbc-url: jdbc:h2:mem:user_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS user_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    mission:
+      jdbc-url: jdbc:h2:mem:mission_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS mission_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    guild:
+      jdbc-url: jdbc:h2:mem:guild_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS guild_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    meta:
+      jdbc-url: jdbc:h2:mem:meta_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS meta_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    saga:
+      jdbc-url: jdbc:h2:mem:saga_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS saga_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    notification:
+      jdbc-url: jdbc:h2:mem:notification_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS notification_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    admin:
+      jdbc-url: jdbc:h2:mem:admin_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS admin_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    feed:
+      jdbc-url: jdbc:h2:mem:feed_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS feed_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+    gamification:
+      jdbc-url: jdbc:h2:mem:gamification_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS gamification_db
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+  jpa:
+    database: h2
+    generate-ddl: true
+    hibernate:
+      ddl-auto: create-drop
+      naming:
+        physical-strategy: io.pinkspider.global.handler.CustomMySpringPhysicalNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+        show_sql: false
+    defer-datasource-initialization: true
+
+  # Redis (실제 서버 연결)
+  data:
+    redis:
+      host: 121.136.108.44
+      port: 6379
+      password: levelup!@#
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 10
+          min-idle: 2
+
+  # Kafka (실제 서버 연결)
+  kafka:
+    bootstrap-servers: 121.136.108.44:9092
+    app-push:
+      topic: appPushTopic
+      group-id: appPushTestGroup  # 테스트용 별도 그룹
+      auto-offset-reset: earliest
+
+logging:
+  level:
+    io.pinkspider.global.kafka: DEBUG
+    io.pinkspider.leveluptogethermvp.notificationservice: DEBUG
+    org.apache.kafka: WARN
+
+# Firebase 푸시 알림 설정 - 활성화!
+firebase:
+  enabled: true
+
+# 이미지 검증 비활성화
+moderation:
+  image:
+    provider: none
+
+app:
+  admin:
+    api-url: http://localhost:8444
+  redirect-url: http://localhost:8001
+  threshold-password-fail: 5
+  oauth2:
+    google-token-url: "https://oauth2.googleapis.com"
+    kakao-token-url: "https://kauth.kakao.com/oauth/token"
+    allowed-origins:
+      - http://localhost:8001
+      - http://localhost:3000
+  jwt:
+    refresh:
+      renewal-threshold-days: 3
+      max-lifetime-days: 30
+    access-token-expiry: 3600000
+    refresh-token-expiry: 604800000
+    secret: cGluayBzcGlkZXIgbGV2ZWwgdXAgdG9nZXRoZXIgbXNhIHVzZXIgc2VydmljZSBkZXYgYmFzZTY0IGp3dCBzZWNyZXQ=
+    master-token: "Bearer eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJndXVOSVNFVXhSZWY5SzBLSlN3UjZRPT0iLCJleHAiOjE3MTYyNzUwMTEsImlhdCI6MTcxNjI3MTQxMSwiaXNzIjoiL2xvZ2luIn0.C_7QDymi39qKvoRl2E1qo0HREOd-BqqcJ3LBEEWWq_XNWTqEHJyMc0cugoIVx12H"
+  meta-redis-key:
+    common-code: CommonCodePushTest
+    crypto-meta-data: CryptoMetaDataPushTest
+  slack:
+    webhook:
+      url: https://hooks.slack.com/services/test
+  alarm:
+    exception:
+      slack:
+        enabled: false

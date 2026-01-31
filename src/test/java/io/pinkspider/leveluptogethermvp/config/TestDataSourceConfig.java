@@ -18,7 +18,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Configuration
-@Profile("test")
+@Profile({"test", "push-test"})
 @EnableTransactionManagement
 public class TestDataSourceConfig {
 
@@ -33,7 +33,7 @@ public class TestDataSourceConfig {
 
     // ========== User DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.userservice",
         entityManagerFactoryRef = "userEntityManagerFactory",
@@ -81,7 +81,7 @@ public class TestDataSourceConfig {
 
     // ========== Mission DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.missionservice",
         entityManagerFactoryRef = "missionEntityManagerFactory",
@@ -126,7 +126,7 @@ public class TestDataSourceConfig {
 
     // ========== Guild DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.guildservice",
         entityManagerFactoryRef = "guildEntityManagerFactory",
@@ -171,7 +171,7 @@ public class TestDataSourceConfig {
 
     // ========== Meta DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = {
             "io.pinkspider.leveluptogethermvp.metaservice",
@@ -224,7 +224,7 @@ public class TestDataSourceConfig {
 
     // ========== Saga DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.global.saga.persistence",
         entityManagerFactoryRef = "sagaEntityManagerFactory",
@@ -269,7 +269,7 @@ public class TestDataSourceConfig {
 
     // ========== Notification DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.notificationservice",
         entityManagerFactoryRef = "notificationEntityManagerFactory",
@@ -314,7 +314,7 @@ public class TestDataSourceConfig {
 
     // ========== Admin DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.adminservice",
         entityManagerFactoryRef = "adminEntityManagerFactory",
@@ -359,7 +359,7 @@ public class TestDataSourceConfig {
 
     // ========== Feed DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.feedservice",
         entityManagerFactoryRef = "feedEntityManagerFactory",
@@ -404,7 +404,7 @@ public class TestDataSourceConfig {
 
     // ========== Gamification DataSource ==========
     @Configuration
-    @Profile("test")
+    @Profile({"test", "push-test"})
     @EnableJpaRepositories(
         basePackages = "io.pinkspider.leveluptogethermvp.gamificationservice",
         entityManagerFactoryRef = "gamificationEntityManagerFactory",

@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "feedEntityManagerFactory",
     transactionManagerRef = "feedTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class FeedDataSourceConfig {
 

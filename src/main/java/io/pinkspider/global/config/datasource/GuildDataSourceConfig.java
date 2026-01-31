@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     entityManagerFactoryRef = "guildEntityManagerFactory",
     transactionManagerRef = "guildTransactionManager"
 )
-@Profile("!test")
+@Profile("!test & !push-test")
 @Slf4j
 public class GuildDataSourceConfig {
 
