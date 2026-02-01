@@ -21,6 +21,7 @@ import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -265,7 +266,7 @@ public class AchievementService {
 
         if (conditionMet) {
             // 조건 충족 시 업적 완료 처리
-            UserAchievement userAchievement = existingOpt.orElseGet(() -> createUserAchievement(userId, achievement));
+            UserAchievement userAchievement = existingOpt.orElseGet(() -> getOrCreateUserAchievement(userId, achievement));
 
             if (!userAchievement.getIsCompleted()) {
                 // 현재 값을 가져와서 count 업데이트
@@ -294,7 +295,7 @@ public class AchievementService {
             // 조건 미충족이더라도 진행도 업데이트
             Object currentValue = strategy.fetchCurrentValue(userId, achievement.getCheckLogicDataField());
             if (currentValue instanceof Number) {
-                UserAchievement userAchievement = existingOpt.orElseGet(() -> createUserAchievement(userId, achievement));
+                UserAchievement userAchievement = existingOpt.orElseGet(() -> getOrCreateUserAchievement(userId, achievement));
                 if (!userAchievement.getIsCompleted()) {
                     userAchievement.setCount(((Number) currentValue).intValue());
                 }
@@ -302,12 +303,29 @@ public class AchievementService {
         }
     }
 
-    private UserAchievement createUserAchievement(String userId, Achievement achievement) {
-        UserAchievement userAchievement = UserAchievement.builder()
-            .userId(userId)
-            .achievement(achievement)
-            .currentCount(0)
-            .build();
-        return userAchievementRepository.save(userAchievement);
+    /**
+     * UserAchievement 생성 또는 조회 (레이스 컨디션 안전)
+     * 동시 요청으로 중복 키 예외 발생 시 기존 레코드를 조회하여 반환
+     */
+    private UserAchievement getOrCreateUserAchievement(String userId, Achievement achievement) {
+        // 먼저 기존 레코드 조회
+        return userAchievementRepository.findByUserIdAndAchievementId(userId, achievement.getId())
+            .orElseGet(() -> {
+                try {
+                    UserAchievement newAchievement = UserAchievement.builder()
+                        .userId(userId)
+                        .achievement(achievement)
+                        .currentCount(0)
+                        .build();
+                    // saveAndFlush로 즉시 INSERT 실행 및 예외 발생
+                    return userAchievementRepository.saveAndFlush(newAchievement);
+                } catch (DataIntegrityViolationException e) {
+                    // 레이스 컨디션: 다른 스레드가 먼저 저장한 경우, 기존 레코드 조회
+                    log.debug("UserAchievement 중복 감지, 기존 레코드 조회: userId={}, achievementId={}", userId, achievement.getId());
+                    return userAchievementRepository.findByUserIdAndAchievementId(userId, achievement.getId())
+                        .orElseThrow(() -> new IllegalStateException(
+                            "UserAchievement not found after duplicate key error: userId=" + userId + ", achievementId=" + achievement.getId()));
+                }
+            });
     }
 }

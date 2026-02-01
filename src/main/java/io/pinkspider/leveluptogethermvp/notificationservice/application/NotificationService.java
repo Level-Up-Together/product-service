@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -331,7 +332,7 @@ public class NotificationService {
             "MISSION", missionId, "/mission/" + missionId);
     }
 
-    // 칭호 획득 알림 (중복 방지)
+    // 칭호 획득 알림 (중복 방지 - 레이스 컨디션 안전)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
         // 동일한 칭호에 대한 알림이 이미 존재하면 스킵
@@ -340,15 +341,20 @@ public class NotificationService {
             log.debug("칭호 획득 알림 중복 방지: userId={}, titleId={}", userId, titleId);
             return;
         }
-        // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
-        String rarityMetadata = "rarity:" + titleRarity;
-        createNotification(userId, NotificationType.TITLE_ACQUIRED,
-            "새로운 칭호 획득!",
-            "'" + titleName + "' 칭호를 획득했습니다!",
-            "TITLE", titleId, "/mypage/titles", rarityMetadata);
+        try {
+            // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
+            String rarityMetadata = "rarity:" + titleRarity;
+            createNotificationWithDeduplication(userId, NotificationType.TITLE_ACQUIRED,
+                "새로운 칭호 획득!",
+                "'" + titleName + "' 칭호를 획득했습니다!",
+                "TITLE", titleId, "/mypage/titles", rarityMetadata);
+        } catch (DataIntegrityViolationException e) {
+            // 레이스 컨디션으로 인한 중복 - 무시
+            log.debug("칭호 획득 알림 중복 감지 (DB 제약조건): userId={}, titleId={}", userId, titleId);
+        }
     }
 
-    // 업적 달성 알림 (중복 방지)
+    // 업적 달성 알림 (중복 방지 - 레이스 컨디션 안전)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyAchievementCompleted(String userId, Long achievementId, String achievementName) {
         // 동일한 업적에 대한 알림이 이미 존재하면 스킵
@@ -357,10 +363,52 @@ public class NotificationService {
             log.debug("업적 달성 알림 중복 방지: userId={}, achievementId={}", userId, achievementId);
             return;
         }
-        createNotification(userId, NotificationType.ACHIEVEMENT_COMPLETED,
-            "업적 달성!",
-            "'" + achievementName + "' 업적을 달성했습니다!",
-            "ACHIEVEMENT", achievementId, "/mypage");
+        try {
+            createNotificationWithDeduplication(userId, NotificationType.ACHIEVEMENT_COMPLETED,
+                "업적 달성!",
+                "'" + achievementName + "' 업적을 달성했습니다!",
+                "ACHIEVEMENT", achievementId, "/mypage", null);
+        } catch (DataIntegrityViolationException e) {
+            // 레이스 컨디션으로 인한 중복 - 무시
+            log.debug("업적 달성 알림 중복 감지 (DB 제약조건): userId={}, achievementId={}", userId, achievementId);
+        }
+    }
+
+    /**
+     * 중복 방지가 필요한 알림 생성 (saveAndFlush 사용)
+     */
+    private NotificationResponse createNotificationWithDeduplication(String userId, NotificationType type,
+                                                                      String title, String message,
+                                                                      String referenceType, Long referenceId,
+                                                                      String actionUrl, String iconUrl) {
+        // 알림 설정 확인
+        NotificationPreference pref = getOrCreatePreference(userId);
+        if (!pref.isCategoryEnabled(type.getCategory())) {
+            log.debug("알림 비활성화됨: userId={}, type={}", userId, type);
+            return null;
+        }
+
+        Notification notification = Notification.builder()
+            .userId(userId)
+            .notificationType(type)
+            .title(title)
+            .message(message)
+            .referenceType(referenceType)
+            .referenceId(referenceId)
+            .actionUrl(actionUrl)
+            .iconUrl(iconUrl)
+            .build();
+
+        // saveAndFlush로 즉시 INSERT하여 중복 시 예외 발생
+        Notification saved = notificationRepository.saveAndFlush(notification);
+        log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
+
+        // 푸시 알림 전송 (푸시 설정이 활성화된 경우)
+        if (pref.getPushEnabled()) {
+            sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+        }
+
+        return NotificationResponse.from(saved);
     }
 
     // 길드 창설 가능 알림 (레벨 20 도달)

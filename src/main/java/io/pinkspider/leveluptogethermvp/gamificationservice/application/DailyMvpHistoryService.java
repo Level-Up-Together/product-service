@@ -51,9 +51,18 @@ public class DailyMvpHistoryService {
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void captureAndSaveDailyMvp(LocalDate targetDate) {
         // 이미 존재하는 경우 스킵 (중복 방지)
-        if (historyRepository.existsByMvpDate(targetDate)) {
-            log.info("이미 저장된 MVP 히스토리가 있습니다: date={}", targetDate);
+        // 기존 레코드 수를 확인하여 완전히 저장된 경우만 스킵
+        long existingCount = historyRepository.countByMvpDate(targetDate);
+        if (existingCount >= MVP_COUNT) {
+            log.info("이미 저장된 MVP 히스토리가 있습니다: date={}, count={}", targetDate, existingCount);
             return;
+        }
+
+        // 부분적으로 저장된 경우 기존 데이터 삭제 후 재저장
+        if (existingCount > 0) {
+            log.warn("부분적으로 저장된 MVP 히스토리 발견, 삭제 후 재저장: date={}, existingCount={}", targetDate, existingCount);
+            historyRepository.deleteByMvpDate(targetDate);
+            categoryStatsRepository.deleteByStatsDate(targetDate);
         }
 
         LocalDateTime startDate = targetDate.atStartOfDay();

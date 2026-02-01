@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,7 +65,17 @@ public class AttendanceService {
         int bonusExp = calculateBonusExp(consecutiveDays, bonusReasons);
         record.setBonusRewardExp(bonusExp);
 
-        AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
+        AttendanceRecord savedRecord;
+        try {
+            savedRecord = attendanceRecordRepository.saveAndFlush(record);
+        } catch (DataIntegrityViolationException e) {
+            // 레이스 컨디션: 다른 요청이 먼저 출석 처리한 경우
+            log.debug("출석 체크 중복 감지, 기존 레코드 조회: userId={}, date={}", userId, today);
+            return attendanceRecordRepository.findByUserIdAndAttendanceDate(userId, today)
+                .map(existing -> AttendanceCheckInResponse.alreadyCheckedIn(AttendanceResponse.from(existing)))
+                .orElseThrow(() -> new IllegalStateException(
+                    "AttendanceRecord not found after duplicate key error: userId=" + userId + ", date=" + today));
+        }
 
         // 경험치 지급
         int totalExp = baseExp + bonusExp;

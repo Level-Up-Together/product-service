@@ -55,6 +55,11 @@ public interface DailyMvpHistoryRepository extends JpaRepository<DailyMvpHistory
     boolean existsByMvpDate(LocalDate mvpDate);
 
     /**
+     * 특정 날짜의 데이터 개수 확인 (부분 저장 감지용)
+     */
+    long countByMvpDate(LocalDate mvpDate);
+
+    /**
      * 특정 날짜의 데이터 삭제 (재처리용)
      */
     void deleteByMvpDate(LocalDate mvpDate);
