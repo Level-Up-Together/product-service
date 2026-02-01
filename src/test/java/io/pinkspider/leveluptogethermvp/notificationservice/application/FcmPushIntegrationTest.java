@@ -38,7 +38,7 @@ import org.springframework.core.io.ClassPathResource;
  *
  * @Disabled 어노테이션을 제거하고 실행하세요.
  */
-//@Disabled
+@Disabled("실제 FCM 테스트 - firebase-service-account.json 필요")
 class FcmPushIntegrationTest {
 
     // ⚠️ 실제 앱에서 발급받은 FCM 토큰으로 교체하세요
@@ -69,7 +69,7 @@ class FcmPushIntegrationTest {
         try (InputStream is = resource.getInputStream()) {
             credentials = GoogleCredentials.fromStream(is)
                 .createScoped("https://www.googleapis.com/auth/firebase.messaging",
-                              "https://www.googleapis.com/auth/cloud-platform");
+                    "https://www.googleapis.com/auth/cloud-platform");
         }
         System.out.println("Credentials type: " + credentials.getClass().getSimpleName());
 
@@ -91,7 +91,7 @@ class FcmPushIntegrationTest {
     }
 
     @Test
-    // @Disabled("실제 푸시 전송 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
+    @Disabled("실제 푸시 전송 테스트 - FCM_TOKEN 설정 후 @Disabled 제거")
     void sendPushNotification_실제전송테스트() {
         try {
             // Given

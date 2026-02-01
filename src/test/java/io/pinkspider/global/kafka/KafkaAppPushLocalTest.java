@@ -5,6 +5,7 @@ import io.pinkspider.global.kafka.producer.KafkaAppPushProducer;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,7 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles({"test", "push-test"})
-//@Disabled("로컬 푸시 테스트 - USER_ID 설정 후 @Disabled 제거하고 실행")
+@Disabled("로컬 푸시 테스트 - USER_ID 설정 후 @Disabled 제거하고 실행")
 class KafkaAppPushLocalTest {
 
     // =====================================================
