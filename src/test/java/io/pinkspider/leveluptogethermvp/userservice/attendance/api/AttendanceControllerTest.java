@@ -19,6 +19,7 @@ import io.pinkspider.leveluptogethermvp.userservice.attendance.application.Atten
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,12 +62,17 @@ class AttendanceControllerTest {
     @MockitoBean
     private AttendanceService attendanceService;
 
+    @MockitoBean
+    private UserService userService;
+
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
     @DisplayName("POST /api/v1/attendance/check-in : 출석 체크")
     void checkInTest() throws Exception {
         // given
+        when(userService.isNewUserToday(anyString())).thenReturn(false);
+
         AttendanceResponse attendance = AttendanceResponse.builder()
             .id(1L)
             .userId(MOCK_USER_ID)

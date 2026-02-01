@@ -12,8 +12,6 @@ import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.Attend
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -35,26 +33,12 @@ public class AttendanceService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceRewardConfigRepository rewardConfigRepository;
     private final UserExperienceService userExperienceService;
-    private final UserRepository userRepository;
 
     private static final int DEFAULT_DAILY_EXP = 10;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public AttendanceCheckInResponse checkIn(String userId) {
         LocalDate today = LocalDate.now();
-
-        // 오늘 가입한 신규 유저는 출석 체크 대상에서 제외
-        Optional<Users> userOptional = userRepository.findById(userId);
-        if (userOptional.isPresent()) {
-            Users user = userOptional.get();
-            if (user.getCreatedAt() != null && user.getCreatedAt().toLocalDate().equals(today)) {
-                log.info("신규 가입 유저는 첫날 출석 체크 제외: userId={}", userId);
-                return AttendanceCheckInResponse.builder()
-                    .isAlreadyCheckedIn(true)
-                    .message("가입 첫날은 출석 체크가 적용되지 않습니다. 내일부터 출석 체크를 시작해주세요!")
-                    .build();
-            }
-        }
 
         // 이미 출석했는지 확인
         Optional<AttendanceRecord> existingRecord =

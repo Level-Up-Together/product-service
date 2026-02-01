@@ -331,9 +331,15 @@ public class NotificationService {
             "MISSION", missionId, "/mission/" + missionId);
     }
 
-    // 칭호 획득 알림
+    // 칭호 획득 알림 (중복 방지)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
+        // 동일한 칭호에 대한 알림이 이미 존재하면 스킵
+        if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                userId, "TITLE", titleId)) {
+            log.debug("칭호 획득 알림 중복 방지: userId={}, titleId={}", userId, titleId);
+            return;
+        }
         // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
         String rarityMetadata = "rarity:" + titleRarity;
         createNotification(userId, NotificationType.TITLE_ACQUIRED,
@@ -342,9 +348,15 @@ public class NotificationService {
             "TITLE", titleId, "/mypage/titles", rarityMetadata);
     }
 
-    // 업적 달성 알림
+    // 업적 달성 알림 (중복 방지)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyAchievementCompleted(String userId, Long achievementId, String achievementName) {
+        // 동일한 업적에 대한 알림이 이미 존재하면 스킵
+        if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                userId, "ACHIEVEMENT", achievementId)) {
+            log.debug("업적 달성 알림 중복 방지: userId={}, achievementId={}", userId, achievementId);
+            return;
+        }
         createNotification(userId, NotificationType.ACHIEVEMENT_COMPLETED,
             "업적 달성!",
             "'" + achievementName + "' 업적을 달성했습니다!",

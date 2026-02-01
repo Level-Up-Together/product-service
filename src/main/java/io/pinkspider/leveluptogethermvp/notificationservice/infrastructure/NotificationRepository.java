@@ -71,4 +71,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int deleteByReference(
         @Param("referenceType") String referenceType,
         @Param("referenceId") Long referenceId);
+
+    /**
+     * 동일한 사용자, 참조 타입, 참조 ID로 알림이 존재하는지 확인
+     * (업적, 칭호 등 중복 알림 방지용)
+     */
+    boolean existsByUserIdAndReferenceTypeAndReferenceId(
+        String userId, String referenceType, Long referenceId);
 }

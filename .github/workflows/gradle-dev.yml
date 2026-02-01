@@ -33,7 +33,7 @@ jobs:
       # 4. Keystore 파일 복원 (GitHub Secrets에서)
       - name: Restore keystore from secrets
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > src/main/resources/keystore.p12
           echo "✅ Keystore restored successfully"

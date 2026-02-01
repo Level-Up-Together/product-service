@@ -4,9 +4,11 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,5 +32,16 @@ public class UserService {
     public Users findByUserId(String userId) {
         return userRepository.findById(userId)
             .orElseThrow(() -> new CustomException("", ""));
+    }
+
+    /**
+     * 오늘 가입한 신규 유저인지 확인
+     */
+    @Transactional(transactionManager = "userTransactionManager", readOnly = true)
+    public boolean isNewUserToday(String userId) {
+        return userRepository.findById(userId)
+            .map(user -> user.getCreatedAt() != null &&
+                         user.getCreatedAt().toLocalDate().equals(LocalDate.now()))
+            .orElse(false);
     }
 }

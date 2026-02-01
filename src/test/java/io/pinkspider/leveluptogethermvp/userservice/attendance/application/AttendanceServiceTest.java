@@ -19,11 +19,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Atten
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -45,9 +42,6 @@ class AttendanceServiceTest {
 
     @Mock
     private UserExperienceService userExperienceService;
-
-    @Mock
-    private UserRepository userRepository;
 
     @InjectMocks
     private AttendanceService attendanceService;
@@ -72,26 +66,6 @@ class AttendanceServiceTest {
         return record;
     }
 
-    private Users createTestUser(String userId, LocalDateTime createdAt) {
-        Users user = Users.builder()
-            .nickname("테스터")
-            .email("test@test.com")
-            .provider("GOOGLE")
-            .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-
-            Field createdAtField = Users.class.getSuperclass().getDeclaredField("createdAt");
-            createdAtField.setAccessible(true);
-            createdAtField.set(user, createdAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return user;
-    }
-
     @Nested
     @DisplayName("checkIn 테스트")
     class CheckInTest {
@@ -101,10 +75,8 @@ class AttendanceServiceTest {
         void checkIn_firstTime_success() {
             // given
             LocalDate today = LocalDate.now();
-            Users user = createTestUser(TEST_USER_ID, LocalDateTime.now().minusDays(1));
             AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
                 .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today.minusDays(1)))
@@ -132,10 +104,8 @@ class AttendanceServiceTest {
         void checkIn_alreadyCheckedIn() {
             // given
             LocalDate today = LocalDate.now();
-            Users user = createTestUser(TEST_USER_ID, LocalDateTime.now().minusDays(1));
             AttendanceRecord existingRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
                 .thenReturn(Optional.of(existingRecord));
 
@@ -149,35 +119,15 @@ class AttendanceServiceTest {
         }
 
         @Test
-        @DisplayName("신규 가입 당일은 출석 체크가 제외된다")
-        void checkIn_newUserToday_excluded() {
-            // given
-            Users newUser = createTestUser(TEST_USER_ID, LocalDateTime.now());
-
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(newUser));
-
-            // when
-            AttendanceCheckInResponse result = attendanceService.checkIn(TEST_USER_ID);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result.isAlreadyCheckedIn()).isTrue();
-            assertThat(result.getMessage()).contains("가입 첫날");
-            verify(attendanceRecordRepository, never()).save(any());
-        }
-
-        @Test
         @DisplayName("연속 출석 시 연속 일수가 증가한다")
         void checkIn_consecutiveDays_incremented() {
             // given
             LocalDate today = LocalDate.now();
             LocalDate yesterday = today.minusDays(1);
-            Users user = createTestUser(TEST_USER_ID, LocalDateTime.now().minusDays(10));
 
             AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 5);
             AttendanceRecord savedRecord = createTestAttendanceRecord(2L, TEST_USER_ID, today, 6);
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
                 .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, yesterday))
@@ -203,13 +153,11 @@ class AttendanceServiceTest {
             // given
             LocalDate today = LocalDate.now();
             LocalDate yesterday = today.minusDays(1);
-            Users user = createTestUser(TEST_USER_ID, LocalDateTime.now().minusDays(10));
 
             AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 2);
             AttendanceRecord savedRecord = createTestAttendanceRecord(2L, TEST_USER_ID, today, 3);
             savedRecord.setBonusRewardExp(20);
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
                 .thenReturn(Optional.empty());
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, yesterday))

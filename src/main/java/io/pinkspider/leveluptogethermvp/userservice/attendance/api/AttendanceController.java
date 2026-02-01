@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.userservice.attendance.application.Atten
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +24,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final UserService userService;
 
     // 출석 체크 (Rate Limit: 사용자당 1분에 5회)
     @PostMapping("/check-in")
     @PerUserRateLimit(name = "attendance", limit = 5, windowSeconds = 60)
     public ResponseEntity<ApiResult<AttendanceCheckInResponse>> checkIn(
         @CurrentUser String userId) {
+        // 오늘 가입한 신규 유저는 출석 체크 대상에서 제외
+        if (userService.isNewUserToday(userId)) {
+            log.info("신규 가입 유저는 첫날 출석 체크 제외: userId={}", userId);
+            AttendanceCheckInResponse response = AttendanceCheckInResponse.builder()
+                .isAlreadyCheckedIn(true)
+                .message("가입 첫날은 출석 체크가 적용되지 않습니다. 내일부터 출석 체크를 시작해주세요!")
+                .build();
+            return ResponseEntity.ok(ApiResult.<AttendanceCheckInResponse>builder().value(response).build());
+        }
+
         AttendanceCheckInResponse response = attendanceService.checkIn(userId);
         return ResponseEntity.ok(ApiResult.<AttendanceCheckInResponse>builder().value(response).build());
     }
