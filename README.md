@@ -517,6 +517,31 @@ public void updateGuild(...) { ... }
 
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있습니다. `@ActiveProfiles("test")` 확인이 필요합니다.
 
+### Race Condition (중복 키 오류)
+
+동시 요청으로 인한 `DataIntegrityViolationException` 발생 시, Check-then-Insert 패턴 대신 `saveAndFlush()` + 예외 처리 패턴을 사용합니다:
+
+```java
+private Entity getOrCreateEntity(String key) {
+    return repository.findByKey(key)
+        .orElseGet(() -> {
+            try {
+                Entity newEntity = Entity.builder().key(key).build();
+                return repository.saveAndFlush(newEntity);  // 즉시 INSERT
+            } catch (DataIntegrityViolationException e) {
+                // 중복 발생 시 기존 레코드 조회
+                return repository.findByKey(key)
+                    .orElseThrow(() -> new IllegalStateException("Race condition 처리 실패"));
+            }
+        });
+}
+```
+
+**적용 사례:**
+- `AchievementService.getOrCreateUserAchievement()` - 업적 중복 방지
+- `AttendanceService.checkIn()` - 출석 체크 중복 방지
+- `NotificationService.createNotificationWithDeduplication()` - 알림 중복 방지
+
 ## 개발 서버
 
 - API 서버: https://dev-api.level-up-together.com

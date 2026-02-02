@@ -355,6 +355,26 @@ public class YourStep extends AbstractSagaStep<YourContext> {
 ### Integration Tests 실패
 SSH 터널이나 외부 서비스 연결이 필요한 테스트는 로컬에서 실패할 수 있음. `@ActiveProfiles("test")` 확인
 
+### Race Condition (중복 키 오류) 해결 패턴
+동시 요청으로 인한 `DataIntegrityViolationException` (Unique constraint violation) 발생 시:
+```java
+// Check-then-insert 패턴 대신 saveAndFlush + 예외 처리 사용
+private Entity getOrCreateEntity(String key) {
+    return repository.findByKey(key)
+        .orElseGet(() -> {
+            try {
+                Entity newEntity = Entity.builder().key(key).build();
+                return repository.saveAndFlush(newEntity);  // 즉시 INSERT
+            } catch (DataIntegrityViolationException e) {
+                // 중복 발생 시 기존 레코드 조회
+                return repository.findByKey(key)
+                    .orElseThrow(() -> new IllegalStateException("Race condition 처리 실패"));
+            }
+        });
+}
+```
+적용 사례: `AchievementService.getOrCreateUserAchievement()`, `AttendanceService.checkIn()`, `NotificationService.createNotificationWithDeduplication()`
+
 ## Feature-Specific Implementation Notes
 
 ### Pinned Mission (고정 미션) - Template-Instance 패턴
