@@ -10,6 +10,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectC
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectMessageRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.List;
@@ -34,6 +36,7 @@ public class GuildDirectMessageService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final FcmPushService fcmPushService;
 
     /**
      * DM 전송
@@ -80,6 +83,9 @@ public class GuildDirectMessageService {
         conversation.updateLastMessage(request.getContent());
 
         log.debug("DM 전송: guildId={}, senderId={}, recipientId={}", guildId, senderId, recipientId);
+
+        // 수신자에게 푸시 알림 전송
+        sendDmPushNotification(recipientId, senderNickname, request.getContent(), guildId, conversation.getId());
 
         return DirectMessageResponse.from(savedMessage);
     }
@@ -278,6 +284,29 @@ public class GuildDirectMessageService {
 
         if (!conversation.getGuild().getId().equals(guildId)) {
             throw new IllegalArgumentException("해당 길드의 대화가 아닙니다.");
+        }
+    }
+
+    /**
+     * DM 푸시 알림 전송
+     */
+    private void sendDmPushNotification(String recipientId, String senderNickname, String content, Long guildId, Long conversationId) {
+        try {
+            String body = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+            PushMessageRequest pushRequest = new PushMessageRequest(
+                senderNickname,
+                body,
+                null,
+                "OPEN_DM",
+                java.util.Map.of(
+                    "type", "DM",
+                    "guild_id", String.valueOf(guildId),
+                    "conversation_id", String.valueOf(conversationId)
+                )
+            );
+            fcmPushService.sendToUser(recipientId, pushRequest);
+        } catch (Exception e) {
+            log.warn("DM 푸시 알림 전송 실패: recipientId={}, error={}", recipientId, e.getMessage());
         }
     }
 }

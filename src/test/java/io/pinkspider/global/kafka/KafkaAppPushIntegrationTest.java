@@ -35,7 +35,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@Disabled("실제 Kafka/FCM 연동 테스트 - 설정 확인 후 @Disabled 제거")
+//@Disabled("실제 Kafka/FCM 연동 테스트 - 설정 확인 후 @Disabled 제거")
 class KafkaAppPushIntegrationTest {
 
     // ===============================
@@ -43,16 +43,15 @@ class KafkaAppPushIntegrationTest {
     // ===============================
 
     // 테스트할 사용자 ID (암호화된 userId)
-    private static final String USER_ID = "여기에_테스트할_userId를_입력하세요";
+    private static final String USER_ID = "b663da95-4546-42d2-aecb-898dc21277f0";
 
     // 여러 사용자 테스트용
     private static final List<String> USER_IDS = List.of(
-        "userId1",
-        "userId2"
+        "b663da95-4546-42d2-aecb-898dc21277f0"
     );
 
     // 토픽 기반 전송 테스트용 (예: 길드 ID)
-    private static final String TOPIC = "guild_1";
+    private static final String TOPIC = "appPushTopic";
 
     @Autowired
     private KafkaAppPushProducer kafkaAppPushProducer;
@@ -322,8 +321,7 @@ class KafkaAppPushIntegrationTest {
     // ===============================
 
     /**
-     * Kafka 메시지 처리 대기
-     * Kafka는 비동기로 동작하므로 Consumer가 메시지를 처리할 시간을 줍니다.
+     * Kafka 메시지 처리 대기 Kafka는 비동기로 동작하므로 Consumer가 메시지를 처리할 시간을 줍니다.
      */
     private void waitForKafkaProcessing() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
