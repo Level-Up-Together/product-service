@@ -5,6 +5,7 @@ import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,17 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
             // 소유권 검증
             if (!execution.getParticipant().getUserId().equals(context.getUserId())) {
                 return SagaStepResult.failure("본인의 수행 기록만 완료할 수 있습니다.");
+            }
+
+            // 상태 검증 (중복 완료 요청 방지)
+            if (execution.getStatus() == ExecutionStatus.COMPLETED) {
+                return SagaStepResult.failure("이미 완료된 수행 기록입니다.");
+            }
+            if (execution.getStatus() == ExecutionStatus.MISSED) {
+                return SagaStepResult.failure("미실행 처리된 수행 기록은 완료할 수 없습니다.");
+            }
+            if (execution.getStatus() != ExecutionStatus.IN_PROGRESS) {
+                return SagaStepResult.failure("진행 중인 수행 기록만 완료할 수 있습니다. 현재 상태: " + execution.getStatus());
             }
 
             MissionParticipant participant = execution.getParticipant();

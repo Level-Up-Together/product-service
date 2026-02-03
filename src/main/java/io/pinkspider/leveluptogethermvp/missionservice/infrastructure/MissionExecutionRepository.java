@@ -40,9 +40,15 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
            "WHERE me.status = 'PENDING' AND me.executionDate < :date")
     int markMissedExecutions(@Param("date") LocalDate date);
 
+    /**
+     * 일반 미션(isPinned=false)의 오늘 execution 조회
+     * 고정 미션(isPinned=true)은 DailyMissionInstance를 사용하므로 제외
+     */
     @Query("SELECT me FROM MissionExecution me " +
            "JOIN me.participant p " +
-           "WHERE p.userId = :userId AND me.executionDate = :date")
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId AND me.executionDate = :date " +
+           "AND (m.isPinned = false OR m.isPinned IS NULL)")
     List<MissionExecution> findByUserIdAndExecutionDate(
         @Param("userId") String userId,
         @Param("date") LocalDate date

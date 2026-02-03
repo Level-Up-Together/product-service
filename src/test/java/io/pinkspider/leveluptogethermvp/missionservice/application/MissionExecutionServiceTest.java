@@ -32,6 +32,7 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFee
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.LocalMissionImageStorageService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -149,6 +150,16 @@ class MissionExecutionServiceTest {
             java.lang.reflect.Field idField = MissionExecution.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(execution, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setInstanceId(DailyMissionInstance instance, Long id) {
+        try {
+            java.lang.reflect.Field idField = DailyMissionInstance.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(instance, id);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -886,8 +897,8 @@ class MissionExecutionServiceTest {
         }
 
         @Test
-        @DisplayName("고정 미션의 오늘 execution이 없으면 자동 생성한다")
-        void getTodayExecutions_createsPinnedMissionExecution() {
+        @DisplayName("고정 미션의 오늘 DailyMissionInstance가 없으면 자동 생성한다")
+        void getTodayExecutions_createsPinnedMissionInstance() {
             // given
             LocalDate today = LocalDate.now();
 
@@ -916,44 +927,40 @@ class MissionExecutionServiceTest {
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of(pinnedParticipant));
 
-            // 오늘 날짜의 execution이 없음
-            when(executionRepository.findByParticipantIdAndExecutionDate(eq(100L), eq(today)))
-                .thenReturn(Optional.empty());
+            // 오늘 날짜의 DailyMissionInstance가 없음
+            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
+                .thenReturn(false);
 
-            // execution 저장 mock
-            when(executionRepository.save(any(MissionExecution.class)))
+            // DailyMissionInstance 저장 mock
+            when(dailyMissionInstanceRepository.save(any(DailyMissionInstance.class)))
                 .thenAnswer(invocation -> {
-                    MissionExecution exec = invocation.getArgument(0);
-                    setExecutionId(exec, 200L);
-                    return exec;
+                    DailyMissionInstance instance = invocation.getArgument(0);
+                    setInstanceId(instance, 200L);
+                    return instance;
                 });
 
-            // 저장 후 오늘 execution 조회 시 새로 생성된 것 반환
-            MissionExecution newExecution = MissionExecution.builder()
-                .participant(pinnedParticipant)
-                .executionDate(today)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(newExecution, 200L);
-
+            // 일반 미션 조회 (없음)
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
-                .thenReturn(List.of(newExecution));
-
-            // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
                 .thenReturn(List.of());
+
+            // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
+            DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            setInstanceId(newInstance, 200L);
+
+            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
+                .thenReturn(List.of(newInstance));
 
             // when
             List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
 
             // then
             assertThat(responses).hasSize(1);
-            verify(executionRepository).save(any(MissionExecution.class));
+            verify(dailyMissionInstanceRepository).save(any(DailyMissionInstance.class));
         }
 
         @Test
-        @DisplayName("고정 미션의 오늘 execution이 이미 있으면 생성하지 않는다")
-        void getTodayExecutions_doesNotCreateIfExists() {
+        @DisplayName("고정 미션의 오늘 DailyMissionInstance가 이미 있으면 생성하지 않는다")
+        void getTodayExecutions_doesNotCreateIfInstanceExists() {
             // given
             LocalDate today = LocalDate.now();
 
@@ -978,27 +985,24 @@ class MissionExecutionServiceTest {
                 .build();
             setParticipantId(pinnedParticipant, 100L);
 
-            MissionExecution existingExecution = MissionExecution.builder()
-                .participant(pinnedParticipant)
-                .executionDate(today)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(existingExecution, 200L);
+            DailyMissionInstance existingInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
+            setInstanceId(existingInstance, 200L);
 
             // 고정 미션 참여자 반환
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of(pinnedParticipant));
 
-            // 오늘 날짜의 execution이 이미 있음
-            when(executionRepository.findByParticipantIdAndExecutionDate(eq(100L), eq(today)))
-                .thenReturn(Optional.of(existingExecution));
+            // 오늘 날짜의 DailyMissionInstance가 이미 있음
+            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
+                .thenReturn(true);
 
+            // 일반 미션 조회 (없음)
             when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
-                .thenReturn(List.of(existingExecution));
-
-            // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
                 .thenReturn(List.of());
+
+            // DailyMissionInstance 조회 (기존 것 반환)
+            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
+                .thenReturn(List.of(existingInstance));
 
             // when
             List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
@@ -1006,7 +1010,7 @@ class MissionExecutionServiceTest {
             // then
             assertThat(responses).hasSize(1);
             // save가 호출되지 않음
-            verify(executionRepository, org.mockito.Mockito.never()).save(any(MissionExecution.class));
+            verify(dailyMissionInstanceRepository, org.mockito.Mockito.never()).save(any(DailyMissionInstance.class));
         }
     }
 

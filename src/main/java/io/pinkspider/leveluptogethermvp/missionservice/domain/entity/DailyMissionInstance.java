@@ -205,9 +205,12 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        long elapsedMinutes = Duration.between(this.startedAt, now).toMinutes();
+        long elapsedSeconds = Duration.between(this.startedAt, now).getSeconds();
+        long elapsedMinutes = elapsedSeconds / 60;
         if (elapsedMinutes < MINIMUM_EXECUTION_MINUTES) {
-            throw new IllegalStateException("1분 이하는 기록할 수 없습니다.");
+            throw new IllegalStateException(String.format(
+                "최소 1분 이상 수행해야 완료할 수 있습니다. (시작: %s, 현재: %s, 경과: %d초)",
+                this.startedAt, now, elapsedSeconds));
         }
 
         this.status = ExecutionStatus.COMPLETED;

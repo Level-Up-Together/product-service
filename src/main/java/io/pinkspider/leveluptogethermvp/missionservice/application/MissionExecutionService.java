@@ -433,27 +433,23 @@ public class MissionExecutionService {
     }
 
     /**
-     * 고정 미션(isPinned=true)에 대해 오늘 날짜의 execution이 없으면 자동 생성
+     * 고정 미션(isPinned=true)에 대해 오늘 날짜의 DailyMissionInstance가 없으면 자동 생성
+     * 스케줄러가 매일 자동 생성하지만, 스케줄러 실행 전 접근 시를 대비
      */
     private void ensurePinnedMissionExecutionsForToday(String userId, LocalDate today) {
         List<MissionParticipant> pinnedParticipants = participantRepository.findPinnedMissionParticipants(userId);
 
         for (MissionParticipant participant : pinnedParticipants) {
-            // 오늘 날짜의 execution이 있는지 확인
-            boolean hasExecution = executionRepository
-                .findByParticipantIdAndExecutionDate(participant.getId(), today)
-                .isPresent();
+            // 오늘 날짜의 DailyMissionInstance가 있는지 확인
+            boolean hasInstance = dailyMissionInstanceRepository
+                .existsByParticipantIdAndInstanceDate(participant.getId(), today);
 
-            if (!hasExecution) {
-                // 고정 미션의 오늘 execution 자동 생성
-                MissionExecution execution = MissionExecution.builder()
-                    .participant(participant)
-                    .executionDate(today)
-                    .status(ExecutionStatus.PENDING)
-                    .build();
-                executionRepository.save(execution);
+            if (!hasInstance) {
+                // 고정 미션의 오늘 DailyMissionInstance 자동 생성
+                DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, today);
+                dailyMissionInstanceRepository.save(instance);
 
-                log.info("고정 미션 오늘 execution 자동 생성: missionId={}, userId={}, date={}",
+                log.info("고정 미션 오늘 인스턴스 자동 생성: missionId={}, userId={}, date={}",
                     participant.getMission().getId(), userId, today);
             }
         }
