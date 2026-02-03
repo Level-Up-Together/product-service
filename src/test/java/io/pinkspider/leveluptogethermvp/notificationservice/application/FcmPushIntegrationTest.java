@@ -42,6 +42,7 @@ import org.springframework.core.io.ClassPathResource;
 class FcmPushIntegrationTest {
 
     // ⚠️ 실제 앱에서 발급받은 FCM 토큰으로 교체하세요
+//    private static final String FCM_TOKEN = "fCOGOrM-Q0G_5reL31nEd2:APA91bHIIapqUlLNmeS_WhTPDZ6zg3n9BIGDKY_M0XsdPq_j_mEUgrOT63zZZMk32k3CZ0BW6eM5PgHu-f9P1LohgoQknJXLCSrLVnF9JTTqjkYmaObhOdw";
     private static final String FCM_TOKEN = "d0yQcipNdU2crOrHKrT7Tk:APA91bHpzDI5LhvwiIdNp1kKgz3wzKwY0gU8tcMNqagLM9mKlszawyYxxsuzYJpIkm5xNbvS673TXL-gabf2LqWyU6fhXibGKe0zJGVVdqjCBtOowfFRdsk";
 
     private static final String SERVICE_ACCOUNT_PATH = "firebase-service-account.json";
@@ -328,7 +329,7 @@ class FcmPushIntegrationTest {
             System.out.println("✅ Access token obtained successfully!");
 
             // Cloud Resource Manager API로 토큰 유효성 검증
-            String testUrl = "https://cloudresourcemanager.googleapis.com/v1/projects/level-up-together-dev-720d2";
+            String testUrl = "https://cloudresourcemanager.googleapis.com/v1/projects/level-up-together-dev-486205";
             URL url = new URL(testUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -367,7 +368,7 @@ class FcmPushIntegrationTest {
 
         // Android 앱 목록
         HttpRequest androidRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-720d2/androidApps"))
+            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/androidApps"))
             .header("Authorization", "Bearer " + accessToken)
             .GET()
             .build();
@@ -377,7 +378,7 @@ class FcmPushIntegrationTest {
 
         // iOS 앱 목록
         HttpRequest iosRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-720d2/iosApps"))
+            .uri(URI.create("https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205/iosApps"))
             .header("Authorization", "Bearer " + accessToken)
             .GET()
             .build();
@@ -456,7 +457,7 @@ class FcmPushIntegrationTest {
         // Firebase Console > Project Settings > Cloud Messaging > Server key
         System.out.println("=== Legacy FCM API Test ===");
         System.out.println("Note: This requires the Server Key from Firebase Console");
-        System.out.println("Go to: https://console.firebase.google.com/project/level-up-together-dev-720d2/settings/cloudmessaging");
+        System.out.println("Go to: https://console.firebase.google.com/project/level-up-together-dev-486205/settings/cloudmessaging");
         System.out.println("Copy the 'Server key' and set it below");
 
         // 서비스 계정으로 Cloud Messaging API 정보 조회 테스트
@@ -471,10 +472,10 @@ class FcmPushIntegrationTest {
 
         // Firebase Cloud Messaging API 상태 확인
         // 1. 먼저 Firebase project 확인
-        String apiCheckUrl = "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-720d2";
+        String apiCheckUrl = "https://firebase.googleapis.com/v1beta1/projects/level-up-together-dev-486205";
 
         // 2. GCP Service Usage API로 FCM API 활성화 상태 확인
-        String fcmApiCheckUrl = "https://serviceusage.googleapis.com/v1/projects/level-up-together-dev-720d2/services/fcm.googleapis.com";
+        String fcmApiCheckUrl = "https://serviceusage.googleapis.com/v1/projects/level-up-together-dev-486205/services/fcm.googleapis.com";
         URL fcmUrl = new URL(fcmApiCheckUrl);
         HttpURLConnection fcmConn = (HttpURLConnection) fcmUrl.openConnection();
         fcmConn.setRequestMethod("GET");

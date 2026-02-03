@@ -273,7 +273,7 @@ class DailyMissionInstanceTest {
             // when & then
             assertThatThrownBy(instance::complete)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("1분 이하는 기록할 수 없습니다");
+                .hasMessageContaining("최소 1분 이상 수행해야 완료할 수 있습니다");
         }
     }
 
