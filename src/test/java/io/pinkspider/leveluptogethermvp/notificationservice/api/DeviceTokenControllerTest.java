@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.DeviceTokenService;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.DeviceTokenRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.DeviceTokenResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken.DeviceType;
@@ -52,6 +53,9 @@ class DeviceTokenControllerTest {
 
     @MockitoBean
     private DeviceTokenService deviceTokenService;
+
+    @MockitoBean
+    private FcmPushService fcmPushService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
