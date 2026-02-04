@@ -94,6 +94,20 @@ public class DailyMissionInstanceService {
         return DailyMissionInstanceResponse.from(instance);
     }
 
+    /**
+     * 고정 미션 인스턴스 조회 (missionId + date로 조회)
+     */
+    @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse getInstanceByMission(Long missionId, String userId, LocalDate date) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+
+        return DailyMissionInstanceResponse.from(instance);
+    }
+
     // ============ 실행 ============
 
     /**

@@ -429,6 +429,13 @@ public class MissionExecutionService {
     }
 
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date) {
+        // 고정 미션인 경우 DailyMissionInstanceService로 위임
+        if (isPinnedMission(missionId, userId)) {
+            log.info("고정 미션 조회 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
+            var response = dailyMissionInstanceService.getInstanceByMission(missionId, userId, date);
+            return toMissionExecutionResponse(response);
+        }
+
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
