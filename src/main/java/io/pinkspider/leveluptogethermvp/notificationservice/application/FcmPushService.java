@@ -222,9 +222,10 @@ public class FcmPushService {
         MessagingErrorCode errorCode = e.getMessagingErrorCode();
 
         if (errorCode == MessagingErrorCode.UNREGISTERED ||
-            errorCode == MessagingErrorCode.INVALID_ARGUMENT) {
-            // 토큰이 더 이상 유효하지 않음
-            log.warn("Invalid token detected, deactivating: {}", token.getFcmToken());
+            errorCode == MessagingErrorCode.INVALID_ARGUMENT ||
+            errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
+            // 토큰이 더 이상 유효하지 않음 (등록 해제, 잘못된 토큰, 다른 Firebase 프로젝트에서 생성된 토큰)
+            log.warn("Invalid token detected ({}), deactivating: {}", errorCode, token.getFcmToken());
             token.deactivate();
             deviceTokenRepository.save(token);
         } else {
@@ -246,7 +247,8 @@ public class FcmPushService {
                 if (exception != null) {
                     MessagingErrorCode errorCode = exception.getMessagingErrorCode();
                     if (errorCode == MessagingErrorCode.UNREGISTERED ||
-                        errorCode == MessagingErrorCode.INVALID_ARGUMENT) {
+                        errorCode == MessagingErrorCode.INVALID_ARGUMENT ||
+                        errorCode == MessagingErrorCode.SENDER_ID_MISMATCH) {
                         tokensToDeactivate.add(tokens.get(i));
                     }
                 }

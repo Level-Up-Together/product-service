@@ -18,9 +18,9 @@ app:
   dev-discovery-server-ip: 121.136.108.44
   dev-db-server-ip: 121.136.108.44
 
-  prod-config-server-ip: 0.0.0.0
-  prod-discovery-server-ip: 0.0.0.0
-  prod-db-server-ip: 0.0.0.0
+  prod-config-server-ip: 121.136.108.44
+  prod-discovery-server-ip: 121.136.108.44
+  prod-db-server-ip: 121.136.108.44
 
   upload:
     profile-image:

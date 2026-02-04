@@ -1,0 +1,8 @@
+spring:
+  config:
+    import: "optional:configserver:http://${app.prod-config-server-ip}:10085/"
+  cloud:
+    config:
+      name: common,redis,actuator,circuit-breaker,jwt,slack-notification,kafka,logging,${spring.application.name}
+      profile: prod
+      label: main
