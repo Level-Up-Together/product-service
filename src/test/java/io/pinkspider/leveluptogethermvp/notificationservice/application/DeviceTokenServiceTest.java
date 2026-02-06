@@ -107,25 +107,27 @@ class DeviceTokenServiceTest {
         }
 
         @Test
-        @DisplayName("동일한 FCM 토큰이 다른 사용자에게 있으면 기존 것을 비활성화한다")
-        void registerToken_existingTokenDifferentUser_deactivates() {
+        @DisplayName("동일한 FCM 토큰이 다른 사용자에게 있으면 현재 사용자로 이전한다")
+        void registerToken_existingTokenDifferentUser_transfers() {
             // given
             DeviceTokenRequest request = new DeviceTokenRequest(
                 TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 15", "1.0.0"
             );
             DeviceToken existingToken = createTestDeviceToken(1L, "other-user", TEST_FCM_TOKEN, "other-device");
-            DeviceToken newToken = createTestDeviceToken(2L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
 
             when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
-            when(deviceTokenRepository.findByUserIdAndDeviceId(TEST_USER_ID, TEST_DEVICE_ID))
-                .thenReturn(Optional.empty());
-            when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken, newToken);
+            when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken);
 
             // when
             DeviceTokenResponse result = deviceTokenService.registerToken(TEST_USER_ID, request);
 
             // then
             assertThat(result).isNotNull();
+            assertThat(existingToken.getUserId()).isEqualTo(TEST_USER_ID);
+            assertThat(existingToken.getDeviceId()).isEqualTo(TEST_DEVICE_ID);
+            assertThat(existingToken.getIsActive()).isTrue();
+            verify(deviceTokenRepository).deactivateAllByUserId(TEST_USER_ID);
+            verify(deviceTokenRepository).save(existingToken);
         }
 
         @Test
