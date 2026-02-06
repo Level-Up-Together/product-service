@@ -44,6 +44,7 @@ logs
 /src/main/generated/
 /src/test/generated_tests/
 /docs/deploy.sh
+/docs/deploy_prod.sh
 /docs/deploy.sh.org
 /docs/test.puml
 /docs/*.xlsx
@@ -59,6 +60,7 @@ logs
 ### Firebase ###
 firebase-service-account.json
 src/main/resources/firebase-service-account.json
+src/main/resources/firebase-service-account-prod.json
 /firebase-debug.log
 
 /src/main/resources/firebase-service-account.json.org
