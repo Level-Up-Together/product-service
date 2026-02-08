@@ -86,6 +86,30 @@ public class MissionExecutionResponse {
     }
 
     /**
+     * DailyMissionInstanceResponse를 MissionExecutionResponse로 변환 (하위 호환성)
+     */
+    public static MissionExecutionResponse fromDailyInstance(DailyMissionInstanceResponse instanceResponse) {
+        return MissionExecutionResponse.builder()
+            .id(instanceResponse.getId())
+            .participantId(instanceResponse.getParticipantId())
+            .missionId(instanceResponse.getMissionId())
+            .missionTitle(instanceResponse.getMissionTitle())
+            .missionCategoryName(instanceResponse.getMissionCategoryName())
+            .userId(instanceResponse.getUserId())
+            .executionDate(instanceResponse.getInstanceDate())
+            .status(instanceResponse.getStatus())
+            .startedAt(instanceResponse.getStartedAt())
+            .completedAt(instanceResponse.getCompletedAt())
+            .durationMinutes(instanceResponse.getDurationMinutes())
+            .expEarned(instanceResponse.getExpEarned())
+            .note(instanceResponse.getNote())
+            .imageUrl(instanceResponse.getImageUrl())
+            .feedId(instanceResponse.getFeedId())
+            .createdAt(instanceResponse.getCreatedAt())
+            .build();
+    }
+
+    /**
      * DailyMissionInstance를 MissionExecutionResponse로 변환
      * 고정 미션(pinned mission)의 일일 인스턴스를 동일한 응답 포맷으로 변환
      */

@@ -1,10 +1,13 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
@@ -70,7 +73,7 @@ class GuildExperienceServiceTest {
             .maxMembers(50)
             .categoryId(1L)
             .build();
-        setGuildId(testGuild, 1L);
+        setId(testGuild, 1L);
 
         testLevelConfig = GuildLevelConfig.builder()
             .level(1)
@@ -79,16 +82,6 @@ class GuildExperienceServiceTest {
             .maxMembers(20)
             .title("초보 길드")
             .build();
-    }
-
-    private void setGuildId(Guild guild, Long id) {
-        try {
-            java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -319,9 +312,9 @@ class GuildExperienceServiceTest {
         @DisplayName("경험치 차감으로 레벨 다운이 발생하고 누적 경험치 기반으로 레벨이 재계산된다")
         void subtractExperience_levelDownWithCumulativeExp() {
             // given - 레벨2, totalExp 600, currentExp 100 (레벨2에서 100 exp 진행)
-            setGuildTotalExp(testGuild, 600);
-            setGuildCurrentExp(testGuild, 100);
-            setGuildLevel(testGuild, 2);
+            TestReflectionUtils.setField(testGuild, "totalExp", 600);
+            TestReflectionUtils.setField(testGuild, "currentExp", 100);
+            TestReflectionUtils.setField(testGuild, "currentLevel", 2);
 
             GuildLevelConfig level2Config = GuildLevelConfig.builder()
                 .level(2)
@@ -360,36 +353,6 @@ class GuildExperienceServiceTest {
             ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("길드를 찾을 수 없습니다");
-        }
-    }
-
-    private void setGuildLevel(Guild guild, int level) {
-        try {
-            java.lang.reflect.Field levelField = Guild.class.getDeclaredField("currentLevel");
-            levelField.setAccessible(true);
-            levelField.set(guild, level);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setGuildCurrentExp(Guild guild, int exp) {
-        try {
-            java.lang.reflect.Field expField = Guild.class.getDeclaredField("currentExp");
-            expField.setAccessible(true);
-            expField.set(guild, exp);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setGuildTotalExp(Guild guild, int exp) {
-        try {
-            java.lang.reflect.Field expField = Guild.class.getDeclaredField("totalExp");
-            expField.setAccessible(true);
-            expField.set(guild, exp);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 

@@ -8,15 +8,19 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
@@ -37,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionService {
 
     private final MissionRepository missionRepository;
+    private final MissionTemplateRepository missionTemplateRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionCategoryRepository missionCategoryRepository;
     private final MissionParticipantService missionParticipantService;
@@ -102,6 +107,8 @@ public class MissionService {
             .category(category)
             .customCategory(customCategory)
             .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
+            .targetDurationMinutes(request.getTargetDurationMinutes())
+            .dailyExecutionLimit(request.getDailyExecutionLimit())
             .build();
 
         Mission saved = missionRepository.save(mission);
@@ -165,12 +172,7 @@ public class MissionService {
     }
 
     public List<MissionResponse> getGuildMissions(String guildId) {
-        List<MissionStatus> activeStatuses = List.of(
-            MissionStatus.DRAFT,
-            MissionStatus.OPEN,
-            MissionStatus.IN_PROGRESS
-        );
-        List<Mission> missions = missionRepository.findGuildMissions(guildId, activeStatuses);
+        List<Mission> missions = missionRepository.findGuildMissions(guildId, MissionStatus.activeStatuses());
         List<MissionResponse> result = missions.stream()
             .map(MissionResponse::from)
             .toList();
@@ -188,47 +190,22 @@ public class MissionService {
     }
 
     /**
-     * 시스템 미션 목록 조회 (미션북용)
-     * 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
+     * 시스템 미션 템플릿 목록 조회 (미션북용)
+     * mission_template 테이블에서 공개 시스템 템플릿 반환
      */
-    public Page<MissionResponse> getSystemMissions(Pageable pageable) {
-        Page<Mission> missions = missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable);
-
-        // 배치로 신고 상태 조회
-        List<String> missionIds = missions.getContent().stream()
-            .map(m -> String.valueOf(m.getId()))
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
-
-        return missions.map(mission -> {
-            MissionResponse response = MissionResponse.from(mission);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
-            return response;
-        });
+    public Page<MissionTemplateResponse> getSystemMissions(Pageable pageable) {
+        Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplates(
+            MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable);
+        return templates.map(MissionTemplateResponse::from);
     }
 
     /**
-     * 카테고리별 시스템 미션 목록 조회
+     * 카테고리별 시스템 미션 템플릿 목록 조회
      */
-    public Page<MissionResponse> getSystemMissionsByCategory(Long categoryId, Pageable pageable) {
-        Page<Mission> missions = missionRepository.findBySourceAndStatusAndCategoryId(
-            MissionSource.SYSTEM,
-            MissionStatus.OPEN,
-            categoryId,
-            pageable
-        );
-
-        // 배치로 신고 상태 조회
-        List<String> missionIds = missions.getContent().stream()
-            .map(m -> String.valueOf(m.getId()))
-            .toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
-
-        return missions.map(mission -> {
-            MissionResponse response = MissionResponse.from(mission);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
-            return response;
-        });
+    public Page<MissionTemplateResponse> getSystemMissionsByCategory(Long categoryId, Pageable pageable) {
+        Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplatesByCategory(
+            MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable);
+        return templates.map(MissionTemplateResponse::from);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
@@ -236,7 +213,7 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
-        if (mission.getStatus() != MissionStatus.DRAFT) {
+        if (!mission.getStatus().isModifiable()) {
             throw new IllegalStateException("작성중 상태의 미션만 수정할 수 있습니다.");
         }
 
@@ -272,6 +249,12 @@ public class MissionService {
         }
         if (request.getBonusExpOnFullCompletion() != null) {
             mission.setBonusExpOnFullCompletion(request.getBonusExpOnFullCompletion());
+        }
+        if (request.getTargetDurationMinutes() != null) {
+            mission.setTargetDurationMinutes(request.getTargetDurationMinutes());
+        }
+        if (request.getDailyExecutionLimit() != null) {
+            mission.setDailyExecutionLimit(request.getDailyExecutionLimit());
         }
 
         // 카테고리 수정 처리
@@ -326,7 +309,7 @@ public class MissionService {
      */
     private void notifyGuildMembersAboutRecruitment(Mission mission, String creatorId) {
         try {
-            Long guildId = Long.parseLong(mission.getGuildId());
+            Long guildId = mission.getGuildIdAsLong();
             List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
 
             // 생성자를 제외한 활성 길드원 ID 목록 추출
@@ -413,20 +396,15 @@ public class MissionService {
         boolean isCreator = mission.getCreatorId().equals(userId);
         boolean isGuildAdmin = false;
 
-        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
-            try {
-                Long guildId = Long.parseLong(mission.getGuildId());
-                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
-                    isGuildAdmin = true;
-                }
-            } catch (NumberFormatException e) {
-                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+        if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+            GuildMember member = guildMemberRepository.findByGuildIdAndUserId(mission.getGuildIdAsLong(), userId).orElse(null);
+            if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
+                isGuildAdmin = true;
             }
         }
 
         if (isCreator || isGuildAdmin) {
-            if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
+            if (!mission.getStatus().isDeletable()) {
                 throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
             }
             missionRepository.delete(mission);
@@ -458,15 +436,10 @@ public class MissionService {
         }
 
         // 길드 미션인 경우 길드 마스터 또는 부길드마스터도 허용
-        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
-            try {
-                Long guildId = Long.parseLong(mission.getGuildId());
-                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+        if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+            GuildMember member = guildMemberRepository.findByGuildIdAndUserId(mission.getGuildIdAsLong(), userId).orElse(null);
+            if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
+                return;
             }
         }
 

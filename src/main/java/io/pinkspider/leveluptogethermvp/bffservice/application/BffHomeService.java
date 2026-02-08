@@ -8,7 +8,7 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Achi
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.GuildPageData;
-import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
@@ -41,7 +41,7 @@ public class BffHomeService {
     private final ActivityFeedService activityFeedService;
     private final HomeService homeService;
     private final MissionCategoryService missionCategoryService;
-    private final GuildService guildService;
+    private final GuildQueryService guildQueryService;
     private final NoticeService noticeService;
     private final EventService eventService;
     private final SeasonRankingService seasonRankingService;
@@ -52,7 +52,7 @@ public class BffHomeService {
             ActivityFeedService activityFeedService,
             HomeService homeService,
             MissionCategoryService missionCategoryService,
-            GuildService guildService,
+            GuildQueryService guildQueryService,
             NoticeService noticeService,
             EventService eventService,
             SeasonRankingService seasonRankingService,
@@ -61,7 +61,7 @@ public class BffHomeService {
         this.activityFeedService = activityFeedService;
         this.homeService = homeService;
         this.missionCategoryService = missionCategoryService;
-        this.guildService = guildService;
+        this.guildQueryService = guildQueryService;
         this.noticeService = noticeService;
         this.eventService = eventService;
         this.seasonRankingService = seasonRankingService;
@@ -173,7 +173,7 @@ public class BffHomeService {
 
         CompletableFuture<List<GuildResponse>> myGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return guildService.getMyGuilds(userId);
+                return guildQueryService.getMyGuilds(userId);
             } catch (Exception e) {
                 log.error("Failed to fetch my guilds", e);
                 return Collections.emptyList();
@@ -184,7 +184,7 @@ public class BffHomeService {
             try {
                 if (categoryId != null) {
                     // 카테고리별 공개 길드 조회 (하이브리드)
-                    List<GuildResponse> guilds = guildService.getPublicGuildsByCategory(userId, categoryId);
+                    List<GuildResponse> guilds = guildQueryService.getPublicGuildsByCategory(userId, categoryId);
                     return GuildPageData.builder()
                         .content(guilds)
                         .page(0)
@@ -194,7 +194,7 @@ public class BffHomeService {
                         .build();
                 } else {
                     // 전체 공개 길드 조회
-                    Page<GuildResponse> guildPage = guildService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize));
+                    Page<GuildResponse> guildPage = guildQueryService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize));
                     return GuildPageData.builder()
                         .content(guildPage.getContent())
                         .page(guildPage.getNumber())

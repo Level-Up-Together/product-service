@@ -6,6 +6,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import java.time.Duration;
+import java.util.function.Predicate;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,11 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
     @Override
     public String getName() {
         return "CompleteExecution";
+    }
+
+    @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return ctx -> !ctx.isPinned();
     }
 
     @Override
@@ -56,6 +63,18 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setNote(context.getNote());
             }
 
+            // 목표시간 기반 XP 오버라이드 (일반 미션용)
+            Mission mission = context.getMission();
+            if (mission != null && mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
+                long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+                if (elapsed >= mission.getTargetDurationMinutes()) {
+                    int bonus = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 0;
+                    execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
+                } else {
+                    execution.setExpEarned((int) Math.max(1, elapsed));
+                }
+            }
+
             // complete()에서 계산된 시간 기반 경험치를 context에 반영
             context.setUserExpEarned(execution.getExpEarned());
 
@@ -65,7 +84,6 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
 
             // 일반 미션(isPinned=false)인 경우 미래 PENDING execution 삭제
             // 일반 미션은 한 번 완료하면 미래 수행 일정이 필요 없음
-            Mission mission = context.getMission();
             MissionParticipant participant = context.getParticipant();
             if (mission != null && !Boolean.TRUE.equals(mission.getIsPinned()) && participant != null) {
                 int deletedCount = executionRepository.deleteFuturePendingExecutions(

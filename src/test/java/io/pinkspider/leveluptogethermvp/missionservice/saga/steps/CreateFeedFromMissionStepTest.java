@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,13 +25,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +57,9 @@ class CreateFeedFromMissionStepTest {
     private MissionExecutionRepository executionRepository;
 
     @Mock
+    private DailyMissionInstanceRepository instanceRepository;
+
+    @Mock
     private CreateFeedFromMissionStep selfMock;
 
     private CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -79,6 +83,7 @@ class CreateFeedFromMissionStepTest {
             activityFeedService,
             userProfileCacheService,
             executionRepository,
+            instanceRepository,
             selfMock
         );
 
@@ -139,16 +144,6 @@ class CreateFeedFromMissionStepTest {
             .userId(TEST_USER_ID)
             .build();
         setId(activityFeed, FEED_ID);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test

@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.GuildPageData;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildPostService;
-import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BffGuildService {
 
-    private final GuildService guildService;
+    private final GuildQueryService guildQueryService;
     private final GuildPostService guildPostService;
     private final ActivityFeedService activityFeedService;
 
@@ -49,7 +49,7 @@ public class BffGuildService {
         // 병렬로 모든 데이터 조회
         CompletableFuture<GuildResponse> guildFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return guildService.getGuild(guildId, userId);
+                return guildQueryService.getGuild(guildId, userId);
             } catch (Exception e) {
                 log.error("Failed to fetch guild", e);
                 return null;
@@ -58,7 +58,7 @@ public class BffGuildService {
 
         CompletableFuture<List<GuildMemberResponse>> membersFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return guildService.getGuildMembers(guildId, userId);
+                return guildQueryService.getGuildMembers(guildId, userId);
             } catch (Exception e) {
                 log.error("Failed to fetch guild members", e);
                 return Collections.emptyList();
@@ -129,7 +129,7 @@ public class BffGuildService {
         // 먼저 내 길드 목록 조회
         List<GuildResponse> myGuilds;
         try {
-            myGuilds = guildService.getMyGuilds(userId);
+            myGuilds = guildQueryService.getMyGuilds(userId);
         } catch (Exception e) {
             log.error("Failed to fetch my guilds", e);
             myGuilds = Collections.emptyList();
@@ -144,7 +144,7 @@ public class BffGuildService {
 
         CompletableFuture<GuildPageData> recommendedGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Page<GuildResponse> guildsPage = guildService.getPublicGuilds(
+                Page<GuildResponse> guildsPage = guildQueryService.getPublicGuilds(
                     userId, PageRequest.of(0, recommendedGuildSize));
                 return GuildPageData.builder()
                     .content(guildsPage.getContent())

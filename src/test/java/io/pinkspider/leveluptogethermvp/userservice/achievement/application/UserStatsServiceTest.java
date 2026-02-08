@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -8,7 +9,6 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserStatsResponse;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,13 +40,7 @@ class UserStatsServiceTest {
             .maxStreak(currentStreak)
             .rankingPoints(100L)
             .build();
-        try {
-            Field idField = UserStats.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(stats, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(stats, id);
         return stats;
     }
 

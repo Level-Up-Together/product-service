@@ -209,7 +209,7 @@ public class MissionParticipantService {
     }
 
     private void validateMissionJoinable(Mission mission, String userId) {
-        if (mission.getStatus() != MissionStatus.OPEN) {
+        if (!mission.getStatus().isJoinable()) {
             throw new IllegalStateException("모집중인 미션에만 참여할 수 있습니다.");
         }
 

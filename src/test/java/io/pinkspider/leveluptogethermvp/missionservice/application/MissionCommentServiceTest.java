@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,7 +23,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCom
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -66,26 +66,6 @@ class MissionCommentServiceTest {
     private static final Long MISSION_ID = 1L;
     private static final Long COMMENT_ID = 100L;
 
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setCommentId(MissionComment comment, Long id) {
-        try {
-            Field idField = MissionComment.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(comment, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Mission createTestMission() {
         Mission mission = Mission.builder()
             .title("테스트 미션")
@@ -95,7 +75,7 @@ class MissionCommentServiceTest {
             .type(MissionType.PERSONAL)
             .creatorId(CREATOR_USER_ID)
             .build();
-        setMissionId(mission, MISSION_ID);
+        setId(mission, MISSION_ID);
         return mission;
     }
 
@@ -109,7 +89,7 @@ class MissionCommentServiceTest {
             .content("테스트 댓글입니다")
             .isDeleted(false)
             .build();
-        setCommentId(comment, COMMENT_ID);
+        setId(comment, COMMENT_ID);
         return comment;
     }
 
@@ -143,7 +123,7 @@ class MissionCommentServiceTest {
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
-                setCommentId(saved, COMMENT_ID);
+                setId(saved, COMMENT_ID);
                 return saved;
             });
 
@@ -173,7 +153,7 @@ class MissionCommentServiceTest {
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
-                setCommentId(saved, COMMENT_ID);
+                setId(saved, COMMENT_ID);
                 return saved;
             });
 
@@ -204,7 +184,7 @@ class MissionCommentServiceTest {
             when(userProfileCacheService.getUserProfile(CREATOR_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
-                setCommentId(saved, COMMENT_ID);
+                setId(saved, COMMENT_ID);
                 return saved;
             });
 
@@ -243,7 +223,7 @@ class MissionCommentServiceTest {
             Mission mission = createTestMission();
             MissionComment comment1 = createTestComment(mission, TEST_USER_ID);
             MissionComment comment2 = createTestComment(mission, OTHER_USER_ID);
-            setCommentId(comment2, 101L);
+            setId(comment2, 101L);
 
             Page<MissionComment> commentPage = new PageImpl<>(
                 List.of(comment1, comment2),

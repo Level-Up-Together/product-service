@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
@@ -32,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class MissionExecutionController {
 
     private final MissionExecutionService executionService;
+    private final MissionExecutionQueryService executionQueryService;
 
     /**
      * 미션 수행 시작 (특정 날짜)
@@ -89,7 +91,7 @@ public class MissionExecutionController {
         @PathVariable Long missionId,
         @CurrentUser String userId) {
 
-        List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(missionId, userId);
+        List<MissionExecutionResponse> responses = executionQueryService.getExecutionsForMission(missionId, userId);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
@@ -103,7 +105,7 @@ public class MissionExecutionController {
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
 
-        List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
+        List<MissionExecutionResponse> responses = executionQueryService.getExecutionsByDateRange(
             missionId, userId, startDate, endDate);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
@@ -115,7 +117,7 @@ public class MissionExecutionController {
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getTodayExecutions(
         @CurrentUser String userId) {
 
-        List<MissionExecutionResponse> responses = executionService.getTodayExecutions(userId);
+        List<MissionExecutionResponse> responses = executionQueryService.getTodayExecutions(userId);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
@@ -127,7 +129,7 @@ public class MissionExecutionController {
         @PathVariable Long missionId,
         @CurrentUser String userId) {
 
-        double rate = executionService.getCompletionRate(missionId, userId);
+        double rate = executionQueryService.getCompletionRate(missionId, userId);
         return ResponseEntity.ok(ApiResult.<Double>builder().value(rate).build());
     }
 
@@ -165,7 +167,7 @@ public class MissionExecutionController {
     public ResponseEntity<ApiResult<MissionExecutionResponse>> getInProgressExecution(
         @CurrentUser String userId) {
 
-        MissionExecutionResponse response = executionService.getInProgressExecution(userId);
+        MissionExecutionResponse response = executionQueryService.getInProgressExecution(userId);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
@@ -179,7 +181,7 @@ public class MissionExecutionController {
         @RequestParam int year,
         @RequestParam int month) {
 
-        MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(userId, year, month);
+        MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
 
@@ -192,7 +194,7 @@ public class MissionExecutionController {
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId) {
 
-        MissionExecutionResponse response = executionService.getExecutionByDate(missionId, userId, executionDate);
+        MissionExecutionResponse response = executionQueryService.getExecutionByDate(missionId, userId, executionDate);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 

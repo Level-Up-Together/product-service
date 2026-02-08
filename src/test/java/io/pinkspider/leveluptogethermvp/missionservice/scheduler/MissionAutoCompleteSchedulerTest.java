@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -14,9 +15,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +40,12 @@ class MissionAutoCompleteSchedulerTest {
 
     @Mock
     private DailyMissionInstanceRepository instanceRepository;
+
+    @Mock
+    private DailyMissionInstanceService dailyMissionInstanceService;
+
+    @Mock
+    private MissionExecutionService missionExecutionService;
 
     @InjectMocks
     private MissionAutoCompleteScheduler scheduler;
@@ -77,16 +85,6 @@ class MissionAutoCompleteSchedulerTest {
         setId(participant, 1L);
     }
 
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @Nested
     @DisplayName("MissionExecution 자동 종료 테스트")
     class MissionExecutionAutoCompleteTest {
@@ -103,6 +101,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(execution, 1L);
 
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of(execution));
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
@@ -130,6 +132,10 @@ class MissionAutoCompleteSchedulerTest {
             setId(execution, 1L);
 
             // 2시간 초과된 것만 조회되므로 빈 리스트 반환
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
@@ -171,6 +177,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(instance, 1L);
 
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))

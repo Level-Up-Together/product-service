@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.experience.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -18,7 +19,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.domain.entity.LevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.levelconfig.infrastructure.LevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -61,16 +61,6 @@ class UserExperienceServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private void setUserExperienceId(UserExperience userExp, Long id) {
-        try {
-            Field idField = UserExperience.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(userExp, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private UserExperience createTestUserExperience(Long id, String userId, int level, int currentExp, int totalExp) {
         UserExperience userExp = UserExperience.builder()
             .userId(userId)
@@ -78,7 +68,7 @@ class UserExperienceServiceTest {
             .currentExp(currentExp)
             .totalExp(totalExp)
             .build();
-        setUserExperienceId(userExp, id);
+        setId(userExp, id);
         return userExp;
     }
 
@@ -207,7 +197,7 @@ class UserExperienceServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
                 UserExperience saved = invocation.getArgument(0);
-                setUserExperienceId(saved, 1L);
+                setId(saved, 1L);
                 return saved;
             });
             when(levelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createLevelConfig(1, 100, 0));
@@ -269,7 +259,7 @@ class UserExperienceServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userExperienceRepository.save(any(UserExperience.class))).thenAnswer(invocation -> {
                 UserExperience saved = invocation.getArgument(0);
-                setUserExperienceId(saved, 1L);
+                setId(saved, 1L);
                 return saved;
             });
 

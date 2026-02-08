@@ -20,6 +20,8 @@ import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildMemberService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
@@ -79,6 +81,12 @@ class GuildControllerTest {
 
     @MockitoBean
     private GuildService guildService;
+
+    @MockitoBean
+    private GuildQueryService guildQueryService;
+
+    @MockitoBean
+    private GuildMemberService guildMemberService;
 
     @MockitoBean
     private GuildExperienceService guildExperienceService;
@@ -191,7 +199,7 @@ class GuildControllerTest {
     @DisplayName("GET /api/v1/guilds/{guildId} : 길드 조회")
     void getGuildTest() throws Exception {
         // given
-        when(guildService.getGuild(anyLong(), anyString()))
+        when(guildQueryService.getGuild(anyLong(), anyString()))
             .thenReturn(createMockGuildResponse());
 
         // when
@@ -226,7 +234,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildService.getPublicGuilds(any(), any(Pageable.class))).thenReturn(page);
+        when(guildQueryService.getPublicGuilds(any(), any(Pageable.class))).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -262,7 +270,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildService.searchGuilds(any(), anyString(), any(Pageable.class))).thenReturn(page);
+        when(guildQueryService.searchGuilds(any(), anyString(), any(Pageable.class))).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -297,7 +305,7 @@ class GuildControllerTest {
     @DisplayName("GET /api/v1/guilds/my : 내 길드 목록")
     void getMyGuildsTest() throws Exception {
         // given
-        when(guildService.getMyGuilds(anyString()))
+        when(guildQueryService.getMyGuilds(anyString()))
             .thenReturn(List.of(createMockGuildResponse()));
 
         // when
@@ -421,7 +429,7 @@ class GuildControllerTest {
                 .build()
         );
 
-        when(guildService.getGuildMembers(anyLong(), anyString())).thenReturn(members);
+        when(guildQueryService.getGuildMembers(anyLong(), anyString())).thenReturn(members);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -481,7 +489,7 @@ class GuildControllerTest {
             .createdAt(LocalDateTime.now())
             .build();
 
-        when(guildService.requestJoin(anyLong(), anyString(), any())).thenReturn(response);
+        when(guildMemberService.requestJoin(anyLong(), anyString(), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -530,7 +538,7 @@ class GuildControllerTest {
     @DisplayName("DELETE /api/v1/guilds/{guildId}/members/me : 길드 탈퇴")
     void leaveGuildTest() throws Exception {
         // given
-        doNothing().when(guildService).leaveGuild(anyLong(), anyString());
+        doNothing().when(guildMemberService).leaveGuild(anyLong(), anyString());
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -565,7 +573,7 @@ class GuildControllerTest {
     @DisplayName("POST /api/v1/guilds/{guildId}/transfer-master : 마스터 이양")
     void transferMasterTest() throws Exception {
         // given
-        doNothing().when(guildService).transferMaster(anyLong(), anyString(), anyString());
+        doNothing().when(guildMemberService).transferMaster(anyLong(), anyString(), anyString());
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -666,7 +674,7 @@ class GuildControllerTest {
         );
         Page<GuildJoinRequestResponse> page = new PageImpl<>(requests, PageRequest.of(0, 20), 1);
 
-        when(guildService.getPendingJoinRequests(anyLong(), anyString(), any(Pageable.class)))
+        when(guildMemberService.getPendingJoinRequests(anyLong(), anyString(), any(Pageable.class)))
             .thenReturn(page);
 
         // when
@@ -695,7 +703,7 @@ class GuildControllerTest {
             .joinedAt(LocalDateTime.now())
             .build();
 
-        when(guildService.approveJoinRequest(anyLong(), anyString())).thenReturn(response);
+        when(guildMemberService.approveJoinRequest(anyLong(), anyString())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -722,7 +730,7 @@ class GuildControllerTest {
             .createdAt(LocalDateTime.now())
             .build();
 
-        when(guildService.rejectJoinRequest(anyLong(), anyString(), anyString())).thenReturn(response);
+        when(guildMemberService.rejectJoinRequest(anyLong(), anyString(), anyString())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -740,7 +748,7 @@ class GuildControllerTest {
     @DisplayName("DELETE /api/v1/guilds/{guildId}/members/{targetUserId} : 멤버 추방")
     void kickMemberTest() throws Exception {
         // given
-        doNothing().when(guildService).kickMember(anyLong(), anyString(), anyString());
+        doNothing().when(guildMemberService).kickMember(anyLong(), anyString(), anyString());
 
         // when
         ResultActions resultActions = mockMvc.perform(

@@ -1,12 +1,12 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,13 +35,7 @@ class UserCategoryExperienceCheckStrategyTest {
             .comparisonOperator(operator)
             .requiredCount(requiredCount)
             .build();
-        try {
-            Field idField = Achievement.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(achievement, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(achievement, id);
         return achievement;
     }
 

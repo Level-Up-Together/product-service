@@ -63,4 +63,13 @@ public class MissionUpdateRequest {
 
     // 카테고리 제거 여부 (true면 카테고리 정보 삭제)
     private Boolean clearCategory;
+
+    // 목표 수행 시간 (분) - 달성 시 보너스 XP
+    @Min(value = 1, message = "목표 시간은 최소 1분 이상이어야 합니다.")
+    @Max(value = 480, message = "목표 시간은 최대 480분(8시간)까지 가능합니다.")
+    private Integer targetDurationMinutes;
+
+    // 하루 수행 횟수 제한 (null이면 무제한)
+    @Min(value = 1, message = "일일 수행 제한은 최소 1회 이상이어야 합니다.")
+    private Integer dailyExecutionLimit;
 }

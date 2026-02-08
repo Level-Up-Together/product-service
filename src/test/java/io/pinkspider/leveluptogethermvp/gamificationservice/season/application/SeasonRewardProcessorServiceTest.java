@@ -21,12 +21,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -111,12 +111,6 @@ class SeasonRewardProcessorServiceTest {
             .build();
         setId(reward, id);
         return reward;
-    }
-
-    private void setId(Object entity, Long id) throws Exception {
-        Field idField = entity.getClass().getDeclaredField("id");
-        idField.setAccessible(true);
-        idField.set(entity, id);
     }
 
     @Nested

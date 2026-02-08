@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.saga.SagaEventPublisher;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -18,10 +20,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecutionStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateNextPinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadPinnedMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
 import java.time.LocalDate;
@@ -39,23 +44,35 @@ import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("MissionCompletionSaga 테스트")
+@DisplayName("MissionCompletionSaga 통합 테스트")
 class MissionCompletionSagaTest {
 
+    // Regular-only steps
     @Mock
     private LoadMissionDataStep loadMissionDataStep;
     @Mock
     private CompleteExecutionStep completeExecutionStep;
     @Mock
-    private GrantUserExperienceStep grantUserExperienceStep;
+    private UpdateParticipantProgressStep updateParticipantProgressStep;
     @Mock
     private GrantGuildExperienceStep grantGuildExperienceStep;
+
+    // Pinned-only steps
     @Mock
-    private UpdateParticipantProgressStep updateParticipantProgressStep;
+    private LoadPinnedMissionDataStep loadPinnedMissionDataStep;
+    @Mock
+    private CompletePinnedInstanceStep completePinnedInstanceStep;
+    @Mock
+    private CreateNextPinnedInstanceStep createNextPinnedInstanceStep;
+
+    // Unified steps
+    @Mock
+    private GrantUserExperienceStep grantUserExperienceStep;
     @Mock
     private UpdateUserStatsStep updateUserStatsStep;
     @Mock
     private CreateFeedFromMissionStep createFeedFromMissionStep;
+
     @Mock
     private SagaEventPublisher sagaEventPublisher;
 
@@ -64,6 +81,7 @@ class MissionCompletionSagaTest {
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
+    private static final Long INSTANCE_ID = 2L;
 
     private Mission mission;
     private MissionParticipant participant;
@@ -98,63 +116,37 @@ class MissionCompletionSagaTest {
         setId(execution, EXECUTION_ID);
         execution.setStartedAt(LocalDateTime.now().minusMinutes(30));
 
-        // Step 이름 및 기본 동작 설정
-        when(loadMissionDataStep.getName()).thenReturn("LoadMissionData");
-        when(loadMissionDataStep.shouldExecute()).thenReturn(ctx -> true);
-        when(loadMissionDataStep.isMandatory()).thenReturn(true);
-        when(loadMissionDataStep.getMaxRetries()).thenReturn(0);
-        when(loadMissionDataStep.getRetryDelayMs()).thenReturn(1000L);
+        // === Regular-only steps ===
+        configureStep(loadMissionDataStep, "LoadMissionData", true, ctx -> !ctx.isPinned());
+        configureStep(completeExecutionStep, "CompleteExecution", true, ctx -> !ctx.isPinned());
+        configureStep(updateParticipantProgressStep, "UpdateParticipantProgress", true, ctx -> !ctx.isPinned());
+        configureStep(grantGuildExperienceStep, "GrantGuildExperience", true, MissionCompletionContext::isGuildMission);
 
-        when(completeExecutionStep.getName()).thenReturn("CompleteExecution");
-        when(completeExecutionStep.shouldExecute()).thenReturn(ctx -> true);
-        when(completeExecutionStep.isMandatory()).thenReturn(true);
-        when(completeExecutionStep.getMaxRetries()).thenReturn(0);
-        when(completeExecutionStep.getRetryDelayMs()).thenReturn(1000L);
+        // === Pinned-only steps ===
+        configureStep(loadPinnedMissionDataStep, "LoadPinnedMissionData", true, MissionCompletionContext::isPinned);
+        configureStep(completePinnedInstanceStep, "CompletePinnedInstance", true, MissionCompletionContext::isPinned);
+        configureStep(createNextPinnedInstanceStep, "CreateNextPinnedInstance", true, MissionCompletionContext::isPinned);
 
-        when(grantUserExperienceStep.getName()).thenReturn("GrantUserExperience");
-        when(grantUserExperienceStep.shouldExecute()).thenReturn(ctx -> true);
-        when(grantUserExperienceStep.isMandatory()).thenReturn(true);
-        when(grantUserExperienceStep.getMaxRetries()).thenReturn(0);
-        when(grantUserExperienceStep.getRetryDelayMs()).thenReturn(1000L);
-
-        when(grantGuildExperienceStep.getName()).thenReturn("GrantGuildExperience");
-        when(grantGuildExperienceStep.shouldExecute()).thenReturn(ctx -> true);
-        when(grantGuildExperienceStep.isMandatory()).thenReturn(true);
-        when(grantGuildExperienceStep.getMaxRetries()).thenReturn(0);
-        when(grantGuildExperienceStep.getRetryDelayMs()).thenReturn(1000L);
-
-        when(updateParticipantProgressStep.getName()).thenReturn("UpdateParticipantProgress");
-        when(updateParticipantProgressStep.shouldExecute()).thenReturn(ctx -> true);
-        when(updateParticipantProgressStep.isMandatory()).thenReturn(true);
-        when(updateParticipantProgressStep.getMaxRetries()).thenReturn(0);
-        when(updateParticipantProgressStep.getRetryDelayMs()).thenReturn(1000L);
-
-        when(updateUserStatsStep.getName()).thenReturn("UpdateUserStats");
-        when(updateUserStatsStep.shouldExecute()).thenReturn(ctx -> true);
-        when(updateUserStatsStep.isMandatory()).thenReturn(false);
-        when(updateUserStatsStep.getMaxRetries()).thenReturn(0);
-        when(updateUserStatsStep.getRetryDelayMs()).thenReturn(1000L);
-
-        when(createFeedFromMissionStep.getName()).thenReturn("CreateFeedFromMission");
-        when(createFeedFromMissionStep.shouldExecute()).thenReturn(ctx -> true);
-        when(createFeedFromMissionStep.isMandatory()).thenReturn(false);
-        when(createFeedFromMissionStep.getMaxRetries()).thenReturn(0);
-        when(createFeedFromMissionStep.getRetryDelayMs()).thenReturn(1000L);
+        // === Unified steps ===
+        configureStep(grantUserExperienceStep, "GrantUserExperience", true, ctx -> true);
+        configureStep(updateUserStatsStep, "UpdateUserStats", false, ctx -> true);
+        configureStep(createFeedFromMissionStep, "CreateFeedFromMission", false, ctx -> true);
     }
 
-    private void setId(Object entity, Long id) {
-        try {
-            java.lang.reflect.Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private void configureStep(
+            io.pinkspider.global.saga.SagaStep<MissionCompletionContext> step,
+            String name, boolean mandatory,
+            java.util.function.Predicate<MissionCompletionContext> predicate) {
+        when(step.getName()).thenReturn(name);
+        when(step.shouldExecute()).thenReturn(predicate);
+        when(step.isMandatory()).thenReturn(mandatory);
+        when(step.getMaxRetries()).thenReturn(0);
+        when(step.getRetryDelayMs()).thenReturn(1000L);
     }
 
     @Nested
-    @DisplayName("정상 흐름 테스트")
-    class SuccessFlowTest {
+    @DisplayName("일반 미션 정상 흐름 테스트")
+    class RegularSuccessFlowTest {
 
         @Test
         @DisplayName("모든 Step이 성공하면 Saga가 성공한다")
@@ -171,7 +163,6 @@ class MissionCompletionSagaTest {
                 });
             when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
             when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
-            when(grantGuildExperienceStep.execute(any())).thenReturn(SagaStepResult.success("길드 경험치 스킵"));
             when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
             when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
             when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
@@ -184,20 +175,27 @@ class MissionCompletionSagaTest {
             assertThat(result.getContext()).isNotNull();
             assertThat(result.getContext().getExecution()).isEqualTo(execution);
 
-            // 모든 Step이 실행됨을 확인
+            // Regular steps 실행 확인
             verify(loadMissionDataStep).execute(any());
             verify(completeExecutionStep).execute(any());
             verify(grantUserExperienceStep).execute(any());
-            verify(grantGuildExperienceStep).execute(any());
             verify(updateParticipantProgressStep).execute(any());
             verify(updateUserStatsStep).execute(any());
             verify(createFeedFromMissionStep).execute(any());
+
+            // 길드 미션이 아니므로 GrantGuildExperience는 실행되지 않음
+            verify(grantGuildExperienceStep, never()).execute(any());
+
+            // Pinned steps는 실행되지 않음
+            verify(loadPinnedMissionDataStep, never()).execute(any());
+            verify(completePinnedInstanceStep, never()).execute(any());
+            verify(createNextPinnedInstanceStep, never()).execute(any());
         }
     }
 
     @Nested
-    @DisplayName("실패 및 보상 흐름 테스트")
-    class FailureAndCompensationFlowTest {
+    @DisplayName("일반 미션 실패 및 보상 흐름 테스트")
+    class RegularFailureAndCompensationFlowTest {
 
         @Test
         @DisplayName("필수 Step이 실패하면 이전 Step들이 보상된다")
@@ -290,11 +288,82 @@ class MissionCompletionSagaTest {
     }
 
     @Nested
+    @DisplayName("고정 미션 정상 흐름 테스트")
+    class PinnedSuccessFlowTest {
+
+        @Test
+        @DisplayName("고정 미션 모든 Step이 성공하면 Saga가 성공한다")
+        void executePinned_successWhenAllStepsSucceed() {
+            // given
+            Mission pinnedMission = Mission.builder()
+                .title("매일 30분 운동")
+                .description("운동하기")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .expPerCompletion(50)
+                .isPinned(true)
+                .build();
+            setId(pinnedMission, 10L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(pinnedParticipant, 10L);
+
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
+            setId(instance, INSTANCE_ID);
+
+            when(loadPinnedMissionDataStep.execute(any(MissionCompletionContext.class)))
+                .thenAnswer(invocation -> {
+                    MissionCompletionContext ctx = invocation.getArgument(0);
+                    ctx.setInstance(instance);
+                    ctx.setParticipant(pinnedParticipant);
+                    ctx.setMission(pinnedMission);
+                    ctx.setUserExpEarned(50);
+                    ctx.setMissionTitle(pinnedMission.getTitle());
+                    ctx.setInstanceDate(LocalDate.now());
+                    return SagaStepResult.success("데이터 로드 성공");
+                });
+            when(completePinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("인스턴스 완료"));
+            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
+            when(createNextPinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("다음 인스턴스 생성"));
+
+            // when
+            SagaResult<MissionCompletionContext> result = missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료");
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getContext().isPinned()).isTrue();
+
+            // Pinned steps 실행 확인
+            verify(loadPinnedMissionDataStep).execute(any());
+            verify(completePinnedInstanceStep).execute(any());
+            verify(createNextPinnedInstanceStep).execute(any());
+
+            // Unified steps 실행 확인
+            verify(grantUserExperienceStep).execute(any());
+            verify(updateUserStatsStep).execute(any());
+            verify(createFeedFromMissionStep).execute(any());
+
+            // Regular-only steps는 실행되지 않음
+            verify(loadMissionDataStep, never()).execute(any());
+            verify(completeExecutionStep, never()).execute(any());
+            verify(updateParticipantProgressStep, never()).execute(any());
+        }
+    }
+
+    @Nested
     @DisplayName("toResponse 테스트")
     class ToResponseTest {
 
         @Test
-        @DisplayName("성공한 Saga 결과에서 MissionExecutionResponse를 추출한다")
+        @DisplayName("성공한 일반 미션 Saga 결과에서 MissionExecutionResponse를 추출한다")
         void toResponse_extractsResponseFromSuccessResult() {
             // given
             when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
@@ -320,6 +389,57 @@ class MissionCompletionSagaTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getId()).isEqualTo(EXECUTION_ID);
+        }
+
+        @Test
+        @DisplayName("성공한 고정 미션 Saga 결과에서 DailyMissionInstanceResponse를 추출한다")
+        void toPinnedResponse_extractsResponseFromSuccessResult() {
+            // given
+            Mission pinnedMission = Mission.builder()
+                .title("매일 운동")
+                .description("운동하기")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .expPerCompletion(50)
+                .isPinned(true)
+                .build();
+            setId(pinnedMission, 10L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(pinnedParticipant, 10L);
+
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(pinnedParticipant, LocalDate.now());
+            setId(instance, INSTANCE_ID);
+
+            when(loadPinnedMissionDataStep.execute(any(MissionCompletionContext.class)))
+                .thenAnswer(invocation -> {
+                    MissionCompletionContext ctx = invocation.getArgument(0);
+                    ctx.setInstance(instance);
+                    ctx.setParticipant(pinnedParticipant);
+                    ctx.setMission(pinnedMission);
+                    ctx.setUserExpEarned(50);
+                    return SagaStepResult.success("데이터 로드 성공");
+                });
+            when(completePinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("완료"));
+            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드"));
+            when(createNextPinnedInstanceStep.execute(any())).thenReturn(SagaStepResult.success("다음"));
+
+            SagaResult<MissionCompletionContext> result = missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, null);
+
+            // when
+            var response = missionCompletionSaga.toPinnedResponse(result);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getId()).isEqualTo(INSTANCE_ID);
         }
     }
 }

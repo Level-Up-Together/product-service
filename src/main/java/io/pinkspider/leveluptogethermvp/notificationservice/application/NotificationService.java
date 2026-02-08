@@ -36,7 +36,7 @@ public class NotificationService {
     @Transactional(transactionManager = "notificationTransactionManager")
     public NotificationResponse createNotification(String userId, NotificationType type,
                                                     String title, String message) {
-        return createNotification(userId, type, title, message, null, null, null);
+        return createNotificationInternal(userId, type, title, message, null, null, null, null, false);
     }
 
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -44,7 +44,7 @@ public class NotificationService {
                                                     String title, String message,
                                                     String referenceType, Long referenceId,
                                                     String actionUrl) {
-        return createNotification(userId, type, title, message, referenceType, referenceId, actionUrl, null);
+        return createNotificationInternal(userId, type, title, message, referenceType, referenceId, actionUrl, null, false);
     }
 
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -52,33 +52,40 @@ public class NotificationService {
                                                     String title, String message,
                                                     String referenceType, Long referenceId,
                                                     String actionUrl, String iconUrl) {
-        // 알림 설정 확인
-        NotificationPreference pref = getOrCreatePreference(userId);
-        if (!pref.isCategoryEnabled(type.getCategory())) {
-            log.debug("알림 비활성화됨: userId={}, type={}", userId, type);
-            return null;
+        return createNotificationInternal(userId, type, title, message, referenceType, referenceId, actionUrl, iconUrl, false);
+    }
+
+    /**
+     * NotificationType 메타데이터 기반 알림 생성.
+     * 중복 방지 타입(requiresDeduplication=true)은 자동으로 pre-check + saveAndFlush 처리.
+     *
+     * @param iconUrl     아이콘 URL (칭호의 경우 "rarity:LEGENDARY" 형태), null 가능
+     * @param messageArgs 메시지/제목 템플릿의 {0}, {1}, ... 인자 + actionUrl의 {0}, {1}, ... 치환용
+     */
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void sendNotification(String userId, NotificationType type,
+                                  Long referenceId, String iconUrl, Object... messageArgs) {
+        String title = type.formatTitle(messageArgs);
+        String message = type.formatMessage(messageArgs);
+        String referenceType = type.getReferenceType();
+        String actionUrl = type.resolveActionUrl(referenceId, messageArgs);
+
+        if (type.isRequiresDeduplication()) {
+            if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                    userId, referenceType, referenceId)) {
+                log.debug("알림 중복 방지: userId={}, type={}, referenceId={}", userId, type, referenceId);
+                return;
+            }
+            try {
+                createNotificationInternal(userId, type, title, message,
+                    referenceType, referenceId, actionUrl, iconUrl, true);
+            } catch (DataIntegrityViolationException e) {
+                log.debug("알림 중복 감지 (DB 제약조건): userId={}, type={}", userId, type);
+            }
+        } else {
+            createNotificationInternal(userId, type, title, message,
+                referenceType, referenceId, actionUrl, iconUrl, false);
         }
-
-        Notification notification = Notification.builder()
-            .userId(userId)
-            .notificationType(type)
-            .title(title)
-            .message(message)
-            .referenceType(referenceType)
-            .referenceId(referenceId)
-            .actionUrl(actionUrl)
-            .iconUrl(iconUrl)
-            .build();
-
-        Notification saved = notificationRepository.save(notification);
-        log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
-
-        // 푸시 알림 전송 (푸시 설정이 활성화된 경우)
-        if (pref.getPushEnabled()) {
-            sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
-        }
-
-        return NotificationResponse.from(saved);
     }
 
     /**
@@ -220,168 +227,11 @@ public class NotificationService {
             });
     }
 
-    // ==================== 편의 메서드 ====================
-
-    // 친구 요청 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyFriendRequest(String userId, String requesterNickname, Long friendshipId) {
-        createNotification(userId, NotificationType.FRIEND_REQUEST,
-            "새 친구 요청",
-            requesterNickname + "님이 친구 요청을 보냈습니다.",
-            "FRIEND_REQUEST", friendshipId, "/mypage/friends/requests");
-    }
-
-    // 친구 수락 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyFriendAccepted(String userId, String accepterNickname, Long friendshipId) {
-        createNotification(userId, NotificationType.FRIEND_ACCEPTED,
-            "친구 요청 수락",
-            accepterNickname + "님이 친구 요청을 수락했습니다.",
-            "FRIEND", friendshipId, "/mypage/friends");
-    }
-
-    // 친구 거절 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyFriendRejected(String userId, String rejecterNickname, Long friendshipId) {
-        createNotification(userId, NotificationType.FRIEND_REJECTED,
-            "친구 요청 거절",
-            rejecterNickname + "님이 친구 요청을 거절했습니다.",
-            "FRIEND_REQUEST", friendshipId, "/mypage/friends");
-    }
-
-    // 길드 초대 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildInvite(String userId, String guildName, Long guildId) {
-        createNotification(userId, NotificationType.GUILD_INVITE,
-            "길드 초대",
-            "'" + guildName + "' 길드에 초대되었습니다.",
-            "GUILD", guildId, "/guild/" + guildId);
-    }
-
-    // 길드 가입 신청 알림 (길드장에게)
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildJoinRequest(String guildLeaderId, String applicantNickname, Long guildId) {
-        createNotification(guildLeaderId, NotificationType.GUILD_JOIN_REQUEST,
-            "길드 가입 신청",
-            applicantNickname + "님이 길드 가입을 신청했습니다.",
-            "GUILD", guildId, "/guild/" + guildId + "/members");
-    }
-
-    // 길드 가입 승인 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildJoinApproved(String userId, String guildName, Long guildId) {
-        createNotification(userId, NotificationType.GUILD_JOIN_APPROVED,
-            "길드 가입 승인",
-            "'" + guildName + "' 길드에 가입되었습니다!",
-            "GUILD", guildId, "/guild/" + guildId);
-    }
-
-    // 길드 가입 거절 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildJoinRejected(String userId, String guildName, Long guildId) {
-        createNotification(userId, NotificationType.GUILD_JOIN_REJECTED,
-            "길드 가입 거절",
-            "'" + guildName + "' 길드 가입이 거절되었습니다.",
-            "GUILD", guildId, "/guild");
-    }
-
-    // 길드 미션 도착 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildMissionArrived(String userId, String missionTitle, Long missionId) {
-        createNotification(userId, NotificationType.GUILD_MISSION_ARRIVED,
-            "새 길드 미션",
-            "'" + missionTitle + "' 길드 미션이 도착했습니다.",
-            "MISSION", missionId, "/mission");
-    }
-
-    // 길드 공지사항 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildBulletin(String userId, String guildName, Long guildId, Long postId, String postTitle) {
-        createNotification(userId, NotificationType.GUILD_BULLETIN,
-            "새 길드 공지사항",
-            "[" + guildName + "] " + postTitle,
-            "GUILD_POST", postId, "/guild/" + guildId + "/posts/" + postId);
-    }
-
-    // 길드 채팅 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildChat(String userId, String senderNickname, Long guildId,
-                                String guildName, Long messageId, String messagePreview) {
-        createNotification(userId, NotificationType.GUILD_CHAT,
-            guildName,
-            senderNickname + ": " + messagePreview,
-            "GUILD_CHAT", messageId, "/guild/" + guildId + "/chat");
-    }
-
-    // 내 글에 댓글 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyCommentOnMyFeed(String feedOwnerId, String commenterNickname, Long feedId) {
-        createNotification(feedOwnerId, NotificationType.COMMENT_ON_MY_FEED,
-            "새 댓글",
-            commenterNickname + "님이 회원님의 글에 댓글을 남겼습니다.",
-            "FEED", feedId, "/home/" + feedId);
-    }
-
-    // 내 미션에 댓글 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyCommentOnMyMission(String missionCreatorId, String commenterNickname,
-                                         Long missionId, String missionTitle) {
-        createNotification(missionCreatorId, NotificationType.COMMENT_ON_MY_MISSION,
-            "새 댓글",
-            commenterNickname + "님이 '" + missionTitle + "' 미션에 댓글을 남겼습니다.",
-            "MISSION", missionId, "/mission/progress/" + missionId);
-    }
-
-    // 칭호 획득 알림 (중복 방지 - 레이스 컨디션 안전)
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyTitleAcquired(String userId, Long titleId, String titleName, String titleRarity) {
-        // 동일한 칭호에 대한 알림이 이미 존재하면 스킵
-        if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                userId, "TITLE", titleId)) {
-            log.debug("칭호 획득 알림 중복 방지: userId={}, titleId={}", userId, titleId);
-            return;
-        }
-        try {
-            // iconUrl 필드에 rarity 정보를 저장 (프론트엔드에서 모달 표시에 활용)
-            String rarityMetadata = "rarity:" + titleRarity;
-            createNotificationWithDeduplication(userId, NotificationType.TITLE_ACQUIRED,
-                "새로운 칭호 획득!",
-                "'" + titleName + "' 칭호를 획득했습니다!",
-                "TITLE", titleId, "/mypage/titles", rarityMetadata);
-        } catch (DataIntegrityViolationException e) {
-            // 레이스 컨디션으로 인한 중복 - 무시
-            log.debug("칭호 획득 알림 중복 감지 (DB 제약조건): userId={}, titleId={}", userId, titleId);
-        }
-    }
-
-    // 업적 달성 알림 (중복 방지 - 레이스 컨디션 안전)
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyAchievementCompleted(String userId, Long achievementId, String achievementName) {
-        // 동일한 업적에 대한 알림이 이미 존재하면 스킵
-        if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                userId, "ACHIEVEMENT", achievementId)) {
-            log.debug("업적 달성 알림 중복 방지: userId={}, achievementId={}", userId, achievementId);
-            return;
-        }
-        try {
-            createNotificationWithDeduplication(userId, NotificationType.ACHIEVEMENT_COMPLETED,
-                "업적 달성!",
-                "'" + achievementName + "' 업적을 달성했습니다!",
-                "ACHIEVEMENT", achievementId, "/mypage", null);
-        } catch (DataIntegrityViolationException e) {
-            // 레이스 컨디션으로 인한 중복 - 무시
-            log.debug("업적 달성 알림 중복 감지 (DB 제약조건): userId={}, achievementId={}", userId, achievementId);
-        }
-    }
-
-    /**
-     * 중복 방지가 필요한 알림 생성 (saveAndFlush 사용)
-     */
-    private NotificationResponse createNotificationWithDeduplication(String userId, NotificationType type,
-                                                                      String title, String message,
-                                                                      String referenceType, Long referenceId,
-                                                                      String actionUrl, String iconUrl) {
-        // 알림 설정 확인
+    private NotificationResponse createNotificationInternal(String userId, NotificationType type,
+                                                             String title, String message,
+                                                             String referenceType, Long referenceId,
+                                                             String actionUrl, String iconUrl,
+                                                             boolean flush) {
         NotificationPreference pref = getOrCreatePreference(userId);
         if (!pref.isCategoryEnabled(type.getCategory())) {
             log.debug("알림 비활성화됨: userId={}, type={}", userId, type);
@@ -399,11 +249,11 @@ public class NotificationService {
             .iconUrl(iconUrl)
             .build();
 
-        // saveAndFlush로 즉시 INSERT하여 중복 시 예외 발생
-        Notification saved = notificationRepository.saveAndFlush(notification);
+        Notification saved = flush
+            ? notificationRepository.saveAndFlush(notification)
+            : notificationRepository.save(notification);
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
-        // 푸시 알림 전송 (푸시 설정이 활성화된 경우)
         if (pref.getPushEnabled()) {
             sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
         }
@@ -411,31 +261,23 @@ public class NotificationService {
         return NotificationResponse.from(saved);
     }
 
-    // 길드 창설 가능 알림 (레벨 20 도달)
+    // ==================== 편의 메서드 (특수 케이스) ====================
+
+    // 콘텐츠 신고 알림 (신고 당한 유저에게)
     @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildCreationEligible(String userId) {
-        createNotification(userId, NotificationType.GUILD_CREATION_ELIGIBLE,
-            "길드 창설이 가능해졌습니다!",
-            "레벨 20에 도달하여 이제 나만의 길드를 만들 수 있습니다.",
-            "LEVEL", null, "/guilds/create");
+    public void notifyContentReported(String userId, String targetTypeDescription) {
+        createNotification(userId, NotificationType.CONTENT_REPORTED,
+            "콘텐츠 신고 알림",
+            "회원님의 " + targetTypeDescription + "이(가) 다른 사용자로부터 신고되었습니다.",
+            null, null, "/mypage");
     }
 
-    // 길드 초대 알림 (초대 ID 포함, 수락/거절 액션용)
+    // 길드 콘텐츠 신고 알림 (길드 마스터에게)
     @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyGuildInvitation(String inviteeId, String inviterNickname, Long guildId,
-                                      String guildName, Long invitationId) {
-        createNotification(inviteeId, NotificationType.GUILD_INVITE,
-            "길드 초대",
-            inviterNickname + "님이 '" + guildName + "' 길드로 초대했습니다.",
-            "GUILD_INVITATION", invitationId, "/guild-invitations/" + invitationId);
-    }
-
-    // 가입 환영 알림
-    @Transactional(transactionManager = "notificationTransactionManager")
-    public void notifyWelcome(String userId, String nickname) {
-        createNotification(userId, NotificationType.WELCOME,
-            "Level Up Together에 오신 것을 환영합니다!",
-            nickname + "님, 함께 성장하는 여정을 시작해보세요.",
-            null, null, "/home");
+    public void notifyGuildContentReported(String guildMasterId, String targetTypeDescription, Long guildId) {
+        createNotification(guildMasterId, NotificationType.CONTENT_REPORTED,
+            "길드 콘텐츠 신고 알림",
+            "길드 내 " + targetTypeDescription + "이(가) 신고되었습니다. 길드 관리에 참고해주세요.",
+            "GUILD", guildId, "/guild/" + guildId);
     }
 }

@@ -122,6 +122,14 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isPinned = false;
 
+    @Column(name = "target_duration_minutes")
+    @Comment("목표 수행 시간 (분) - 달성 시 보너스 XP")
+    private Integer targetDurationMinutes;
+
+    @Column(name = "daily_execution_limit")
+    @Comment("하루 수행 횟수 제한 (null = 무제한)")
+    private Integer dailyExecutionLimit;
+
     @NotNull
     @Column(name = "creator_id", nullable = false)
     @Comment("생성자 ID")
@@ -211,35 +219,39 @@ public class Mission extends LocalDateTimeBaseEntity {
     }
 
     public void open() {
-        if (this.status != MissionStatus.DRAFT) {
-            throw new IllegalStateException("작성중 상태의 미션만 오픈할 수 있습니다.");
-        }
-        this.status = MissionStatus.OPEN;
+        transitionTo(MissionStatus.OPEN);
     }
 
     public void start() {
-        if (this.status != MissionStatus.OPEN) {
-            throw new IllegalStateException("모집중 상태의 미션만 시작할 수 있습니다.");
-        }
-        this.status = MissionStatus.IN_PROGRESS;
+        transitionTo(MissionStatus.IN_PROGRESS);
     }
 
     public void complete() {
-        if (this.status != MissionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("진행중 상태의 미션만 완료할 수 있습니다.");
-        }
-        this.status = MissionStatus.COMPLETED;
+        transitionTo(MissionStatus.COMPLETED);
     }
 
     public void cancel() {
-        if (this.status == MissionStatus.COMPLETED) {
-            throw new IllegalStateException("완료된 미션은 취소할 수 없습니다.");
+        transitionTo(MissionStatus.CANCELLED);
+    }
+
+    private void transitionTo(MissionStatus target) {
+        if (!this.status.canTransitionTo(target)) {
+            throw new IllegalStateException(
+                String.format("'%s' 상태에서 '%s' 상태로 변경할 수 없습니다.",
+                    this.status.getDescription(), target.getDescription()));
         }
-        this.status = MissionStatus.CANCELLED;
+        this.status = target;
     }
 
     public boolean isGuildMission() {
         return this.type == MissionType.GUILD;
+    }
+
+    public Long getGuildIdAsLong() {
+        if (guildId == null || guildId.isBlank()) {
+            return null;
+        }
+        return Long.parseLong(guildId);
     }
 
     public boolean isPublic() {

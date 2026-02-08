@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -96,7 +98,7 @@ class GuildPostServiceTest {
             .maxMembers(50)
             .categoryId(1L)
             .build();
-        setId(testGuild, Guild.class, 1L);
+        setId(testGuild, 1L);
 
         masterMember = GuildMember.builder()
             .guild(testGuild)
@@ -123,17 +125,7 @@ class GuildPostServiceTest {
             .postType(GuildPostType.NORMAL)
             .isPinned(false)
             .build();
-        setId(testPost, GuildPost.class, 1L);
-    }
-
-    private <T> void setId(T entity, Class<T> clazz, Long id) {
-        try {
-            java.lang.reflect.Field idField = clazz.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(testPost, 1L);
     }
 
     @Nested
@@ -154,7 +146,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -183,7 +175,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -256,7 +248,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(masterMember, otherMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -289,7 +281,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -339,7 +331,7 @@ class GuildPostServiceTest {
                 .postType(GuildPostType.NOTICE)
                 .isPinned(true)
                 .build();
-            setId(noticePost, GuildPost.class, 2L);
+            setId(noticePost, 2L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -529,7 +521,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(savedComment, GuildPostComment.class, 1L);
+            setId(savedComment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -576,7 +568,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -606,7 +598,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -630,7 +622,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
@@ -662,7 +654,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, otherMemberId)).thenReturn(Optional.of(otherMember));
@@ -673,6 +665,424 @@ class GuildPostServiceTest {
             assertThatThrownBy(() -> guildPostService.deleteComment(1L, 1L, 1L, otherMemberId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("댓글을 삭제할 권한이 없습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("게시글 유형별 조회 테스트")
+    class GetPostsByTypeTest {
+
+        @Test
+        @DisplayName("유형별 게시글을 조회한다")
+        void getPostsByType_success() {
+            // given
+            GuildPost noticePost = GuildPost.builder()
+                .guild(testGuild)
+                .authorId(masterId)
+                .authorNickname("마스터")
+                .title("공지사항")
+                .content("중요 공지")
+                .postType(GuildPostType.NOTICE)
+                .isPinned(true)
+                .build();
+            setId(noticePost, 2L);
+
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<GuildPost> postPage = new PageImpl<>(List.of(noticePost), pageable, 1);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByGuildIdAndPostType(1L, GuildPostType.NOTICE, pageable))
+                .thenReturn(postPage);
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList()))
+                .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<GuildPostListResponse> result = guildPostService.getPostsByType(1L, memberId, GuildPostType.NOTICE, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getPostType()).isEqualTo(GuildPostType.NOTICE);
+        }
+    }
+
+    @Nested
+    @DisplayName("게시글 검색 테스트")
+    class SearchPostsTest {
+
+        @Test
+        @DisplayName("키워드로 게시글을 검색한다")
+        void searchPosts_success() {
+            // given
+            String keyword = "테스트";
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<GuildPost> postPage = new PageImpl<>(List.of(testPost), pageable, 1);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.searchPosts(1L, keyword, pageable)).thenReturn(postPage);
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList()))
+                .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<GuildPostListResponse> result = guildPostService.searchPosts(1L, memberId, keyword, pageable);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("대댓글 작성 테스트")
+    class CreateReplyCommentTest {
+
+        @Test
+        @DisplayName("대댓글을 작성한다")
+        void createComment_withParent_success() {
+            // given
+            GuildPostComment parentComment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("원댓글")
+                .build();
+            setId(parentComment, 1L);
+
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("대댓글 내용")
+                .parentId(1L)
+                .build();
+
+            GuildPostComment replyComment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("대댓글 내용")
+                .parent(parentComment)
+                .build();
+            setId(replyComment, 2L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(parentComment));
+            when(guildPostCommentRepository.save(any(GuildPostComment.class))).thenReturn(replyComment);
+
+            // when
+            GuildPostCommentResponse response = guildPostService.createComment(1L, 1L, memberId, "멤버닉네임", request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildPostCommentRepository).save(any(GuildPostComment.class));
+        }
+
+        @Test
+        @DisplayName("상위 댓글이 없으면 예외 발생")
+        void createComment_parentNotFound_fail() {
+            // given
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("대댓글 내용")
+                .parentId(999L)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.createComment(1L, 1L, memberId, "멤버닉네임", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("상위 댓글을 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("다른 게시글의 댓글을 상위 댓글로 지정하면 예외 발생")
+        void createComment_parentFromOtherPost_fail() {
+            // given
+            GuildPost otherPost = GuildPost.builder()
+                .guild(testGuild)
+                .authorId(memberId)
+                .authorNickname("테스터")
+                .title("다른 게시글")
+                .content("다른 내용")
+                .postType(GuildPostType.NORMAL)
+                .build();
+            setId(otherPost, 2L);
+
+            GuildPostComment otherComment = GuildPostComment.builder()
+                .post(otherPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("다른 게시글의 댓글")
+                .build();
+            setId(otherComment, 1L);
+
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("대댓글 내용")
+                .parentId(1L)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(otherComment));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.createComment(1L, 1L, memberId, "멤버닉네임", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("상위 댓글이 해당 게시글에 속하지 않습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("댓글 수정 테스트")
+    class UpdateCommentTest {
+
+        @Test
+        @DisplayName("댓글을 수정한다")
+        void updateComment_success() {
+            // given
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("원래 내용")
+                .build();
+            setId(comment, 1L);
+
+            io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
+                    .content("수정된 내용")
+                    .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when
+            GuildPostCommentResponse response = guildPostService.updateComment(1L, 1L, 1L, memberId, request);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(comment.getContent()).isEqualTo("수정된 내용");
+        }
+
+        @Test
+        @DisplayName("작성자가 아니면 댓글을 수정할 수 없다")
+        void updateComment_notAuthor_fail() {
+            // given
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(testPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("원래 내용")
+                .build();
+            setId(comment, 1L);
+
+            io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
+                    .content("수정된 내용")
+                    .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.updateComment(1L, 1L, 1L, masterId, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("댓글 작성자만 수정할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("다른 게시글의 댓글을 수정할 수 없다")
+        void updateComment_wrongPost_fail() {
+            // given
+            GuildPost otherPost = GuildPost.builder()
+                .guild(testGuild)
+                .authorId(memberId)
+                .title("다른 게시글")
+                .content("다른 내용")
+                .postType(GuildPostType.NORMAL)
+                .build();
+            setId(otherPost, 2L);
+
+            GuildPostComment comment = GuildPostComment.builder()
+                .post(otherPost)
+                .authorId(memberId)
+                .authorNickname("멤버닉네임")
+                .content("원래 내용")
+                .build();
+            setId(comment, 1L);
+
+            io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
+                    .content("수정된 내용")
+                    .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(comment));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.updateComment(1L, 1L, 1L, memberId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("댓글이 해당 게시글에 속하지 않습니다");
+        }
+
+        @Test
+        @DisplayName("삭제된 댓글을 수정할 수 없다")
+        void updateComment_deletedComment_fail() {
+            // given
+            io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
+                    .content("수정된 내용")
+                    .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(guildPostCommentRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.updateComment(1L, 1L, 1L, memberId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("댓글을 찾을 수 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("게시글/댓글 검증 테스트")
+    class ValidationTest {
+
+        @Test
+        @DisplayName("존재하지 않는 게시글에 댓글 작성 시 예외 발생")
+        void createComment_postNotFound_fail() {
+            // given
+            GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
+                .content("테스트 댓글")
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.createComment(1L, 999L, memberId, "멤버닉네임", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("게시글을 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("다른 길드의 게시글에 접근 시 예외 발생")
+        void getPost_wrongGuild_fail() {
+            // given
+            Guild otherGuild = Guild.builder()
+                .name("다른 길드")
+                .masterId("other-master")
+                .build();
+            setId(otherGuild, 2L);
+
+            GuildPost otherPost = GuildPost.builder()
+                .guild(otherGuild)
+                .authorId(memberId)
+                .title("다른 길드 게시글")
+                .content("다른 내용")
+                .postType(GuildPostType.NORMAL)
+                .build();
+            setId(otherPost, 2L);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(2L)).thenReturn(Optional.of(otherPost));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.getPost(1L, 2L, memberId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("게시글이 해당 길드에 속하지 않습니다");
+        }
+
+        @Test
+        @DisplayName("삭제된 게시글은 조회할 수 없다")
+        void getPost_deletedPost_fail() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.getPost(1L, 999L, memberId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("게시글을 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 길드에 게시글 작성 시 예외 발생")
+        void createPost_guildNotFound_fail() {
+            // given
+            GuildPostCreateRequest request = GuildPostCreateRequest.builder()
+                .title("테스트")
+                .content("테스트")
+                .postType(GuildPostType.NORMAL)
+                .build();
+
+            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.createPost(999L, memberId, "테스터", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드를 찾을 수 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("신고 처리중 상태 통합 테스트")
+    class IsUnderReviewIntegrationTest {
+
+        @Test
+        @DisplayName("게시글 상세 조회 시 신고 처리중 상태가 설정된다")
+        void getPost_setsUnderReviewStatus() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(testPost));
+            when(reportService.isUnderReview(eq(ReportTargetType.GUILD_NOTICE), eq("1"))).thenReturn(true);
+
+            // when
+            GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReview(ReportTargetType.GUILD_NOTICE, "1");
+        }
+
+        @Test
+        @DisplayName("공지글 목록 조회 시 신고 상태가 일괄 조회된다")
+        void getNotices_batchUnderReviewCheck() {
+            // given
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
+            when(guildPostRepository.findNotices(1L)).thenReturn(List.of(testPost));
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("1", true);
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.GUILD_NOTICE), anyList()))
+                .thenReturn(underReviewMap);
+
+            // when
+            List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsUnderReview()).isTrue();
+            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.GUILD_NOTICE), anyList());
         }
     }
 }

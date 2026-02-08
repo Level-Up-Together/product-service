@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.google.Goog
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.kakao.KakaoUserInfo;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -306,7 +307,8 @@ public class Oauth2Service {
 
         // 환영 알림 발송
         try {
-            notificationService.notifyWelcome(savedUser.getId(), savedUser.getNickname());
+            notificationService.sendNotification(savedUser.getId(),
+                NotificationType.WELCOME, null, null, savedUser.getNickname());
         } catch (Exception e) {
             log.error("환영 알림 발송 실패: userId={}, error={}", savedUser.getId(), e.getMessage(), e);
             // 알림 실패는 회원가입을 막지 않음

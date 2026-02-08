@@ -4,6 +4,8 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildMemberService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
@@ -45,6 +47,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class GuildController {
 
     private final GuildService guildService;
+    private final GuildQueryService guildQueryService;
+    private final GuildMemberService guildMemberService;
     private final GuildExperienceService guildExperienceService;
     private final GuildHeadquartersService guildHeadquartersService;
 
@@ -62,7 +66,7 @@ public class GuildController {
         @PathVariable Long guildId,
         @CurrentUser String userId) {
 
-        GuildResponse response = guildService.getGuild(guildId, userId);
+        GuildResponse response = guildQueryService.getGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
     }
 
@@ -71,7 +75,7 @@ public class GuildController {
         @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildResponse> responses = guildService.getPublicGuilds(userId, pageable);
+        Page<GuildResponse> responses = guildQueryService.getPublicGuilds(userId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
@@ -81,7 +85,7 @@ public class GuildController {
         @RequestParam String keyword,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildResponse> responses = guildService.searchGuilds(userId, keyword, pageable);
+        Page<GuildResponse> responses = guildQueryService.searchGuilds(userId, keyword, pageable);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
@@ -89,7 +93,7 @@ public class GuildController {
     public ResponseEntity<ApiResult<List<GuildResponse>>> getMyGuilds(
         @CurrentUser String userId) {
 
-        List<GuildResponse> responses = guildService.getMyGuilds(userId);
+        List<GuildResponse> responses = guildQueryService.getMyGuilds(userId);
         return ResponseEntity.ok(ApiResult.<List<GuildResponse>>builder().value(responses).build());
     }
 
@@ -119,7 +123,7 @@ public class GuildController {
         @CurrentUser String userId,
         @Valid @RequestBody TransferMasterRequest request) {
 
-        guildService.transferMaster(guildId, userId, request.getNewMasterId());
+        guildMemberService.transferMaster(guildId, userId, request.getNewMasterId());
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
@@ -128,7 +132,7 @@ public class GuildController {
         @PathVariable Long guildId,
         @CurrentUser String userId) {
 
-        List<GuildMemberResponse> responses = guildService.getGuildMembers(guildId, userId);
+        List<GuildMemberResponse> responses = guildQueryService.getGuildMembers(guildId, userId);
         return ResponseEntity.ok(ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
     }
 
@@ -137,7 +141,7 @@ public class GuildController {
         @PathVariable Long guildId,
         @CurrentUser String userId) {
 
-        guildService.leaveGuild(guildId, userId);
+        guildMemberService.leaveGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
@@ -148,7 +152,7 @@ public class GuildController {
         @CurrentUser String userId,
         @RequestBody(required = false) GuildJoinRequestDto request) {
 
-        GuildJoinRequestResponse response = guildService.requestJoin(guildId, userId, request);
+        GuildJoinRequestResponse response = guildMemberService.requestJoin(guildId, userId, request);
         return ResponseEntity.ok(ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
     }
 
@@ -159,7 +163,7 @@ public class GuildController {
         @CurrentUser String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<GuildJoinRequestResponse> responses = guildService.getPendingJoinRequests(guildId, userId, pageable);
+        Page<GuildJoinRequestResponse> responses = guildMemberService.getPendingJoinRequests(guildId, userId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<GuildJoinRequestResponse>>builder().value(responses).build());
     }
 
@@ -169,7 +173,7 @@ public class GuildController {
         @PathVariable Long requestId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.approveJoinRequest(requestId, userId);
+        GuildMemberResponse response = guildMemberService.approveJoinRequest(requestId, userId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
@@ -181,7 +185,7 @@ public class GuildController {
         @RequestBody(required = false) JoinRequestProcessRequest request) {
 
         String reason = request != null ? request.getRejectReason() : null;
-        GuildJoinRequestResponse response = guildService.rejectJoinRequest(requestId, userId, reason);
+        GuildJoinRequestResponse response = guildMemberService.rejectJoinRequest(requestId, userId, reason);
         return ResponseEntity.ok(ApiResult.<GuildJoinRequestResponse>builder().value(response).build());
     }
 
@@ -192,7 +196,7 @@ public class GuildController {
         @PathVariable String inviteeId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.inviteMember(guildId, userId, inviteeId);
+        GuildMemberResponse response = guildMemberService.inviteMember(guildId, userId, inviteeId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
@@ -203,7 +207,7 @@ public class GuildController {
         @PathVariable String targetUserId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.promoteToSubMaster(guildId, userId, targetUserId);
+        GuildMemberResponse response = guildMemberService.promoteToSubMaster(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
@@ -214,7 +218,7 @@ public class GuildController {
         @PathVariable String targetUserId,
         @CurrentUser String userId) {
 
-        GuildMemberResponse response = guildService.demoteFromSubMaster(guildId, userId, targetUserId);
+        GuildMemberResponse response = guildMemberService.demoteFromSubMaster(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
@@ -225,7 +229,7 @@ public class GuildController {
         @PathVariable String targetUserId,
         @CurrentUser String userId) {
 
-        guildService.kickMember(guildId, userId, targetUserId);
+        guildMemberService.kickMember(guildId, userId, targetUserId);
         return ResponseEntity.ok(ApiResult.getBase());
     }
 

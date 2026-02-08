@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildPostService;
-import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostListResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -41,7 +41,7 @@ import org.springframework.data.domain.PageRequest;
 class BffGuildServiceTest {
 
     @Mock
-    private GuildService guildService;
+    private GuildQueryService guildQueryService;
 
     @Mock
     private GuildPostService guildPostService;
@@ -129,8 +129,8 @@ class BffGuildServiceTest {
                 List.of(testPostResponse), PageRequest.of(0, 20), 1
             );
 
-            when(guildService.getGuild(1L, testUserId)).thenReturn(testGuildResponse);
-            when(guildService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
+            when(guildQueryService.getGuild(1L, testUserId)).thenReturn(testGuildResponse);
+            when(guildQueryService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
             when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(postPage);
 
             // when
@@ -155,8 +155,8 @@ class BffGuildServiceTest {
                 List.of(testPostResponse), PageRequest.of(0, 20), 1
             );
 
-            when(guildService.getGuild(1L, otherUserId)).thenReturn(testGuildResponse);
-            when(guildService.getGuildMembers(1L, otherUserId)).thenReturn(List.of(testMemberResponse));
+            when(guildQueryService.getGuild(1L, otherUserId)).thenReturn(testGuildResponse);
+            when(guildQueryService.getGuildMembers(1L, otherUserId)).thenReturn(List.of(testMemberResponse));
             when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(postPage);
 
             // when
@@ -172,8 +172,8 @@ class BffGuildServiceTest {
         @DisplayName("길드 조회 실패 시 guild가 null")
         void getGuildDetail_guildFetchFailed() {
             // given
-            when(guildService.getGuild(1L, testUserId)).thenThrow(new RuntimeException("조회 실패"));
-            when(guildService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
+            when(guildQueryService.getGuild(1L, testUserId)).thenThrow(new RuntimeException("조회 실패"));
+            when(guildQueryService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
             when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(Page.empty());
 
             // when
@@ -209,8 +209,8 @@ class BffGuildServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(noticePost));
             when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
 
@@ -233,8 +233,8 @@ class BffGuildServiceTest {
                 List.of(testGuildResponse), PageRequest.of(0, 10), 1
             );
 
-            when(guildService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
-            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
+            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -275,8 +275,8 @@ class BffGuildServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(Collections.emptyList());
 
-            when(guildService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse, secondGuild));
-            when(guildService.getPublicGuilds(any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse, secondGuild));
+            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(notice1));
             when(guildPostService.getNotices(2L, testUserId)).thenReturn(List.of(notice2));
             when(activityFeedService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
@@ -296,8 +296,8 @@ class BffGuildServiceTest {
         @DisplayName("내 길드 조회 실패 시 빈 목록 반환")
         void getGuildList_myGuildsFetchFailed() {
             // given
-            when(guildService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("조회 실패"));
-            when(guildService.getPublicGuilds(any(), any())).thenReturn(Page.empty());
+            when(guildQueryService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("조회 실패"));
+            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(Page.empty());
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);

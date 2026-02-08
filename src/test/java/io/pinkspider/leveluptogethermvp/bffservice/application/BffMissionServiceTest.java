@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
-import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
@@ -26,7 +26,7 @@ class BffMissionServiceTest {
     private MissionService missionService;
 
     @Mock
-    private MissionExecutionService missionExecutionService;
+    private MissionExecutionQueryService missionExecutionQueryService;
 
     @InjectMocks
     private BffMissionService bffMissionService;
@@ -68,7 +68,7 @@ class BffMissionServiceTest {
             );
 
             when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -88,7 +88,7 @@ class BffMissionServiceTest {
             // given
             when(missionService.getMyMissions(TEST_USER_ID))
                 .thenThrow(new RuntimeException("미션 서비스 오류"));
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID))
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID))
                 .thenReturn(Collections.emptyList());
 
             // when
@@ -106,7 +106,7 @@ class BffMissionServiceTest {
             // given
             when(missionService.getMyMissions(TEST_USER_ID))
                 .thenReturn(Collections.emptyList());
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID))
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID))
                 .thenThrow(new RuntimeException("실행 서비스 오류"));
 
             // when
@@ -123,7 +123,7 @@ class BffMissionServiceTest {
         void getTodayMissions_noMissions_zeroStats() {
             // given
             when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(Collections.emptyList());
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(Collections.emptyList());
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -150,7 +150,7 @@ class BffMissionServiceTest {
             );
 
             when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -174,7 +174,7 @@ class BffMissionServiceTest {
             );
 
             when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);

@@ -39,6 +39,7 @@ public class DailyMissionInstanceResponse {
     private String missionCategoryName;
     private Long categoryId;
     private Integer expPerCompletion;
+    private Integer targetDurationMinutes;
 
     // ============ 수행 정보 ============
 
@@ -87,6 +88,7 @@ public class DailyMissionInstanceResponse {
             .missionCategoryName(instance.getCategoryName())
             .categoryId(instance.getCategoryId())
             .expPerCompletion(instance.getExpPerCompletion())
+            .targetDurationMinutes(instance.getTargetDurationMinutes())
             .instanceDate(instance.getInstanceDate())
             .status(instance.getStatus())
             .startedAt(instance.getStartedAt())

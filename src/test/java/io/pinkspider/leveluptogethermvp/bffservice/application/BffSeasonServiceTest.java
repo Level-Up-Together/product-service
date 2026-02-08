@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,7 +23,6 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonMyRankingRespon
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -71,7 +71,7 @@ class BffSeasonServiceTest {
             .rewardTitleId(100L)
             .rewardTitleName("윈터 챔피언")
             .build();
-        setSeasonId(testSeason, 1L);
+        setId(testSeason, 1L);
 
         testRankReward = SeasonRankReward.builder()
             .season(testSeason)
@@ -82,7 +82,7 @@ class BffSeasonServiceTest {
             .sortOrder(1)
             .isActive(true)
             .build();
-        setRankRewardId(testRankReward, 1L);
+        setId(testRankReward, 1L);
 
         testPlayerRanking = SeasonMvpPlayerResponse.of(
             "user-1",
@@ -125,26 +125,6 @@ class BffSeasonServiceTest {
             .icon("🏃")
             .isActive(true)
             .build();
-    }
-
-    private void setSeasonId(Season season, Long id) {
-        try {
-            Field idField = Season.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(season, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setRankRewardId(SeasonRankReward reward, Long id) {
-        try {
-            Field idField = SeasonRankReward.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(reward, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested

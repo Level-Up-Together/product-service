@@ -77,4 +77,13 @@ public class MissionCreateRequest {
     // 고정 미션 여부 (삭제할 때까지 목록에 유지)
     @Builder.Default
     private Boolean isPinned = false;
+
+    // 목표 수행 시간 (분) - 달성 시 보너스 XP
+    @Min(value = 1, message = "목표 시간은 최소 1분 이상이어야 합니다.")
+    @Max(value = 480, message = "목표 시간은 최대 480분(8시간)까지 가능합니다.")
+    private Integer targetDurationMinutes;
+
+    // 하루 수행 횟수 제한 (null이면 무제한)
+    @Min(value = 1, message = "일일 수행 제한은 최소 1회 이상이어야 합니다.")
+    private Integer dailyExecutionLimit;
 }

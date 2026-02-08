@@ -1,15 +1,18 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
+
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -25,7 +28,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSag
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.global.saga.SagaResult;
@@ -33,14 +35,10 @@ import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFee
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.LocalMissionImageStorageService;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
-import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -72,28 +70,13 @@ class MissionExecutionServiceTest {
     private AchievementService achievementService;
 
     @Mock
-    private NotificationService notificationService;
-
-    @Mock
     private MissionCompletionSaga missionCompletionSaga;
-
-    @Mock
-    private LocalMissionImageStorageService missionImageStorageService;
 
     @Mock
     private ActivityFeedService activityFeedService;
 
     @Mock
-    private UserService userService;
-
-    @Mock
-    private TitleService titleService;
-
-    @Mock
-    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
-
-    @Mock
-    private DailyMissionInstanceService dailyMissionInstanceService;
+    private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
 
     @InjectMocks
     private MissionExecutionService executionService;
@@ -116,55 +99,16 @@ class MissionExecutionServiceTest {
             .missionInterval(MissionInterval.DAILY)
             .expPerCompletion(50)
             .build();
-        setMissionId(testMission, 1L);
+        setId(testMission, 1L);
 
         testParticipant = MissionParticipant.builder()
             .mission(testMission)
             .userId(testUserId)
             .status(ParticipantStatus.IN_PROGRESS)
             .build();
-        setParticipantId(testParticipant, 1L);
+        setId(testParticipant, 1L);
     }
 
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            java.lang.reflect.Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setParticipantId(MissionParticipant participant, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionParticipant.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(participant, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setExecutionId(MissionExecution execution, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionExecution.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(execution, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setInstanceId(DailyMissionInstance instance, Long id) {
-        try {
-            java.lang.reflect.Field idField = DailyMissionInstance.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(instance, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private MissionExecution createCompletedExecution(Long id, LocalDate date, int expEarned, int durationMinutes) {
         LocalDateTime startedAt = date.atTime(9, 0);
@@ -176,223 +120,13 @@ class MissionExecutionServiceTest {
             .status(ExecutionStatus.COMPLETED)
             .expEarned(expEarned)
             .build();
-        setExecutionId(execution, id);
+        setId(execution, id);
 
         // startedAt과 completedAt 설정
-        try {
-            java.lang.reflect.Field startedAtField = MissionExecution.class.getDeclaredField("startedAt");
-            startedAtField.setAccessible(true);
-            startedAtField.set(execution, startedAt);
-
-            java.lang.reflect.Field completedAtField = MissionExecution.class.getDeclaredField("completedAt");
-            completedAtField.setAccessible(true);
-            completedAtField.set(execution, completedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        TestReflectionUtils.setField(execution, "startedAt", startedAt);
+        TestReflectionUtils.setField(execution, "completedAt", completedAt);
 
         return execution;
-    }
-
-    @Nested
-    @DisplayName("월별 캘린더 데이터 조회 테스트")
-    class GetMonthlyCalendarDataTest {
-
-        @Test
-        @DisplayName("완료된 미션이 있는 경우 정상적으로 월별 캘린더 데이터를 조회한다")
-        void getMonthlyCalendarData_success() {
-            // given
-            int year = 2024;
-            int month = 12;
-            LocalDate startDate = LocalDate.of(year, month, 1);
-            LocalDate endDate = LocalDate.of(year, month, 31);
-
-            LocalDate date1 = LocalDate.of(year, month, 15);
-            LocalDate date2 = LocalDate.of(year, month, 16);
-
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(1L, date1, 50, 60),
-                createCompletedExecution(2L, date2, 30, 45)
-            );
-
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(completedExecutions);
-
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(80);
-
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getYear()).isEqualTo(year);
-            assertThat(response.getMonth()).isEqualTo(month);
-            assertThat(response.getTotalExp()).isEqualTo(80);
-            assertThat(response.getDailyMissions()).hasSize(2);
-            assertThat(response.getCompletedDates()).hasSize(2);
-            assertThat(response.getCompletedDates()).contains(date1.toString(), date2.toString());
-
-            // 날짜별 미션 검증
-            assertThat(response.getDailyMissions().get(date1.toString())).hasSize(1);
-            assertThat(response.getDailyMissions().get(date1.toString()).get(0).getMissionTitle())
-                .isEqualTo("30일 운동 챌린지");
-            assertThat(response.getDailyMissions().get(date1.toString()).get(0).getExpEarned())
-                .isEqualTo(50);
-            assertThat(response.getDailyMissions().get(date1.toString()).get(0).getDurationMinutes())
-                .isEqualTo(60);
-        }
-
-        @Test
-        @DisplayName("같은 날짜에 여러 미션이 완료된 경우 그룹화된다")
-        void getMonthlyCalendarData_multipleMissionsOnSameDay() {
-            // given
-            int year = 2024;
-            int month = 12;
-            LocalDate sameDate = LocalDate.of(year, month, 20);
-
-            // 두 번째 미션 생성
-            Mission secondMission = Mission.builder()
-                .title("매일 독서하기")
-                .description("30분 독서")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .expPerCompletion(30)
-                .build();
-            setMissionId(secondMission, 2L);
-
-            MissionParticipant secondParticipant = MissionParticipant.builder()
-                .mission(secondMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
-            setParticipantId(secondParticipant, 2L);
-
-            MissionExecution execution1 = createCompletedExecution(1L, sameDate, 50, 60);
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(secondParticipant)
-                .executionDate(sameDate)
-                .status(ExecutionStatus.COMPLETED)
-                .expEarned(30)
-                .build();
-            setExecutionId(execution2, 2L);
-
-            List<MissionExecution> completedExecutions = List.of(execution1, execution2);
-
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(completedExecutions);
-
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(80);
-
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getDailyMissions()).hasSize(1); // 하나의 날짜만
-            assertThat(response.getDailyMissions().get(sameDate.toString())).hasSize(2); // 두 개의 미션
-            assertThat(response.getCompletedDates()).hasSize(1);
-            assertThat(response.getTotalExp()).isEqualTo(80);
-        }
-
-        @Test
-        @DisplayName("완료된 미션이 없는 경우 빈 데이터를 반환한다")
-        void getMonthlyCalendarData_noCompletedMissions() {
-            // given
-            int year = 2024;
-            int month = 1;
-
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(List.of());
-
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
-
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getYear()).isEqualTo(year);
-            assertThat(response.getMonth()).isEqualTo(month);
-            assertThat(response.getTotalExp()).isEqualTo(0);
-            assertThat(response.getDailyMissions()).isEmpty();
-            assertThat(response.getCompletedDates()).isEmpty();
-        }
-
-        @Test
-        @DisplayName("윤년 2월도 정상적으로 처리한다")
-        void getMonthlyCalendarData_leapYearFebruary() {
-            // given
-            int year = 2024; // 윤년
-            int month = 2;
-            LocalDate date = LocalDate.of(year, month, 29); // 윤년 2월 29일
-
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(1L, date, 50, 30)
-            );
-
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(completedExecutions);
-
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(50);
-
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getYear()).isEqualTo(year);
-            assertThat(response.getMonth()).isEqualTo(month);
-            assertThat(response.getCompletedDates()).contains(date.toString());
-        }
-
-        @Test
-        @DisplayName("완료된 날짜 목록이 정렬되어 반환된다")
-        void getMonthlyCalendarData_sortedCompletedDates() {
-            // given
-            int year = 2024;
-            int month = 12;
-
-            LocalDate date3 = LocalDate.of(year, month, 25);
-            LocalDate date1 = LocalDate.of(year, month, 5);
-            LocalDate date2 = LocalDate.of(year, month, 15);
-
-            // 순서가 섞여있는 리스트
-            List<MissionExecution> completedExecutions = List.of(
-                createCompletedExecution(3L, date3, 50, 60),
-                createCompletedExecution(1L, date1, 30, 30),
-                createCompletedExecution(2L, date2, 40, 45)
-            );
-
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(completedExecutions);
-
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(120);
-
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
-
-            // then
-            assertThat(response.getCompletedDates())
-                .containsExactly(date1.toString(), date2.toString(), date3.toString());
-        }
     }
 
     @Nested
@@ -415,14 +149,14 @@ class MissionExecutionServiceTest {
                 .isPinned(false)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(regularMission, 10L);
+            setId(regularMission, 10L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(regularMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 10L);
+            setId(participant, 10L);
 
             when(executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), today))
                 .thenReturn(Optional.empty());
@@ -453,14 +187,14 @@ class MissionExecutionServiceTest {
                 .isPinned(true)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(pinnedMission, 11L);
+            setId(pinnedMission, 11L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(pinnedMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 11L);
+            setId(participant, 11L);
 
             // when
             executionService.generateExecutionsForParticipant(participant);
@@ -486,14 +220,14 @@ class MissionExecutionServiceTest {
                 .isPinned(false)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(regularMission, 12L);
+            setId(regularMission, 12L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(regularMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 12L);
+            setId(participant, 12L);
 
             MissionExecution existingExecution = MissionExecution.builder()
                 .participant(participant)
@@ -527,14 +261,14 @@ class MissionExecutionServiceTest {
                 .isPinned(null) // null
                 .expPerCompletion(10)
                 .build();
-            setMissionId(missionWithNullPinned, 13L);
+            setId(missionWithNullPinned, 13L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(missionWithNullPinned)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 13L);
+            setId(participant, 13L);
 
             when(executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), today))
                 .thenReturn(Optional.empty());
@@ -553,470 +287,152 @@ class MissionExecutionServiceTest {
     }
 
     @Nested
-    @DisplayName("미션 수행 시작 테스트")
-    class StartExecutionTest {
+    @DisplayName("Strategy 위임 테스트")
+    class StrategyDelegationTest {
+
+        @Mock
+        private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy mockStrategy;
 
         @Test
-        @DisplayName("정상적으로 미션 수행을 시작한다")
-        void startExecution_success() {
+        @DisplayName("startExecution은 Strategy로 위임한다")
+        void startExecution_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate date = LocalDate.now();
             MissionExecution execution = MissionExecution.builder()
                 .participant(testParticipant)
-                .executionDate(executionDate)
+                .executionDate(date)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 1L);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
+
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.startExecution(testMission.getId(), testUserId, date)).thenReturn(expectedResponse);
+
+            // when
+            MissionExecutionResponse result = executionService.startExecution(testMission.getId(), testUserId, date);
+
+            // then
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).startExecution(testMission.getId(), testUserId, date);
+        }
+
+        @Test
+        @DisplayName("skipExecution은 Strategy로 위임한다")
+        void skipExecution_delegatesToStrategy() {
+            // given
+            LocalDate date = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(date)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.skipExecution(testMission.getId(), testUserId, date)).thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.startExecution(testMission.getId(), testUserId, executionDate);
+            MissionExecutionResponse result = executionService.skipExecution(testMission.getId(), testUserId, date);
 
             // then
-            assertThat(response).isNotNull();
-            verify(executionRepository).save(any(MissionExecution.class));
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).skipExecution(testMission.getId(), testUserId, date);
         }
 
         @Test
-        @DisplayName("이미 진행 중인 미션이 있으면 예외가 발생한다")
-        void startExecution_alreadyInProgress_throwsException() {
+        @DisplayName("completeExecution(날짜 기반)은 Strategy로 위임한다")
+        void completeExecution_withDate_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution inProgressExecution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
-            setExecutionId(inProgressExecution, 1L);
+            LocalDate date = LocalDate.now();
+            String note = "완료!";
+            boolean shareToFeed = true;
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.of(inProgressExecution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.startExecution(testMission.getId(), testUserId, executionDate);
-            });
-        }
-
-        @Test
-        @DisplayName("참여 정보가 없으면 예외가 발생한다")
-        void startExecution_noParticipant_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.startExecution(testMission.getId(), testUserId, executionDate);
-            });
-        }
-
-        @Test
-        @DisplayName("실행 레코드가 없으면 자동으로 생성한다")
-        void startExecution_noExecution_createsNew() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.empty());
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> {
-                    MissionExecution exec = invocation.getArgument(0);
-                    setExecutionId(exec, 1L);
-                    return exec;
-                });
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, shareToFeed))
+                .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.startExecution(testMission.getId(), testUserId, executionDate);
+            MissionExecutionResponse result = executionService.completeExecution(
+                testMission.getId(), testUserId, date, note, shareToFeed);
 
             // then
-            assertThat(response).isNotNull();
-            verify(executionRepository, org.mockito.Mockito.times(2)).save(any(MissionExecution.class));
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, shareToFeed);
         }
-    }
-
-    @Nested
-    @DisplayName("미션 수행 취소 테스트")
-    class SkipExecutionTest {
 
         @Test
-        @DisplayName("정상적으로 미션 수행을 취소한다")
-        void skipExecution_success() {
+        @DisplayName("uploadExecutionImage는 Strategy로 위임한다")
+        void uploadExecutionImage_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
-            setExecutionId(execution, 1L);
+            LocalDate date = LocalDate.now();
+            org.springframework.web.multipart.MultipartFile mockFile =
+                new org.springframework.mock.web.MockMultipartFile("image", "test.jpg", "image/jpeg", "test".getBytes());
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.uploadExecutionImage(testMission.getId(), testUserId, date, mockFile))
+                .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.skipExecution(testMission.getId(), testUserId, executionDate);
+            MissionExecutionResponse result = executionService.uploadExecutionImage(
+                testMission.getId(), testUserId, date, mockFile);
 
             // then
-            assertThat(response).isNotNull();
-            verify(executionRepository).save(any(MissionExecution.class));
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).uploadExecutionImage(testMission.getId(), testUserId, date, mockFile);
         }
 
         @Test
-        @DisplayName("참여 정보가 없으면 예외가 발생한다")
-        void skipExecution_noParticipant_throwsException() {
+        @DisplayName("deleteExecutionImage는 Strategy로 위임한다")
+        void deleteExecutionImage_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate date = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.skipExecution(testMission.getId(), testUserId, executionDate);
-            });
-        }
-
-        @Test
-        @DisplayName("수행 기록이 없으면 예외가 발생한다")
-        void skipExecution_noExecution_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.skipExecution(testMission.getId(), testUserId, executionDate);
-            });
-        }
-    }
-
-    @Nested
-    @DisplayName("진행 중인 미션 조회 테스트")
-    class GetInProgressExecutionTest {
-
-        @Test
-        @DisplayName("진행 중인 미션이 있으면 반환한다")
-        void getInProgressExecution_found() {
-            // given
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
-            setExecutionId(execution, 1L);
-
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.of(execution));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.deleteExecutionImage(testMission.getId(), testUserId, date))
+                .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
+            MissionExecutionResponse result = executionService.deleteExecutionImage(
+                testMission.getId(), testUserId, date);
 
             // then
-            assertThat(response).isNotNull();
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).deleteExecutionImage(testMission.getId(), testUserId, date);
         }
 
         @Test
-        @DisplayName("진행 중인 미션이 없으면 null을 반환한다")
-        void getInProgressExecution_notFound() {
+        @DisplayName("shareExecutionToFeed는 Strategy로 위임한다")
+        void shareExecutionToFeed_delegatesToStrategy() {
             // given
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
+            LocalDate date = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
+
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.shareExecutionToFeed(testMission.getId(), testUserId, date))
+                .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse response = executionService.getInProgressExecution(testUserId);
+            MissionExecutionResponse result = executionService.shareExecutionToFeed(
+                testMission.getId(), testUserId, date);
 
             // then
-            assertThat(response).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("오늘 수행 목록 조회 테스트")
-    class GetTodayExecutionsTest {
-
-        @Test
-        @DisplayName("오늘 수행 목록을 정상적으로 조회한다")
-        void getTodayExecutions_success() {
-            // given
-            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now(), 50, 30);
-            MissionExecution execution2 = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(execution2, 2L);
-
-            // 고정 미션 조회 mock (없음)
-            when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of());
-
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
-                .thenReturn(List.of(execution1, execution2));
-
-            // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
-                .thenReturn(List.of());
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
-
-            // then
-            assertThat(responses).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("오늘 수행이 없으면 빈 목록을 반환한다")
-        void getTodayExecutions_empty() {
-            // given
-            // 고정 미션 조회 mock (없음)
-            when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of());
-
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
-                .thenReturn(List.of());
-
-            // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
-                .thenReturn(List.of());
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
-
-            // then
-            assertThat(responses).isEmpty();
-        }
-
-        @Test
-        @DisplayName("고정 미션의 오늘 DailyMissionInstance가 없으면 자동 생성한다")
-        void getTodayExecutions_createsPinnedMissionInstance() {
-            // given
-            LocalDate today = LocalDate.now();
-
-            // 고정 미션 설정
-            Mission pinnedMission = Mission.builder()
-                .title("고정 미션")
-                .description("매일 반복")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .isPinned(true)
-                .expPerCompletion(10)
-                .build();
-            setMissionId(pinnedMission, 100L);
-
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
-            setParticipantId(pinnedParticipant, 100L);
-
-            // 고정 미션 참여자 반환
-            when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of(pinnedParticipant));
-
-            // 오늘 날짜의 DailyMissionInstance가 없음
-            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
-                .thenReturn(false);
-
-            // DailyMissionInstance 저장 mock (saveAndFlush 사용)
-            when(dailyMissionInstanceRepository.saveAndFlush(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> {
-                    DailyMissionInstance instance = invocation.getArgument(0);
-                    setInstanceId(instance, 200L);
-                    return instance;
-                });
-
-            // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
-                .thenReturn(List.of());
-
-            // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
-            DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(newInstance, 200L);
-
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
-                .thenReturn(List.of(newInstance));
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
-
-            // then
-            assertThat(responses).hasSize(1);
-            verify(dailyMissionInstanceRepository).saveAndFlush(any(DailyMissionInstance.class));
-        }
-
-        @Test
-        @DisplayName("고정 미션의 오늘 DailyMissionInstance가 이미 있으면 생성하지 않는다")
-        void getTodayExecutions_doesNotCreateIfInstanceExists() {
-            // given
-            LocalDate today = LocalDate.now();
-
-            // 고정 미션 설정
-            Mission pinnedMission = Mission.builder()
-                .title("고정 미션")
-                .description("매일 반복")
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.PRIVATE)
-                .type(MissionType.PERSONAL)
-                .creatorId(testUserId)
-                .missionInterval(MissionInterval.DAILY)
-                .isPinned(true)
-                .expPerCompletion(10)
-                .build();
-            setMissionId(pinnedMission, 100L);
-
-            MissionParticipant pinnedParticipant = MissionParticipant.builder()
-                .mission(pinnedMission)
-                .userId(testUserId)
-                .status(ParticipantStatus.ACCEPTED)
-                .build();
-            setParticipantId(pinnedParticipant, 100L);
-
-            DailyMissionInstance existingInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(existingInstance, 200L);
-
-            // 고정 미션 참여자 반환
-            when(participantRepository.findPinnedMissionParticipants(testUserId))
-                .thenReturn(List.of(pinnedParticipant));
-
-            // 오늘 날짜의 DailyMissionInstance가 이미 있음
-            when(dailyMissionInstanceRepository.existsByParticipantIdAndInstanceDate(eq(100L), eq(today)))
-                .thenReturn(true);
-
-            // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
-                .thenReturn(List.of());
-
-            // DailyMissionInstance 조회 (기존 것 반환)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
-                .thenReturn(List.of(existingInstance));
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
-
-            // then
-            assertThat(responses).hasSize(1);
-            // save가 호출되지 않음
-            verify(dailyMissionInstanceRepository, org.mockito.Mockito.never()).save(any(DailyMissionInstance.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("참여자별 수행 목록 조회 테스트")
-    class GetExecutionsByParticipantTest {
-
-        @Test
-        @DisplayName("참여자의 수행 목록을 정상적으로 조회한다")
-        void getExecutionsByParticipant_success() {
-            // given
-            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30);
-            MissionExecution execution2 = createCompletedExecution(2L, LocalDate.now(), 50, 30);
-
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(execution1, execution2));
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
-
-            // then
-            assertThat(responses).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("수행이 없으면 빈 목록을 반환한다")
-        void getExecutionsByParticipant_empty() {
-            // given
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of());
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByParticipant(testParticipant.getId());
-
-            // then
-            assertThat(responses).isEmpty();
-        }
-    }
-
-    @Nested
-    @DisplayName("완료율 조회 테스트")
-    class GetCompletionRateTest {
-
-        @Test
-        @DisplayName("완료율을 정상적으로 계산한다")
-        void getCompletionRate_success() {
-            // given
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of(
-                    createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
-                    createCompletedExecution(2L, LocalDate.now(), 50, 30)
-                ));
-            when(executionRepository.countByParticipantIdAndStatus(testParticipant.getId(), ExecutionStatus.COMPLETED))
-                .thenReturn(1L);
-
-            // when
-            double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
-
-            // then
-            assertThat(rate).isEqualTo(50.0);
-        }
-
-        @Test
-        @DisplayName("수행이 없으면 0을 반환한다")
-        void getCompletionRate_noExecutions() {
-            // given
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(List.of());
-
-            // when
-            double rate = executionService.getCompletionRate(testMission.getId(), testUserId);
-
-            // then
-            assertThat(rate).isEqualTo(0.0);
-        }
-
-        @Test
-        @DisplayName("참여 정보가 없으면 예외가 발생한다")
-        void getCompletionRate_noParticipant_throwsException() {
-            // given
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.getCompletionRate(testMission.getId(), testUserId);
-            });
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).shareExecutionToFeed(testMission.getId(), testUserId, date);
         }
     }
 
@@ -1058,7 +474,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -1200,64 +616,6 @@ class MissionExecutionServiceTest {
         }
     }
 
-    @Nested
-    @DisplayName("오늘 날짜 기준 미션 시작/취소 테스트")
-    class TodayExecutionTest {
-
-        @Test
-        @DisplayName("오늘 날짜 기준으로 미션 수행을 시작한다")
-        void startExecutionToday_success() {
-            // given
-            LocalDate today = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(today)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(execution, 1L);
-
-            when(executionRepository.findInProgressByUserId(testUserId))
-                .thenReturn(Optional.empty());
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), today))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-            // when
-            MissionExecutionResponse response = executionService.startExecutionToday(testMission.getId(), testUserId);
-
-            // then
-            assertThat(response).isNotNull();
-        }
-
-        @Test
-        @DisplayName("오늘 날짜 기준으로 미션 수행을 취소한다")
-        void skipExecutionToday_success() {
-            // given
-            LocalDate today = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(today)
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
-            setExecutionId(execution, 1L);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), today))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-            // when
-            MissionExecutionResponse response = executionService.skipExecutionToday(testMission.getId(), testUserId);
-
-            // then
-            assertThat(response).isNotNull();
-        }
-    }
 
     @Nested
     @DisplayName("미실행 처리 테스트")
@@ -1293,432 +651,6 @@ class MissionExecutionServiceTest {
         }
     }
 
-    @Nested
-    @DisplayName("날짜별 수행 조회 테스트")
-    class GetExecutionByDateTest {
-
-        @Test
-        @DisplayName("특정 날짜의 수행 기록을 조회한다")
-        void getExecutionByDate_success() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when
-            MissionExecutionResponse response = executionService.getExecutionByDate(
-                testMission.getId(), testUserId, executionDate);
-
-            // then
-            assertThat(response).isNotNull();
-        }
-
-        @Test
-        @DisplayName("해당 날짜의 수행 기록이 없으면 예외가 발생한다")
-        void getExecutionByDate_noExecution_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.getExecutionByDate(testMission.getId(), testUserId, executionDate);
-            });
-        }
-    }
-
-    @Nested
-    @DisplayName("날짜 범위별 수행 조회 테스트")
-    class GetExecutionsByDateRangeTest {
-
-        @Test
-        @DisplayName("날짜 범위 내의 수행 기록을 조회한다")
-        void getExecutionsByDateRange_success() {
-            // given
-            LocalDate startDate = LocalDate.now().minusDays(7);
-            LocalDate endDate = LocalDate.now();
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, startDate.plusDays(1), 50, 30),
-                createCompletedExecution(2L, startDate.plusDays(3), 50, 30),
-                createCompletedExecution(3L, endDate, 50, 30)
-            );
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDateBetween(
-                testParticipant.getId(), startDate, endDate))
-                .thenReturn(executions);
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
-                testMission.getId(), testUserId, startDate, endDate);
-
-            // then
-            assertThat(responses).hasSize(3);
-        }
-
-        @Test
-        @DisplayName("날짜 범위 내에 수행 기록이 없으면 빈 목록을 반환한다")
-        void getExecutionsByDateRange_empty() {
-            // given
-            LocalDate startDate = LocalDate.now().minusDays(7);
-            LocalDate endDate = LocalDate.now();
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDateBetween(
-                testParticipant.getId(), startDate, endDate))
-                .thenReturn(List.of());
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByDateRange(
-                testMission.getId(), testUserId, startDate, endDate);
-
-            // then
-            assertThat(responses).isEmpty();
-        }
-    }
-
-    @Nested
-    @DisplayName("미션용 수행 목록 조회 테스트")
-    class GetExecutionsForMissionTest {
-
-        @Test
-        @DisplayName("미션용 수행 목록을 조회한다")
-        void getExecutionsForMission_success() {
-            // given
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, LocalDate.now().minusDays(2), 50, 30),
-                createCompletedExecution(2L, LocalDate.now().minusDays(1), 50, 30)
-            );
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(executions);
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
-                testMission.getId(), testUserId);
-
-            // then
-            assertThat(responses).hasSize(2);
-        }
-    }
-
-    @Nested
-    @DisplayName("미션과 사용자별 수행 목록 조회 테스트")
-    class GetExecutionsByMissionAndUserTest {
-
-        @Test
-        @DisplayName("미션과 사용자별 수행 목록을 조회한다")
-        void getExecutionsByMissionAndUser_success() {
-            // given
-            List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
-                createCompletedExecution(2L, LocalDate.now(), 50, 30)
-            );
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantId(testParticipant.getId()))
-                .thenReturn(executions);
-
-            // when
-            List<MissionExecutionResponse> responses = executionService.getExecutionsByMissionAndUser(
-                testMission.getId(), testUserId);
-
-            // then
-            assertThat(responses).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("참여 정보가 없으면 예외가 발생한다")
-        void getExecutionsByMissionAndUser_noParticipant_throwsException() {
-            // given
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
-                executionService.getExecutionsByMissionAndUser(testMission.getId(), testUserId);
-            });
-        }
-    }
-
-    @Nested
-    @DisplayName("이미지 업로드/삭제 테스트")
-    class ImageManagementTest {
-
-        @Test
-        @DisplayName("완료된 미션에 이미지를 업로드한다")
-        void uploadExecutionImage_success() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            org.springframework.mock.web.MockMultipartFile mockFile =
-                new org.springframework.mock.web.MockMultipartFile(
-                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
-                .thenReturn("https://example.com/image.jpg");
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-            // when
-            MissionExecutionResponse response = executionService.uploadExecutionImage(
-                testMission.getId(), testUserId, executionDate, mockFile);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
-        }
-
-        @Test
-        @DisplayName("완료되지 않은 미션에 이미지 업로드 시 예외가 발생한다")
-        void uploadExecutionImage_notCompleted_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(execution, 1L);
-            org.springframework.mock.web.MockMultipartFile mockFile =
-                new org.springframework.mock.web.MockMultipartFile(
-                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.uploadExecutionImage(testMission.getId(), testUserId, executionDate, mockFile);
-            });
-        }
-
-        @Test
-        @DisplayName("기존 이미지가 있으면 삭제 후 새 이미지를 업로드한다")
-        void uploadExecutionImage_replacesExistingImage() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            // 기존 이미지 URL 설정
-            try {
-                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
-                imageUrlField.setAccessible(true);
-                imageUrlField.set(execution, "https://example.com/old-image.jpg");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            org.springframework.mock.web.MockMultipartFile mockFile =
-                new org.springframework.mock.web.MockMultipartFile(
-                    "image", "test.jpg", "image/jpeg", "test image content".getBytes());
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
-                .thenReturn("https://example.com/new-image.jpg");
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-            // when
-            MissionExecutionResponse response = executionService.uploadExecutionImage(
-                testMission.getId(), testUserId, executionDate, mockFile);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(missionImageStorageService).delete("https://example.com/old-image.jpg");
-            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
-        }
-
-        @Test
-        @DisplayName("이미지를 삭제한다")
-        void deleteExecutionImage_success() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            // 이미지 URL 설정
-            try {
-                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
-                imageUrlField.setAccessible(true);
-                imageUrlField.set(execution, "https://example.com/image.jpg");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-            // when
-            MissionExecutionResponse response = executionService.deleteExecutionImage(
-                testMission.getId(), testUserId, executionDate);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(missionImageStorageService).delete("https://example.com/image.jpg");
-        }
-
-        @Test
-        @DisplayName("완료되지 않은 미션의 이미지 삭제 시 예외가 발생한다")
-        void deleteExecutionImage_notCompleted_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(execution, 1L);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.deleteExecutionImage(testMission.getId(), testUserId, executionDate);
-            });
-        }
-    }
-
-    @Nested
-    @DisplayName("날짜와 피드 공유 옵션으로 미션 완료 테스트")
-    class CompleteExecutionWithDateAndShareTest {
-
-        @Test
-        @DisplayName("날짜와 노트로 미션 수행을 완료한다")
-        void completeExecution_withDateAndNote_success() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            String note = "완료!";
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            MissionCompletionContext context = new MissionCompletionContext(testUserId);
-            context.setExecution(execution);
-            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, false))
-                .thenReturn(successResult);
-            when(missionCompletionSaga.toResponse(successResult))
-                .thenReturn(MissionExecutionResponse.from(execution));
-
-            // when
-            MissionExecutionResponse response = executionService.completeExecution(
-                testMission.getId(), testUserId, executionDate, note);
-
-            // then
-            assertThat(response).isNotNull();
-        }
-
-        @Test
-        @DisplayName("날짜, 노트, 피드 공유 옵션으로 미션 수행을 완료한다")
-        void completeExecution_withDateNoteAndShare_success() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            String note = "완료!";
-            boolean shareToFeed = true;
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            MissionCompletionContext context = new MissionCompletionContext(testUserId);
-            context.setExecution(execution);
-            SagaResult<MissionCompletionContext> successResult = SagaResult.success(context);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, shareToFeed))
-                .thenReturn(successResult);
-            when(missionCompletionSaga.toResponse(successResult))
-                .thenReturn(MissionExecutionResponse.from(execution));
-
-            // when
-            MissionExecutionResponse response = executionService.completeExecution(
-                testMission.getId(), testUserId, executionDate, note, shareToFeed);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, true);
-        }
-    }
-
-    @Nested
-    @DisplayName("피드 공유 테스트")
-    class ShareExecutionToFeedTest {
-
-        @Test
-        @DisplayName("완료되지 않은 미션 공유 시 예외가 발생한다")
-        void shareExecutionToFeed_notCompleted_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setExecutionId(execution, 1L);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.shareExecutionToFeed(testMission.getId(), testUserId, executionDate);
-            });
-        }
-
-        @Test
-        @DisplayName("이미 공유된 미션 공유 시 예외가 발생한다")
-        void shareExecutionToFeed_alreadyShared_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            try {
-                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
-                feedIdField.setAccessible(true);
-                feedIdField.set(execution, 100L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.shareExecutionToFeed(testMission.getId(), testUserId, executionDate);
-            });
-        }
-    }
 
     @Nested
     @DisplayName("피드 공유 취소 테스트")
@@ -1730,13 +662,7 @@ class MissionExecutionServiceTest {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            try {
-                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
-                feedIdField.setAccessible(true);
-                feedIdField.set(execution, 100L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(execution, "feedId", 100L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -1769,6 +695,124 @@ class MissionExecutionServiceTest {
             // when & then
             org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
                 executionService.unshareExecutionFromFeed(testMission.getId(), testUserId, executionDate);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("레거시 미션 완료 테스트")
+    class CompleteExecutionLegacyTest {
+
+        @Test
+        @DisplayName("레거시 방식으로 미션 수행을 완료한다 (길드 미션 아님)")
+        void completeExecutionLegacy_regularMission_success() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 1L);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(5));
+
+            when(executionRepository.findById(1L))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(execution));
+            when(executionRepository.countByParticipantIdAndStatus(testParticipant.getId(), ExecutionStatus.COMPLETED))
+                .thenReturn(0L);
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecutionLegacy(1L, testUserId, "완료");
+
+            // then
+            assertThat(response).isNotNull();
+            verify(userExperienceService).addExperience(eq(testUserId), anyInt(), any(), any(), any(), any(), any());
+            verify(userStatsService).recordMissionCompletion(testUserId, false);
+            verify(achievementService).checkAchievementsByDataSource(testUserId, "USER_STATS");
+        }
+
+        @Test
+        @DisplayName("레거시 방식으로 길드 미션을 완료한다")
+        void completeExecutionLegacy_guildMission_success() {
+            // given
+            Mission guildMission = Mission.builder()
+                .title("길드 미션")
+                .description("길드 함께 하기")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .creatorId(testUserId)
+                .guildId("123")
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(50)
+                .guildExpPerCompletion(30)
+                .build();
+            setId(guildMission, 2L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 2L);
+
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(executionDate)
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 2L);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(5));
+
+            when(executionRepository.findById(2L))
+                .thenReturn(Optional.of(execution));
+            when(executionRepository.findByParticipantId(guildParticipant.getId()))
+                .thenReturn(List.of(execution));
+            when(executionRepository.countByParticipantIdAndStatus(guildParticipant.getId(), ExecutionStatus.COMPLETED))
+                .thenReturn(0L);
+
+            // when
+            MissionExecutionResponse response = executionService.completeExecutionLegacy(2L, testUserId, "완료");
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildExperienceService).addExperience(eq(123L), anyInt(), any(), any(), eq(testUserId), any());
+            verify(userStatsService).recordMissionCompletion(testUserId, true);
+        }
+
+        @Test
+        @DisplayName("본인의 수행 기록이 아니면 예외가 발생한다")
+        void completeExecutionLegacy_notOwner_throwsException() {
+            // given
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(execution, 1L);
+
+            when(executionRepository.findById(1L))
+                .thenReturn(Optional.of(execution));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+                executionService.completeExecutionLegacy(1L, "other-user-456", "완료");
+            });
+        }
+
+        @Test
+        @DisplayName("수행 기록을 찾을 수 없으면 예외가 발생한다")
+        void completeExecutionLegacy_notFound_throwsException() {
+            // given
+            when(executionRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+                executionService.completeExecutionLegacy(999L, testUserId, "완료");
             });
         }
     }

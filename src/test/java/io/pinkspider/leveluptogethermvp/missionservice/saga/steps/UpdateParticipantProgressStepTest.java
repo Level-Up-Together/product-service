@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -74,16 +75,6 @@ class UpdateParticipantProgressStepTest {
         context = new MissionCompletionContext(1L, TEST_USER_ID, null);
         context.setParticipant(participant);
         context.setMission(mission);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            java.lang.reflect.Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test

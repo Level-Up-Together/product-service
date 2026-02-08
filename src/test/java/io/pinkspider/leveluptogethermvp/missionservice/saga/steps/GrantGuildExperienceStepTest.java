@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,7 +27,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,7 +106,7 @@ class GrantGuildExperienceStepTest {
         context.setMission(mission);
         context.setGuildId(GUILD_ID);
         context.setGuildExpEarned(GUILD_EXP);
-        context.setGuildMission(true);
+        // isGuildMission() is computed from mission entity (type=GUILD + guildId set)
 
         guild = Guild.builder()
             .name("테스트 길드")
@@ -115,16 +115,6 @@ class GrantGuildExperienceStepTest {
             .totalExp(5000)
             .build();
         setId(guild, GUILD_ID);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test
@@ -153,7 +143,7 @@ class GrantGuildExperienceStepTest {
         @DisplayName("길드 미션이면 true를 반환한다")
         void shouldExecute_guildMission_returnsTrue() {
             // given
-            context.setGuildMission(true);
+            // isGuildMission() is computed from mission entity (type=GUILD + guildId set)
 
             // when
             boolean result = grantGuildExperienceStep.shouldExecute().test(context);
@@ -177,7 +167,7 @@ class GrantGuildExperienceStepTest {
                 .build();
             setId(personalMission, 2L);
             context.setMission(personalMission);
-            context.setGuildMission(false);
+            // isGuildMission() returns false for PERSONAL missions without guildId
 
             // when
             boolean result = grantGuildExperienceStep.shouldExecute().test(context);
@@ -264,7 +254,7 @@ class GrantGuildExperienceStepTest {
                 .build();
             setId(personalMission, 2L);
             context.setMission(personalMission);
-            context.setGuildMission(false);
+            // isGuildMission() returns false for PERSONAL missions without guildId
 
             // when
             SagaStepResult result = grantGuildExperienceStep.compensate(context);

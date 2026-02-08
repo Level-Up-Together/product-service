@@ -1,6 +1,9 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -19,8 +22,10 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
@@ -30,6 +35,7 @@ import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import java.util.HashMap;
@@ -75,6 +81,9 @@ class MissionServiceTest {
     private ActivityFeedService activityFeedService;
 
     @Mock
+    private MissionTemplateRepository missionTemplateRepository;
+
+    @Mock
     private ReportService reportService;
 
     @Captor
@@ -85,26 +94,6 @@ class MissionServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String ADMIN_USER_ID = "admin-user-456";
-
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            java.lang.reflect.Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setMissionSource(Mission mission, MissionSource source) {
-        try {
-            java.lang.reflect.Field sourceField = Mission.class.getDeclaredField("source");
-            sourceField.setAccessible(true);
-            sourceField.set(mission, source);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Nested
     @DisplayName("미션 삭제 테스트")
@@ -123,8 +112,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -149,8 +138,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -174,8 +163,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -200,8 +189,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)  // 어드민이 생성자
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.SYSTEM);  // 시스템 미션
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);  // 시스템 미션
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -226,8 +215,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)  // 어드민이 생성자
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.SYSTEM);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -253,8 +242,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);  // 일반 사용자 미션
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);  // 일반 사용자 미션
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -294,8 +283,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -319,8 +308,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -337,20 +326,14 @@ class MissionServiceTest {
     class OpenMissionTest {
 
         private Guild createTestGuild(Long guildId) {
-            try {
-                Guild guild = Guild.builder()
-                    .name("테스트 길드")
-                    .description("테스트")
-                    .categoryId(1L)
-                    .masterId(TEST_USER_ID)
-                    .build();
-                java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(guild, guildId);
-                return guild;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            Guild guild = Guild.builder()
+                .name("테스트 길드")
+                .description("테스트")
+                .categoryId(1L)
+                .masterId(TEST_USER_ID)
+                .build();
+            setId(guild, guildId);
+            return guild;
         }
 
         private GuildMember createTestGuildMember(Guild guild, String userId) {
@@ -378,8 +361,8 @@ class MissionServiceTest {
                 .guildId(guildId.toString())
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             Guild guild = createTestGuild(guildId);
             List<GuildMember> guildMembers = List.of(
@@ -423,8 +406,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -455,7 +438,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -479,7 +462,7 @@ class MissionServiceTest {
                 .guildId(null)  // guildId가 null
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -498,18 +481,12 @@ class MissionServiceTest {
     class CreateMissionTest {
 
         private MissionCategory createTestCategory(Long id) {
-            try {
-                MissionCategory category = MissionCategory.builder()
-                    .name("테스트 카테고리")
-                    .isActive(true)
-                    .build();
-                java.lang.reflect.Field idField = MissionCategory.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(category, id);
-                return category;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            MissionCategory category = MissionCategory.builder()
+                .name("테스트 카테고리")
+                .isActive(true)
+                .build();
+            setId(category, id);
+            return category;
         }
 
         @Test
@@ -534,7 +511,7 @@ class MissionServiceTest {
                 .source(MissionSource.USER)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(savedMission, 1L);
+            setId(savedMission, 1L);
 
             when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
             doNothing().when(missionParticipantService).addCreatorAsParticipant(any(), anyString());
@@ -574,7 +551,7 @@ class MissionServiceTest {
                 .creatorId(TEST_USER_ID)
                 .category(category)
                 .build();
-            setMissionId(savedMission, 1L);
+            setId(savedMission, 1L);
 
             when(missionCategoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
             when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
@@ -635,11 +612,7 @@ class MissionServiceTest {
                 .name("비활성 카테고리")
                 .isActive(false)
                 .build();
-            try {
-                java.lang.reflect.Field idField = MissionCategory.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(inactiveCategory, categoryId);
-            } catch (Exception ignored) {}
+            setId(inactiveCategory, categoryId);
 
             MissionCreateRequest request = MissionCreateRequest.builder()
                 .title("미션")
@@ -675,7 +648,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
@@ -720,8 +693,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -747,8 +720,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -775,8 +748,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -802,8 +775,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -829,7 +802,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission1, 1L);
+            setId(mission1, 1L);
 
             Mission mission2 = Mission.builder()
                 .title("미션2")
@@ -839,7 +812,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission2, 2L);
+            setId(mission2, 2L);
 
             when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
                 .thenReturn(List.of(mission1, mission2));
@@ -883,7 +856,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, 1L);
+            setId(mission, 1L);
 
             org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
             org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
@@ -917,7 +890,7 @@ class MissionServiceTest {
                 .guildId(guildId)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, 1L);
+            setId(mission, 1L);
 
             List<MissionStatus> activeStatuses = List.of(
                 MissionStatus.DRAFT,
@@ -942,58 +915,52 @@ class MissionServiceTest {
     class GetSystemMissionsTest {
 
         @Test
-        @DisplayName("시스템 미션 목록을 조회한다")
+        @DisplayName("시스템 미션 템플릿 목록을 조회한다")
         void getSystemMissions_success() {
             // given
-            Mission mission = Mission.builder()
+            MissionTemplate template = MissionTemplate.builder()
                 .title("시스템 미션")
                 .description("설명")
-                .status(MissionStatus.OPEN)
                 .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(ADMIN_USER_ID)
+                .source(MissionSource.SYSTEM)
                 .build();
-            setMissionId(mission, 1L);
-            setMissionSource(mission, MissionSource.SYSTEM);
+            setId(template, 1L);
 
             org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
-            org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
+            org.springframework.data.domain.Page<MissionTemplate> page = new org.springframework.data.domain.PageImpl<>(List.of(template));
 
-            when(missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable))
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
                 .thenReturn(page);
 
             // when
-            org.springframework.data.domain.Page<MissionResponse> result = missionService.getSystemMissions(pageable);
+            org.springframework.data.domain.Page<MissionTemplateResponse> result = missionService.getSystemMissions(pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
         }
 
         @Test
-        @DisplayName("카테고리별 시스템 미션을 조회한다")
+        @DisplayName("카테고리별 시스템 미션 템플릿을 조회한다")
         void getSystemMissionsByCategory_success() {
             // given
             Long categoryId = 1L;
-            Mission mission = Mission.builder()
+            MissionTemplate template = MissionTemplate.builder()
                 .title("카테고리 시스템 미션")
                 .description("설명")
-                .status(MissionStatus.OPEN)
                 .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(ADMIN_USER_ID)
+                .source(MissionSource.SYSTEM)
                 .build();
-            setMissionId(mission, 1L);
-            setMissionSource(mission, MissionSource.SYSTEM);
+            setId(template, 1L);
 
             org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
-            org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
+            org.springframework.data.domain.Page<MissionTemplate> page = new org.springframework.data.domain.PageImpl<>(List.of(template));
 
-            when(missionRepository.findBySourceAndStatusAndCategoryId(
-                MissionSource.SYSTEM, MissionStatus.OPEN, categoryId, pageable))
+            when(missionTemplateRepository.findPublicTemplatesByCategory(
+                MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable))
                 .thenReturn(page);
 
             // when
-            org.springframework.data.domain.Page<MissionResponse> result = missionService.getSystemMissionsByCategory(categoryId, pageable);
+            org.springframework.data.domain.Page<MissionTemplateResponse> result = missionService.getSystemMissionsByCategory(categoryId, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
@@ -1017,8 +984,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1050,8 +1017,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1080,8 +1047,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1109,18 +1076,14 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             MissionCategory category = MissionCategory.builder()
                 .name("새 카테고리")
                 .isActive(true)
                 .build();
-            try {
-                java.lang.reflect.Field idField = MissionCategory.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(category, categoryId);
-            } catch (Exception ignored) {}
+            setId(category, categoryId);
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1157,8 +1120,8 @@ class MissionServiceTest {
                 .creatorId(TEST_USER_ID)
                 .category(existingCategory)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1193,8 +1156,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -1220,8 +1183,8 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(otherUserId)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -1236,20 +1199,14 @@ class MissionServiceTest {
     class GuildAdminPermissionTest {
 
         private Guild createTestGuild(Long guildId) {
-            try {
-                Guild guild = Guild.builder()
-                    .name("테스트 길드")
-                    .description("테스트")
-                    .categoryId(1L)
-                    .masterId(TEST_USER_ID)
-                    .build();
-                java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(guild, guildId);
-                return guild;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            Guild guild = Guild.builder()
+                .name("테스트 길드")
+                .description("테스트")
+                .categoryId(1L)
+                .masterId(TEST_USER_ID)
+                .build();
+            setId(guild, guildId);
+            return guild;
         }
 
         @Test
@@ -1268,8 +1225,8 @@ class MissionServiceTest {
                 .guildId(guildId.toString())
                 .creatorId("other-creator")
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             Guild guild = createTestGuild(guildId);
             GuildMember masterMember = GuildMember.builder()
@@ -1277,14 +1234,8 @@ class MissionServiceTest {
                 .userId(guildMasterId)
                 .build();
             // 마스터 역할 설정
-            try {
-                java.lang.reflect.Field roleField = GuildMember.class.getDeclaredField("role");
-                roleField.setAccessible(true);
-                roleField.set(masterMember, io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole.MASTER);
-                java.lang.reflect.Field statusField = GuildMember.class.getDeclaredField("status");
-                statusField.setAccessible(true);
-                statusField.set(masterMember, io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus.ACTIVE);
-            } catch (Exception ignored) {}
+            TestReflectionUtils.setField(masterMember, "role", io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole.MASTER);
+            TestReflectionUtils.setField(masterMember, "status", io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus.ACTIVE);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(guildMemberRepository.findByGuildIdAndUserId(guildId, guildMasterId))
@@ -1315,7 +1266,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
@@ -1343,7 +1294,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
@@ -1369,7 +1320,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission1, 1L);
+            setId(mission1, 1L);
 
             Mission mission2 = Mission.builder()
                 .title("미션2")
@@ -1379,7 +1330,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission2, 2L);
+            setId(mission2, 2L);
 
             when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
                 .thenReturn(List.of(mission1, mission2));
@@ -1411,7 +1362,7 @@ class MissionServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, 1L);
+            setId(mission, 1L);
 
             org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
             org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
@@ -1445,7 +1396,7 @@ class MissionServiceTest {
                 .guildId(guildId)
                 .creatorId(TEST_USER_ID)
                 .build();
-            setMissionId(mission, 1L);
+            setId(mission, 1L);
 
             List<MissionStatus> activeStatuses = List.of(
                 MissionStatus.DRAFT,
@@ -1469,39 +1420,6 @@ class MissionServiceTest {
             verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
         }
 
-        @Test
-        @DisplayName("시스템 미션 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
-        void getSystemMissions_batchUnderReviewCheck() {
-            // given
-            Mission mission = Mission.builder()
-                .title("시스템 미션")
-                .description("설명")
-                .status(MissionStatus.OPEN)
-                .visibility(MissionVisibility.PUBLIC)
-                .type(MissionType.PERSONAL)
-                .creatorId(ADMIN_USER_ID)
-                .build();
-            setMissionId(mission, 1L);
-            setMissionSource(mission, MissionSource.SYSTEM);
-
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
-            org.springframework.data.domain.Page<Mission> page = new org.springframework.data.domain.PageImpl<>(List.of(mission));
-
-            when(missionRepository.findBySourceAndStatus(MissionSource.SYSTEM, MissionStatus.OPEN, pageable))
-                .thenReturn(page);
-
-            Map<String, Boolean> underReviewMap = new HashMap<>();
-            underReviewMap.put("1", false);
-            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any())).thenReturn(underReviewMap);
-
-            // when
-            org.springframework.data.domain.Page<MissionResponse> result = missionService.getSystemMissions(pageable);
-
-            // then
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0).getIsUnderReview()).isFalse();
-            verify(reportService).isUnderReviewBatch(eq(ReportTargetType.MISSION), any());
-        }
 
         @Test
         @DisplayName("빈 미션 목록 조회 시 신고 상태 일괄 조회가 호출되지 않는다")

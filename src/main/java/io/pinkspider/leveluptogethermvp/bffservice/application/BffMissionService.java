@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
-import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 public class BffMissionService {
 
     private final MissionService missionService;
-    private final MissionExecutionService missionExecutionService;
+    private final MissionExecutionQueryService missionExecutionQueryService;
 
     /**
      * 오늘의 미션 화면에 필요한 모든 데이터를 한 번에 조회합니다.
@@ -46,7 +46,7 @@ public class BffMissionService {
 
         CompletableFuture<List<MissionExecutionResponse>> todayExecutionsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return missionExecutionService.getTodayExecutions(userId);
+                return missionExecutionQueryService.getTodayExecutions(userId);
             } catch (Exception e) {
                 log.error("Failed to fetch today executions", e);
                 return Collections.emptyList();
@@ -55,7 +55,7 @@ public class BffMissionService {
 
         CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return missionExecutionService.getCompletedPinnedInstancesForToday(userId);
+                return missionExecutionQueryService.getCompletedPinnedInstancesForToday(userId);
             } catch (Exception e) {
                 log.error("Failed to fetch completed pinned instances", e);
                 return Collections.emptyList();

@@ -9,16 +9,13 @@ import io.pinkspider.global.translation.enums.ContentType;
 import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedFeed;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedFeedRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedLikeResponse;
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.dto.UserTitleInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
@@ -67,11 +64,11 @@ public class ActivityFeedService {
     private final FriendCacheService friendCacheService;
     private final FeaturedFeedRepository featuredFeedRepository;
     private final UserRepository userRepository;
-    private final UserTitleRepository userTitleRepository;
     private final UserProfileCacheService userProfileCacheService;
     private final TranslationService translationService;
     private final ReportService reportService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserTitleInfoHelper userTitleInfoHelper;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -121,10 +118,10 @@ public class ActivityFeedService {
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
 
         // 사용자 장착 칭호 정보 조회
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
+        String userTitle = titleInfo.titleName();
+        TitleRarity userTitleRarity = titleInfo.titleRarity();
+        String userTitleColorCode = titleInfo.colorCode();
 
         ActivityFeed feed = ActivityFeed.builder()
             .userId(userId)
@@ -761,209 +758,6 @@ public class ActivityFeedService {
             comment.getContent(),
             targetLocale
         );
-    }
-
-    /**
-     * 사용자의 장착된 칭호 정보 조회
-     * @return [0]: 조합된 칭호 이름, [1]: 가장 높은 등급, [2]: 가장 높은 등급의 색상 코드
-     */
-    private Object[] getUserEquippedTitleInfo(String userId) {
-        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
-        if (equippedTitles.isEmpty()) {
-            return new Object[]{null, null, null};
-        }
-
-        Title leftTitle = null;
-        Title rightTitle = null;
-        TitleRarity maxRarity = null;
-        String maxRarityColorCode = null;
-
-        for (UserTitle ut : equippedTitles) {
-            Title title = ut.getTitle();
-            if (ut.getEquippedPosition() == TitlePosition.LEFT) {
-                leftTitle = title;
-            } else if (ut.getEquippedPosition() == TitlePosition.RIGHT) {
-                rightTitle = title;
-            }
-
-            // 가장 높은 등급과 색상 코드 찾기
-            if (maxRarity == null || title.getRarity().ordinal() > maxRarity.ordinal()) {
-                maxRarity = title.getRarity();
-                maxRarityColorCode = title.getColorCode();
-            }
-        }
-
-        String combinedName = Title.getCombinedDisplayName(leftTitle, rightTitle);
-        return new Object[]{combinedName.isEmpty() ? null : combinedName, maxRarity, maxRarityColorCode};
-    }
-
-    // ========== System Activity Feed 생성 헬퍼 메서드 ==========
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyMissionJoined(String userId, String userNickname, String userProfileImageUrl,
-                                    Integer userLevel, Long missionId, String missionTitle) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("%s 미션에 참여했습니다!", missionTitle);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.MISSION_JOINED, title, null,
-            "MISSION", missionId, missionTitle,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyMissionCompleted(String userId, String userNickname, String userProfileImageUrl,
-                                       Integer userLevel, Long missionId, String missionTitle, int completionRate) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("%s 미션 인터벌을 완료했습니다!", missionTitle);
-        String description = String.format("달성률: %d%%", completionRate);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.MISSION_COMPLETED, title, description,
-            "MISSION", missionId, missionTitle,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyMissionFullCompleted(String userId, String userNickname, String userProfileImageUrl,
-                                           Integer userLevel, Long missionId, String missionTitle) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("%s 미션을 100%% 완료했습니다!", missionTitle);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.MISSION_FULL_COMPLETED, title, null,
-            "MISSION", missionId, missionTitle,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyAchievementUnlocked(String userId, String userNickname, String userProfileImageUrl,
-                                          Integer userLevel, Long achievementId, String achievementName, String achievementDescription) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("[%s] 업적을 달성했습니다!", achievementName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.ACHIEVEMENT_UNLOCKED, title, achievementDescription,
-            "ACHIEVEMENT", achievementId, achievementName,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyTitleAcquired(String userId, String userNickname, String userProfileImageUrl,
-                                    Integer userLevel, Long titleId, String titleName) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("[%s] 칭호를 획득했습니다!", titleName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.TITLE_ACQUIRED, title, null,
-            "TITLE", titleId, titleName,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyLevelUp(String userId, String userNickname, String userProfileImageUrl,
-                              int newLevel, int totalExp) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("레벨 %d 달성!", newLevel);
-        String description = String.format("누적 경험치: %,d", totalExp);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, newLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.LEVEL_UP, title, description,
-            "LEVEL", (long) newLevel, "레벨 " + newLevel,
-            FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyGuildCreated(String userId, String userNickname, String userProfileImageUrl,
-                                   Integer userLevel, Long guildId, String guildName) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("[%s] 길드를 창설했습니다!", guildName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.GUILD_CREATED, title, null,
-            "GUILD", guildId, guildName,
-            FeedVisibility.PUBLIC, guildId, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyGuildJoined(String userId, String userNickname, String userProfileImageUrl,
-                                  Integer userLevel, Long guildId, String guildName) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("[%s] 길드에 가입했습니다!", guildName);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.GUILD_JOINED, title, null,
-            "GUILD", guildId, guildName,
-            FeedVisibility.PUBLIC, guildId, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyGuildLevelUp(String userId, String userNickname, String userProfileImageUrl,
-                                   Integer userLevel, Long guildId, String guildName, int newGuildLevel) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("[%s] 길드가 레벨 %d로 성장했습니다!", guildName, newGuildLevel);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.GUILD_LEVEL_UP, title, null,
-            "GUILD", guildId, guildName,
-            FeedVisibility.GUILD, guildId, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyFriendAdded(String userId, String userNickname, String userProfileImageUrl,
-                                  Integer userLevel, String friendId, String friendNickname) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("%s님과 친구가 되었습니다!", friendNickname);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.FRIEND_ADDED, title, null,
-            "USER", null, friendNickname,
-            FeedVisibility.FRIENDS, null, null, null);
-    }
-
-    @Transactional(transactionManager = "feedTransactionManager")
-    public void notifyAttendanceStreak(String userId, String userNickname, String userProfileImageUrl,
-                                       Integer userLevel, int streakDays) {
-        Object[] titleInfo = getUserEquippedTitleInfo(userId);
-        String userTitle = (String) titleInfo[0];
-        TitleRarity userTitleRarity = (TitleRarity) titleInfo[1];
-        String userTitleColorCode = (String) titleInfo[2];
-
-        String title = String.format("%d일 연속 출석 달성!", streakDays);
-        createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle, userTitleRarity,
-            userTitleColorCode, ActivityType.ATTENDANCE_STREAK, title, null,
-            "ATTENDANCE", (long) streakDays, streakDays + "일 연속 출석",
-            FeedVisibility.PUBLIC, null, null, null);
     }
 
     // ========== 사용자 공유 피드 생성 ==========

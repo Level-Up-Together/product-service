@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHelper;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.DirectConversationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.DirectMessageRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.DirectMessageResponse;
@@ -18,7 +19,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectMessageRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.List;
@@ -46,13 +46,13 @@ class GuildDirectMessageServiceTest {
     private GuildDirectMessageRepository messageRepository;
 
     @Mock
-    private GuildRepository guildRepository;
-
-    @Mock
     private GuildMemberRepository memberRepository;
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private GuildHelper guildHelper;
 
     @InjectMocks
     private GuildDirectMessageService dmService;
@@ -129,7 +129,7 @@ class GuildDirectMessageServiceTest {
                 .content("안녕하세요!")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(testUser1));
@@ -160,7 +160,7 @@ class GuildDirectMessageServiceTest {
                 .imageUrl("https://example.com/image.jpg")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(testUser1));
@@ -188,7 +188,7 @@ class GuildDirectMessageServiceTest {
                 .content("첫 메시지!")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(testUser1));
@@ -221,7 +221,7 @@ class GuildDirectMessageServiceTest {
                 .content("자신에게")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
 
             // when & then
             assertThatThrownBy(() -> dmService.sendMessage(1L, USER_ID_1, USER_ID_1, request))
@@ -237,7 +237,7 @@ class GuildDirectMessageServiceTest {
                 .content("안녕하세요!")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(false);
 
             // when & then
@@ -254,7 +254,7 @@ class GuildDirectMessageServiceTest {
                 .content("안녕하세요!")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(false);
 
@@ -272,7 +272,7 @@ class GuildDirectMessageServiceTest {
                 .content("안녕하세요!")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+            when(guildHelper.findActiveGuildById(999L)).thenThrow(new IllegalArgumentException("길드를 찾을 수 없습니다: 999"));
 
             // when & then
             assertThatThrownBy(() -> dmService.sendMessage(999L, USER_ID_1, USER_ID_2, request))
@@ -422,7 +422,7 @@ class GuildDirectMessageServiceTest {
         @DisplayName("기존 대화를 조회한다")
         void getOrCreateConversation_existing() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
@@ -443,7 +443,7 @@ class GuildDirectMessageServiceTest {
         @DisplayName("새 대화를 생성한다")
         void getOrCreateConversation_new() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(memberRepository.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(memberRepository.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))

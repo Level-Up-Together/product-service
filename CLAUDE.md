@@ -50,6 +50,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons |
 | `bffservice` | - | Backend-for-Frontend API aggregation, unified search |
 | `loggerservice` | MongoDB | Event logging with MongoDB and Kafka |
+| `noticeservice` | - | Notice/announcement management (layered: api, application, core, domain) |
+| `profanity` | - | Profanity detection and validation (used across services) |
+| `supportservice` | - | Customer support and report handling (api, application, core, report) |
 
 ### Global Infrastructure (`src/main/java/io/pinkspider/global/`)
 
@@ -61,6 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Exception Handling**: Extend `CustomException` from `io.pinkspider.global.exception`
 - **Saga Pattern**: `io.pinkspider.global.saga` - 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Rate Limiting**: Resilience4j rate limiter (`io.pinkspider.global.config.RateLimiterConfig`)
+- **Translation**: Google Translation API integration (`io.pinkspider.global.translation`)
 - **Monitoring**: Actuator at `/showmethemoney`
 
 ### Transaction Manager (Critical)
@@ -94,10 +98,13 @@ public void updateMission(...) { ... }
 Each service module follows a consistent layered structure:
 - `api/` - REST controllers returning `ApiResult<T>` wrapper
 - `application/` - Business logic services with `@Transactional`
+- `core/` - Core domain logic (some services use this instead of or alongside `application/`)
 - `domain/` - Entities, DTOs, enums
 - `infrastructure/` - JPA repositories
 - `scheduler/` - Scheduled batch jobs (optional)
 - `saga/` - Saga orchestration steps (optional)
+
+Note: Some services vary slightly (e.g., `feedservice` has no `api/` layer, `noticeservice`/`supportservice` use `core/` instead of `application/`).
 
 ### API Response Format
 
@@ -310,6 +317,8 @@ public class YourStep extends AbstractSagaStep<YourContext> {
 | `meta.http` | 메타데이터, 공통 코드 |
 | `user-terms.http` | 약관 동의 |
 | `user-experience.http` | 경험치, 레벨 |
+| `guild-dm.http` | 길드 DM (다이렉트 메시지) |
+| `test-login.http` | 테스트 로그인 |
 
 환경 설정: `http/http-client.env.json`
 ```json
@@ -327,8 +336,11 @@ public class YourStep extends AbstractSagaStep<YourContext> {
 | `application.yml` | Default configuration |
 | `application-test.yml` | H2 databases, test Kafka (port 18080) |
 | `application-unit-test.yml` | Unit test configuration |
+| `application-push-test.yml` | Push notification test configuration |
 | `application-local.yml` | Config server integration |
 | `application-dev.yml` / `application-prod.yml` | Environment-specific |
+
+Note: Config files are located in `src/main/resources/config/`, not the root of `resources/`.
 
 ## 관련 프로젝트
 

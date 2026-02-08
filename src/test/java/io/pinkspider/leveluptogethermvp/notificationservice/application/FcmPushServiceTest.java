@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -17,7 +18,6 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessa
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken.DeviceType;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.DeviceTokenRepository;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,16 +62,6 @@ class FcmPushServiceTest {
             "테스트 메시지 내용",
             Map.of("type", "TEST")
         );
-    }
-
-    private void setId(DeviceToken token, Long id) {
-        try {
-            Field idField = DeviceToken.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(token, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested

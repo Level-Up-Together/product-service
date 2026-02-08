@@ -102,6 +102,10 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer expPerCompletion = 0;
 
+    @Column(name = "target_duration_minutes")
+    @Comment("목표 수행 시간 (분) - 스냅샷")
+    private Integer targetDurationMinutes;
+
     // ============ 수행 상태 ============
 
     @NotNull
@@ -240,14 +244,28 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     }
 
     /**
-     * 시작~종료 시간을 분으로 계산하여 경험치 반환 (분당 1 EXP)
+     * 시작~종료 시간을 분으로 계산하여 경험치 반환
+     *
+     * 목표시간(targetDurationMinutes) 설정 시:
+     * - 목표시간 달성: targetDurationMinutes + expPerCompletion (보너스)
+     * - 목표시간 미달: 실제 수행 분 (1분=1XP)
+     *
+     * 목표시간 미설정 시: 기존 로직 (분당 1 EXP, 최대 480)
      */
     public int calculateExpByDuration() {
         if (this.startedAt == null || this.completedAt == null) {
             return 0;
         }
-        long durationMinutes = Duration.between(this.startedAt, this.completedAt).toMinutes();
-        return (int) Math.max(1, Math.min(durationMinutes, 480));
+        long elapsed = Duration.between(this.startedAt, this.completedAt).toMinutes();
+
+        if (this.targetDurationMinutes != null && this.targetDurationMinutes > 0) {
+            if (elapsed >= this.targetDurationMinutes) {
+                int bonus = this.expPerCompletion != null ? this.expPerCompletion : 0;
+                return this.targetDurationMinutes + bonus;
+            }
+            return (int) Math.max(1, elapsed);
+        }
+        return (int) Math.max(1, Math.min(elapsed, 480));
     }
 
     /**
@@ -304,10 +322,17 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
      * 2시간 초과 미션 자동 완료 (어뷰징 방지)
      * 스케줄러에서 호출하여 시작 후 2시간이 경과한 미션을 자동 종료
      *
+     * 목표시간 설정 미션은 스케줄러가 Saga를 통해 별도 처리하므로 여기서는 스킵
+     *
      * @return 자동 완료 처리 여부
      */
     public boolean autoCompleteIfExpired() {
         if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
+            return false;
+        }
+
+        // 목표시간 설정 미션은 스케줄러가 Saga를 통해 처리 (XP 정상 지급)
+        if (this.targetDurationMinutes != null && this.targetDurationMinutes > 0) {
             return false;
         }
 
@@ -368,6 +393,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
             .categoryName(categoryName)
             .categoryId(categoryId)
             .expPerCompletion(mission.getExpPerCompletion())
+            .targetDurationMinutes(mission.getTargetDurationMinutes())
             .status(ExecutionStatus.PENDING)
             .expEarned(0)
             .completionCount(0)

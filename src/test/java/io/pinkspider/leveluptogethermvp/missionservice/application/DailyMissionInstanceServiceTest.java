@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,12 +14,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
+
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionSaga;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -40,7 +43,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -90,7 +92,7 @@ class DailyMissionInstanceServiceTest {
     private MissionImageStorageService missionImageStorageService;
 
     @Mock
-    private PinnedMissionCompletionSaga pinnedMissionCompletionSaga;
+    private MissionCompletionSaga missionCompletionSaga;
 
     @InjectMocks
     private DailyMissionInstanceService service;
@@ -152,56 +154,6 @@ class DailyMissionInstanceServiceTest {
             .currentLevel(10)
             .currentExp(500)
             .build();
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setStartedAt(DailyMissionInstance instance, LocalDateTime startedAt) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("startedAt");
-            field.setAccessible(true);
-            field.set(instance, startedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setStatus(DailyMissionInstance instance, ExecutionStatus status) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("status");
-            field.setAccessible(true);
-            field.set(instance, status);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setCompletedAt(DailyMissionInstance instance, LocalDateTime completedAt) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("completedAt");
-            field.setAccessible(true);
-            field.set(instance, completedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setNote(DailyMissionInstance instance, String note) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("note");
-            field.setAccessible(true);
-            field.set(instance, note);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -267,8 +219,8 @@ class DailyMissionInstanceServiceTest {
             // given
             DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant, LocalDate.now());
             setId(inProgressInstance, 999L);
-            setStatus(inProgressInstance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(inProgressInstance, LocalDateTime.now());
+            TestReflectionUtils.setField(inProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now());
 
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
                 .thenReturn(Optional.of(inProgressInstance));
@@ -286,8 +238,8 @@ class DailyMissionInstanceServiceTest {
             LocalDate yesterday = LocalDate.now().minusDays(1);
             DailyMissionInstance pastInProgressInstance = DailyMissionInstance.createFrom(participant, yesterday);
             setId(pastInProgressInstance, 999L);
-            setStatus(pastInProgressInstance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(pastInProgressInstance, LocalDateTime.now().minusDays(1));
+            TestReflectionUtils.setField(pastInProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(pastInProgressInstance, "startedAt", LocalDateTime.now().minusDays(1));
 
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
                 .thenReturn(Optional.of(pastInProgressInstance));
@@ -333,23 +285,23 @@ class DailyMissionInstanceServiceTest {
         void completeInstance_success() {
             // given
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             // 인스턴스 완료 상태로 설정
             instance.complete();
-            setNote(instance, "완료 메모");
+            TestReflectionUtils.setField(instance, "note", "완료 메모");
 
             // Saga 결과 mock
-            PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
                 INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
             context.setInstance(instance);
-            context.setExpEarned(50);
+            context.setUserExpEarned(50);
 
-            SagaResult<PinnedMissionCompletionContext> sagaResult =
+            SagaResult<MissionCompletionContext> sagaResult =
                 SagaResult.success(context, "성공");
 
-            when(pinnedMissionCompletionSaga.execute(INSTANCE_ID, TEST_USER_ID, "완료 메모", false))
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", false))
                 .thenReturn(sagaResult);
-            when(pinnedMissionCompletionSaga.toResponse(any(SagaResult.class)))
+            when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
                 .thenReturn(DailyMissionInstanceResponse.from(instance));
 
             // when
@@ -358,7 +310,7 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getNote()).isEqualTo("완료 메모");
-            verify(pinnedMissionCompletionSaga).execute(INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
+            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
         }
 
         @Test
@@ -366,24 +318,24 @@ class DailyMissionInstanceServiceTest {
         @SuppressWarnings("unchecked")
         void completeInstance_withFeedSharing() {
             // given - IN_PROGRESS 상태로 시작된 인스턴스
-            setStatus(instance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             // 인스턴스 완료 상태로 설정
             instance.complete();
-            setNote(instance, "완료!");
+            TestReflectionUtils.setField(instance, "note", "완료!");
 
             // Saga 결과 mock
-            PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
                 INSTANCE_ID, TEST_USER_ID, "완료!", true);
             context.setInstance(instance);
-            context.setExpEarned(50);
+            context.setUserExpEarned(50);
 
-            SagaResult<PinnedMissionCompletionContext> sagaResult =
+            SagaResult<MissionCompletionContext> sagaResult =
                 SagaResult.success(context, "성공");
 
-            when(pinnedMissionCompletionSaga.execute(INSTANCE_ID, TEST_USER_ID, "완료!", true))
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", true))
                 .thenReturn(sagaResult);
-            when(pinnedMissionCompletionSaga.toResponse(any(SagaResult.class)))
+            when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
                 .thenReturn(DailyMissionInstanceResponse.from(instance));
 
             // when - 피드 공유 요청
@@ -393,7 +345,7 @@ class DailyMissionInstanceServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(response.getNote()).isEqualTo("완료!");
-            verify(pinnedMissionCompletionSaga).execute(INSTANCE_ID, TEST_USER_ID, "완료!", true);
+            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", true);
         }
     }
 
@@ -442,9 +394,9 @@ class DailyMissionInstanceServiceTest {
         @DisplayName("이미 공유된 인스턴스는 다시 공유할 수 없다")
         void shareToFeed_alreadyShared_throwsException() {
             // given - 완료 후 이미 공유된 상태 설정
-            setStatus(instance, ExecutionStatus.COMPLETED);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
-            setCompletedAt(instance, LocalDateTime.now());
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
             instance.shareToFeed(100L);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
@@ -466,7 +418,7 @@ class DailyMissionInstanceServiceTest {
         void unshareFromFeed_success() {
             // given
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             instance.complete();
             instance.shareToFeed(FEED_ID);
 
@@ -723,14 +675,7 @@ class DailyMissionInstanceServiceTest {
             when(instanceRepository.save(any(DailyMissionInstance.class)))
                 .thenAnswer(invocation -> {
                     DailyMissionInstance saved = invocation.getArgument(0);
-                    // ID 설정 (리플렉션)
-                    try {
-                        java.lang.reflect.Field idField = DailyMissionInstance.class.getDeclaredField("id");
-                        idField.setAccessible(true);
-                        idField.set(saved, INSTANCE_ID);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
+                    setId(saved, INSTANCE_ID);
                     return saved;
                 });
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
@@ -757,6 +702,347 @@ class DailyMissionInstanceServiceTest {
             assertThatThrownBy(() -> service.startInstanceByMission(MISSION_ID, TEST_USER_ID, LocalDate.now()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("미션 참여 정보를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("이미 IN_PROGRESS 인스턴스가 있으면 그것을 반환한다")
+        void startInstanceByMission_returnsInProgressInstance() {
+            // given
+            LocalDate today = LocalDate.now();
+            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant, today);
+            setId(inProgressInstance, 999L);
+            TestReflectionUtils.setField(inProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now());
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(inProgressInstance));
+
+            // when
+            DailyMissionInstanceResponse response = service.startInstanceByMission(MISSION_ID, TEST_USER_ID, today);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getId()).isEqualTo(999L);
+            verify(instanceRepository, never()).save(any(DailyMissionInstance.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getInstancesByDate 테스트")
+    class GetInstancesByDateTest {
+
+        @Test
+        @DisplayName("특정 날짜의 인스턴스 목록을 조회한다")
+        void getInstancesByDate_success() {
+            // given
+            LocalDate targetDate = LocalDate.now().minusDays(3);
+            DailyMissionInstance instance1 = DailyMissionInstance.createFrom(participant, targetDate);
+            setId(instance1, 100L);
+
+            when(instanceRepository.findByUserIdAndInstanceDateWithMission(TEST_USER_ID, targetDate))
+                .thenReturn(List.of(instance1));
+
+            // when
+            List<DailyMissionInstanceResponse> responses = service.getInstancesByDate(TEST_USER_ID, targetDate);
+
+            // then
+            assertThat(responses).hasSize(1);
+            assertThat(responses.get(0).getInstanceDate()).isEqualTo(targetDate);
+        }
+
+        @Test
+        @DisplayName("해당 날짜의 인스턴스가 없으면 빈 목록을 반환한다")
+        void getInstancesByDate_empty() {
+            // given
+            LocalDate targetDate = LocalDate.now().minusDays(7);
+
+            when(instanceRepository.findByUserIdAndInstanceDateWithMission(TEST_USER_ID, targetDate))
+                .thenReturn(List.of());
+
+            // when
+            List<DailyMissionInstanceResponse> responses = service.getInstancesByDate(TEST_USER_ID, targetDate);
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getInstance 테스트")
+    class GetInstanceTest {
+
+        @Test
+        @DisplayName("인스턴스를 조회한다")
+        void getInstance_success() {
+            // given
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+
+            // when
+            DailyMissionInstanceResponse response = service.getInstance(INSTANCE_ID, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getId()).isEqualTo(INSTANCE_ID);
+        }
+
+        @Test
+        @DisplayName("인스턴스가 없으면 예외가 발생한다")
+        void getInstance_notFound_throwsException() {
+            // given
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> service.getInstance(INSTANCE_ID, TEST_USER_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("인스턴스를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("권한이 없는 인스턴스는 조회할 수 없다")
+        void getInstance_noPermission_throwsException() {
+            // given
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+
+            // when & then
+            assertThatThrownBy(() -> service.getInstance(INSTANCE_ID, "other-user"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("권한이 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("getInstanceByMission 테스트")
+    class GetInstanceByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 인스턴스를 조회한다")
+        void getInstanceByMission_success() {
+            // given
+            LocalDate targetDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, targetDate))
+                .thenReturn(Optional.of(instance));
+
+            // when
+            DailyMissionInstanceResponse response = service.getInstanceByMission(MISSION_ID, TEST_USER_ID, targetDate);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+
+        @Test
+        @DisplayName("참여 정보가 없으면 예외가 발생한다")
+        void getInstanceByMission_noParticipant_throwsException() {
+            // given
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> service.getInstanceByMission(MISSION_ID, TEST_USER_ID, LocalDate.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("미션 참여 정보를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("인스턴스가 없으면 예외가 발생한다")
+        void getInstanceByMission_noInstance_throwsException() {
+            // given
+            LocalDate targetDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, targetDate))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> service.getInstanceByMission(MISSION_ID, TEST_USER_ID, targetDate))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("해당 날짜의 인스턴스를 찾을 수 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("completeInstanceByMission 테스트")
+    class CompleteInstanceByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 인스턴스를 완료한다")
+        @SuppressWarnings("unchecked")
+        void completeInstanceByMission_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            instance.complete();
+
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
+                INSTANCE_ID, TEST_USER_ID, "완료", false);
+            context.setInstance(instance);
+            SagaResult<MissionCompletionContext> sagaResult = SagaResult.success(context, "성공");
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", false))
+                .thenReturn(sagaResult);
+            when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
+                .thenReturn(DailyMissionInstanceResponse.from(instance));
+
+            // when
+            DailyMissionInstanceResponse response = service.completeInstanceByMission(
+                MISSION_ID, TEST_USER_ID, today, "완료", false);
+
+            // then
+            assertThat(response).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("skipInstanceByMission 테스트")
+    class SkipInstanceByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 인스턴스를 취소한다")
+        void skipInstanceByMission_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            instance.start();
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            DailyMissionInstanceResponse response = service.skipInstanceByMission(MISSION_ID, TEST_USER_ID, today);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+        }
+    }
+
+    @Nested
+    @DisplayName("shareToFeedByMission 테스트")
+    class ShareToFeedByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 피드에 공유한다")
+        void shareToFeedByMission_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
+
+            ActivityFeed feed = ActivityFeed.builder()
+                .userId(TEST_USER_ID)
+                .activityType(io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType.MISSION_SHARED)
+                .title("미션 공유")
+                .visibility(io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility.PUBLIC)
+                .build();
+            setId(feed, FEED_ID);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+            when(userService.findByUserId(TEST_USER_ID))
+                .thenReturn(user);
+            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID))
+                .thenReturn(userExperience);
+            when(titleService.getCombinedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(new TitleService.TitleInfo("테스트 칭호", TitleRarity.COMMON, "#FFFFFF"));
+            when(activityFeedService.createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(feed);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            DailyMissionInstanceResponse response = service.shareToFeedByMission(MISSION_ID, TEST_USER_ID, today);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(activityFeedService).createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("uploadImageByMission 테스트")
+    class UploadImageByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 이미지를 업로드한다")
+        void uploadImageByMission_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            MockMultipartFile mockFile = new MockMultipartFile(
+                "image", "test.jpg", "image/jpeg", "test content".getBytes());
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+            when(missionImageStorageService.store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString()))
+                .thenReturn("https://example.com/image.jpg");
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            DailyMissionInstanceResponse response = service.uploadImageByMission(
+                MISSION_ID, TEST_USER_ID, today, mockFile);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getImageUrl()).isEqualTo("https://example.com/image.jpg");
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteImageByMission 테스트")
+    class DeleteImageByMissionTest {
+
+        @Test
+        @DisplayName("missionId와 date로 이미지를 삭제한다")
+        void deleteImageByMission_success() {
+            // given
+            LocalDate today = LocalDate.now();
+            instance.setImageUrl("https://example.com/image.jpg");
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
+                .thenReturn(Optional.of(instance));
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            DailyMissionInstanceResponse response = service.deleteImageByMission(MISSION_ID, TEST_USER_ID, today);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getImageUrl()).isNull();
+            verify(missionImageStorageService).delete("https://example.com/image.jpg");
         }
     }
 }

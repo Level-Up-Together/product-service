@@ -17,6 +17,7 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
@@ -63,6 +64,9 @@ class MissionExecutionControllerTest {
 
     @MockitoBean
     private MissionExecutionService executionService;
+
+    @MockitoBean
+    private MissionExecutionQueryService executionQueryService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
@@ -169,7 +173,7 @@ class MissionExecutionControllerTest {
     @DisplayName("GET /api/v1/missions/{missionId}/executions : 미션 실행 기록 조회")
     void getExecutionsTest() throws Exception {
         // given
-        when(executionService.getExecutionsForMission(anyLong(), anyString()))
+        when(executionQueryService.getExecutionsForMission(anyLong(), anyString()))
             .thenReturn(createMockExecutions());
 
         // when
@@ -224,7 +228,7 @@ class MissionExecutionControllerTest {
     @DisplayName("GET /api/v1/missions/{missionId}/executions/range : 특정 기간 실행 기록 조회")
     void getExecutionsByDateRangeTest() throws Exception {
         // given
-        when(executionService.getExecutionsByDateRange(anyLong(), anyString(),
+        when(executionQueryService.getExecutionsByDateRange(anyLong(), anyString(),
             any(LocalDate.class), any(LocalDate.class)))
             .thenReturn(createMockExecutions());
 
@@ -284,7 +288,7 @@ class MissionExecutionControllerTest {
                 .build()
         );
 
-        when(executionService.getTodayExecutions(anyString())).thenReturn(responses);
+        when(executionQueryService.getTodayExecutions(anyString())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -335,7 +339,7 @@ class MissionExecutionControllerTest {
     @DisplayName("GET /api/v1/missions/{missionId}/executions/completion-rate : 미션 완료율 조회")
     void getCompletionRateTest() throws Exception {
         // given
-        when(executionService.getCompletionRate(anyLong(), anyString())).thenReturn(85.5);
+        when(executionQueryService.getCompletionRate(anyLong(), anyString())).thenReturn(85.5);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -406,7 +410,7 @@ class MissionExecutionControllerTest {
             .completedDates(List.of(yesterdayStr, todayStr))
             .build();
 
-        when(executionService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
             .thenReturn(response);
 
         // when
@@ -466,7 +470,7 @@ class MissionExecutionControllerTest {
             .completedDates(List.of())
             .build();
 
-        when(executionService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
             .thenReturn(response);
 
         // when

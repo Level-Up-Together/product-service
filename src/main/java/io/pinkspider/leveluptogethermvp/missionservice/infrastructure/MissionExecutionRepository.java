@@ -128,6 +128,17 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     );
 
     /**
+     * 목표시간 설정된 IN_PROGRESS 실행 조회 (목표시간 도달 자동 종료용)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE me.status = 'IN_PROGRESS' " +
+           "AND m.targetDurationMinutes IS NOT NULL " +
+           "AND me.startedAt IS NOT NULL")
+    List<MissionExecution> findInProgressWithTargetDuration();
+
+    /**
      * 일반 미션 완료 시 미래 PENDING execution 삭제
      * 일반 미션은 한 번 완료하면 미래 날짜의 수행 일정이 필요 없음
      */

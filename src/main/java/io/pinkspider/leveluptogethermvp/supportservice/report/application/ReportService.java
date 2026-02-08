@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
+import io.pinkspider.global.event.ContentReportedEvent;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,6 +34,7 @@ public class ReportService {
 
     private final AdminReportFeignClient adminReportFeignClient;
     private final UserService userService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ReportResponse createReport(String userId, ReportCreateRequest request) {
         // 신고자 정보 조회
@@ -75,7 +78,7 @@ public class ReportService {
             }
 
             AdminReportApiResponse.ReportValue value = response.getValue();
-            return ReportResponse.builder()
+            ReportResponse reportResponse = ReportResponse.builder()
                 .id(value.getId())
                 .targetType(ReportTargetType.valueOf(value.getTargetType()))
                 .targetId(value.getTargetId())
@@ -84,6 +87,11 @@ public class ReportService {
                 .status(value.getStatus())
                 .createdAt(value.getCreatedAt())
                 .build();
+
+            // 신고 대상 유저에게 알림 이벤트 발행
+            publishContentReportedEvent(userId, request);
+
+            return reportResponse;
 
         } catch (CustomException e) {
             throw e;
@@ -153,5 +161,21 @@ public class ReportService {
                 id -> id,
                 id -> false
             ));
+    }
+
+    private void publishContentReportedEvent(String reporterId, ReportCreateRequest request) {
+        try {
+            eventPublisher.publishEvent(new ContentReportedEvent(
+                reporterId,
+                request.targetType().name(),
+                request.targetId(),
+                request.targetUserId(),
+                request.targetType().getDescription()
+            ));
+            log.info("콘텐츠 신고 알림 이벤트 발행: targetType={}, targetId={}, targetUserId={}",
+                request.targetType(), request.targetId(), request.targetUserId());
+        } catch (Exception e) {
+            log.warn("콘텐츠 신고 알림 이벤트 발행 실패: error={}", e.getMessage());
+        }
     }
 }

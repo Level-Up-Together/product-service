@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.attendance.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -19,7 +20,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Atten
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.userservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -48,19 +48,9 @@ class AttendanceServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private void setAttendanceRecordId(AttendanceRecord record, Long id) {
-        try {
-            Field idField = AttendanceRecord.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(record, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private AttendanceRecord createTestAttendanceRecord(Long id, String userId, LocalDate date, int consecutiveDays) {
         AttendanceRecord record = AttendanceRecord.create(userId, date, consecutiveDays);
-        setAttendanceRecordId(record, id);
+        setId(record, id);
         record.setRewardExp(10);
         record.setBonusRewardExp(0);
         return record;
