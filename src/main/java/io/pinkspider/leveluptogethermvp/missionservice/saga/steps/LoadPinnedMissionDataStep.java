@@ -7,7 +7,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LoadPinnedMissionDataStep implements SagaStep<PinnedMissionCompletionContext> {
+public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionContext> {
 
     private final DailyMissionInstanceRepository instanceRepository;
 
@@ -30,8 +31,13 @@ public class LoadPinnedMissionDataStep implements SagaStep<PinnedMissionCompleti
     }
 
     @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return MissionCompletionContext::isPinned;
+    }
+
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
-    public SagaStepResult execute(PinnedMissionCompletionContext context) {
+    public SagaStepResult execute(MissionCompletionContext context) {
         Long instanceId = context.getInstanceId();
         String userId = context.getUserId();
 
@@ -66,7 +72,7 @@ public class LoadPinnedMissionDataStep implements SagaStep<PinnedMissionCompleti
 
             // 보상용 데이터 저장
             context.addCompensationData(
-                PinnedMissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
                 instance.getStatus());
 
             log.info("Pinned mission data loaded: instanceId={}, missionTitle={}",
@@ -81,7 +87,7 @@ public class LoadPinnedMissionDataStep implements SagaStep<PinnedMissionCompleti
     }
 
     @Override
-    public SagaStepResult compensate(PinnedMissionCompletionContext context) {
+    public SagaStepResult compensate(MissionCompletionContext context) {
         // 데이터 로드는 보상 작업 불필요
         return SagaStepResult.success("보상 작업 불필요");
     }

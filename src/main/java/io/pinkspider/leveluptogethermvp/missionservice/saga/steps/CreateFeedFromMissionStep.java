@@ -2,22 +2,23 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Step: 피드 생성
+ * 피드 생성 (일반 미션 + 고정 미션 통합)
  *
  * 사용자가 shareToFeed=true를 선택한 경우 공개 피드에 미션 완료 기록을 게시
  */
@@ -28,16 +29,19 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
     private final ActivityFeedService activityFeedService;
     private final UserProfileCacheService userProfileCacheService;
     private final MissionExecutionRepository executionRepository;
+    private final DailyMissionInstanceRepository instanceRepository;
     private final CreateFeedFromMissionStep self;
 
     public CreateFeedFromMissionStep(
             ActivityFeedService activityFeedService,
             UserProfileCacheService userProfileCacheService,
             MissionExecutionRepository executionRepository,
+            DailyMissionInstanceRepository instanceRepository,
             @Lazy CreateFeedFromMissionStep self) {
         this.activityFeedService = activityFeedService;
         this.userProfileCacheService = userProfileCacheService;
         this.executionRepository = executionRepository;
+        this.instanceRepository = instanceRepository;
         this.self = self;
     }
 
@@ -54,15 +58,20 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     @Override
     public SagaStepResult execute(MissionCompletionContext context) {
-        log.info("CreateFeedFromMissionStep 시작: userId={}, shareToFeed={}",
-            context.getUserId(), context.isShareToFeed());
-
         // shareToFeed가 false면 스킵
         if (!context.isShareToFeed()) {
-            log.info("피드 공유 미요청으로 스킵: userId={}", context.getUserId());
+            log.debug("Feed sharing not requested, skipping: userId={}", context.getUserId());
             return SagaStepResult.success("피드 공유 미요청");
         }
 
+        if (context.isPinned()) {
+            return executePinned(context);
+        } else {
+            return executeRegular(context);
+        }
+    }
+
+    private SagaStepResult executeRegular(MissionCompletionContext context) {
         String userId = context.getUserId();
         MissionExecution execution = context.getExecution();
         Mission mission = context.getMission();
@@ -71,21 +80,11 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             userId, execution.getId(), mission.getId());
 
         try {
-            // 사용자 프로필 캐시 조회 (nickname, picture, level, titleName, titleRarity)
             UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
-            log.info("사용자 프로필 조회 완료: userId={}, nickname={}, level={}, title={}",
-                userId, profile.nickname(), profile.level(), profile.titleName());
 
-            // 수행 시간 계산
             Integer durationMinutes = execution.calculateExpByDuration();
-            log.info("수행 시간: {}분, 획득 EXP: {}", durationMinutes, execution.getExpEarned());
-
-            // 카테고리 ID 추출
             Long categoryId = (mission.getCategory() != null) ? mission.getCategory().getId() : null;
-            log.info("피드 생성 정보: missionTitle={}, note={}, imageUrl={}, categoryId={}",
-                mission.getTitle(), execution.getNote(), execution.getImageUrl(), categoryId);
 
-            // 피드 생성
             ActivityFeed feed = activityFeedService.createMissionSharedFeed(
                 userId,
                 profile.nickname(),
@@ -105,11 +104,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 execution.getExpEarned()
             );
 
-            // 생성된 피드 ID 저장 (Saga 컨텍스트)
             context.setCreatedFeedId(feed.getId());
 
-            // execution 엔티티에도 feedId 저장 (나중에 이미지 업로드 시 피드 동기화용)
-            // 별도 트랜잭션으로 실행하여 missionTransactionManager 사용
+            // execution 엔티티에도 feedId 저장 (별도 트랜잭션으로 missionTransactionManager 사용)
             self.updateExecutionFeedId(execution.getId(), feed.getId());
 
             log.info("Mission shared feed created: userId={}, feedId={}, executionId={}",
@@ -118,6 +115,52 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
         } catch (Exception e) {
             log.warn("Failed to create mission shared feed: userId={}, error={}",
+                userId, e.getMessage());
+            return SagaStepResult.failure("피드 생성 실패", e);
+        }
+    }
+
+    private SagaStepResult executePinned(MissionCompletionContext context) {
+        String userId = context.getUserId();
+        DailyMissionInstance instance = context.getInstance();
+        Mission mission = context.getMission();
+
+        log.debug("Creating feed for pinned mission: userId={}, instanceId={}", userId, instance.getId());
+
+        try {
+            UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
+
+            Integer durationMinutes = instance.getDurationMinutes();
+
+            ActivityFeed feed = activityFeedService.createMissionSharedFeed(
+                userId,
+                profile.nickname(),
+                profile.picture(),
+                profile.level(),
+                profile.titleName(),
+                profile.titleRarity(),
+                profile.titleColorCode(),
+                null,  // executionId - 고정 미션은 null
+                mission.getId(),
+                instance.getMissionTitle(),
+                instance.getMissionDescription(),
+                context.getCategoryId(),
+                instance.getNote(),
+                instance.getImageUrl(),
+                durationMinutes,
+                instance.getExpEarned()
+            );
+
+            context.setCreatedFeedId(feed.getId());
+
+            // 인스턴스에 피드 정보 업데이트 (별도 트랜잭션)
+            self.updateInstanceFeedInfo(instance.getId(), feed.getId());
+
+            log.info("Pinned mission feed created: feedId={}, instanceId={}", feed.getId(), instance.getId());
+            return SagaStepResult.success("피드 생성 완료: feedId=" + feed.getId());
+
+        } catch (Exception e) {
+            log.warn("Failed to create feed for pinned mission: userId={}, error={}",
                 userId, e.getMessage());
             return SagaStepResult.failure("피드 생성 실패", e);
         }
@@ -134,12 +177,23 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         }
 
         try {
-            // execution의 feedId도 초기화
-            MissionExecution execution = context.getExecution();
-            if (execution != null && execution.getFeedId() != null) {
-                execution.setFeedId(null);
-                executionRepository.save(execution);
-                log.info("Execution feedId cleared: executionId={}", execution.getId());
+            if (context.isPinned()) {
+                // 인스턴스의 feedId 초기화
+                DailyMissionInstance instance = context.getInstance();
+                if (instance != null && instance.getFeedId() != null) {
+                    instance.setFeedId(null);
+                    instance.setIsSharedToFeed(false);
+                    instanceRepository.save(instance);
+                    log.info("Instance feedId cleared: instanceId={}", instance.getId());
+                }
+            } else {
+                // execution의 feedId 초기화
+                MissionExecution execution = context.getExecution();
+                if (execution != null && execution.getFeedId() != null) {
+                    execution.setFeedId(null);
+                    executionRepository.save(execution);
+                    log.info("Execution feedId cleared: executionId={}", execution.getId());
+                }
             }
 
             // 피드 삭제
@@ -154,7 +208,6 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     /**
      * execution의 feedId를 업데이트 (별도 트랜잭션)
-     * missionTransactionManager를 사용하여 mission_db에 저장
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public void updateExecutionFeedId(Long executionId, Long feedId) {
@@ -163,5 +216,18 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         execution.setFeedId(feedId);
         executionRepository.save(execution);
         log.info("Execution feedId updated: executionId={}, feedId={}", executionId, feedId);
+    }
+
+    /**
+     * instance의 feedId와 isSharedToFeed를 업데이트 (별도 트랜잭션)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void updateInstanceFeedInfo(Long instanceId, Long feedId) {
+        instanceRepository.findById(instanceId).ifPresent(instance -> {
+            instance.setFeedId(feedId);
+            instance.setIsSharedToFeed(true);
+            instanceRepository.save(instance);
+            log.info("Instance feedId updated: instanceId={}, feedId={}", instanceId, feedId);
+        });
     }
 }

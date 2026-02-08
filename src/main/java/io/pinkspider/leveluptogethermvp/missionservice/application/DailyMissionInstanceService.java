@@ -12,8 +12,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionSaga;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.scheduler.DailyMissionInstanceScheduler;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
@@ -55,7 +55,7 @@ public class DailyMissionInstanceService {
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
     private final MissionImageStorageService missionImageStorageService;
-    private final PinnedMissionCompletionSaga pinnedMissionCompletionSaga;
+    private final MissionCompletionSaga missionCompletionSaga;
 
     // ============ 조회 ============
 
@@ -214,14 +214,14 @@ public class DailyMissionInstanceService {
             instanceId, userId, shareToFeed);
 
         // Saga 실행
-        SagaResult<PinnedMissionCompletionContext> result =
-            pinnedMissionCompletionSaga.execute(instanceId, userId, note, shareToFeed);
+        SagaResult<MissionCompletionContext> result =
+            missionCompletionSaga.executePinned(instanceId, userId, note, shareToFeed);
 
         if (!result.isSuccess()) {
             throw new IllegalStateException("고정 미션 완료 실패: " + result.getMessage());
         }
 
-        return pinnedMissionCompletionSaga.toResponse(result);
+        return missionCompletionSaga.toPinnedResponse(result);
     }
 
     /**

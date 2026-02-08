@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
@@ -56,6 +57,9 @@ class CreateFeedFromMissionStepTest {
     private MissionExecutionRepository executionRepository;
 
     @Mock
+    private DailyMissionInstanceRepository instanceRepository;
+
+    @Mock
     private CreateFeedFromMissionStep selfMock;
 
     private CreateFeedFromMissionStep createFeedFromMissionStep;
@@ -79,6 +83,7 @@ class CreateFeedFromMissionStepTest {
             activityFeedService,
             userProfileCacheService,
             executionRepository,
+            instanceRepository,
             selfMock
         );
 

@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantS
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,11 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
     @Override
     public String getName() {
         return "UpdateParticipantProgress";
+    }
+
+    @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return ctx -> !ctx.isPinned();
     }
 
     @Override

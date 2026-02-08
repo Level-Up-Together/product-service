@@ -106,7 +106,7 @@ class GrantGuildExperienceStepTest {
         context.setMission(mission);
         context.setGuildId(GUILD_ID);
         context.setGuildExpEarned(GUILD_EXP);
-        context.setGuildMission(true);
+        // isGuildMission() is computed from mission entity (type=GUILD + guildId set)
 
         guild = Guild.builder()
             .name("테스트 길드")
@@ -143,7 +143,7 @@ class GrantGuildExperienceStepTest {
         @DisplayName("길드 미션이면 true를 반환한다")
         void shouldExecute_guildMission_returnsTrue() {
             // given
-            context.setGuildMission(true);
+            // isGuildMission() is computed from mission entity (type=GUILD + guildId set)
 
             // when
             boolean result = grantGuildExperienceStep.shouldExecute().test(context);
@@ -167,7 +167,7 @@ class GrantGuildExperienceStepTest {
                 .build();
             setId(personalMission, 2L);
             context.setMission(personalMission);
-            context.setGuildMission(false);
+            // isGuildMission() returns false for PERSONAL missions without guildId
 
             // when
             boolean result = grantGuildExperienceStep.shouldExecute().test(context);
@@ -254,7 +254,7 @@ class GrantGuildExperienceStepTest {
                 .build();
             setId(personalMission, 2L);
             context.setMission(personalMission);
-            context.setGuildMission(false);
+            // isGuildMission() returns false for PERSONAL missions without guildId
 
             // when
             SagaStepResult result = grantGuildExperienceStep.compensate(context);

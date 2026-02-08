@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Step 3: 사용자 경험치 지급
+ * 사용자 경험치 지급 (일반 미션 + 고정 미션 통합)
  */
 @Slf4j
 @Component
@@ -29,7 +29,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
 
     @Override
     public int getMaxRetries() {
-        return 2; // 2회 재시도
+        return 2;
     }
 
     @Override
@@ -43,7 +43,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
         String userId = context.getUserId();
         int expToGrant = context.getUserExpEarned();
 
-        log.debug("Granting user experience: userId={}, exp={}", userId, expToGrant);
+        log.debug("Granting user experience: userId={}, exp={}, pinned={}", userId, expToGrant, context.isPinned());
 
         try {
             // 현재 상태 저장 (보상용)
@@ -56,25 +56,39 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 currentExp.getCurrentLevel());
             context.setUserLevelBefore(currentExp.getCurrentLevel());
 
-            // 경험치 지급 (카테고리 ID 포함)
-            Long categoryId = context.getMission().getCategory() != null
-                ? context.getMission().getCategory().getId() : null;
+            // 카테고리 정보 및 설명 (일반/고정 분기)
+            Long categoryId;
+            String categoryName;
+            String description;
+
+            if (context.isPinned()) {
+                categoryId = context.getCategoryId();
+                categoryName = context.getCategoryName();
+                description = "고정 미션 수행 완료: " + context.getMissionTitle();
+            } else {
+                categoryId = context.getMission().getCategory() != null
+                    ? context.getMission().getCategory().getId() : null;
+                categoryName = context.getMission().getCategoryName();
+                description = "미션 수행 완료: " + context.getMission().getTitle();
+            }
+
+            // 경험치 지급
             userExperienceService.addExperience(
                 userId,
                 expToGrant,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
-                "미션 수행 완료: " + context.getMission().getTitle(),
+                description,
                 categoryId,
-                context.getMission().getCategoryName()
+                categoryName
             );
 
             // 지급 후 레벨 확인
             UserExperience afterExp = userExperienceService.getOrCreateUserExperience(userId);
             context.setUserLevelAfter(afterExp.getCurrentLevel());
 
-            log.info("User experience granted: userId={}, exp={}, level: {} -> {}",
-                userId, expToGrant, context.getUserLevelBefore(), context.getUserLevelAfter());
+            log.info("User experience granted: userId={}, exp={}, level: {} -> {}, pinned={}",
+                userId, expToGrant, context.getUserLevelBefore(), context.getUserLevelAfter(), context.isPinned());
 
             return SagaStepResult.success("사용자 경험치 지급 완료", expToGrant);
 
@@ -93,17 +107,29 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
         log.debug("Compensating user experience: userId={}, exp={}", userId, expGranted);
 
         try {
-            // 지급한 경험치 차감 (카테고리 ID 포함)
-            Long categoryId = context.getMission().getCategory() != null
-                ? context.getMission().getCategory().getId() : null;
+            Long categoryId;
+            String categoryName;
+            String description;
+
+            if (context.isPinned()) {
+                categoryId = context.getCategoryId();
+                categoryName = context.getCategoryName();
+                description = "고정 미션 완료 보상 - 경험치 환수";
+            } else {
+                categoryId = context.getMission().getCategory() != null
+                    ? context.getMission().getCategory().getId() : null;
+                categoryName = context.getMission().getCategoryName();
+                description = "미션 완료 보상 - 경험치 환수";
+            }
+
             userExperienceService.subtractExperience(
                 userId,
                 expGranted,
                 ExpSourceType.MISSION_EXECUTION,
                 context.getMission().getId(),
-                "미션 완료 보상 - 경험치 환수",
+                description,
                 categoryId,
-                context.getMission().getCategoryName()
+                categoryName
             );
 
             log.info("User experience compensated: userId={}, exp={}", userId, expGranted);

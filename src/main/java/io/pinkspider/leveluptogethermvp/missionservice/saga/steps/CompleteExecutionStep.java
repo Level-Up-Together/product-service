@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.Duration;
+import java.util.function.Predicate;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,11 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
     @Override
     public String getName() {
         return "CompleteExecution";
+    }
+
+    @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return ctx -> !ctx.isPinned();
     }
 
     @Override
