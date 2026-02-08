@@ -21,6 +21,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPost;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import java.util.List;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -41,288 +44,161 @@ public class NotificationEventListener {
     private final GuildRepository guildRepository;
     private final GuildPostRepository guildPostRepository;
 
-    /**
-     * 칭호 획득 이벤트 처리
-     */
+    // ==================== 헬퍼 메서드 ====================
+
+    private void safeHandle(String eventName, Runnable action) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            log.error("{} 알림 생성 실패: error={}", eventName, e.getMessage(), e);
+        }
+    }
+
+    private void safeHandleMultiple(String eventName, List<String> memberIds,
+                                     String excludeId, Consumer<String> action) {
+        try {
+            for (String memberId : memberIds) {
+                if (excludeId != null && memberId.equals(excludeId)) continue;
+                try {
+                    action.accept(memberId);
+                } catch (Exception e) {
+                    log.warn("{} 알림 실패: memberId={}", eventName, memberId);
+                }
+            }
+        } catch (Exception e) {
+            log.error("{} 알림 처리 실패: error={}", eventName, e.getMessage(), e);
+        }
+    }
+
+    // ==================== 칭호/업적 ====================
+
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTitleAcquired(TitleAcquiredEvent event) {
-        try {
-            log.debug("칭호 획득 이벤트 처리: userId={}, titleName={}", event.userId(), event.titleName());
-            notificationService.notifyTitleAcquired(
-                event.userId(),
-                event.titleId(),
-                event.titleName(),
-                event.rarity()
-            );
-        } catch (Exception e) {
-            log.error("칭호 획득 알림 생성 실패: userId={}, error={}", event.userId(), e.getMessage(), e);
-        }
+        safeHandle("칭호 획득", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.TITLE_ACQUIRED,
+            event.titleId(), "rarity:" + event.rarity(), event.titleName()));
     }
 
-    /**
-     * 업적 달성 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAchievementCompleted(AchievementCompletedEvent event) {
-        try {
-            log.debug("업적 달성 이벤트 처리: userId={}, achievementName={}", event.userId(), event.achievementName());
-            notificationService.notifyAchievementCompleted(
-                event.userId(),
-                event.achievementId(),
-                event.achievementName()
-            );
-        } catch (Exception e) {
-            log.error("업적 달성 알림 생성 실패: userId={}, error={}", event.userId(), e.getMessage(), e);
-        }
+        safeHandle("업적 달성", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.ACHIEVEMENT_COMPLETED,
+            event.achievementId(), null, event.achievementName()));
     }
 
-    /**
-     * 친구 요청 이벤트 처리
-     */
+    // ==================== 친구 ====================
+
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequest(FriendRequestEvent event) {
-        try {
-            log.debug("친구 요청 이벤트 처리: from={}, to={}", event.userId(), event.targetUserId());
-            notificationService.notifyFriendRequest(
-                event.targetUserId(),
-                event.requesterNickname(),
-                event.friendshipId()
-            );
-        } catch (Exception e) {
-            log.error("친구 요청 알림 생성 실패: error={}", e.getMessage(), e);
-        }
+        safeHandle("친구 요청", () -> notificationService.sendNotification(
+            event.targetUserId(), NotificationType.FRIEND_REQUEST,
+            event.friendshipId(), null, event.requesterNickname()));
     }
 
-    /**
-     * 친구 요청 수락 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestAccepted(FriendRequestAcceptedEvent event) {
-        try {
-            log.debug("친구 요청 수락 이벤트 처리: accepter={}, requester={}", event.userId(), event.requesterId());
-            notificationService.notifyFriendAccepted(
-                event.requesterId(),
-                event.accepterNickname(),
-                event.friendshipId()
-            );
-        } catch (Exception e) {
-            log.error("친구 수락 알림 생성 실패: error={}", e.getMessage(), e);
-        }
+        safeHandle("친구 수락", () -> notificationService.sendNotification(
+            event.requesterId(), NotificationType.FRIEND_ACCEPTED,
+            event.friendshipId(), null, event.accepterNickname()));
     }
 
-    /**
-     * 친구 요청 거절 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestRejected(FriendRequestRejectedEvent event) {
-        try {
-            log.debug("친구 요청 거절 이벤트 처리: rejecter={}, requester={}", event.userId(), event.requesterId());
-            notificationService.notifyFriendRejected(
-                event.requesterId(),
-                event.rejecterNickname(),
-                event.friendshipId()
-            );
-        } catch (Exception e) {
-            log.error("친구 거절 알림 생성 실패: error={}", e.getMessage(), e);
-        }
+        safeHandle("친구 거절", () -> notificationService.sendNotification(
+            event.requesterId(), NotificationType.FRIEND_REJECTED,
+            event.friendshipId(), null, event.rejecterNickname()));
     }
 
-    /**
-     * 친구 요청 처리 완료 이벤트 (알림 삭제)
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFriendRequestProcessed(FriendRequestProcessedEvent event) {
-        try {
-            log.debug("친구 요청 알림 삭제: friendshipId={}", event.friendshipId());
-            notificationService.deleteByReference("FRIEND_REQUEST", event.friendshipId());
-        } catch (Exception e) {
-            log.error("친구 요청 알림 삭제 실패: error={}", e.getMessage(), e);
-        }
+        safeHandle("친구 요청 알림 삭제", () ->
+            notificationService.deleteByReference("FRIEND_REQUEST", event.friendshipId()));
     }
 
-    /**
-     * 길드 미션 도착 이벤트 처리
-     */
+    // ==================== 길드 ====================
+
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildMissionArrived(GuildMissionArrivedEvent event) {
-        try {
-            log.debug("길드 미션 도착 이벤트 처리: missionId={}, memberCount={}",
-                event.missionId(), event.memberIds().size());
-            for (String memberId : event.memberIds()) {
-                try {
-                    notificationService.notifyGuildMissionArrived(
-                        memberId,
-                        event.missionTitle(),
-                        event.missionId()
-                    );
-                } catch (Exception e) {
-                    log.warn("길드 미션 알림 생성 실패: memberId={}, error={}", memberId, e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            log.error("길드 미션 알림 처리 실패: error={}", e.getMessage(), e);
-        }
+        safeHandleMultiple("길드 미션", event.memberIds(), null, memberId ->
+            notificationService.sendNotification(
+                memberId, NotificationType.GUILD_MISSION_ARRIVED,
+                event.missionId(), null, event.missionTitle()));
     }
 
-    /**
-     * 길드 공지사항 등록 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildBulletinCreated(GuildBulletinCreatedEvent event) {
-        try {
-            log.debug("길드 공지사항 등록 이벤트 처리: postId={}, memberCount={}",
-                event.postId(), event.memberIds().size());
-            for (String memberId : event.memberIds()) {
-                try {
-                    notificationService.notifyGuildBulletin(
-                        memberId,
-                        event.guildName(),
-                        event.guildId(),
-                        event.postId(),
-                        event.postTitle()
-                    );
-                } catch (Exception e) {
-                    log.warn("길드 공지사항 알림 생성 실패: memberId={}, error={}", memberId, e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            log.error("길드 공지사항 알림 처리 실패: error={}", e.getMessage(), e);
-        }
+        safeHandleMultiple("길드 공지사항", event.memberIds(), null, memberId ->
+            notificationService.sendNotification(
+                memberId, NotificationType.GUILD_BULLETIN,
+                event.postId(), null,
+                event.guildName(), event.postTitle(), event.guildId().toString()));
     }
 
-    /**
-     * 피드 댓글 이벤트 처리
-     */
-    @Async(EVENT_EXECUTOR)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleFeedComment(FeedCommentEvent event) {
-        try {
-            // 자신의 글에 자신이 댓글 단 경우 알림 제외
-            if (event.userId().equals(event.feedOwnerId())) {
-                return;
-            }
-            log.debug("피드 댓글 이벤트 처리: commenter={}, feedOwner={}", event.userId(), event.feedOwnerId());
-            notificationService.notifyCommentOnMyFeed(
-                event.feedOwnerId(),
-                event.commenterNickname(),
-                event.feedId()
-            );
-        } catch (Exception e) {
-            log.error("피드 댓글 알림 생성 실패: error={}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 미션 댓글 이벤트 처리
-     */
-    @Async(EVENT_EXECUTOR)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleMissionComment(MissionCommentEvent event) {
-        try {
-            log.debug("미션 댓글 이벤트 처리: commenter={}, missionCreator={}",
-                event.userId(), event.missionCreatorId());
-            notificationService.notifyCommentOnMyMission(
-                event.missionCreatorId(),
-                event.commenterNickname(),
-                event.missionId(),
-                event.missionTitle()
-            );
-        } catch (Exception e) {
-            log.error("미션 댓글 알림 생성 실패: error={}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 길드 채팅 메시지 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildChatMessage(GuildChatMessageEvent event) {
-        try {
-            log.debug("길드 채팅 이벤트 처리: guildId={}, sender={}, memberCount={}",
-                event.guildId(), event.userId(), event.memberIds().size());
-
-            for (String memberId : event.memberIds()) {
-                // 발송자 본인에게는 알림 안 보냄
-                if (memberId.equals(event.userId())) {
-                    continue;
-                }
-                try {
-                    notificationService.notifyGuildChat(
-                        memberId,
-                        event.senderNickname(),
-                        event.guildId(),
-                        event.guildName(),
-                        event.messageId(),
-                        event.getPreviewContent()
-                    );
-                } catch (Exception e) {
-                    log.warn("길드 채팅 알림 생성 실패: memberId={}, error={}", memberId, e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            log.error("길드 채팅 알림 처리 실패: error={}", e.getMessage(), e);
-        }
+        safeHandleMultiple("길드 채팅", event.memberIds(), event.userId(), memberId ->
+            notificationService.sendNotification(
+                memberId, NotificationType.GUILD_CHAT,
+                event.messageId(), null,
+                event.guildName(), event.senderNickname(),
+                event.getPreviewContent(), event.guildId().toString()));
     }
 
-    /**
-     * 길드 창설 가능 레벨 도달 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildCreationEligible(GuildCreationEligibleEvent event) {
-        try {
-            log.debug("길드 창설 가능 이벤트 처리: userId={}, level={}", event.userId(), event.level());
-            notificationService.notifyGuildCreationEligible(event.userId());
-        } catch (Exception e) {
-            log.error("길드 창설 가능 알림 생성 실패: userId={}, error={}", event.userId(), e.getMessage(), e);
-        }
+        safeHandle("길드 창설 가능", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.GUILD_CREATION_ELIGIBLE,
+            null, null));
     }
 
-    /**
-     * 길드 초대 이벤트 처리
-     */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildInvitation(GuildInvitationEvent event) {
-        try {
-            log.debug("길드 초대 이벤트 처리: inviteeId={}, guildId={}, invitationId={}",
-                event.inviteeId(), event.guildId(), event.invitationId());
-            notificationService.notifyGuildInvitation(
-                event.inviteeId(),
-                event.inviterNickname(),
-                event.guildId(),
-                event.guildName(),
-                event.invitationId()
-            );
-        } catch (Exception e) {
-            log.error("길드 초대 알림 생성 실패: inviteeId={}, error={}", event.inviteeId(), e.getMessage(), e);
-        }
+        safeHandle("길드 초대", () -> notificationService.sendNotification(
+            event.inviteeId(), NotificationType.GUILD_INVITE,
+            event.invitationId(), null,
+            event.inviterNickname(), event.guildName()));
     }
 
-    /**
-     * 콘텐츠 신고 이벤트 처리
-     * 신고 당한 유저에게 알림, 길드 관련 신고 시 길드 마스터에게도 알림
-     */
+    // ==================== 소셜 (댓글) ====================
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFeedComment(FeedCommentEvent event) {
+        if (event.userId().equals(event.feedOwnerId())) return;
+        safeHandle("피드 댓글", () -> notificationService.sendNotification(
+            event.feedOwnerId(), NotificationType.COMMENT_ON_MY_FEED,
+            event.feedId(), null, event.commenterNickname()));
+    }
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionComment(MissionCommentEvent event) {
+        safeHandle("미션 댓글", () -> notificationService.sendNotification(
+            event.missionCreatorId(), NotificationType.COMMENT_ON_MY_MISSION,
+            event.missionId(), null,
+            event.commenterNickname(), event.missionTitle()));
+    }
+
+    // ==================== 신고 ====================
+
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleContentReported(ContentReportedEvent event) {
         try {
-            log.debug("콘텐츠 신고 이벤트 처리: targetType={}, targetId={}, targetUserId={}",
-                event.targetType(), event.targetId(), event.targetUserId());
-
             String targetUserId = event.targetUserId();
             String targetTypeDescription = event.targetTypeDescription();
 
-            // 1. 신고 당한 유저에게 알림
             if (targetUserId != null && !targetUserId.isBlank()) {
                 try {
                     notificationService.notifyContentReported(targetUserId, targetTypeDescription);
@@ -331,9 +207,7 @@ public class NotificationEventListener {
                 }
             }
 
-            // 2. 길드 관련 신고 시 길드 마스터에게도 알림
             notifyGuildMasterIfApplicable(event, targetUserId);
-
         } catch (Exception e) {
             log.error("콘텐츠 신고 알림 처리 실패: error={}", e.getMessage(), e);
         }
@@ -360,7 +234,6 @@ public class NotificationEventListener {
                 }
             }
 
-            // 길드 마스터에게 알림 (신고 당한 유저와 다른 경우에만)
             if (guildMasterId != null && !guildMasterId.equals(targetUserId)) {
                 notificationService.notifyGuildContentReported(
                     guildMasterId, event.targetTypeDescription(), guildId);

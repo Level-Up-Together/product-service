@@ -4,8 +4,8 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,11 +17,13 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.Notificat
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.kafka.producer.KafkaAppPushProducer;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,9 @@ class NotificationServiceTest {
 
     @Mock
     private NotificationPreferenceRepository preferenceRepository;
+
+    @Mock
+    private KafkaAppPushProducer kafkaAppPushProducer;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -532,12 +537,12 @@ class NotificationServiceTest {
     }
 
     @Nested
-    @DisplayName("편의 메서드 테스트")
-    class ConvenienceMethodsTest {
+    @DisplayName("sendNotification 테스트")
+    class SendNotificationTest {
 
         @Test
-        @DisplayName("친구 요청 알림을 생성한다")
-        void notifyFriendRequest_success() {
+        @DisplayName("일반 타입 알림을 enum 메타데이터로 생성한다")
+        void sendNotification_normalType_usesEnumMetadata() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_REQUEST);
@@ -546,15 +551,70 @@ class NotificationServiceTest {
             when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
 
             // when
-            notificationService.notifyFriendRequest(TEST_USER_ID, "테스터", 100L);
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.FRIEND_REQUEST,
+                100L, null, "테스터");
 
             // then
             verify(notificationRepository).save(any(Notification.class));
+            verify(notificationRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("중복 방지 타입은 saveAndFlush를 사용한다")
+        void sendNotification_dedupType_usesSaveAndFlush() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.TITLE_ACQUIRED);
+
+            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                TEST_USER_ID, "TITLE", 1L)).thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.TITLE_ACQUIRED,
+                1L, "rarity:COMMON", "초보 모험가");
+
+            // then
+            verify(notificationRepository).saveAndFlush(any(Notification.class));
+            verify(notificationRepository, never()).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("중복 알림이 이미 존재하면 스킵한다")
+        void sendNotification_duplicateExists_skips() {
+            // given
+            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                TEST_USER_ID, "ACHIEVEMENT", 1L)).thenReturn(true);
+
+            // when
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED,
+                1L, null, "미션 마스터");
+
+            // then
+            verify(notificationRepository, never()).save(any());
+            verify(notificationRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("DataIntegrityViolationException 발생 시 무시한다")
+        void sendNotification_dataIntegrityViolation_ignored() {
+            // given
+            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
+                TEST_USER_ID, "TITLE", 1L)).thenReturn(false);
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.saveAndFlush(any(Notification.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate entry"));
+
+            // when & then - 예외 발생하지 않음
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.TITLE_ACQUIRED,
+                1L, "rarity:LEGENDARY", "전설적인 모험가");
         }
 
         @Test
         @DisplayName("길드 초대 알림을 생성한다")
-        void notifyGuildInvite_success() {
+        void sendNotification_guildInvite_success() {
             // given
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_INVITE);
@@ -563,203 +623,37 @@ class NotificationServiceTest {
             when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
 
             // when
-            notificationService.notifyGuildInvite(TEST_USER_ID, "테스트 길드", 100L);
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.GUILD_INVITE,
+                1L, null, "마스터닉네임", "테스트 길드");
 
             // then
             verify(notificationRepository).save(any(Notification.class));
         }
 
         @Test
-        @DisplayName("칭호 획득 알림을 생성한다")
-        void notifyTitleAcquired_success() {
+        @DisplayName("카테고리 비활성화 시 알림을 생성하지 않는다")
+        void sendNotification_categoryDisabled_skips() {
             // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            preference.setSystemNotifications(true);  // ACHIEVEMENT 카테고리는 기본적으로 true로 처리
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.TITLE_ACQUIRED);
-
-            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(TEST_USER_ID, "TITLE", 1L))
-                .thenReturn(false);
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyTitleAcquired(TEST_USER_ID, 1L, "초보 모험가", "COMMON");
-
-            // then
-            verify(notificationRepository).saveAndFlush(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("친구 수락 알림을 생성한다")
-        void notifyFriendAccepted_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_ACCEPTED);
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .friendNotifications(false)
+                .build();
+            setId(preference, 1L);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
 
             // when
-            notificationService.notifyFriendAccepted(TEST_USER_ID, "친구이름", 100L);
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.FRIEND_REQUEST,
+                100L, null, "테스터");
 
             // then
-            verify(notificationRepository).save(any(Notification.class));
+            verify(notificationRepository, never()).save(any());
         }
+    }
 
-        @Test
-        @DisplayName("친구 거절 알림을 생성한다")
-        void notifyFriendRejected_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.FRIEND_REJECTED);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyFriendRejected(TEST_USER_ID, "친구이름", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 가입 요청 알림을 생성한다")
-        void notifyGuildJoinRequest_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_REQUEST);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildJoinRequest(TEST_USER_ID, "테스트길드", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 가입 승인 알림을 생성한다")
-        void notifyGuildJoinApproved_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_APPROVED);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildJoinApproved(TEST_USER_ID, "테스트길드", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 가입 거절 알림을 생성한다")
-        void notifyGuildJoinRejected_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_JOIN_REJECTED);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildJoinRejected(TEST_USER_ID, "테스트길드", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 미션 도착 알림을 생성한다")
-        void notifyGuildMissionArrived_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_MISSION_ARRIVED);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildMissionArrived(TEST_USER_ID, "테스트길드", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 게시판 알림을 생성한다")
-        void notifyGuildBulletin_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_BULLETIN);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildBulletin(TEST_USER_ID, "테스트길드", 100L, 1L, "게시글 제목");
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("길드 채팅 알림을 생성한다")
-        void notifyGuildChat_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.GUILD_CHAT);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyGuildChat(TEST_USER_ID, "테스트길드", 100L, "작성자닉네임", 1L, "채팅 내용");
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("피드 댓글 알림을 생성한다")
-        void notifyCommentOnMyFeed_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.COMMENT_ON_MY_FEED);
-
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyCommentOnMyFeed(TEST_USER_ID, "댓글작성자", 100L);
-
-            // then
-            verify(notificationRepository).save(any(Notification.class));
-        }
-
-        @Test
-        @DisplayName("업적 완료 알림을 생성한다")
-        void notifyAchievementCompleted_success() {
-            // given
-            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
-            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED);
-
-            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(TEST_USER_ID, "ACHIEVEMENT", 1L))
-                .thenReturn(false);
-            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
-            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(savedNotification);
-
-            // when
-            notificationService.notifyAchievementCompleted(TEST_USER_ID, 1L, "미션 마스터");
-
-            // then
-            verify(notificationRepository).saveAndFlush(any(Notification.class));
-        }
+    @Nested
+    @DisplayName("편의 메서드 테스트")
+    class ConvenienceMethodsTest {
 
         @Test
         @DisplayName("콘텐츠 신고 알림을 생성한다")
