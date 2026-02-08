@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
+
 import io.pinkspider.global.translation.GoogleTranslationFeignClient;
 import io.pinkspider.global.translation.TranslationService;
 import io.pinkspider.global.translation.dto.GoogleTranslationRequest;
@@ -17,7 +19,6 @@ import io.pinkspider.global.translation.entity.ContentTranslation;
 import io.pinkspider.global.translation.enums.ContentType;
 import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.global.translation.repository.ContentTranslationRepository;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,16 +52,10 @@ class TranslationServiceTest {
     private TranslationService translationService;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         // translationEnabled 필드를 true로 설정
-        setField(translationService, "translationEnabled", true);
-        setField(translationService, "apiKey", "test-api-key");
-    }
-
-    private void setField(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
+        TestReflectionUtils.setField(translationService, "translationEnabled", true);
+        TestReflectionUtils.setField(translationService, "apiKey", "test-api-key");
     }
 
     @Nested
@@ -69,9 +64,9 @@ class TranslationServiceTest {
 
         @Test
         @DisplayName("번역이 비활성화되면 번역하지 않음")
-        void shouldNotTranslateWhenDisabled() throws Exception {
+        void shouldNotTranslateWhenDisabled() {
             // given
-            setField(translationService, "translationEnabled", false);
+            TestReflectionUtils.setField(translationService, "translationEnabled", false);
             String content = "이것은 테스트 콘텐츠입니다.";
 
             // when

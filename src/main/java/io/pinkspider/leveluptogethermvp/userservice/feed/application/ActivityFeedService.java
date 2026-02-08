@@ -9,11 +9,7 @@ import io.pinkspider.global.translation.enums.ContentType;
 import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedFeed;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedFeedRepository;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.FeedCommentRequest;
@@ -68,11 +64,11 @@ public class ActivityFeedService {
     private final FriendCacheService friendCacheService;
     private final FeaturedFeedRepository featuredFeedRepository;
     private final UserRepository userRepository;
-    private final UserTitleRepository userTitleRepository;
     private final UserProfileCacheService userProfileCacheService;
     private final TranslationService translationService;
     private final ReportService reportService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserTitleInfoHelper userTitleInfoHelper;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -122,7 +118,7 @@ public class ActivityFeedService {
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
 
         // 사용자 장착 칭호 정보 조회
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
         String userTitle = titleInfo.titleName();
         TitleRarity userTitleRarity = titleInfo.titleRarity();
         String userTitleColorCode = titleInfo.colorCode();
@@ -762,39 +758,6 @@ public class ActivityFeedService {
             comment.getContent(),
             targetLocale
         );
-    }
-
-    /**
-     * 사용자의 장착된 칭호 정보 조회
-     */
-    private UserTitleInfo getUserEquippedTitleInfo(String userId) {
-        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
-        if (equippedTitles.isEmpty()) {
-            return UserTitleInfo.empty();
-        }
-
-        Title leftTitle = null;
-        Title rightTitle = null;
-        TitleRarity maxRarity = null;
-        String maxRarityColorCode = null;
-
-        for (UserTitle ut : equippedTitles) {
-            Title title = ut.getTitle();
-            if (ut.getEquippedPosition() == TitlePosition.LEFT) {
-                leftTitle = title;
-            } else if (ut.getEquippedPosition() == TitlePosition.RIGHT) {
-                rightTitle = title;
-            }
-
-            // 가장 높은 등급과 색상 코드 찾기
-            if (maxRarity == null || title.getRarity().ordinal() > maxRarity.ordinal()) {
-                maxRarity = title.getRarity();
-                maxRarityColorCode = title.getColorCode();
-            }
-        }
-
-        String combinedName = Title.getCombinedDisplayName(leftTitle, rightTitle);
-        return new UserTitleInfo(combinedName.isEmpty() ? null : combinedName, maxRarity, maxRarityColorCode);
     }
 
     // ========== 사용자 공유 피드 생성 ==========

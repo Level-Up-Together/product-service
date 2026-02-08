@@ -41,6 +41,7 @@ public class GuildService {
     private final GuildHeadquartersService guildHeadquartersService;
     private final GuildImageStorageService guildImageStorageService;
     private final UserExperienceService userExperienceService;
+    private final GuildHelper guildHelper;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse createGuild(String userId, GuildCreateRequest request) {
@@ -116,13 +117,13 @@ public class GuildService {
 
         log.info("길드 생성 완료: id={}, name={}, master={}", savedGuild.getId(), savedGuild.getName(), userId);
 
-        return buildGuildResponseWithCategory(savedGuild, 1);
+        return guildHelper.buildGuildResponseWithCategory(savedGuild, 1);
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse updateGuild(Long guildId, String userId, GuildUpdateRequest request) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, userId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
+        guildHelper.validateMaster(guild, userId);
 
         if (request.getName() != null && !request.getName().equals(guild.getName())) {
             if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
@@ -162,7 +163,7 @@ public class GuildService {
 
         log.info("길드 수정 완료: id={}", guildId);
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        return buildGuildResponseWithCategory(guild, memberCount);
+        return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
     }
 
     /**
@@ -170,8 +171,8 @@ public class GuildService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse uploadGuildImage(Long guildId, String userId, MultipartFile imageFile) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, userId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
+        guildHelper.validateMaster(guild, userId);
 
         // 유효성 검증
         if (!guildImageStorageService.isValidImage(imageFile)) {
@@ -191,7 +192,7 @@ public class GuildService {
         log.info("길드 이미지 업로드: guildId={}, imageUrl={}", guildId, newImageUrl);
 
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        return buildGuildResponseWithCategory(guild, memberCount);
+        return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
     }
 
     /**
@@ -200,7 +201,7 @@ public class GuildService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public void dissolveGuild(Long guildId, String userId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         // 길드 마스터인지 확인
         if (!guild.getMasterId().equals(userId)) {
@@ -226,36 +227,6 @@ public class GuildService {
         guild.deactivate();
 
         log.info("길드 해체: guildId={}, masterId={}, guildName={}", guildId, userId, guild.getName());
-    }
-
-    private Guild findActiveGuildById(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
-    }
-
-    private void validateMaster(Guild guild, String userId) {
-        if (!guild.isMaster(userId)) {
-            throw new IllegalStateException("길드 마스터만 이 작업을 수행할 수 있습니다.");
-        }
-    }
-
-    private GuildResponse buildGuildResponseWithCategory(Guild guild, int memberCount) {
-        String categoryName = null;
-        String categoryIcon = null;
-
-        if (guild.getCategoryId() != null) {
-            try {
-                MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
-                if (category != null) {
-                    categoryName = category.getName();
-                    categoryIcon = category.getIcon();
-                }
-            } catch (Exception e) {
-                log.warn("카테고리 조회 실패: categoryId={}", guild.getCategoryId(), e);
-            }
-        }
-
-        return GuildResponse.from(guild, memberCount, categoryName, categoryIcon);
     }
 
     /**

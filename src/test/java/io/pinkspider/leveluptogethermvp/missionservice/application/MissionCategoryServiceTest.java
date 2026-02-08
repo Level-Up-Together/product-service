@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,7 +13,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategor
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionCategory;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCategoryRepository;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -32,16 +32,6 @@ class MissionCategoryServiceTest {
     @InjectMocks
     private MissionCategoryService missionCategoryService;
 
-    private void setCategoryId(MissionCategory category, Long id) {
-        try {
-            Field idField = MissionCategory.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(category, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private MissionCategory createTestCategory(Long id, String name, boolean isActive) {
         MissionCategory category = MissionCategory.builder()
             .name(name)
@@ -50,7 +40,7 @@ class MissionCategoryServiceTest {
             .displayOrder(id.intValue())
             .isActive(isActive)
             .build();
-        setCategoryId(category, id);
+        setId(category, id);
         return category;
     }
 

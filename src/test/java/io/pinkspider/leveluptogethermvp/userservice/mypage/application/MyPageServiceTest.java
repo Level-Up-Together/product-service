@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -38,7 +40,6 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -118,11 +119,9 @@ class MyPageServiceTest {
             .email(userId + "@test.com")
             .bio("테스트 자기소개")
             .build();
+        setId(user, userId);
         try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-            Field createdAtField = Users.class.getSuperclass().getDeclaredField("createdAt");
+            java.lang.reflect.Field createdAtField = Users.class.getSuperclass().getDeclaredField("createdAt");
             createdAtField.setAccessible(true);
             createdAtField.set(user, LocalDateTime.now().minusDays(30));
         } catch (Exception e) {
@@ -138,13 +137,7 @@ class MyPageServiceTest {
             .rarity(rarity)
             .positionType(positionType)
             .build();
-        try {
-            Field idField = Title.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(title, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(title, id);
         return title;
     }
 
@@ -154,17 +147,9 @@ class MyPageServiceTest {
             .title(title)
             .isEquipped(isEquipped)
             .build();
-        try {
-            Field idField = UserTitle.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(userTitle, id);
-            if (equippedPosition != null) {
-                Field posField = UserTitle.class.getDeclaredField("equippedPosition");
-                posField.setAccessible(true);
-                posField.set(userTitle, equippedPosition);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        setId(userTitle, id);
+        if (equippedPosition != null) {
+            TestReflectionUtils.setField(userTitle, "equippedPosition", equippedPosition);
         }
         return userTitle;
     }
@@ -270,13 +255,7 @@ class MyPageServiceTest {
                 .friendId(TEST_USER_ID)
                 .status(FriendshipStatus.REJECTED)
                 .build();
-            try {
-                Field idField = Friendship.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(rejectedFriendship, 1L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(rejectedFriendship, 1L);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -309,13 +288,7 @@ class MyPageServiceTest {
                 .friendId(TEST_USER_ID)
                 .status(FriendshipStatus.BLOCKED)
                 .build();
-            try {
-                Field idField = Friendship.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(blockedFriendship, 1L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(blockedFriendship, 1L);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -394,13 +367,7 @@ class MyPageServiceTest {
                 .friendId(TEST_USER_ID)
                 .status(FriendshipStatus.ACCEPTED)
                 .build();
-            try {
-                Field idField = Friendship.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(acceptedFriendship, 1L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(acceptedFriendship, 1L);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -431,13 +398,7 @@ class MyPageServiceTest {
                 .friendId(TEST_USER_ID)
                 .status(FriendshipStatus.PENDING)
                 .build();
-            try {
-                Field idField = Friendship.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(pendingFriendship, 1L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(pendingFriendship, 1L);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -468,13 +429,7 @@ class MyPageServiceTest {
                 .friendId(currentUserId)
                 .status(FriendshipStatus.PENDING)
                 .build();
-            try {
-                Field idField = Friendship.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(pendingFriendship, 99L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(pendingFriendship, 99L);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -544,13 +499,7 @@ class MyPageServiceTest {
             // given
             Users user = createTestUser(TEST_USER_ID, "테스터");
             ProfileUpdateRequest request = new ProfileUpdateRequest();
-            try {
-                Field field = ProfileUpdateRequest.class.getDeclaredField("profileImageUrl");
-                field.setAccessible(true);
-                field.set(request, "https://example.com/new-image.jpg");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(request, "profileImageUrl", "https://example.com/new-image.jpg");
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
@@ -777,13 +726,7 @@ class MyPageServiceTest {
         void needsNicknameSetup_true() {
             // given
             Users user = createTestUser(TEST_USER_ID, "테스터");
-            try {
-                Field field = Users.class.getDeclaredField("nicknameSet");
-                field.setAccessible(true);
-                field.set(user, false);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(user, "nicknameSet", false);
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
@@ -809,16 +752,8 @@ class MyPageServiceTest {
             UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
 
             TitleChangeRequest request = new TitleChangeRequest();
-            try {
-                Field leftField = TitleChangeRequest.class.getDeclaredField("leftUserTitleId");
-                leftField.setAccessible(true);
-                leftField.set(request, 1L);
-                Field rightField = TitleChangeRequest.class.getDeclaredField("rightUserTitleId");
-                rightField.setAccessible(true);
-                rightField.set(request, 2L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
+            TestReflectionUtils.setField(request, "rightUserTitleId", 2L);
 
             when(userTitleRepository.existsById(1L)).thenReturn(true);
             when(userTitleRepository.existsById(2L)).thenReturn(true);
@@ -845,16 +780,8 @@ class MyPageServiceTest {
         void changeTitles_sameTitles_throwsException() {
             // given
             TitleChangeRequest request = new TitleChangeRequest();
-            try {
-                Field leftField = TitleChangeRequest.class.getDeclaredField("leftUserTitleId");
-                leftField.setAccessible(true);
-                leftField.set(request, 1L);
-                Field rightField = TitleChangeRequest.class.getDeclaredField("rightUserTitleId");
-                rightField.setAccessible(true);
-                rightField.set(request, 1L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
+            TestReflectionUtils.setField(request, "rightUserTitleId", 1L);
 
             // when & then
             assertThatThrownBy(() -> myPageService.changeTitles(TEST_USER_ID, request))
@@ -872,16 +799,8 @@ class MyPageServiceTest {
             UserTitle rightUserTitle = createTestUserTitle(2L, TEST_USER_ID, rightTitle, false, null);
 
             TitleChangeRequest request = new TitleChangeRequest();
-            try {
-                Field leftField = TitleChangeRequest.class.getDeclaredField("leftUserTitleId");
-                leftField.setAccessible(true);
-                leftField.set(request, 1L);
-                Field rightField = TitleChangeRequest.class.getDeclaredField("rightUserTitleId");
-                rightField.setAccessible(true);
-                rightField.set(request, 2L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
+            TestReflectionUtils.setField(request, "rightUserTitleId", 2L);
 
             when(userTitleRepository.existsById(1L)).thenReturn(true);
             when(userTitleRepository.existsById(2L)).thenReturn(true);

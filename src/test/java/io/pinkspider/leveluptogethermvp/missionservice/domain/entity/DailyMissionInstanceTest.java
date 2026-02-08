@@ -1,14 +1,16 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,28 +56,8 @@ class DailyMissionInstanceTest {
         setId(participant, 1L);
     }
 
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private DailyMissionInstance createInstance(LocalDate date) {
         return DailyMissionInstance.createFrom(participant, date);
-    }
-
-    private void setStartedAt(DailyMissionInstance instance, LocalDateTime startedAt) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("startedAt");
-            field.setAccessible(true);
-            field.set(instance, startedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -164,7 +146,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
@@ -211,7 +193,7 @@ class DailyMissionInstanceTest {
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
             // 5분 전에 시작했다고 설정
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
 
             // when
             instance.complete();
@@ -228,7 +210,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
@@ -287,7 +269,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(60));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(60));
             instance.complete();
 
             // when
@@ -317,7 +299,7 @@ class DailyMissionInstanceTest {
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
             // 10시간 전에 시작
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(600));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(600));
             instance.complete();
 
             // when
@@ -365,7 +347,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
@@ -400,7 +382,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when & then
@@ -468,7 +450,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
 
             // when
@@ -517,7 +499,7 @@ class DailyMissionInstanceTest {
 
             // 첫 번째 완료
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(10));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(10));
             instance.complete();
             assertThat(instance.getCompletionCount()).isEqualTo(1);
             int firstExpEarned = instance.getTotalExpEarned();
@@ -525,7 +507,7 @@ class DailyMissionInstanceTest {
 
             // 두 번째 완료
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(20));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(20));
             instance.complete();
             assertThat(instance.getCompletionCount()).isEqualTo(2);
             assertThat(instance.getTotalExpEarned()).isGreaterThan(firstExpEarned);
@@ -533,7 +515,7 @@ class DailyMissionInstanceTest {
 
             // 세 번째 완료
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(15));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(15));
             instance.complete();
 
             // then
@@ -547,7 +529,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(5));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(5));
             instance.complete();
             instance.resetToPending();
 
@@ -570,7 +552,7 @@ class DailyMissionInstanceTest {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(45));
+            TestReflectionUtils.setField(instance, "startedAt",LocalDateTime.now().minusMinutes(45));
             instance.complete();
 
             // when

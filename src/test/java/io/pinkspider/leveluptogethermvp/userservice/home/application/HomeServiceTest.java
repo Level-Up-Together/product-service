@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -100,7 +101,7 @@ class HomeServiceTest {
             .nickname("테스터")
             .picture("https://example.com/profile.jpg")
             .build();
-        setUserId(testUser, testUserId);
+        setId(testUser, testUserId);
 
         testUserExperience = UserExperience.builder()
             .userId(testUserId)
@@ -114,38 +115,9 @@ class HomeServiceTest {
             .icon("💪")
             .isActive(true)
             .build();
-        setCategoryId(testCategory, testCategoryId);
+        setId(testCategory, testCategoryId);
     }
 
-    private void setUserId(Users user, String id) {
-        try {
-            java.lang.reflect.Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setCategoryId(MissionCategory category, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionCategory.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(category, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setTitleId(Title title, Long id) {
-        try {
-            java.lang.reflect.Field idField = Title.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(title, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Nested
     @DisplayName("오늘의 플레이어 조회 테스트")
@@ -207,7 +179,7 @@ class HomeServiceTest {
                 .rarity(TitleRarity.RARE)
                 .positionType(TitlePosition.LEFT)
                 .build();
-            setTitleId(leftTitle, 1L);
+            setId(leftTitle, 1L);
 
             // RIGHT 칭호 생성 (LEGENDARY 등급)
             Title rightTitle = Title.builder()
@@ -215,7 +187,7 @@ class HomeServiceTest {
                 .rarity(TitleRarity.LEGENDARY)
                 .positionType(TitlePosition.RIGHT)
                 .build();
-            setTitleId(rightTitle, 2L);
+            setId(rightTitle, 2L);
 
             // UserTitle 생성
             UserTitle leftUserTitle = UserTitle.builder()
@@ -271,7 +243,7 @@ class HomeServiceTest {
                 .rarity(TitleRarity.EPIC)
                 .positionType(TitlePosition.LEFT)
                 .build();
-            setTitleId(leftTitle, 1L);
+            setId(leftTitle, 1L);
 
             UserTitle leftUserTitle = UserTitle.builder()
                 .userId(testUserId)
@@ -323,13 +295,13 @@ class HomeServiceTest {
                 .nickname("플레이어1")
                 .picture("https://example.com/1.jpg")
                 .build();
-            setUserId(user1Entity, user1);
+            setId(user1Entity, user1);
 
             Users user2Entity = Users.builder()
                 .nickname("플레이어2")
                 .picture("https://example.com/2.jpg")
                 .build();
-            setUserId(user2Entity, user2);
+            setId(user2Entity, user2);
 
             UserExperience user1Exp = UserExperience.builder()
                 .userId(user1)
@@ -385,7 +357,7 @@ class HomeServiceTest {
                 .nickname("추천 플레이어")
                 .picture("https://example.com/featured.jpg")
                 .build();
-            setUserId(featuredUser, featuredUserId);
+            setId(featuredUser, featuredUserId);
 
             FeaturedPlayer featuredPlayer = FeaturedPlayer.builder()
                 .categoryId(testCategoryId)
@@ -539,7 +511,7 @@ class HomeServiceTest {
                     .nickname("사용자 " + i)
                     .picture("https://example.com/" + i + ".jpg")
                     .build();
-                setUserId(user, userId);
+                setId(user, userId);
 
                 lenient().when(userRepository.findById(userId)).thenReturn(Optional.of(user));
                 lenient().when(userExperienceRepository.findByUserId(userId))
@@ -570,18 +542,8 @@ class HomeServiceTest {
                 .imageUrl("https://example.com/banner.jpg")
                 .isActive(true)
                 .build();
-            setBannerId(banner, id);
+            setId(banner, id);
             return banner;
-        }
-
-        private void setBannerId(HomeBanner banner, Long id) {
-            try {
-                java.lang.reflect.Field idField = HomeBanner.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(banner, id);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
         }
 
         @Test
@@ -631,18 +593,8 @@ class HomeServiceTest {
                 .currentLevel(5)
                 .isActive(true)
                 .build();
-            setGuildId(guild, id);
+            setId(guild, id);
             return guild;
-        }
-
-        private void setGuildId(Guild guild, Long id) {
-            try {
-                java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(guild, id);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
         }
 
         @Test
@@ -732,15 +684,6 @@ class HomeServiceTest {
                 .build();
         }
 
-        private void setBannerId(HomeBanner banner, Long id) {
-            try {
-                java.lang.reflect.Field idField = HomeBanner.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(banner, id);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
 
         @Test
         @DisplayName("배너를 생성한다")
@@ -748,7 +691,7 @@ class HomeServiceTest {
             // given
             HomeBanner banner = createTestBanner("신규 배너", BannerType.EVENT);
             HomeBanner savedBanner = createTestBanner("신규 배너", BannerType.EVENT);
-            setBannerId(savedBanner, 1L);
+            setId(savedBanner, 1L);
 
             when(homeBannerRepository.save(any(HomeBanner.class))).thenReturn(savedBanner);
 
@@ -767,7 +710,7 @@ class HomeServiceTest {
             // given
             Long bannerId = 1L;
             HomeBanner existingBanner = createTestBanner("기존 배너", BannerType.NOTICE);
-            setBannerId(existingBanner, bannerId);
+            setId(existingBanner, bannerId);
 
             HomeBanner updateData = HomeBanner.builder()
                 .title("수정된 배너")
@@ -832,7 +775,7 @@ class HomeServiceTest {
             // given
             Long bannerId = 1L;
             HomeBanner banner = createTestBanner("활성 배너", BannerType.EVENT);
-            setBannerId(banner, bannerId);
+            setId(banner, bannerId);
 
             when(homeBannerRepository.findById(bannerId)).thenReturn(Optional.of(banner));
             when(homeBannerRepository.save(any(HomeBanner.class))).thenReturn(banner);
@@ -880,7 +823,7 @@ class HomeServiceTest {
                 .rarity(TitleRarity.RARE)
                 .positionType(TitlePosition.LEFT)
                 .build();
-            setTitleId(leftTitle, 1L);
+            setId(leftTitle, 1L);
 
             UserTitle leftUserTitle = UserTitle.builder()
                 .userId(testUserId)
@@ -925,7 +868,7 @@ class HomeServiceTest {
                 .rarity(TitleRarity.LEGENDARY)
                 .positionType(TitlePosition.RIGHT)
                 .build();
-            setTitleId(rightTitle, 2L);
+            setId(rightTitle, 2L);
 
             UserTitle rightUserTitle = UserTitle.builder()
                 .userId(testUserId)

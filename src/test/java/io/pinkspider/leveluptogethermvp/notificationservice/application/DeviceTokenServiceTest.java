@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -12,7 +13,6 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.DeviceTok
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.DeviceToken.DeviceType;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.DeviceTokenRepository;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -50,13 +50,7 @@ class DeviceTokenServiceTest {
             .isActive(true)
             .badgeCount(0)
             .build();
-        try {
-            Field idField = DeviceToken.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(token, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(token, id);
         return token;
     }
 

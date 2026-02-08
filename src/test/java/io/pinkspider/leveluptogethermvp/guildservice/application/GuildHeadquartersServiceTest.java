@@ -1,9 +1,12 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersInfoResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersValidationResponse;
@@ -14,7 +17,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildHeadqua
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,7 +69,8 @@ class GuildHeadquartersServiceTest {
             .baseLatitude(37.5665)
             .baseLongitude(126.978)
             .build();
-        setGuildIdAndLevel(testGuild1, 1L, 1);
+        setId(testGuild1, 1L);
+        TestReflectionUtils.setField(testGuild1, "currentLevel", 1);
 
         // 테스트 길드 2: 서울시청 근처 50m (레벨 20)
         testGuild2 = Guild.builder()
@@ -80,31 +83,8 @@ class GuildHeadquartersServiceTest {
             .baseLatitude(37.5669)  // 약 45m 북쪽
             .baseLongitude(126.978)
             .build();
-        setGuildIdAndLevel(testGuild2, 2L, 20);
-    }
-
-    private void setId(GuildHeadquartersConfig config, Long id) {
-        try {
-            Field idField = GuildHeadquartersConfig.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(config, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setGuildIdAndLevel(Guild guild, Long id, int level) {
-        try {
-            Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-
-            Field levelField = Guild.class.getDeclaredField("currentLevel");
-            levelField.setAccessible(true);
-            levelField.set(guild, level);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(testGuild2, 2L);
+        TestReflectionUtils.setField(testGuild2, "currentLevel", 20);
     }
 
     @Nested

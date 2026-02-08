@@ -57,7 +57,7 @@ public class MissionExecutionQueryService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 조회 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.getInstanceByMission(missionId, userId, date);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -278,27 +278,4 @@ public class MissionExecutionQueryService {
             .orElse(false);
     }
 
-    /**
-     * DailyMissionInstanceResponse를 MissionExecutionResponse로 변환 (하위 호환성)
-     */
-    private MissionExecutionResponse toMissionExecutionResponse(DailyMissionInstanceResponse instanceResponse) {
-        return MissionExecutionResponse.builder()
-            .id(instanceResponse.getId())
-            .participantId(instanceResponse.getParticipantId())
-            .missionId(instanceResponse.getMissionId())
-            .missionTitle(instanceResponse.getMissionTitle())
-            .missionCategoryName(instanceResponse.getMissionCategoryName())
-            .userId(instanceResponse.getUserId())
-            .executionDate(instanceResponse.getInstanceDate())
-            .status(instanceResponse.getStatus())
-            .startedAt(instanceResponse.getStartedAt())
-            .completedAt(instanceResponse.getCompletedAt())
-            .durationMinutes(instanceResponse.getDurationMinutes())
-            .expEarned(instanceResponse.getExpEarned())
-            .note(instanceResponse.getNote())
-            .imageUrl(instanceResponse.getImageUrl())
-            .feedId(instanceResponse.getFeedId())
-            .createdAt(instanceResponse.getCreatedAt())
-            .build();
-    }
 }

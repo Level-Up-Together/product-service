@@ -1,6 +1,9 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -86,7 +89,7 @@ class SeasonRankingServiceTest {
             .nickname("테스터")
             .picture("https://example.com/profile.jpg")
             .build();
-        setUserId(testUser, testUserId);
+        setId(testUser, testUserId);
 
         testUserExperience = UserExperience.builder()
             .userId(testUserId)
@@ -100,37 +103,7 @@ class SeasonRankingServiceTest {
             .startAt(LocalDateTime.now().minusDays(30))
             .endAt(LocalDateTime.now().plusDays(30))
             .build();
-        setSeasonId(testSeason, 1L);
-    }
-
-    private void setUserId(Users user, String id) {
-        try {
-            java.lang.reflect.Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setSeasonId(Season season, Long id) {
-        try {
-            java.lang.reflect.Field idField = Season.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(season, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setTitleId(Title title, Long id) {
-        try {
-            java.lang.reflect.Field idField = Title.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(title, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(testSeason, 1L);
     }
 
     @Nested
@@ -151,7 +124,7 @@ class SeasonRankingServiceTest {
                 .rarity(TitleRarity.UNCOMMON)
                 .positionType(TitlePosition.LEFT)
                 .build();
-            setTitleId(leftTitle, 1L);
+            setId(leftTitle, 1L);
 
             // RIGHT 칭호 생성 (MYTHIC 등급)
             Title rightTitle = Title.builder()
@@ -159,7 +132,7 @@ class SeasonRankingServiceTest {
                 .rarity(TitleRarity.MYTHIC)
                 .positionType(TitlePosition.RIGHT)
                 .build();
-            setTitleId(rightTitle, 2L);
+            setId(rightTitle, 2L);
 
             UserTitle leftUserTitle = UserTitle.builder()
                 .userId(testUserId)
@@ -220,7 +193,7 @@ class SeasonRankingServiceTest {
                 .rarity(TitleRarity.RARE)
                 .positionType(TitlePosition.RIGHT)
                 .build();
-            setTitleId(rightTitle, 1L);
+            setId(rightTitle, 1L);
 
             UserTitle rightUserTitle = UserTitle.builder()
                 .userId(testUserId)
@@ -351,7 +324,7 @@ class SeasonRankingServiceTest {
         @DisplayName("시즌 ID로 활성 시즌을 조회한다")
         void getSeasonById_success() {
             // given
-            setSeasonActive(testSeason, true);
+            TestReflectionUtils.setField(testSeason, "isActive", true);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when
@@ -365,7 +338,7 @@ class SeasonRankingServiceTest {
         @DisplayName("비활성 시즌은 반환하지 않는다")
         void getSeasonById_inactiveSeason() {
             // given
-            setSeasonActive(testSeason, false);
+            TestReflectionUtils.setField(testSeason, "isActive", false);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when
@@ -520,13 +493,4 @@ class SeasonRankingServiceTest {
         }
     }
 
-    private void setSeasonActive(Season season, boolean isActive) {
-        try {
-            java.lang.reflect.Field activeField = Season.class.getDeclaredField("isActive");
-            activeField.setAccessible(true);
-            activeField.set(season, isActive);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

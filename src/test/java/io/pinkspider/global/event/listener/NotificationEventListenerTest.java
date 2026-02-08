@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,7 +22,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -58,26 +58,6 @@ class NotificationEventListenerTest {
     private static final String INVITEE_ID = "invitee-user-200";
     private static final String MISSION_CREATOR_ID = "mission-creator-300";
 
-    private void setGuildId(Guild guild, Long id) {
-        try {
-            Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setGuildPostId(GuildPost post, Long id) {
-        try {
-            Field idField = GuildPost.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(post, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Guild createTestGuild(Long id, String masterId) {
         Guild guild = Guild.builder()
             .name("테스트 길드")
@@ -92,7 +72,7 @@ class NotificationEventListenerTest {
             .totalExp(0)
             .categoryId(1L)
             .build();
-        setGuildId(guild, id);
+        setId(guild, id);
         return guild;
     }
 
@@ -110,7 +90,7 @@ class NotificationEventListenerTest {
             .commentCount(0)
             .isDeleted(false)
             .build();
-        setGuildPostId(post, postId);
+        setId(post, postId);
         return post;
     }
 
@@ -345,7 +325,7 @@ class NotificationEventListenerTest {
                 .title("제목")
                 .content("내용")
                 .build();
-            setGuildPostId(post, postId);
+            setId(post, postId);
 
             ContentReportedEvent event = new ContentReportedEvent(
                 REPORTER_ID,

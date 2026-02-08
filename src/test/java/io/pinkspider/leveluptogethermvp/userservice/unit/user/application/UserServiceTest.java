@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -10,7 +11,6 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,13 +37,7 @@ class UserServiceTest {
             .nickname(nickname)
             .email(email)
             .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(user, userId);
         return user;
     }
 

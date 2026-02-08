@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.supportservice.report.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
@@ -17,7 +19,6 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -50,13 +51,7 @@ class ReportServiceTest {
             .nickname(nickname)
             .email(userId + "@test.com")
             .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(user, userId);
         return user;
     }
 
@@ -336,13 +331,7 @@ class ReportServiceTest {
         void isUnderReview_true() {
             // given
             AdminReportCheckResponse response = new AdminReportCheckResponse();
-            try {
-                Field valueField = AdminReportCheckResponse.class.getDeclaredField("value");
-                valueField.setAccessible(true);
-                valueField.set(response, true);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(response, "value", true);
 
             when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID)).thenReturn(response);
 
@@ -358,13 +347,7 @@ class ReportServiceTest {
         void isUnderReview_false() {
             // given
             AdminReportCheckResponse response = new AdminReportCheckResponse();
-            try {
-                Field valueField = AdminReportCheckResponse.class.getDeclaredField("value");
-                valueField.setAccessible(true);
-                valueField.set(response, false);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(response, "value", false);
 
             when(adminReportFeignClient.checkUnderReview("USER_PROFILE", TARGET_USER_ID)).thenReturn(response);
 
@@ -406,13 +389,7 @@ class ReportServiceTest {
 
             io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
                 new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
-            try {
-                Field valueField = io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse.class.getDeclaredField("value");
-                valueField.setAccessible(true);
-                valueField.set(response, expectedResult);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(response, "value", expectedResult);
 
             when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
 

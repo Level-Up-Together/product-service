@@ -1,14 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.feed.application;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.userservice.feed.domain.dto.UserTitleInfo;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,12 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActivityFeedNotificationService {
 
     private final ActivityFeedService activityFeedService;
-    private final UserTitleRepository userTitleRepository;
+    private final UserTitleInfoHelper userTitleInfoHelper;
 
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionJoined(String userId, String userNickname, String userProfileImageUrl,
                                     Integer userLevel, Long missionId, String missionTitle) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("%s 미션에 참여했습니다!", missionTitle);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -42,7 +36,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionCompleted(String userId, String userNickname, String userProfileImageUrl,
                                        Integer userLevel, Long missionId, String missionTitle, int completionRate) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("%s 미션 인터벌을 완료했습니다!", missionTitle);
         String description = String.format("달성률: %d%%", completionRate);
@@ -56,7 +50,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyMissionFullCompleted(String userId, String userNickname, String userProfileImageUrl,
                                            Integer userLevel, Long missionId, String missionTitle) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("%s 미션을 100%% 완료했습니다!", missionTitle);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -69,7 +63,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyAchievementUnlocked(String userId, String userNickname, String userProfileImageUrl,
                                           Integer userLevel, Long achievementId, String achievementName, String achievementDescription) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("[%s] 업적을 달성했습니다!", achievementName);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -82,7 +76,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyTitleAcquired(String userId, String userNickname, String userProfileImageUrl,
                                     Integer userLevel, Long titleId, String titleName) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("[%s] 칭호를 획득했습니다!", titleName);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -95,7 +89,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyLevelUp(String userId, String userNickname, String userProfileImageUrl,
                               int newLevel, int totalExp) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("레벨 %d 달성!", newLevel);
         String description = String.format("누적 경험치: %,d", totalExp);
@@ -109,7 +103,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildCreated(String userId, String userNickname, String userProfileImageUrl,
                                    Integer userLevel, Long guildId, String guildName) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("[%s] 길드를 창설했습니다!", guildName);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -122,7 +116,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildJoined(String userId, String userNickname, String userProfileImageUrl,
                                   Integer userLevel, Long guildId, String guildName) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("[%s] 길드에 가입했습니다!", guildName);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -135,7 +129,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyGuildLevelUp(String userId, String userNickname, String userProfileImageUrl,
                                    Integer userLevel, Long guildId, String guildName, int newGuildLevel) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("[%s] 길드가 레벨 %d로 성장했습니다!", guildName, newGuildLevel);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -148,7 +142,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyFriendAdded(String userId, String userNickname, String userProfileImageUrl,
                                   Integer userLevel, String friendId, String friendNickname) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("%s님과 친구가 되었습니다!", friendNickname);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -161,7 +155,7 @@ public class ActivityFeedNotificationService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void notifyAttendanceStreak(String userId, String userNickname, String userProfileImageUrl,
                                        Integer userLevel, int streakDays) {
-        UserTitleInfo titleInfo = getUserEquippedTitleInfo(userId);
+        UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
 
         String title = String.format("%d일 연속 출석 달성!", streakDays);
         activityFeedService.createActivityFeed(userId, userNickname, userProfileImageUrl, userLevel,
@@ -169,36 +163,5 @@ public class ActivityFeedNotificationService {
             ActivityType.ATTENDANCE_STREAK, title, null,
             "ATTENDANCE", (long) streakDays, streakDays + "일 연속 출석",
             FeedVisibility.PUBLIC, null, null, null);
-    }
-
-    // ========== Private 헬퍼 ==========
-
-    private UserTitleInfo getUserEquippedTitleInfo(String userId) {
-        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
-        if (equippedTitles.isEmpty()) {
-            return UserTitleInfo.empty();
-        }
-
-        Title leftTitle = null;
-        Title rightTitle = null;
-        TitleRarity maxRarity = null;
-        String maxRarityColorCode = null;
-
-        for (UserTitle ut : equippedTitles) {
-            Title title = ut.getTitle();
-            if (ut.getEquippedPosition() == TitlePosition.LEFT) {
-                leftTitle = title;
-            } else if (ut.getEquippedPosition() == TitlePosition.RIGHT) {
-                rightTitle = title;
-            }
-
-            if (maxRarity == null || title.getRarity().ordinal() > maxRarity.ordinal()) {
-                maxRarity = title.getRarity();
-                maxRarityColorCode = title.getColorCode();
-            }
-        }
-
-        String combinedName = Title.getCombinedDisplayName(leftTitle, rightTitle);
-        return new UserTitleInfo(combinedName.isEmpty() ? null : combinedName, maxRarity, maxRarityColorCode);
     }
 }

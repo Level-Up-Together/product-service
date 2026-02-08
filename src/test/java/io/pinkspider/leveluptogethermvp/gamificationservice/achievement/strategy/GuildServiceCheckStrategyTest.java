@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -9,7 +10,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -39,13 +39,7 @@ class GuildServiceCheckStrategyTest {
             .comparisonOperator(operator)
             .requiredCount(requiredCount)
             .build();
-        try {
-            Field idField = Achievement.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(achievement, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(achievement, id);
         return achievement;
     }
 
@@ -55,13 +49,7 @@ class GuildServiceCheckStrategyTest {
             .role(role)
             .status(GuildMemberStatus.ACTIVE)
             .build();
-        try {
-            Field idField = GuildMember.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(member, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(member, id);
         return member;
     }
 

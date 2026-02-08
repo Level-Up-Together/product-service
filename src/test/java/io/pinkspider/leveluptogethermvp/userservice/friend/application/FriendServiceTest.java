@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +28,6 @@ import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.Friendsh
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -73,23 +73,13 @@ class FriendServiceTest {
     private static final String TEST_USER_ID = "test-user-123";
     private static final String FRIEND_USER_ID = "friend-user-456";
 
-    private void setFriendshipId(Friendship friendship, Long id) {
-        try {
-            Field idField = Friendship.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(friendship, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Friendship createTestFriendship(Long id, String userId, String friendId, FriendshipStatus status) {
         Friendship friendship = Friendship.builder()
             .userId(userId)
             .friendId(friendId)
             .status(status)
             .build();
-        setFriendshipId(friendship, id);
+        setId(friendship, id);
         return friendship;
     }
 
@@ -98,13 +88,7 @@ class FriendServiceTest {
             .nickname(nickname)
             .email(userId + "@test.com")
             .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(user, userId);
         return user;
     }
 
@@ -113,13 +97,7 @@ class FriendServiceTest {
             .name(name)
             .description(name + " 설명")
             .build();
-        try {
-            Field idField = Title.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(title, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(title, id);
         return title;
     }
 
@@ -129,13 +107,7 @@ class FriendServiceTest {
             .title(title)
             .isEquipped(true)
             .build();
-        try {
-            Field idField = UserTitle.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(userTitle, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(userTitle, id);
         return userTitle;
     }
 
