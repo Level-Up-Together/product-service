@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,11 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
     @Override
     public String getName() {
         return "LoadMissionData";
+    }
+
+    @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return ctx -> !ctx.isPinned();
     }
 
     @Override
@@ -72,7 +78,6 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
             context.setUserExpEarned(userExp);
 
             if (mission.isGuildMission() && mission.getGuildId() != null) {
-                context.setGuildMission(true);
                 context.setGuildId(Long.parseLong(mission.getGuildId()));
                 int guildExp = mission.getGuildExpPerCompletion() != null ? mission.getGuildExpPerCompletion() : 5;
                 context.setGuildExpEarned(guildExp);

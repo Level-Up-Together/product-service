@@ -5,7 +5,8 @@ import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CompletePinnedInstanceStep implements SagaStep<PinnedMissionCompletionContext> {
+public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionContext> {
 
     private final DailyMissionInstanceRepository instanceRepository;
 
@@ -28,8 +29,13 @@ public class CompletePinnedInstanceStep implements SagaStep<PinnedMissionComplet
     }
 
     @Override
+    public Predicate<MissionCompletionContext> shouldExecute() {
+        return MissionCompletionContext::isPinned;
+    }
+
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
-    public SagaStepResult execute(PinnedMissionCompletionContext context) {
+    public SagaStepResult execute(MissionCompletionContext context) {
         DailyMissionInstance instance = context.getInstance();
 
         if (instance == null) {
@@ -46,7 +52,7 @@ public class CompletePinnedInstanceStep implements SagaStep<PinnedMissionComplet
             }
 
             // 계산된 경험치를 context에 반영
-            context.setExpEarned(instance.getExpEarned());
+            context.setUserExpEarned(instance.getExpEarned());
 
             // DB에 저장
             instanceRepository.save(instance);
@@ -64,7 +70,7 @@ public class CompletePinnedInstanceStep implements SagaStep<PinnedMissionComplet
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
-    public SagaStepResult compensate(PinnedMissionCompletionContext context) {
+    public SagaStepResult compensate(MissionCompletionContext context) {
         DailyMissionInstance instance = context.getInstance();
 
         if (instance == null) {
@@ -76,7 +82,7 @@ public class CompletePinnedInstanceStep implements SagaStep<PinnedMissionComplet
         try {
             // 이전 상태로 복원
             ExecutionStatus previousStatus = context.getCompensationData(
-                PinnedMissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
+                MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,
                 ExecutionStatus.class);
 
             if (previousStatus != null) {

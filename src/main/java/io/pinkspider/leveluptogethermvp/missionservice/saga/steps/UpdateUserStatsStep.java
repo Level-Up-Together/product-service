@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Step 5: 사용자 통계 및 업적 업데이트
+ * 사용자 통계 및 업적 업데이트 (일반 미션 + 고정 미션 통합)
  */
 @Slf4j
 @Component
@@ -40,7 +40,7 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
         String userId = context.getUserId();
         boolean isGuildMission = context.isGuildMission();
 
-        log.debug("Updating user stats: userId={}, isGuildMission={}", userId, isGuildMission);
+        log.debug("Updating user stats: userId={}, isGuildMission={}, pinned={}", userId, isGuildMission, context.isPinned());
 
         try {
             // 현재 상태 저장 (보상용)
@@ -55,15 +55,15 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
                 MissionCompletionContext.CompensationKeys.USER_STATS_BEFORE,
                 snapshot);
 
-            // 미션 완료 기록
+            // 미션 완료 기록 (pinned 미션은 길드 미션이 아님 → isGuildMission()이 false 반환)
             userStatsService.recordMissionCompletion(userId, isGuildMission);
 
             // 동적 Strategy 패턴으로 USER_STATS 관련 업적 체크
             achievementService.checkAchievementsByDataSource(userId, "USER_STATS");
 
             UserStats updatedStats = userStatsService.getOrCreateUserStats(userId);
-            log.info("User stats updated: userId={}, totalCompletions={}, streak={}",
-                userId, updatedStats.getTotalMissionCompletions(), updatedStats.getCurrentStreak());
+            log.info("User stats updated: userId={}, totalCompletions={}, streak={}, pinned={}",
+                userId, updatedStats.getTotalMissionCompletions(), updatedStats.getCurrentStreak(), context.isPinned());
 
             return SagaStepResult.success("사용자 통계 업데이트 완료");
 
