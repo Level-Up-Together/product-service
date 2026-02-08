@@ -225,7 +225,7 @@ public class MissionExecutionService {
             int guildExpEarned = mission.getGuildExpPerCompletion() != null ? mission.getGuildExpPerCompletion() : 5;
             try {
                 guildExperienceService.addExperience(
-                    Long.parseLong(mission.getGuildId()),
+                    mission.getGuildIdAsLong(),
                     guildExpEarned,
                     GuildExpSourceType.GUILD_MISSION_EXECUTION,
                     mission.getId(),
@@ -374,7 +374,7 @@ public class MissionExecutionService {
                     ? mission.getGuildBonusExpOnFullCompletion() : 20;
                 try {
                     guildExperienceService.addExperience(
-                        Long.parseLong(mission.getGuildId()),
+                        mission.getGuildIdAsLong(),
                         guildBonusExp,
                         GuildExpSourceType.GUILD_MISSION_FULL_COMPLETION,
                         mission.getId(),

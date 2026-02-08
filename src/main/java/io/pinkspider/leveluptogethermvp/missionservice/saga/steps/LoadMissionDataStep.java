@@ -77,8 +77,8 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
             int userExp = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 10;
             context.setUserExpEarned(userExp);
 
-            if (mission.isGuildMission() && mission.getGuildId() != null) {
-                context.setGuildId(Long.parseLong(mission.getGuildId()));
+            if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+                context.setGuildId(mission.getGuildIdAsLong());
                 int guildExp = mission.getGuildExpPerCompletion() != null ? mission.getGuildExpPerCompletion() : 5;
                 context.setGuildExpEarned(guildExp);
             }

@@ -172,12 +172,7 @@ public class MissionService {
     }
 
     public List<MissionResponse> getGuildMissions(String guildId) {
-        List<MissionStatus> activeStatuses = List.of(
-            MissionStatus.DRAFT,
-            MissionStatus.OPEN,
-            MissionStatus.IN_PROGRESS
-        );
-        List<Mission> missions = missionRepository.findGuildMissions(guildId, activeStatuses);
+        List<Mission> missions = missionRepository.findGuildMissions(guildId, MissionStatus.activeStatuses());
         List<MissionResponse> result = missions.stream()
             .map(MissionResponse::from)
             .toList();
@@ -218,7 +213,7 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
-        if (mission.getStatus() != MissionStatus.DRAFT) {
+        if (!mission.getStatus().isModifiable()) {
             throw new IllegalStateException("작성중 상태의 미션만 수정할 수 있습니다.");
         }
 
@@ -314,7 +309,7 @@ public class MissionService {
      */
     private void notifyGuildMembersAboutRecruitment(Mission mission, String creatorId) {
         try {
-            Long guildId = Long.parseLong(mission.getGuildId());
+            Long guildId = mission.getGuildIdAsLong();
             List<GuildMember> activeMembers = guildMemberRepository.findActiveMembers(guildId);
 
             // 생성자를 제외한 활성 길드원 ID 목록 추출
@@ -401,20 +396,15 @@ public class MissionService {
         boolean isCreator = mission.getCreatorId().equals(userId);
         boolean isGuildAdmin = false;
 
-        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
-            try {
-                Long guildId = Long.parseLong(mission.getGuildId());
-                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
-                    isGuildAdmin = true;
-                }
-            } catch (NumberFormatException e) {
-                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+        if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+            GuildMember member = guildMemberRepository.findByGuildIdAndUserId(mission.getGuildIdAsLong(), userId).orElse(null);
+            if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
+                isGuildAdmin = true;
             }
         }
 
         if (isCreator || isGuildAdmin) {
-            if (mission.getStatus() == MissionStatus.IN_PROGRESS) {
+            if (!mission.getStatus().isDeletable()) {
                 throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
             }
             missionRepository.delete(mission);
@@ -446,15 +436,10 @@ public class MissionService {
         }
 
         // 길드 미션인 경우 길드 마스터 또는 부길드마스터도 허용
-        if (mission.getType() == MissionType.GUILD && mission.getGuildId() != null) {
-            try {
-                Long guildId = Long.parseLong(mission.getGuildId());
-                GuildMember member = guildMemberRepository.findByGuildIdAndUserId(guildId, userId).orElse(null);
-                if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                log.warn("길드 ID 파싱 실패: guildId={}", mission.getGuildId());
+        if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+            GuildMember member = guildMemberRepository.findByGuildIdAndUserId(mission.getGuildIdAsLong(), userId).orElse(null);
+            if (member != null && member.isActive() && member.isMasterOrSubMaster()) {
+                return;
             }
         }
 
