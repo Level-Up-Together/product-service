@@ -157,6 +157,17 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
+        // 일일 수행 제한 체크
+        Mission mission = participant.getMission();
+        if (mission.getDailyExecutionLimit() != null) {
+            long todayCompleted = instanceRepository
+                .countCompletedByParticipantIdAndDate(participant.getId(), date);
+            if (todayCompleted >= mission.getDailyExecutionLimit()) {
+                throw new IllegalStateException(
+                    "오늘 수행 가능한 횟수를 초과했습니다. (최대 " + mission.getDailyExecutionLimit() + "회)");
+            }
+        }
+
         // 이미 IN_PROGRESS 인스턴스가 있으면 그것을 반환 (뒤로가기 후 재진입 시)
         Optional<DailyMissionInstance> inProgressInstance = instanceRepository
             .findInProgressByParticipantIdAndDate(participant.getId(), date);

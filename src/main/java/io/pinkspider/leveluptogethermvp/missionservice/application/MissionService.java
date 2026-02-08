@@ -102,6 +102,8 @@ public class MissionService {
             .category(category)
             .customCategory(customCategory)
             .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
+            .targetDurationMinutes(request.getTargetDurationMinutes())
+            .dailyExecutionLimit(request.getDailyExecutionLimit())
             .build();
 
         Mission saved = missionRepository.save(mission);
@@ -272,6 +274,12 @@ public class MissionService {
         }
         if (request.getBonusExpOnFullCompletion() != null) {
             mission.setBonusExpOnFullCompletion(request.getBonusExpOnFullCompletion());
+        }
+        if (request.getTargetDurationMinutes() != null) {
+            mission.setTargetDurationMinutes(request.getTargetDurationMinutes());
+        }
+        if (request.getDailyExecutionLimit() != null) {
+            mission.setDailyExecutionLimit(request.getDailyExecutionLimit());
         }
 
         // 카테고리 수정 처리

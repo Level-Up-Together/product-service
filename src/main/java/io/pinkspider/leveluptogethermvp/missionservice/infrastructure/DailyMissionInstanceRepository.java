@@ -226,4 +226,27 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findExpiredInProgressInstances(
         @Param("expireThreshold") LocalDateTime expireThreshold
     );
+
+    /**
+     * 목표시간 설정된 IN_PROGRESS 인스턴스 조회 (목표시간 도달 자동 종료용)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE dmi.status = 'IN_PROGRESS' " +
+           "AND dmi.targetDurationMinutes IS NOT NULL " +
+           "AND dmi.startedAt IS NOT NULL")
+    List<DailyMissionInstance> findInProgressWithTargetDuration();
+
+    /**
+     * 당일 완료 횟수 조회 (일일 수행 제한용)
+     */
+    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +
+           "WHERE dmi.participant.id = :participantId " +
+           "AND dmi.instanceDate = :date " +
+           "AND dmi.status = 'COMPLETED'")
+    long countCompletedByParticipantIdAndDate(
+        @Param("participantId") Long participantId,
+        @Param("date") LocalDate date
+    );
 }

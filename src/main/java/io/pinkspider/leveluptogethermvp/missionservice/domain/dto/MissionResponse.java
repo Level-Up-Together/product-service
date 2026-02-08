@@ -56,6 +56,8 @@ public class MissionResponse {
     private Integer durationMinutes;
     private Integer expPerCompletion;
     private Integer bonusExpOnFullCompletion;
+    private Integer targetDurationMinutes;
+    private Integer dailyExecutionLimit;
 
     // 카테고리 정보
     private Long categoryId;
@@ -97,6 +99,8 @@ public class MissionResponse {
             .durationMinutes(mission.getDurationMinutes())
             .expPerCompletion(mission.getExpPerCompletion())
             .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
+            .targetDurationMinutes(mission.getTargetDurationMinutes())
+            .dailyExecutionLimit(mission.getDailyExecutionLimit())
             .categoryId(mission.getCategory() != null ? mission.getCategory().getId() : null)
             .categoryName(mission.getCategoryName())
             .createdAt(mission.getCreatedAt())

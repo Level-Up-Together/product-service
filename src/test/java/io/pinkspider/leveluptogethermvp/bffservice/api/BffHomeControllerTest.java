@@ -766,6 +766,8 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_missions[].duration_minutes").type(JsonFieldType.NUMBER).description("미션 수행 시간 (분)").optional(),
                             fieldWithPath("value.my_missions[].exp_per_completion").type(JsonFieldType.NUMBER).description("완료시 경험치"),
                             fieldWithPath("value.my_missions[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료시 보너스 경험치"),
+                            fieldWithPath("value.my_missions[].target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
+                            fieldWithPath("value.my_missions[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
                             fieldWithPath("value.my_missions[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.my_missions[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),
                             fieldWithPath("value.my_missions[].created_at").type(JsonFieldType.STRING).description("생성일시"),

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.PinnedMissionCompletionContext;
@@ -39,6 +40,18 @@ public class CreateNextPinnedInstanceStep implements SagaStep<PinnedMissionCompl
             participant.getId(), instanceDate);
 
         try {
+            // 일일 수행 제한 체크
+            Mission mission = participant.getMission();
+            if (mission.getDailyExecutionLimit() != null) {
+                long todayCompleted = instanceRepository
+                    .countCompletedByParticipantIdAndDate(participant.getId(), instanceDate);
+                if (todayCompleted >= mission.getDailyExecutionLimit()) {
+                    log.info("Daily limit reached, skipping next instance creation: participantId={}, limit={}",
+                        participant.getId(), mission.getDailyExecutionLimit());
+                    return SagaStepResult.success("일일 제한 도달 - 인스턴스 생성 스킵");
+                }
+            }
+
             // 다음 시퀀스 번호 조회
             int nextSequence = instanceRepository.findMaxSequenceNumber(participant.getId(), instanceDate) + 1;
 

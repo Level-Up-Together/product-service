@@ -122,6 +122,14 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isPinned = false;
 
+    @Column(name = "target_duration_minutes")
+    @Comment("목표 수행 시간 (분) - 달성 시 보너스 XP")
+    private Integer targetDurationMinutes;
+
+    @Column(name = "daily_execution_limit")
+    @Comment("하루 수행 횟수 제한 (null = 무제한)")
+    private Integer dailyExecutionLimit;
+
     @NotNull
     @Column(name = "creator_id", nullable = false)
     @Comment("생성자 ID")

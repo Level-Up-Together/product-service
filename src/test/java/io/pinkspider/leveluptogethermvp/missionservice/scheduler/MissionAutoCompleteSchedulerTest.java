@@ -15,6 +15,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatu
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import java.time.LocalDate;
@@ -38,6 +40,12 @@ class MissionAutoCompleteSchedulerTest {
 
     @Mock
     private DailyMissionInstanceRepository instanceRepository;
+
+    @Mock
+    private DailyMissionInstanceService dailyMissionInstanceService;
+
+    @Mock
+    private MissionExecutionService missionExecutionService;
 
     @InjectMocks
     private MissionAutoCompleteScheduler scheduler;
@@ -93,6 +101,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(execution, 1L);
 
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of(execution));
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
@@ -120,6 +132,10 @@ class MissionAutoCompleteSchedulerTest {
             setId(execution, 1L);
 
             // 2시간 초과된 것만 조회되므로 빈 리스트 반환
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
@@ -161,6 +177,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(instance, 1L);
 
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
             when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
