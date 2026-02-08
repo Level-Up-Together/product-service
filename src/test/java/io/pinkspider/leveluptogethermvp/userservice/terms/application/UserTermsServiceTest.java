@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.terms.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -15,7 +16,6 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserSe
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.TermVersion;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserTermAgreement;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -52,13 +52,7 @@ class UserTermsServiceTest {
             .nickname(nickname)
             .email(userId + "@test.com")
             .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(user, userId);
         return user;
     }
 
@@ -67,13 +61,7 @@ class UserTermsServiceTest {
             .version(version)
             .content("약관 내용")
             .build();
-        try {
-            Field idField = TermVersion.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(termVersion, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(termVersion, id);
         return termVersion;
     }
 
@@ -83,13 +71,7 @@ class UserTermsServiceTest {
             .termVersion(termVersion)
             .isAgreed(isAgreed)
             .build();
-        try {
-            Field idField = UserTermAgreement.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(agreement, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(agreement, id);
         return agreement;
     }
 

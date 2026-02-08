@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,7 +27,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,16 +115,6 @@ class GrantGuildExperienceStepTest {
             .totalExp(5000)
             .build();
         setId(guild, GUILD_ID);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test

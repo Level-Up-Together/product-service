@@ -11,7 +11,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberSta
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
@@ -36,7 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(transactionManager = "guildTransactionManager", readOnly = true)
 public class GuildMemberService {
 
-    private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
     private final MissionCategoryService missionCategoryService;
@@ -44,11 +42,12 @@ public class GuildMemberService {
     private final UserRepository userRepository;
     private final TitleService titleService;
     private final ApplicationEventPublisher eventPublisher;
+    private final GuildHelper guildHelper;
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void transferMaster(Long guildId, String currentMasterId, String newMasterId) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, currentMasterId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
+        guildHelper.validateMaster(guild, currentMasterId);
 
         GuildMember newMaster = guildMemberRepository.findByGuildIdAndUserId(guildId, newMasterId)
             .orElseThrow(() -> new IllegalArgumentException("새 길드 마스터가 길드원이 아닙니다."));
@@ -70,7 +69,7 @@ public class GuildMemberService {
     // 가입 신청 또는 바로 가입 (공개 길드)
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildJoinRequestResponse requestJoin(Long guildId, String userId, GuildJoinRequestDto request) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate()) {
             throw new IllegalStateException("비공개 길드는 초대를 통해서만 가입할 수 있습니다.");
@@ -148,7 +147,7 @@ public class GuildMemberService {
     }
 
     public Page<GuildJoinRequestResponse> getPendingJoinRequests(Long guildId, String userId, Pageable pageable) {
-        findActiveGuildById(guildId);
+        guildHelper.findActiveGuildById(guildId);
         validateMasterOrSubMaster(guildId, userId);
 
         return joinRequestRepository.findPendingRequests(guildId, pageable)
@@ -237,7 +236,7 @@ public class GuildMemberService {
     // 초대를 통한 가입 (비공개 길드용, 마스터 또는 부길드마스터)
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse inviteMember(Long guildId, String operatorId, String inviteeId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
         validateMasterOrSubMaster(guildId, operatorId);
 
         // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
@@ -297,7 +296,7 @@ public class GuildMemberService {
 
     @Transactional(transactionManager = "guildTransactionManager")
     public void leaveGuild(Long guildId, String userId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isMaster(userId)) {
             throw new IllegalStateException("길드 마스터는 탈퇴할 수 없습니다. 먼저 마스터를 이전하세요.");
@@ -329,8 +328,8 @@ public class GuildMemberService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse promoteToSubMaster(Long guildId, String masterId, String targetUserId) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, masterId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
+        guildHelper.validateMaster(guild, masterId);
 
         if (masterId.equals(targetUserId)) {
             throw new IllegalStateException("자기 자신을 부길드마스터로 승격할 수 없습니다.");
@@ -363,8 +362,8 @@ public class GuildMemberService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse demoteFromSubMaster(Long guildId, String masterId, String targetUserId) {
-        Guild guild = findActiveGuildById(guildId);
-        validateMaster(guild, masterId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
+        guildHelper.validateMaster(guild, masterId);
 
         GuildMember targetMember = guildMemberRepository.findByGuildIdAndUserId(guildId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("해당 사용자는 길드 멤버가 아닙니다."));
@@ -386,7 +385,7 @@ public class GuildMemberService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public void kickMember(Long guildId, String operatorId, String targetUserId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (operatorId.equals(targetUserId)) {
             throw new IllegalStateException("자기 자신을 추방할 수 없습니다.");
@@ -427,17 +426,6 @@ public class GuildMemberService {
         guildChatService.notifyMemberKick(guildId, memberNickname);
 
         log.info("멤버 추방: guildId={}, operator={}, target={}", guildId, operatorId, targetUserId);
-    }
-
-    private Guild findActiveGuildById(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
-    }
-
-    private void validateMaster(Guild guild, String userId) {
-        if (!guild.isMaster(userId)) {
-            throw new IllegalStateException("길드 마스터만 이 작업을 수행할 수 있습니다.");
-        }
     }
 
     private void validateMasterOrSubMaster(Long guildId, String userId) {

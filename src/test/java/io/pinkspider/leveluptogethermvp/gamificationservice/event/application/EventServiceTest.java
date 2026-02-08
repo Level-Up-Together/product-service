@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.event.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -8,7 +9,6 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.domain.entity.Event;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructure.EventRepository;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,18 +48,8 @@ class EventServiceTest {
             .rewardTitleName("테스트 칭호")
             .isActive(true)
             .build();
-        setEntityId(event, id);
+        setId(event, id);
         return event;
-    }
-
-    private void setEntityId(Event event, Long id) {
-        try {
-            Field idField = Event.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(event, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested

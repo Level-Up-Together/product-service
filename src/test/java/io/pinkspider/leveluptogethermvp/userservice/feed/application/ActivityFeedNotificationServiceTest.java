@@ -12,10 +12,8 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import java.lang.reflect.Field;
-import java.util.Collections;
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.dto.UserTitleInfo;
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,7 +29,7 @@ class ActivityFeedNotificationServiceTest {
     private ActivityFeedService activityFeedService;
 
     @Mock
-    private UserTitleRepository userTitleRepository;
+    private UserTitleInfoHelper userTitleInfoHelper;
 
     @InjectMocks
     private ActivityFeedNotificationService notificationService;
@@ -47,18 +45,8 @@ class ActivityFeedNotificationServiceTest {
             .likeCount(0)
             .commentCount(0)
             .build();
-        setFeedId(feed, id);
+        setId(feed, id);
         return feed;
-    }
-
-    private void setFeedId(ActivityFeed feed, Long id) {
-        try {
-            Field idField = ActivityFeed.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(feed, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -69,7 +57,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("미션 참여 알림 피드를 생성한다")
         void notifyMissionJoined_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -97,7 +85,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("레벨업 알림 피드를 생성한다")
         void notifyLevelUp_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -125,7 +113,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("길드 가입 알림 피드를 생성한다")
         void notifyGuildJoined_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -158,7 +146,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("미션 완료 알림 피드를 생성한다")
         void notifyMissionCompleted_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -186,7 +174,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("미션 전체 완료 알림 피드를 생성한다")
         void notifyMissionFullCompleted_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -214,7 +202,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("업적 달성 알림 피드를 생성한다")
         void notifyAchievementUnlocked_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -242,7 +230,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("칭호 획득 알림 피드를 생성한다")
         void notifyTitleAcquired_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -270,7 +258,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("길드 생성 알림 피드를 생성한다")
         void notifyGuildCreated_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -298,7 +286,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("길드 레벨업 알림 피드를 생성한다")
         void notifyGuildLevelUp_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -326,7 +314,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("친구 추가 알림 피드를 생성한다")
         void notifyFriendAdded_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),
@@ -354,7 +342,7 @@ class ActivityFeedNotificationServiceTest {
         @DisplayName("연속 출석 알림 피드를 생성한다")
         void notifyAttendanceStreak_success() {
             // given
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), any(), any(), any(),
                 any(ActivityType.class), anyString(), any(),

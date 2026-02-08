@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +13,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
@@ -40,7 +43,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -154,56 +156,6 @@ class DailyMissionInstanceServiceTest {
             .build();
     }
 
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setStartedAt(DailyMissionInstance instance, LocalDateTime startedAt) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("startedAt");
-            field.setAccessible(true);
-            field.set(instance, startedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setStatus(DailyMissionInstance instance, ExecutionStatus status) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("status");
-            field.setAccessible(true);
-            field.set(instance, status);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setCompletedAt(DailyMissionInstance instance, LocalDateTime completedAt) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("completedAt");
-            field.setAccessible(true);
-            field.set(instance, completedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setNote(DailyMissionInstance instance, String note) {
-        try {
-            Field field = DailyMissionInstance.class.getDeclaredField("note");
-            field.setAccessible(true);
-            field.set(instance, note);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @Nested
     @DisplayName("getTodayInstances 테스트")
     class GetTodayInstancesTest {
@@ -267,8 +219,8 @@ class DailyMissionInstanceServiceTest {
             // given
             DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant, LocalDate.now());
             setId(inProgressInstance, 999L);
-            setStatus(inProgressInstance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(inProgressInstance, LocalDateTime.now());
+            TestReflectionUtils.setField(inProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now());
 
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
                 .thenReturn(Optional.of(inProgressInstance));
@@ -286,8 +238,8 @@ class DailyMissionInstanceServiceTest {
             LocalDate yesterday = LocalDate.now().minusDays(1);
             DailyMissionInstance pastInProgressInstance = DailyMissionInstance.createFrom(participant, yesterday);
             setId(pastInProgressInstance, 999L);
-            setStatus(pastInProgressInstance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(pastInProgressInstance, LocalDateTime.now().minusDays(1));
+            TestReflectionUtils.setField(pastInProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(pastInProgressInstance, "startedAt", LocalDateTime.now().minusDays(1));
 
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
                 .thenReturn(Optional.of(pastInProgressInstance));
@@ -333,10 +285,10 @@ class DailyMissionInstanceServiceTest {
         void completeInstance_success() {
             // given
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             // 인스턴스 완료 상태로 설정
             instance.complete();
-            setNote(instance, "완료 메모");
+            TestReflectionUtils.setField(instance, "note", "완료 메모");
 
             // Saga 결과 mock
             PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
@@ -366,11 +318,11 @@ class DailyMissionInstanceServiceTest {
         @SuppressWarnings("unchecked")
         void completeInstance_withFeedSharing() {
             // given - IN_PROGRESS 상태로 시작된 인스턴스
-            setStatus(instance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             // 인스턴스 완료 상태로 설정
             instance.complete();
-            setNote(instance, "완료!");
+            TestReflectionUtils.setField(instance, "note", "완료!");
 
             // Saga 결과 mock
             PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
@@ -442,9 +394,9 @@ class DailyMissionInstanceServiceTest {
         @DisplayName("이미 공유된 인스턴스는 다시 공유할 수 없다")
         void shareToFeed_alreadyShared_throwsException() {
             // given - 완료 후 이미 공유된 상태 설정
-            setStatus(instance, ExecutionStatus.COMPLETED);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
-            setCompletedAt(instance, LocalDateTime.now());
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
             instance.shareToFeed(100L);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
@@ -466,7 +418,7 @@ class DailyMissionInstanceServiceTest {
         void unshareFromFeed_success() {
             // given
             instance.start();
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             instance.complete();
             instance.shareToFeed(FEED_ID);
 
@@ -723,14 +675,7 @@ class DailyMissionInstanceServiceTest {
             when(instanceRepository.save(any(DailyMissionInstance.class)))
                 .thenAnswer(invocation -> {
                     DailyMissionInstance saved = invocation.getArgument(0);
-                    // ID 설정 (리플렉션)
-                    try {
-                        java.lang.reflect.Field idField = DailyMissionInstance.class.getDeclaredField("id");
-                        idField.setAccessible(true);
-                        idField.set(saved, INSTANCE_ID);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
+                    setId(saved, INSTANCE_ID);
                     return saved;
                 });
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
@@ -766,8 +711,8 @@ class DailyMissionInstanceServiceTest {
             LocalDate today = LocalDate.now();
             DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant, today);
             setId(inProgressInstance, 999L);
-            setStatus(inProgressInstance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(inProgressInstance, LocalDateTime.now());
+            TestReflectionUtils.setField(inProgressInstance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now());
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -933,8 +878,8 @@ class DailyMissionInstanceServiceTest {
         void completeInstanceByMission_success() {
             // given
             LocalDate today = LocalDate.now();
-            setStatus(instance, ExecutionStatus.IN_PROGRESS);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             instance.complete();
 
             PinnedMissionCompletionContext context = new PinnedMissionCompletionContext(
@@ -998,9 +943,9 @@ class DailyMissionInstanceServiceTest {
         void shareToFeedByMission_success() {
             // given
             LocalDate today = LocalDate.now();
-            setStatus(instance, ExecutionStatus.COMPLETED);
-            setStartedAt(instance, LocalDateTime.now().minusMinutes(30));
-            setCompletedAt(instance, LocalDateTime.now());
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
+            TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
 
             ActivityFeed feed = ActivityFeed.builder()
                 .userId(TEST_USER_ID)

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -97,7 +98,7 @@ class GuildPostServiceTest {
             .maxMembers(50)
             .categoryId(1L)
             .build();
-        setId(testGuild, Guild.class, 1L);
+        setId(testGuild, 1L);
 
         masterMember = GuildMember.builder()
             .guild(testGuild)
@@ -124,17 +125,7 @@ class GuildPostServiceTest {
             .postType(GuildPostType.NORMAL)
             .isPinned(false)
             .build();
-        setId(testPost, GuildPost.class, 1L);
-    }
-
-    private <T> void setId(T entity, Class<T> clazz, Long id) {
-        try {
-            java.lang.reflect.Field idField = clazz.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(testPost, 1L);
     }
 
     @Nested
@@ -155,7 +146,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -184,7 +175,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -257,7 +248,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(masterMember, otherMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -290,7 +281,7 @@ class GuildPostServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
             when(guildPostRepository.save(any(GuildPost.class))).thenAnswer(inv -> {
                 GuildPost post = inv.getArgument(0);
-                setId(post, GuildPost.class, 1L);
+                setId(post, 1L);
                 return post;
             });
 
@@ -340,7 +331,7 @@ class GuildPostServiceTest {
                 .postType(GuildPostType.NOTICE)
                 .isPinned(true)
                 .build();
-            setId(noticePost, GuildPost.class, 2L);
+            setId(noticePost, 2L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -530,7 +521,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(savedComment, GuildPostComment.class, 1L);
+            setId(savedComment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -577,7 +568,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -607,7 +598,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -631,7 +622,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, masterId)).thenReturn(Optional.of(masterMember));
@@ -663,7 +654,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("테스트 댓글")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, otherMemberId)).thenReturn(Optional.of(otherMember));
@@ -694,7 +685,7 @@ class GuildPostServiceTest {
                 .postType(GuildPostType.NOTICE)
                 .isPinned(true)
                 .build();
-            setId(noticePost, GuildPost.class, 2L);
+            setId(noticePost, 2L);
 
             Pageable pageable = PageRequest.of(0, 10);
             Page<GuildPost> postPage = new PageImpl<>(List.of(noticePost), pageable, 1);
@@ -757,7 +748,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("원댓글")
                 .build();
-            setId(parentComment, GuildPostComment.class, 1L);
+            setId(parentComment, 1L);
 
             GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
                 .content("대댓글 내용")
@@ -771,7 +762,7 @@ class GuildPostServiceTest {
                 .content("대댓글 내용")
                 .parent(parentComment)
                 .build();
-            setId(replyComment, GuildPostComment.class, 2L);
+            setId(replyComment, 2L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));
@@ -819,7 +810,7 @@ class GuildPostServiceTest {
                 .content("다른 내용")
                 .postType(GuildPostType.NORMAL)
                 .build();
-            setId(otherPost, GuildPost.class, 2L);
+            setId(otherPost, 2L);
 
             GuildPostComment otherComment = GuildPostComment.builder()
                 .post(otherPost)
@@ -827,7 +818,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("다른 게시글의 댓글")
                 .build();
-            setId(otherComment, GuildPostComment.class, 1L);
+            setId(otherComment, 1L);
 
             GuildPostCommentCreateRequest request = GuildPostCommentCreateRequest.builder()
                 .content("대댓글 내용")
@@ -860,7 +851,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("원래 내용")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
@@ -890,7 +881,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("원래 내용")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
@@ -919,7 +910,7 @@ class GuildPostServiceTest {
                 .content("다른 내용")
                 .postType(GuildPostType.NORMAL)
                 .build();
-            setId(otherPost, GuildPost.class, 2L);
+            setId(otherPost, 2L);
 
             GuildPostComment comment = GuildPostComment.builder()
                 .post(otherPost)
@@ -927,7 +918,7 @@ class GuildPostServiceTest {
                 .authorNickname("멤버닉네임")
                 .content("원래 내용")
                 .build();
-            setId(comment, GuildPostComment.class, 1L);
+            setId(comment, 1L);
 
             io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildPostCommentUpdateRequest.builder()
@@ -996,7 +987,7 @@ class GuildPostServiceTest {
                 .name("다른 길드")
                 .masterId("other-master")
                 .build();
-            setId(otherGuild, Guild.class, 2L);
+            setId(otherGuild, 2L);
 
             GuildPost otherPost = GuildPost.builder()
                 .guild(otherGuild)
@@ -1005,7 +996,7 @@ class GuildPostServiceTest {
                 .content("다른 내용")
                 .postType(GuildPostType.NORMAL)
                 .build();
-            setId(otherPost, GuildPost.class, 2L);
+            setId(otherPost, 2L);
 
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, memberId)).thenReturn(Optional.of(normalMember));

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,7 +22,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserA
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -68,26 +68,6 @@ class AchievementServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private void setAchievementId(Achievement achievement, Long id) {
-        try {
-            Field idField = Achievement.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(achievement, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setUserAchievementId(UserAchievement userAchievement, Long id) {
-        try {
-            Field idField = UserAchievement.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(userAchievement, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Achievement createTestAchievement(Long id, String name, int targetCount, int rewardExp) {
         Achievement achievement = Achievement.builder()
             .name(name)
@@ -101,7 +81,7 @@ class AchievementServiceTest {
             .checkLogicDataField("totalMissionCompletions")
             .comparisonOperator("GTE")
             .build();
-        setAchievementId(achievement, id);
+        setId(achievement, id);
         return achievement;
     }
 
@@ -113,7 +93,7 @@ class AchievementServiceTest {
             .isCompleted(isCompleted)
             .isRewardClaimed(false)
             .build();
-        setUserAchievementId(userAchievement, id);
+        setId(userAchievement, id);
         return userAchievement;
     }
 

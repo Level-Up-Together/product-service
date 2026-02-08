@@ -26,7 +26,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.userservice.feed.domain.dto.UserTitleInfo;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.userservice.feed.api.dto.ActivityFeedResponse;
@@ -40,7 +40,8 @@ import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProf
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import java.lang.reflect.Field;
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
+import io.pinkspider.global.test.TestReflectionUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -83,7 +84,7 @@ class ActivityFeedServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserTitleRepository userTitleRepository;
+    private UserTitleInfoHelper userTitleInfoHelper;
 
     @Mock
     private UserProfileCacheService userProfileCacheService;
@@ -103,47 +104,17 @@ class ActivityFeedServiceTest {
     private static final String TEST_USER_ID = "test-user-123";
     private static final String OTHER_USER_ID = "other-user-456";
 
-    private void setFeedId(ActivityFeed feed, Long id) {
-        try {
-            Field idField = ActivityFeed.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(feed, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setCommentId(FeedComment comment, Long id) {
-        try {
-            Field idField = FeedComment.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(comment, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setField(Object obj, String fieldName, Object value) {
-        try {
-            Field field = obj.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(obj, value);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private CreateFeedRequest createTestFeedRequest() {
         CreateFeedRequest request = new CreateFeedRequest();
-        setField(request, "activityType", ActivityType.MISSION_SHARED);
-        setField(request, "title", "테스트 피드");
-        setField(request, "description", "테스트 설명");
+        TestReflectionUtils.setField(request, "activityType", ActivityType.MISSION_SHARED);
+        TestReflectionUtils.setField(request, "title", "테스트 피드");
+        TestReflectionUtils.setField(request, "description", "테스트 설명");
         return request;
     }
 
     private FeedCommentRequest createTestCommentRequest(String content) {
         FeedCommentRequest request = new FeedCommentRequest();
-        setField(request, "content", content);
+        TestReflectionUtils.setField(request, "content", content);
         return request;
     }
 
@@ -160,7 +131,7 @@ class ActivityFeedServiceTest {
             .likeCount(0)
             .commentCount(0)
             .build();
-        setFeedId(feed, id);
+        setId(feed, id);
         return feed;
     }
 
@@ -171,7 +142,7 @@ class ActivityFeedServiceTest {
             .provider("GOOGLE")
             .picture("https://example.com/profile.jpg")
             .build();
-        setField(user, "id", userId);
+        TestReflectionUtils.setField(user, "id", userId);
         return user;
     }
 
@@ -215,7 +186,7 @@ class ActivityFeedServiceTest {
             CreateFeedRequest request = createTestFeedRequest();
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
-            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
             // when
@@ -487,7 +458,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(savedComment, 1L);
+            setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
@@ -536,7 +507,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, 1L);
+            setId(comment, 1L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
@@ -568,7 +539,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, commentId);
+            setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
@@ -596,7 +567,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, commentId);
+            setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
@@ -621,7 +592,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, commentId);
+            setId(comment, commentId);
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
 
@@ -789,7 +760,7 @@ class ActivityFeedServiceTest {
                 .likeCount(0)
                 .commentCount(0)
                 .build();
-            setFeedId(savedFeed, 1L);
+            setId(savedFeed, 1L);
 
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
@@ -1057,7 +1028,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, 1L);
+            setId(comment, 1L);
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             String acceptLanguage = "es";
 
@@ -1202,7 +1173,7 @@ class ActivityFeedServiceTest {
                 .likeCount(0)
                 .commentCount(0)
                 .build();
-            setFeedId(privateFeed, 1L);
+            setId(privateFeed, 1L);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(privateFeed));
 
             when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
@@ -1232,7 +1203,7 @@ class ActivityFeedServiceTest {
                 .likeCount(0)
                 .commentCount(0)
                 .build();
-            setFeedId(friendsFeed, 1L);
+            setId(friendsFeed, 1L);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(friendsFeed));
 
             when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
@@ -1262,7 +1233,7 @@ class ActivityFeedServiceTest {
                 .likeCount(0)
                 .commentCount(0)
                 .build();
-            setFeedId(friendsFeed, 1L);
+            setId(friendsFeed, 1L);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(friendsFeed));
 
             when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
@@ -1305,7 +1276,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(savedComment, 1L);
+            setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
@@ -1524,7 +1495,7 @@ class ActivityFeedServiceTest {
                 .content("테스트 댓글")
                 .isDeleted(false)
                 .build();
-            setCommentId(comment, 1L);
+            setId(comment, 1L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);

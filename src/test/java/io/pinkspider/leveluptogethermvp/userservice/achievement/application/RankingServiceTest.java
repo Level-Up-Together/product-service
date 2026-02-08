@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -19,7 +20,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.Level
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.RankingResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -66,13 +66,7 @@ class RankingServiceTest {
             .maxStreak(5)
             .totalAchievementsCompleted(3)
             .build();
-        try {
-            Field idField = UserStats.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(stats, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(stats, id);
         return stats;
     }
 
@@ -83,13 +77,7 @@ class RankingServiceTest {
             .currentExp(100)
             .totalExp(totalExp)
             .build();
-        try {
-            Field idField = UserExperience.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(exp, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(exp, id);
         return exp;
     }
 
@@ -98,13 +86,7 @@ class RankingServiceTest {
             .nickname(nickname)
             .email(userId + "@test.com")
             .build();
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, userId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(user, userId);
         return user;
     }
 
@@ -458,13 +440,7 @@ class RankingServiceTest {
                 .title(title)
                 .build();
             userTitle.equip(position);
-            try {
-                Field idField = UserTitle.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(userTitle, id);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(userTitle, id);
             return userTitle;
         }
 
@@ -474,13 +450,7 @@ class RankingServiceTest {
                 .rarity(rarity)
                 .positionType(TitlePosition.LEFT)
                 .build();
-            try {
-                Field idField = Title.class.getDeclaredField("id");
-                idField.setAccessible(true);
-                idField.set(title, id);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(title, id);
             return title;
         }
 

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -16,7 +17,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -75,16 +75,6 @@ class MissionAutoCompleteSchedulerTest {
             .status(ParticipantStatus.ACCEPTED)
             .build();
         setId(participant, 1L);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested

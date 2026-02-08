@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.terms.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
@@ -8,7 +9,6 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.userservice.terms.infrastructure.TermVersionRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.TermVersion;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,13 +32,7 @@ class TermVersionServiceTest {
             .version(version)
             .content("약관 내용")
             .build();
-        try {
-            Field idField = TermVersion.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(termVersion, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(termVersion, id);
         return termVersion;
     }
 

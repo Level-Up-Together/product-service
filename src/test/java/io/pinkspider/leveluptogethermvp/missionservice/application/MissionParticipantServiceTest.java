@@ -1,6 +1,9 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -49,36 +52,6 @@ class MissionParticipantServiceTest {
     private static final String TEST_USER_ID = "test-user-123";
     private static final String ADMIN_USER_ID = "admin-user-456";
 
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            java.lang.reflect.Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setMissionSource(Mission mission, MissionSource source) {
-        try {
-            java.lang.reflect.Field sourceField = Mission.class.getDeclaredField("source");
-            sourceField.setAccessible(true);
-            sourceField.set(mission, source);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setParticipantId(MissionParticipant participant, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionParticipant.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(participant, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Mission createOpenPublicMission(Long id) {
         Mission mission = Mission.builder()
             .title("테스트 미션")
@@ -88,8 +61,8 @@ class MissionParticipantServiceTest {
             .type(MissionType.PERSONAL)
             .creatorId(ADMIN_USER_ID)
             .build();
-        setMissionId(mission, id);
-        setMissionSource(mission, MissionSource.SYSTEM);
+        setId(mission, id);
+        TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
         return mission;
     }
 
@@ -110,7 +83,7 @@ class MissionParticipantServiceTest {
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
-                    setParticipantId(saved, 1L);
+                    setId(saved, 1L);
                     return saved;
                 });
 
@@ -155,7 +128,7 @@ class MissionParticipantServiceTest {
                 .progress(0)
                 .joinedAt(LocalDateTime.now().minusDays(7))
                 .build();
-            setParticipantId(withdrawnParticipant, 1L);
+            setId(withdrawnParticipant, 1L);
 
             // existsActiveParticipation은 WITHDRAWN 상태를 제외하므로 false 반환
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
@@ -194,7 +167,7 @@ class MissionParticipantServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -219,7 +192,7 @@ class MissionParticipantServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
@@ -227,7 +200,7 @@ class MissionParticipantServiceTest {
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
-                    setParticipantId(saved, 1L);
+                    setId(saved, 1L);
                     return saved;
                 });
 
@@ -254,7 +227,7 @@ class MissionParticipantServiceTest {
                 .creatorId(ADMIN_USER_ID)
                 .maxParticipants(10)
                 .build();
-            setMissionId(mission, missionId);
+            setId(mission, missionId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
@@ -287,7 +260,7 @@ class MissionParticipantServiceTest {
                 .progress(0)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, 1L);
+            setId(participant, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -333,8 +306,8 @@ class MissionParticipantServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(mission)
@@ -343,7 +316,7 @@ class MissionParticipantServiceTest {
                 .progress(0)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, participantId);
+            setId(participant, participantId);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.findById(participantId)).thenReturn(Optional.of(participant));
@@ -370,8 +343,8 @@ class MissionParticipantServiceTest {
                 .type(MissionType.PERSONAL)
                 .creatorId(ADMIN_USER_ID)
                 .build();
-            setMissionId(mission, missionId);
-            setMissionSource(mission, MissionSource.USER);
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
             when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
 
@@ -399,7 +372,7 @@ class MissionParticipantServiceTest {
                 .progress(50)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant1, 1L);
+            setId(participant1, 1L);
 
             MissionParticipant participant2 = MissionParticipant.builder()
                 .mission(mission)
@@ -408,7 +381,7 @@ class MissionParticipantServiceTest {
                 .progress(30)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant2, 2L);
+            setId(participant2, 2L);
 
             when(participantRepository.findByMissionId(missionId))
                 .thenReturn(List.of(participant1, participant2));
@@ -485,7 +458,7 @@ class MissionParticipantServiceTest {
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
-                    setParticipantId(saved, 1L);
+                    setId(saved, 1L);
                     return saved;
                 });
 
@@ -512,7 +485,7 @@ class MissionParticipantServiceTest {
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> {
                     MissionParticipant saved = invocation.getArgument(0);
-                    setParticipantId(saved, 1L);
+                    setId(saved, 1L);
                     return saved;
                 });
 
@@ -543,7 +516,7 @@ class MissionParticipantServiceTest {
                 .progress(0)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, 1L);
+            setId(participant, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -570,7 +543,7 @@ class MissionParticipantServiceTest {
                 .progress(0)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, 1L);
+            setId(participant, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -596,7 +569,7 @@ class MissionParticipantServiceTest {
                 .progress(100)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, 1L);
+            setId(participant, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -627,7 +600,7 @@ class MissionParticipantServiceTest {
                 .progress(30)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant1, 1L);
+            setId(participant1, 1L);
 
             MissionParticipant participant2 = MissionParticipant.builder()
                 .mission(mission2)
@@ -636,7 +609,7 @@ class MissionParticipantServiceTest {
                 .progress(60)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant2, 2L);
+            setId(participant2, 2L);
 
             when(participantRepository.findByUserIdWithMission(TEST_USER_ID))
                 .thenReturn(List.of(participant1, participant2));
@@ -675,7 +648,7 @@ class MissionParticipantServiceTest {
                 .progress(50)
                 .joinedAt(LocalDateTime.now())
                 .build();
-            setParticipantId(participant, 1L);
+            setId(participant, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));

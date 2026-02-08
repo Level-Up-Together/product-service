@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.profile.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,7 +13,6 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,7 +51,7 @@ class UserProfileCacheServiceTest {
                 .nickname("테스트유저")
                 .picture("http://example.com/photo.jpg")
                 .build();
-            setUserId(user, userId);
+            setId(user, userId);
 
             UserExperience experience = UserExperience.builder()
                 .userId(userId)
@@ -103,7 +103,7 @@ class UserProfileCacheServiceTest {
             Users user = Users.builder()
                 .nickname("신규유저")
                 .build();
-            setUserId(user, userId);
+            setId(user, userId);
 
             TitleInfo titleInfo = new TitleInfo(null, null, null);
 
@@ -126,7 +126,7 @@ class UserProfileCacheServiceTest {
             Users user = Users.builder()
                 .nickname("칭호없는유저")
                 .build();
-            setUserId(user, userId);
+            setId(user, userId);
 
             UserExperience experience = UserExperience.builder()
                 .userId(userId)
@@ -163,14 +163,4 @@ class UserProfileCacheServiceTest {
         }
     }
 
-    // Reflection을 사용하여 Users의 id 설정
-    private void setUserId(Users user, String id) {
-        try {
-            Field idField = Users.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

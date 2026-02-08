@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -105,7 +106,7 @@ class GuildInvitationServiceTest {
             .categoryId(testCategoryId)
             .isActive(true)
             .build();
-        setGuildId(testPrivateGuild, 1L);
+        setId(testPrivateGuild, 1L);
 
         testPublicGuild = Guild.builder()
             .name("공개 길드")
@@ -116,7 +117,7 @@ class GuildInvitationServiceTest {
             .categoryId(testCategoryId)
             .isActive(true)
             .build();
-        setGuildId(testPublicGuild, 2L);
+        setId(testPublicGuild, 2L);
 
         testMasterMember = GuildMember.builder()
             .guild(testPrivateGuild)
@@ -125,7 +126,7 @@ class GuildInvitationServiceTest {
             .status(GuildMemberStatus.ACTIVE)
             .joinedAt(LocalDateTime.now())
             .build();
-        setGuildMemberId(testMasterMember, 1L);
+        setId(testMasterMember, 1L);
 
         testSubMasterMember = GuildMember.builder()
             .guild(testPrivateGuild)
@@ -134,7 +135,7 @@ class GuildInvitationServiceTest {
             .status(GuildMemberStatus.ACTIVE)
             .joinedAt(LocalDateTime.now())
             .build();
-        setGuildMemberId(testSubMasterMember, 2L);
+        setId(testSubMasterMember, 2L);
 
         testInviter = Users.builder()
             .id(testInviterId)
@@ -149,36 +150,6 @@ class GuildInvitationServiceTest {
             .email("invitee@test.com")
             .provider("google")
             .build();
-    }
-
-    private void setGuildId(Guild guild, Long id) {
-        try {
-            Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setGuildMemberId(GuildMember member, Long id) {
-        try {
-            Field idField = GuildMember.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(member, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setInvitationId(GuildInvitation invitation, Long id) {
-        try {
-            Field idField = GuildInvitation.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(invitation, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -204,7 +175,7 @@ class GuildInvitationServiceTest {
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(invitationRepository.save(any(GuildInvitation.class))).thenAnswer(invocation -> {
                 GuildInvitation invitation = invocation.getArgument(0);
-                setInvitationId(invitation, 1L);
+                setId(invitation, 1L);
                 return invitation;
             });
             when(userRepository.findById(testMasterId)).thenReturn(Optional.of(
@@ -245,7 +216,7 @@ class GuildInvitationServiceTest {
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(invitationRepository.save(any(GuildInvitation.class))).thenAnswer(invocation -> {
                 GuildInvitation invitation = invocation.getArgument(0);
-                setInvitationId(invitation, 1L);
+                setId(invitation, 1L);
                 return invitation;
             });
             when(userRepository.findById(testInviterId)).thenReturn(Optional.of(testInviter));
@@ -408,7 +379,7 @@ class GuildInvitationServiceTest {
                 .categoryId(testCategoryId)
                 .isActive(false)
                 .build();
-            setGuildId(inactiveGuild, 3L);
+            setId(inactiveGuild, 3L);
 
             when(guildRepository.findById(3L)).thenReturn(Optional.of(inactiveGuild));
 
@@ -428,7 +399,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_newMember_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, "초대 메시지");
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -459,7 +430,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_rejoinAfterLeave_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, "재초대");
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             GuildMember leftMember = GuildMember.builder()
                 .guild(testPrivateGuild)
@@ -500,7 +471,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_notForMe_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
 
@@ -515,7 +486,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_alreadyProcessed_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
             invitation.accept();
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
@@ -537,7 +508,7 @@ class GuildInvitationServiceTest {
                 .status(GuildInvitationStatus.PENDING)
                 .expiresAt(LocalDateTime.now().minusDays(1)) // 만료됨
                 .build();
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
 
@@ -558,10 +529,10 @@ class GuildInvitationServiceTest {
                 .categoryId(testCategoryId)
                 .isActive(false)
                 .build();
-            setGuildId(inactiveGuild, 3L);
+            setId(inactiveGuild, 3L);
 
             GuildInvitation invitation = GuildInvitation.create(inactiveGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
 
@@ -576,7 +547,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_alreadyInOtherGuild_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -594,7 +565,7 @@ class GuildInvitationServiceTest {
         void acceptInvitation_guildFull_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -619,7 +590,7 @@ class GuildInvitationServiceTest {
         void rejectInvitation_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findById(1L)).thenReturn(Optional.of(invitation));
 
@@ -636,7 +607,7 @@ class GuildInvitationServiceTest {
         void rejectInvitation_notForMe_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findById(1L)).thenReturn(Optional.of(invitation));
 
@@ -651,7 +622,7 @@ class GuildInvitationServiceTest {
         void rejectInvitation_alreadyProcessed_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
             invitation.cancel();
 
             when(invitationRepository.findById(1L)).thenReturn(Optional.of(invitation));
@@ -684,7 +655,7 @@ class GuildInvitationServiceTest {
         void cancelInvitation_byMaster_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
@@ -703,7 +674,7 @@ class GuildInvitationServiceTest {
         void cancelInvitation_bySubMaster_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testInviterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviterId))
@@ -729,7 +700,7 @@ class GuildInvitationServiceTest {
                 .build();
 
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, normalMemberId))
@@ -746,7 +717,7 @@ class GuildInvitationServiceTest {
         void cancelInvitation_alreadyProcessed_throwsException() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
             invitation.accept();
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
@@ -781,7 +752,7 @@ class GuildInvitationServiceTest {
         void getMyPendingInvitations_success() {
             // given
             GuildInvitation invitation1 = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, "초대1");
-            setInvitationId(invitation1, 1L);
+            setId(invitation1, 1L);
 
             Guild anotherGuild = Guild.builder()
                 .name("또다른 길드")
@@ -789,10 +760,10 @@ class GuildInvitationServiceTest {
                 .masterId("another-master")
                 .categoryId(2L)
                 .build();
-            setGuildId(anotherGuild, 2L);
+            setId(anotherGuild, 2L);
 
             GuildInvitation invitation2 = GuildInvitation.create(anotherGuild, "another-master", testInviteeId, "초대2");
-            setInvitationId(invitation2, 2L);
+            setId(invitation2, 2L);
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation1, invitation2));
@@ -817,7 +788,7 @@ class GuildInvitationServiceTest {
         void getMyPendingInvitations_excludesExpired() {
             // given
             GuildInvitation validInvitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, "유효");
-            setInvitationId(validInvitation, 1L);
+            setId(validInvitation, 1L);
 
             GuildInvitation expiredInvitation = GuildInvitation.builder()
                 .guild(testPrivateGuild)
@@ -827,7 +798,7 @@ class GuildInvitationServiceTest {
                 .status(GuildInvitationStatus.PENDING)
                 .expiresAt(LocalDateTime.now().minusDays(1)) // 만료됨
                 .build();
-            setInvitationId(expiredInvitation, 2L);
+            setId(expiredInvitation, 2L);
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(validInvitation, expiredInvitation));
@@ -869,7 +840,7 @@ class GuildInvitationServiceTest {
         void getGuildPendingInvitations_byMaster_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, "초대");
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
@@ -895,7 +866,7 @@ class GuildInvitationServiceTest {
         void getGuildPendingInvitations_bySubMaster_success() {
             // given
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testInviterId, testInviteeId, "초대");
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviterId))
                 .thenReturn(Optional.of(testSubMasterMember));
@@ -962,7 +933,7 @@ class GuildInvitationServiceTest {
                 .build();
 
             GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testInviterId, testInviteeId, null);
-            setInvitationId(invitation, 1L);
+            setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviterId))

@@ -7,11 +7,15 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
+
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHelper;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -68,6 +72,9 @@ class GuildServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private GuildHelper guildHelper;
+
     @InjectMocks
     private GuildService guildService;
 
@@ -100,7 +107,7 @@ class GuildServiceTest {
             .maxMembers(50)
             .categoryId(testCategoryId)
             .build();
-        setGuildId(testGuild, 1L);
+        setId(testGuild, 1L);
 
         testMasterMember = GuildMember.builder()
             .guild(testGuild)
@@ -109,16 +116,6 @@ class GuildServiceTest {
             .status(GuildMemberStatus.ACTIVE)
             .joinedAt(LocalDateTime.now())
             .build();
-    }
-
-    private void setGuildId(Guild guild, Long id) {
-        try {
-            java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -150,10 +147,13 @@ class GuildServiceTest {
                 GuildLevelConfig.builder().level(1).maxMembers(20).build()));
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
-                setGuildId(guild, 1L);
+                setId(guild, 1L);
                 return guild;
             });
             when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), eq(1)))
+                .thenAnswer(inv -> GuildResponse.from(inv.getArgument(0), inv.getArgument(1),
+                    testCategory.getName(), testCategory.getIcon()));
 
             // when
             GuildResponse response = guildService.createGuild(testUserId, request);
@@ -260,9 +260,11 @@ class GuildServiceTest {
                 .description("수정된 설명")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+            when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), eq(5)))
+                .thenAnswer(inv -> GuildResponse.from(inv.getArgument(0), inv.getArgument(1),
+                    testCategory.getName(), testCategory.getIcon()));
 
             // when
             GuildResponse response = guildService.updateGuild(1L, testMasterId, request);
@@ -280,7 +282,9 @@ class GuildServiceTest {
                 .description("수정된 설명")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            doThrow(new IllegalStateException("길드 마스터만 이 작업을 수행할 수 있습니다."))
+                .when(guildHelper).validateMaster(testGuild, testUserId);
 
             // when & then
             assertThatThrownBy(() -> guildService.updateGuild(1L, testUserId, request))
@@ -295,7 +299,7 @@ class GuildServiceTest {
                 .name("중복 길드명")
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildRepository.existsByNameAndIsActiveTrue("중복 길드명")).thenReturn(true);
 
             // when & then
@@ -313,7 +317,7 @@ class GuildServiceTest {
         @DisplayName("길드 마스터가 혼자 남은 길드를 해체한다")
         void dissolveGuild_success() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
                 .thenReturn(List.of(testMasterMember));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
@@ -330,7 +334,7 @@ class GuildServiceTest {
         @DisplayName("길드 마스터가 아닌 사용자가 해체하면 예외가 발생한다")
         void dissolveGuild_notMaster_throwsException() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
 
             // when & then
             assertThatThrownBy(() -> guildService.dissolveGuild(1L, testUserId))
@@ -349,7 +353,7 @@ class GuildServiceTest {
                 .status(GuildMemberStatus.ACTIVE)
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
                 .thenReturn(List.of(testMasterMember, otherMember));
 

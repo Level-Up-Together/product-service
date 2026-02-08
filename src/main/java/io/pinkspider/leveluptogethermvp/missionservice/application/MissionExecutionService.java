@@ -225,7 +225,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 시작 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.startInstanceByMission(missionId, userId, executionDate);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         // 이미 진행 중인 미션이 있는지 확인
@@ -268,7 +268,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 취소 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.skipInstanceByMission(missionId, userId, executionDate);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -319,7 +319,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 완료 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.completeInstanceByMission(missionId, userId, executionDate, note, shareToFeed);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -362,7 +362,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 이미지 업로드 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.uploadImageByMission(missionId, userId, executionDate, image);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -403,7 +403,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 이미지 삭제 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.deleteImageByMission(missionId, userId, executionDate);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -444,7 +444,7 @@ public class MissionExecutionService {
         if (isPinnedMission(missionId, userId)) {
             log.info("고정 미션 피드 공유 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
             var response = dailyMissionInstanceService.shareToFeedByMission(missionId, userId, executionDate);
-            return toMissionExecutionResponse(response);
+            return MissionExecutionResponse.fromDailyInstance(response);
         }
 
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
@@ -643,27 +643,4 @@ public class MissionExecutionService {
             .orElse(false);
     }
 
-    /**
-     * DailyMissionInstanceResponse를 MissionExecutionResponse로 변환 (하위 호환성)
-     */
-    private MissionExecutionResponse toMissionExecutionResponse(DailyMissionInstanceResponse instanceResponse) {
-        return MissionExecutionResponse.builder()
-            .id(instanceResponse.getId())
-            .participantId(instanceResponse.getParticipantId())
-            .missionId(instanceResponse.getMissionId())
-            .missionTitle(instanceResponse.getMissionTitle())
-            .missionCategoryName(instanceResponse.getMissionCategoryName())
-            .userId(instanceResponse.getUserId())
-            .executionDate(instanceResponse.getInstanceDate())
-            .status(instanceResponse.getStatus())
-            .startedAt(instanceResponse.getStartedAt())
-            .completedAt(instanceResponse.getCompletedAt())
-            .durationMinutes(instanceResponse.getDurationMinutes())
-            .expEarned(instanceResponse.getExpEarned())
-            .note(instanceResponse.getNote())
-            .imageUrl(instanceResponse.getImageUrl())
-            .feedId(instanceResponse.getFeedId())
-            .createdAt(instanceResponse.getCreatedAt())
-            .build();
-    }
 }

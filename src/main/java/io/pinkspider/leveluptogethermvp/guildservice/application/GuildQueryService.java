@@ -10,8 +10,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedGuild;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedGuildRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -43,21 +41,21 @@ public class GuildQueryService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
-    private final MissionCategoryService missionCategoryService;
     private final FeaturedGuildRepository featuredGuildRepository;
     private final UserRepository userRepository;
     private final TitleService titleService;
     private final ReportService reportService;
+    private final GuildHelper guildHelper;
 
     public GuildResponse getGuild(Long guildId, String userId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate() && !isMember(guildId, userId)) {
             throw new IllegalStateException("비공개 길드에 접근할 수 없습니다.");
         }
 
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+        GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
 
         // 신고 처리중 여부 확인
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
@@ -89,7 +87,7 @@ public class GuildQueryService {
 
         return guilds.map(guild -> {
             int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-            GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
@@ -113,7 +111,7 @@ public class GuildQueryService {
 
         return guilds.map(guild -> {
             int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-            GuildResponse response = buildGuildResponseWithCategory(guild, memberCount);
+            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
@@ -144,7 +142,7 @@ public class GuildQueryService {
                 Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId).orElse(null);
                 if (guild != null && guild.isPublic()) {
                     int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-                    result.add(buildGuildResponseWithCategory(guild, memberCount));
+                    result.add(guildHelper.buildGuildResponseWithCategory(guild, memberCount));
                     addedGuildIds.add(guildId);
                 }
             } catch (Exception e) {
@@ -163,7 +161,7 @@ public class GuildQueryService {
                 if (addedGuildIds.contains(guild.getId())) continue;
 
                 int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-                result.add(buildGuildResponseWithCategory(guild, memberCount));
+                result.add(guildHelper.buildGuildResponseWithCategory(guild, memberCount));
                 addedGuildIds.add(guild.getId());
             }
         }
@@ -192,7 +190,7 @@ public class GuildQueryService {
             .map(member -> {
                 Guild guild = member.getGuild();
                 int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-                return buildGuildResponseWithCategory(guild, memberCount);
+                return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             })
             .toList();
 
@@ -209,7 +207,7 @@ public class GuildQueryService {
     }
 
     public List<GuildMemberResponse> getGuildMembers(Long guildId, String userId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate() && !isMember(guildId, userId)) {
             throw new IllegalStateException("비공개 길드의 멤버 목록을 조회할 수 없습니다.");
@@ -255,32 +253,8 @@ public class GuildQueryService {
             .toList();
     }
 
-    private Guild findActiveGuildById(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
-    }
-
     private boolean isMember(Long guildId, String userId) {
         return guildMemberRepository.isActiveMember(guildId, userId);
-    }
-
-    private GuildResponse buildGuildResponseWithCategory(Guild guild, int memberCount) {
-        String categoryName = null;
-        String categoryIcon = null;
-
-        if (guild.getCategoryId() != null) {
-            try {
-                MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
-                if (category != null) {
-                    categoryName = category.getName();
-                    categoryIcon = category.getIcon();
-                }
-            } catch (Exception e) {
-                log.warn("카테고리 조회 실패: categoryId={}", guild.getCategoryId(), e);
-            }
-        }
-
-        return GuildResponse.from(guild, memberCount, categoryName, categoryIcon);
     }
 
     /**

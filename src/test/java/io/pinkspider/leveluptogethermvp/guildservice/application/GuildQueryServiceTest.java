@@ -1,9 +1,11 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,6 +14,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHelper;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
@@ -28,8 +31,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.FeaturedGuild;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.FeaturedGuildRepository;
-import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -60,9 +61,6 @@ class GuildQueryServiceTest {
     private GuildJoinRequestRepository joinRequestRepository;
 
     @Mock
-    private MissionCategoryService missionCategoryService;
-
-    @Mock
     private FeaturedGuildRepository featuredGuildRepository;
 
     @Mock
@@ -74,6 +72,9 @@ class GuildQueryServiceTest {
     @Mock
     private ReportService reportService;
 
+    @Mock
+    private GuildHelper guildHelper;
+
     @InjectMocks
     private GuildQueryService guildQueryService;
 
@@ -82,20 +83,12 @@ class GuildQueryServiceTest {
     private Guild testGuild;
     private GuildMember testMasterMember;
     private Long testCategoryId;
-    private MissionCategoryResponse testCategory;
 
     @BeforeEach
     void setUp() {
         testUserId = "test-user-id";
         testMasterId = "test-master-id";
         testCategoryId = 1L;
-
-        testCategory = MissionCategoryResponse.builder()
-            .id(testCategoryId)
-            .name("테스트 카테고리")
-            .icon("📚")
-            .isActive(true)
-            .build();
 
         testGuild = Guild.builder()
             .name("테스트 길드")
@@ -106,7 +99,7 @@ class GuildQueryServiceTest {
             .maxMembers(50)
             .categoryId(testCategoryId)
             .build();
-        setGuildId(testGuild, 1L);
+        setId(testGuild, 1L);
 
         testMasterMember = GuildMember.builder()
             .guild(testGuild)
@@ -115,16 +108,14 @@ class GuildQueryServiceTest {
             .status(GuildMemberStatus.ACTIVE)
             .joinedAt(LocalDateTime.now())
             .build();
-    }
 
-    private void setGuildId(Guild guild, Long id) {
-        try {
-            java.lang.reflect.Field idField = Guild.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(guild, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        // Default stub for guildHelper.buildGuildResponseWithCategory
+        lenient().when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
+            .thenAnswer(inv -> {
+                Guild g = inv.getArgument(0);
+                int mc = inv.getArgument(1);
+                return GuildResponse.from(g, mc, null, null);
+            });
     }
 
     @Nested
@@ -145,7 +136,7 @@ class GuildQueryServiceTest {
                 .maxMembers(50)
                 .categoryId(testCategoryId)
                 .build();
-            setGuildId(featuredGuild, featuredGuildId);
+            setId(featuredGuild, featuredGuildId);
 
             FeaturedGuild fg = FeaturedGuild.builder()
                 .categoryId(testCategoryId)
@@ -159,7 +150,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(featuredGuildId))
                 .thenReturn(Optional.of(featuredGuild));
             when(guildMemberRepository.countActiveMembers(featuredGuildId)).thenReturn(10L);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // 자동 선정 길드
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
@@ -187,7 +178,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // when
             List<GuildResponse> result = guildQueryService.getPublicGuildsByCategory(testUserId, testCategoryId);
@@ -215,7 +206,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(guildId))
                 .thenReturn(Optional.of(testGuild));
             when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(10L);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // 자동 선정에도 동일한 길드
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
@@ -268,7 +259,7 @@ class GuildQueryServiceTest {
                     .maxMembers(50)
                     .categoryId(testCategoryId)
                     .build();
-                setGuildId(guild, guildId);
+                setId(guild, guildId);
 
                 lenient().when(guildRepository.findByIdAndIsActiveTrue(guildId)).thenReturn(Optional.of(guild));
                 lenient().when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
@@ -276,7 +267,7 @@ class GuildQueryServiceTest {
 
             when(featuredGuildRepository.findActiveFeaturedGuilds(eq(testCategoryId), any()))
                 .thenReturn(manyFeaturedGuilds);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // when
             List<GuildResponse> result = guildQueryService.getPublicGuildsByCategory(testUserId, testCategoryId);
@@ -294,9 +285,9 @@ class GuildQueryServiceTest {
         @DisplayName("공개 길드를 조회한다")
         void getGuild_publicGuild_success() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
             when(reportService.isUnderReview(ReportTargetType.GUILD, "1")).thenReturn(false);
 
             // when
@@ -321,9 +312,9 @@ class GuildQueryServiceTest {
                 .maxMembers(50)
                 .categoryId(testCategoryId)
                 .build();
-            setGuildId(privateGuild, 2L);
+            setId(privateGuild, 2L);
 
-            when(guildRepository.findByIdAndIsActiveTrue(2L)).thenReturn(Optional.of(privateGuild));
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
             when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
 
             // when & then
@@ -336,7 +327,7 @@ class GuildQueryServiceTest {
         @DisplayName("존재하지 않는 길드 조회 시 예외가 발생한다")
         void getGuild_notFound_throwsException() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(999L)).thenReturn(Optional.empty());
+            when(guildHelper.findActiveGuildById(999L)).thenThrow(new IllegalArgumentException("길드를 찾을 수 없습니다: 999"));
 
             // when & then
             assertThatThrownBy(() -> guildQueryService.getGuild(999L, testUserId))
@@ -356,7 +347,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findPublicGuilds(any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // when
             org.springframework.data.domain.Page<GuildResponse> result = guildQueryService.getPublicGuilds(testUserId, pageable);
@@ -380,7 +371,7 @@ class GuildQueryServiceTest {
             when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // when
             org.springframework.data.domain.Page<GuildResponse> result = guildQueryService.searchGuilds(testUserId, keyword, pageable);
@@ -410,7 +401,7 @@ class GuildQueryServiceTest {
             when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
                 .thenReturn(List.of(myMembership));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             // when
             List<GuildResponse> result = guildQueryService.getMyGuilds(testUserId);
@@ -451,7 +442,7 @@ class GuildQueryServiceTest {
                 .joinedAt(LocalDateTime.now())
                 .build();
 
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
             when(guildMemberRepository.findActiveMembers(1L))
                 .thenReturn(List.of(testMasterMember, member));
@@ -476,9 +467,9 @@ class GuildQueryServiceTest {
                 .maxMembers(50)
                 .categoryId(testCategoryId)
                 .build();
-            setGuildId(privateGuild, 2L);
+            setId(privateGuild, 2L);
 
-            when(guildRepository.findByIdAndIsActiveTrue(2L)).thenReturn(Optional.of(privateGuild));
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
             when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
 
             // when & then
@@ -496,9 +487,9 @@ class GuildQueryServiceTest {
         @DisplayName("길드 상세 조회 시 신고 처리중 상태가 true로 반환된다")
         void getGuild_underReview_true() {
             // given
-            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
             when(reportService.isUnderReview(ReportTargetType.GUILD, "1")).thenReturn(true);
 
             // when
@@ -518,7 +509,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findPublicGuilds(any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);
@@ -548,7 +539,7 @@ class GuildQueryServiceTest {
             when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
                 .thenReturn(List.of(myMembership));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", false);
@@ -572,7 +563,7 @@ class GuildQueryServiceTest {
             when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            lenient().when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);
@@ -596,7 +587,7 @@ class GuildQueryServiceTest {
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);

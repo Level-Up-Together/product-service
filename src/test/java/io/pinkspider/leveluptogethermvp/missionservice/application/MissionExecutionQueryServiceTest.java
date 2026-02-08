@@ -1,11 +1,14 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -71,55 +74,16 @@ class MissionExecutionQueryServiceTest {
             .missionInterval(MissionInterval.DAILY)
             .expPerCompletion(50)
             .build();
-        setMissionId(testMission, 1L);
+        setId(testMission, 1L);
 
         testParticipant = MissionParticipant.builder()
             .mission(testMission)
             .userId(testUserId)
             .status(ParticipantStatus.IN_PROGRESS)
             .build();
-        setParticipantId(testParticipant, 1L);
+        setId(testParticipant, 1L);
     }
 
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            java.lang.reflect.Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setParticipantId(MissionParticipant participant, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionParticipant.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(participant, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setExecutionId(MissionExecution execution, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionExecution.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(execution, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setInstanceId(DailyMissionInstance instance, Long id) {
-        try {
-            java.lang.reflect.Field idField = DailyMissionInstance.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(instance, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private MissionExecution createCompletedExecution(Long id, LocalDate date, int expEarned, int durationMinutes) {
         LocalDateTime startedAt = date.atTime(9, 0);
@@ -131,20 +95,11 @@ class MissionExecutionQueryServiceTest {
             .status(ExecutionStatus.COMPLETED)
             .expEarned(expEarned)
             .build();
-        setExecutionId(execution, id);
+        setId(execution, id);
 
         // startedAt과 completedAt 설정
-        try {
-            java.lang.reflect.Field startedAtField = MissionExecution.class.getDeclaredField("startedAt");
-            startedAtField.setAccessible(true);
-            startedAtField.set(execution, startedAt);
-
-            java.lang.reflect.Field completedAtField = MissionExecution.class.getDeclaredField("completedAt");
-            completedAtField.setAccessible(true);
-            completedAtField.set(execution, completedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        TestReflectionUtils.setField(execution, "startedAt", startedAt);
+        TestReflectionUtils.setField(execution, "completedAt", completedAt);
 
         return execution;
     }
@@ -227,14 +182,14 @@ class MissionExecutionQueryServiceTest {
                 .missionInterval(MissionInterval.DAILY)
                 .expPerCompletion(30)
                 .build();
-            setMissionId(secondMission, 2L);
+            setId(secondMission, 2L);
 
             MissionParticipant secondParticipant = MissionParticipant.builder()
                 .mission(secondMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.IN_PROGRESS)
                 .build();
-            setParticipantId(secondParticipant, 2L);
+            setId(secondParticipant, 2L);
 
             MissionExecution execution1 = createCompletedExecution(1L, sameDate, 50, 60);
             MissionExecution execution2 = MissionExecution.builder()
@@ -243,7 +198,7 @@ class MissionExecutionQueryServiceTest {
                 .status(ExecutionStatus.COMPLETED)
                 .expEarned(30)
                 .build();
-            setExecutionId(execution2, 2L);
+            setId(execution2, 2L);
 
             List<MissionExecution> completedExecutions = List.of(execution1, execution2);
 
@@ -403,7 +358,7 @@ class MissionExecutionQueryServiceTest {
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(executionRepository.findInProgressByUserId(testUserId))
                 .thenReturn(Optional.of(execution));
@@ -444,7 +399,7 @@ class MissionExecutionQueryServiceTest {
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution2, 2L);
+            setId(execution2, 2L);
 
             // 고정 미션 조회 mock (없음)
             when(participantRepository.findPinnedMissionParticipants(testUserId))
@@ -504,14 +459,14 @@ class MissionExecutionQueryServiceTest {
                 .isPinned(true)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(pinnedMission, 100L);
+            setId(pinnedMission, 100L);
 
             MissionParticipant pinnedParticipant = MissionParticipant.builder()
                 .mission(pinnedMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(pinnedParticipant, 100L);
+            setId(pinnedParticipant, 100L);
 
             // 고정 미션 참여자 반환
             when(participantRepository.findPinnedMissionParticipants(testUserId))
@@ -525,7 +480,7 @@ class MissionExecutionQueryServiceTest {
             when(dailyMissionInstanceRepository.saveAndFlush(any(DailyMissionInstance.class)))
                 .thenAnswer(invocation -> {
                     DailyMissionInstance instance = invocation.getArgument(0);
-                    setInstanceId(instance, 200L);
+                    setId(instance, 200L);
                     return instance;
                 });
 
@@ -535,7 +490,7 @@ class MissionExecutionQueryServiceTest {
 
             // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
             DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(newInstance, 200L);
+            setId(newInstance, 200L);
 
             when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
                 .thenReturn(List.of(newInstance));
@@ -566,17 +521,17 @@ class MissionExecutionQueryServiceTest {
                 .isPinned(true)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(pinnedMission, 100L);
+            setId(pinnedMission, 100L);
 
             MissionParticipant pinnedParticipant = MissionParticipant.builder()
                 .mission(pinnedMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(pinnedParticipant, 100L);
+            setId(pinnedParticipant, 100L);
 
             DailyMissionInstance existingInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(existingInstance, 200L);
+            setId(existingInstance, 200L);
 
             // 고정 미션 참여자 반환
             when(participantRepository.findPinnedMissionParticipants(testUserId))
@@ -878,34 +833,22 @@ class MissionExecutionQueryServiceTest {
                 .isPinned(true)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(pinnedMission, 100L);
+            setId(pinnedMission, 100L);
 
             MissionParticipant pinnedParticipant = MissionParticipant.builder()
                 .mission(pinnedMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(pinnedParticipant, 100L);
+            setId(pinnedParticipant, 100L);
 
             DailyMissionInstance completedInstance1 = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(completedInstance1, 200L);
-            try {
-                java.lang.reflect.Field statusField = DailyMissionInstance.class.getDeclaredField("status");
-                statusField.setAccessible(true);
-                statusField.set(completedInstance1, ExecutionStatus.COMPLETED);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(completedInstance1, 200L);
+            TestReflectionUtils.setField(completedInstance1, "status", ExecutionStatus.COMPLETED);
 
             DailyMissionInstance completedInstance2 = DailyMissionInstance.createFrom(pinnedParticipant, today);
-            setInstanceId(completedInstance2, 201L);
-            try {
-                java.lang.reflect.Field statusField = DailyMissionInstance.class.getDeclaredField("status");
-                statusField.setAccessible(true);
-                statusField.set(completedInstance2, ExecutionStatus.COMPLETED);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(completedInstance2, 201L);
+            TestReflectionUtils.setField(completedInstance2, "status", ExecutionStatus.COMPLETED);
 
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndInstanceDate(testUserId, today))
                 .thenReturn(List.of(completedInstance1, completedInstance2));

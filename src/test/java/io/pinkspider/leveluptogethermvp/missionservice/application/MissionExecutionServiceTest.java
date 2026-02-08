@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -8,6 +9,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -105,45 +108,16 @@ class MissionExecutionServiceTest {
             .missionInterval(MissionInterval.DAILY)
             .expPerCompletion(50)
             .build();
-        setMissionId(testMission, 1L);
+        setId(testMission, 1L);
 
         testParticipant = MissionParticipant.builder()
             .mission(testMission)
             .userId(testUserId)
             .status(ParticipantStatus.IN_PROGRESS)
             .build();
-        setParticipantId(testParticipant, 1L);
+        setId(testParticipant, 1L);
     }
 
-    private void setMissionId(Mission mission, Long id) {
-        try {
-            java.lang.reflect.Field idField = Mission.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(mission, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setParticipantId(MissionParticipant participant, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionParticipant.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(participant, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setExecutionId(MissionExecution execution, Long id) {
-        try {
-            java.lang.reflect.Field idField = MissionExecution.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(execution, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private MissionExecution createCompletedExecution(Long id, LocalDate date, int expEarned, int durationMinutes) {
         LocalDateTime startedAt = date.atTime(9, 0);
@@ -155,20 +129,11 @@ class MissionExecutionServiceTest {
             .status(ExecutionStatus.COMPLETED)
             .expEarned(expEarned)
             .build();
-        setExecutionId(execution, id);
+        setId(execution, id);
 
         // startedAt과 completedAt 설정
-        try {
-            java.lang.reflect.Field startedAtField = MissionExecution.class.getDeclaredField("startedAt");
-            startedAtField.setAccessible(true);
-            startedAtField.set(execution, startedAt);
-
-            java.lang.reflect.Field completedAtField = MissionExecution.class.getDeclaredField("completedAt");
-            completedAtField.setAccessible(true);
-            completedAtField.set(execution, completedAt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        TestReflectionUtils.setField(execution, "startedAt", startedAt);
+        TestReflectionUtils.setField(execution, "completedAt", completedAt);
 
         return execution;
     }
@@ -193,14 +158,14 @@ class MissionExecutionServiceTest {
                 .isPinned(false)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(regularMission, 10L);
+            setId(regularMission, 10L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(regularMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 10L);
+            setId(participant, 10L);
 
             when(executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), today))
                 .thenReturn(Optional.empty());
@@ -231,14 +196,14 @@ class MissionExecutionServiceTest {
                 .isPinned(true)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(pinnedMission, 11L);
+            setId(pinnedMission, 11L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(pinnedMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 11L);
+            setId(participant, 11L);
 
             // when
             executionService.generateExecutionsForParticipant(participant);
@@ -264,14 +229,14 @@ class MissionExecutionServiceTest {
                 .isPinned(false)
                 .expPerCompletion(10)
                 .build();
-            setMissionId(regularMission, 12L);
+            setId(regularMission, 12L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(regularMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 12L);
+            setId(participant, 12L);
 
             MissionExecution existingExecution = MissionExecution.builder()
                 .participant(participant)
@@ -305,14 +270,14 @@ class MissionExecutionServiceTest {
                 .isPinned(null) // null
                 .expPerCompletion(10)
                 .build();
-            setMissionId(missionWithNullPinned, 13L);
+            setId(missionWithNullPinned, 13L);
 
             MissionParticipant participant = MissionParticipant.builder()
                 .mission(missionWithNullPinned)
                 .userId(testUserId)
                 .status(ParticipantStatus.ACCEPTED)
                 .build();
-            setParticipantId(participant, 13L);
+            setId(participant, 13L);
 
             when(executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), today))
                 .thenReturn(Optional.empty());
@@ -344,7 +309,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(executionRepository.findInProgressByUserId(testUserId))
                 .thenReturn(Optional.empty());
@@ -373,7 +338,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(inProgressExecution, 1L);
+            setId(inProgressExecution, 1L);
 
             when(executionRepository.findInProgressByUserId(testUserId))
                 .thenReturn(Optional.of(inProgressExecution));
@@ -416,7 +381,7 @@ class MissionExecutionServiceTest {
             when(executionRepository.save(any(MissionExecution.class)))
                 .thenAnswer(invocation -> {
                     MissionExecution exec = invocation.getArgument(0);
-                    setExecutionId(exec, 1L);
+                    setId(exec, 1L);
                     return exec;
                 });
 
@@ -443,7 +408,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -531,7 +496,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -687,7 +652,7 @@ class MissionExecutionServiceTest {
                 .executionDate(today)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(executionRepository.findInProgressByUserId(testUserId))
                 .thenReturn(Optional.empty());
@@ -715,7 +680,7 @@ class MissionExecutionServiceTest {
                 .executionDate(today)
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -808,7 +773,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
             org.springframework.mock.web.MockMultipartFile mockFile =
                 new org.springframework.mock.web.MockMultipartFile(
                     "image", "test.jpg", "image/jpeg", "test image content".getBytes());
@@ -831,13 +796,7 @@ class MissionExecutionServiceTest {
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             // 기존 이미지 URL 설정
-            try {
-                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
-                imageUrlField.setAccessible(true);
-                imageUrlField.set(execution, "https://example.com/old-image.jpg");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(execution, "imageUrl", "https://example.com/old-image.jpg");
             org.springframework.mock.web.MockMultipartFile mockFile =
                 new org.springframework.mock.web.MockMultipartFile(
                     "image", "test.jpg", "image/jpeg", "test image content".getBytes());
@@ -868,13 +827,7 @@ class MissionExecutionServiceTest {
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             // 이미지 URL 설정
-            try {
-                java.lang.reflect.Field imageUrlField = MissionExecution.class.getDeclaredField("imageUrl");
-                imageUrlField.setAccessible(true);
-                imageUrlField.set(execution, "https://example.com/image.jpg");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(execution, "imageUrl", "https://example.com/image.jpg");
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -902,7 +855,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -993,7 +946,7 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.PENDING)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -1012,13 +965,7 @@ class MissionExecutionServiceTest {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            try {
-                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
-                feedIdField.setAccessible(true);
-                feedIdField.set(execution, 100L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(execution, "feedId", 100L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -1042,13 +989,7 @@ class MissionExecutionServiceTest {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            try {
-                java.lang.reflect.Field feedIdField = MissionExecution.class.getDeclaredField("feedId");
-                feedIdField.setAccessible(true);
-                feedIdField.set(execution, 100L);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            TestReflectionUtils.setField(execution, "feedId", 100L);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -1099,14 +1040,8 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 1L);
-            try {
-                java.lang.reflect.Field startedAtField = MissionExecution.class.getDeclaredField("startedAt");
-                startedAtField.setAccessible(true);
-                startedAtField.set(execution, LocalDateTime.now().minusMinutes(5));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(execution, 1L);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(5));
 
             when(executionRepository.findById(1L))
                 .thenReturn(Optional.of(execution));
@@ -1141,14 +1076,14 @@ class MissionExecutionServiceTest {
                 .expPerCompletion(50)
                 .guildExpPerCompletion(30)
                 .build();
-            setMissionId(guildMission, 2L);
+            setId(guildMission, 2L);
 
             MissionParticipant guildParticipant = MissionParticipant.builder()
                 .mission(guildMission)
                 .userId(testUserId)
                 .status(ParticipantStatus.IN_PROGRESS)
                 .build();
-            setParticipantId(guildParticipant, 2L);
+            setId(guildParticipant, 2L);
 
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = MissionExecution.builder()
@@ -1156,14 +1091,8 @@ class MissionExecutionServiceTest {
                 .executionDate(executionDate)
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 2L);
-            try {
-                java.lang.reflect.Field startedAtField = MissionExecution.class.getDeclaredField("startedAt");
-                startedAtField.setAccessible(true);
-                startedAtField.set(execution, LocalDateTime.now().minusMinutes(5));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            setId(execution, 2L);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(5));
 
             when(executionRepository.findById(2L))
                 .thenReturn(Optional.of(execution));
@@ -1190,7 +1119,7 @@ class MissionExecutionServiceTest {
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
-            setExecutionId(execution, 1L);
+            setId(execution, 1L);
 
             when(executionRepository.findById(1L))
                 .thenReturn(Optional.of(execution));

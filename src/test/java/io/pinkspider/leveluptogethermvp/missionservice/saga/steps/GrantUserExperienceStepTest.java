@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -104,16 +105,6 @@ class GrantUserExperienceStepTest {
             .currentExp(100)
             .totalExp(500)
             .build();
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            java.lang.reflect.Field idField = entity.getClass().getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test

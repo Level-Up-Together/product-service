@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.achievement.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,7 +20,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Title
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.TitleResponse;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.domain.dto.UserTitleResponse;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -52,26 +52,6 @@ class TitleServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private void setTitleId(Title title, Long id) {
-        try {
-            Field idField = Title.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(title, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setUserTitleId(UserTitle userTitle, Long id) {
-        try {
-            Field idField = UserTitle.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(userTitle, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Title createTestTitle(Long id, String name, TitlePosition position, TitleRarity rarity) {
         Title title = Title.builder()
             .name(name)
@@ -83,7 +63,7 @@ class TitleServiceTest {
             .colorCode(rarity.getColorCode())
             .isActive(true)
             .build();
-        setTitleId(title, id);
+        setId(title, id);
         return title;
     }
 
@@ -95,7 +75,7 @@ class TitleServiceTest {
             .isEquipped(isEquipped)
             .equippedPosition(equippedPosition)
             .build();
-        setUserTitleId(userTitle, id);
+        setId(userTitle, id);
         return userTitle;
     }
 

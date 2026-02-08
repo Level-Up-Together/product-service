@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,20 +89,10 @@ class GuildChatServiceTest {
             .maxMembers(50)
             .categoryId(1L)
             .build();
-        setId(testGuild, Guild.class, 1L);
+        setId(testGuild, 1L);
 
         testMessage = GuildChatMessage.createTextMessage(testGuild, testUserId, testNickname, "테스트 메시지");
-        setId(testMessage, GuildChatMessage.class, 1L);
-    }
-
-    private <T> void setId(T entity, Class<T> clazz, Long id) {
-        try {
-            java.lang.reflect.Field idField = clazz.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        setId(testMessage, 1L);
     }
 
     @Nested
@@ -121,7 +112,7 @@ class GuildChatServiceTest {
             when(memberRepository.findActiveMembers(1L)).thenReturn(java.util.Collections.emptyList());
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -149,7 +140,7 @@ class GuildChatServiceTest {
             when(memberRepository.findActiveMembers(1L)).thenReturn(java.util.Collections.emptyList());
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -207,7 +198,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -228,7 +219,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -246,7 +237,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -347,7 +338,7 @@ class GuildChatServiceTest {
             // given
             String otherUserId = "other-user-id";
             GuildChatMessage otherMessage = GuildChatMessage.createTextMessage(testGuild, otherUserId, "다른유저", "다른 메시지");
-            setId(otherMessage, GuildChatMessage.class, 2L);
+            setId(otherMessage, 2L);
 
             when(chatMessageRepository.findById(2L)).thenReturn(Optional.of(otherMessage));
 
@@ -369,10 +360,10 @@ class GuildChatServiceTest {
                 .name("다른 길드")
                 .masterId("another-master-id")
                 .build();
-            setId(otherGuild, Guild.class, 2L);
+            setId(otherGuild, 2L);
 
             GuildChatMessage otherMessage = GuildChatMessage.createTextMessage(otherGuild, "message-owner", "메시지소유자", "다른 메시지");
-            setId(otherMessage, GuildChatMessage.class, 2L);
+            setId(otherMessage, 2L);
 
             when(chatMessageRepository.findById(2L)).thenReturn(Optional.of(otherMessage));
 
@@ -427,7 +418,7 @@ class GuildChatServiceTest {
         void markAsRead_success() {
             // given
             GuildChatReadStatus readStatus = GuildChatReadStatus.create(testGuild, testUserId);
-            setId(readStatus, GuildChatReadStatus.class, 1L);
+            setId(readStatus, 1L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
@@ -469,10 +460,10 @@ class GuildChatServiceTest {
                 .name("다른 길드")
                 .masterId("other-master")
                 .build();
-            setId(otherGuild, Guild.class, 2L);
+            setId(otherGuild, 2L);
 
             GuildChatMessage otherMessage = GuildChatMessage.createTextMessage(otherGuild, testUserId, testNickname, "다른 메시지");
-            setId(otherMessage, GuildChatMessage.class, 2L);
+            setId(otherMessage, 2L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
@@ -527,13 +518,13 @@ class GuildChatServiceTest {
             when(participantRepository.save(any(GuildChatParticipant.class)))
                 .thenAnswer(inv -> {
                     GuildChatParticipant p = inv.getArgument(0);
-                    setId(p, GuildChatParticipant.class, 1L);
+                    setId(p, 1L);
                     return p;
                 });
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
-                    setId(msg, GuildChatMessage.class, 1L);
+                    setId(msg, 1L);
                     return msg;
                 });
             when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
@@ -565,13 +556,13 @@ class GuildChatServiceTest {
             when(participantRepository.save(any(GuildChatParticipant.class)))
                 .thenAnswer(inv -> {
                     GuildChatParticipant p = inv.getArgument(0);
-                    setId(p, GuildChatParticipant.class, 1L);
+                    setId(p, 1L);
                     return p;
                 });
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
-                    setId(msg, GuildChatMessage.class, 1L);
+                    setId(msg, 1L);
                     return msg;
                 });
             when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
@@ -592,7 +583,7 @@ class GuildChatServiceTest {
         void leaveChat_success() {
             // given
             GuildChatParticipant participant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
-            setId(participant, GuildChatParticipant.class, 1L);
+            setId(participant, 1L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
@@ -601,7 +592,7 @@ class GuildChatServiceTest {
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
-                    setId(msg, GuildChatMessage.class, 1L);
+                    setId(msg, 1L);
                     return msg;
                 });
 
@@ -645,7 +636,7 @@ class GuildChatServiceTest {
         void getActiveParticipants_success() {
             // given
             GuildChatParticipant participant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
-            setId(participant, GuildChatParticipant.class, 1L);
+            setId(participant, 1L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(participantRepository.findActiveParticipants(1L))
@@ -739,7 +730,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -757,7 +748,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -775,7 +766,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -793,7 +784,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -816,7 +807,7 @@ class GuildChatServiceTest {
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -841,7 +832,7 @@ class GuildChatServiceTest {
         void getChatRoomInfo_success() {
             // given
             GuildChatReadStatus readStatus = GuildChatReadStatus.create(testGuild, testUserId);
-            setId(readStatus, GuildChatReadStatus.class, 1L);
+            setId(readStatus, 1L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
@@ -954,7 +945,7 @@ class GuildChatServiceTest {
             when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(profile);
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
-                setId(msg, GuildChatMessage.class, 1L);
+                setId(msg, 1L);
                 return msg;
             });
 
@@ -971,7 +962,7 @@ class GuildChatServiceTest {
         void leaveChat_withBlankNickname_fetchFromProfile() {
             // given
             GuildChatParticipant participant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
-            setId(participant, GuildChatParticipant.class, 1L);
+            setId(participant, 1L);
             UserProfileCache profile = new UserProfileCache(
                 testUserId, "프로필닉네임", null, 1, null, null, null
             );
@@ -984,7 +975,7 @@ class GuildChatServiceTest {
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
-                    setId(msg, GuildChatMessage.class, 1L);
+                    setId(msg, 1L);
                     return msg;
                 });
 
@@ -1006,7 +997,7 @@ class GuildChatServiceTest {
             // given
             GuildChatParticipant leftParticipant = GuildChatParticipant.create(testGuild, testUserId, testNickname);
             leftParticipant.leave();  // 먼저 퇴장
-            setId(leftParticipant, GuildChatParticipant.class, 1L);
+            setId(leftParticipant, 1L);
 
             when(memberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
@@ -1015,7 +1006,7 @@ class GuildChatServiceTest {
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
-                    setId(msg, GuildChatMessage.class, 1L);
+                    setId(msg, 1L);
                     return msg;
                 });
             when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
@@ -1064,10 +1055,10 @@ class GuildChatServiceTest {
                 .name("다른 길드")
                 .masterId("other-master")
                 .build();
-            setId(otherGuild, Guild.class, 2L);
+            setId(otherGuild, 2L);
 
             GuildChatMessage otherMessage = GuildChatMessage.createTextMessage(otherGuild, testUserId, testNickname, "다른 메시지");
-            setId(otherMessage, GuildChatMessage.class, 2L);
+            setId(otherMessage, 2L);
 
             when(chatMessageRepository.findById(2L)).thenReturn(Optional.of(otherMessage));
 

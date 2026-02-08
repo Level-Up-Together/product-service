@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.application;
 
+import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,7 +19,6 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notifi
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,26 +48,6 @@ class NotificationServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
 
-    private void setNotificationId(Notification notification, Long id) {
-        try {
-            Field idField = Notification.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(notification, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void setPreferenceId(NotificationPreference preference, Long id) {
-        try {
-            Field idField = NotificationPreference.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(preference, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private Notification createTestNotification(Long id, String userId, NotificationType type) {
         Notification notification = Notification.builder()
             .userId(userId)
@@ -77,7 +57,7 @@ class NotificationServiceTest {
             .isRead(false)
             .isPushed(false)
             .build();
-        setNotificationId(notification, id);
+        setId(notification, id);
         return notification;
     }
 
@@ -91,7 +71,7 @@ class NotificationServiceTest {
             .systemNotifications(true)
             .quietHoursEnabled(false)
             .build();
-        setPreferenceId(preference, id);
+        setId(preference, id);
         return preference;
     }
 
@@ -127,7 +107,7 @@ class NotificationServiceTest {
                 .userId(TEST_USER_ID)
                 .friendNotifications(false)  // 친구 알림 비활성화
                 .build();
-            setPreferenceId(preference, 1L);
+            setId(preference, 1L);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
 
@@ -145,7 +125,7 @@ class NotificationServiceTest {
         void createNotification_noPreference_createsDefault() {
             // given
             NotificationPreference newPreference = NotificationPreference.createDefault(TEST_USER_ID);
-            setPreferenceId(newPreference, 1L);
+            setId(newPreference, 1L);
             Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
@@ -175,7 +155,7 @@ class NotificationServiceTest {
                 .referenceId(100L)
                 .actionUrl("/guild/100")
                 .build();
-            setNotificationId(savedNotification, 1L);
+            setId(savedNotification, 1L);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
             when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
@@ -469,7 +449,7 @@ class NotificationServiceTest {
         void getPreferences_createsDefault() {
             // given
             NotificationPreference newPreference = NotificationPreference.createDefault(TEST_USER_ID);
-            setPreferenceId(newPreference, 1L);
+            setId(newPreference, 1L);
 
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(preferenceRepository.save(any(NotificationPreference.class))).thenReturn(newPreference);

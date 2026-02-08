@@ -9,7 +9,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildDirectMe
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildDirectMessageRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -33,10 +32,10 @@ public class GuildDirectMessageService {
 
     private final GuildDirectConversationRepository conversationRepository;
     private final GuildDirectMessageRepository messageRepository;
-    private final GuildRepository guildRepository;
     private final GuildMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final FcmPushService fcmPushService;
+    private final GuildHelper guildHelper;
 
     /**
      * DM 전송
@@ -49,7 +48,7 @@ public class GuildDirectMessageService {
             DirectMessageRequest request) {
 
         // 길드 조회
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
 
         // 발신자, 수신자 모두 길드 멤버인지 확인
         validateBothAreMember(guildId, senderId, recipientId);
@@ -208,7 +207,7 @@ public class GuildDirectMessageService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public DirectConversationResponse getOrCreateConversation(Long guildId, String userId, String otherUserId) {
-        Guild guild = findActiveGuildById(guildId);
+        Guild guild = guildHelper.findActiveGuildById(guildId);
         validateBothAreMember(guildId, userId, otherUserId);
 
         GuildDirectConversation conversation = conversationRepository
@@ -250,11 +249,6 @@ public class GuildDirectMessageService {
     }
 
     // ============ 헬퍼 메서드 ============
-
-    private Guild findActiveGuildById(Long guildId) {
-        return guildRepository.findByIdAndIsActiveTrue(guildId)
-            .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId));
-    }
 
     private void validateMembership(Long guildId, String userId) {
         if (!memberRepository.isActiveMember(guildId, userId)) {
