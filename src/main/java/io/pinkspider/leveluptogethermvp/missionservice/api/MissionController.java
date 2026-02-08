@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionComment
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import jakarta.validation.Valid;
@@ -75,26 +76,26 @@ public class MissionController {
     }
 
     /**
-     * 시스템 미션 목록 조회 (미션북용) 어드민에서 생성한 OPEN 상태의 시스템 미션 목록 반환
+     * 시스템 미션 템플릿 목록 조회 (미션북용)
      */
     @GetMapping("/system")
-    public ResponseEntity<ApiResult<Page<MissionResponse>>> getSystemMissions(
+    public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissions(
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<MissionResponse> responses = missionService.getSystemMissions(pageable);
-        return ResponseEntity.ok(ApiResult.<Page<MissionResponse>>builder().value(responses).build());
+        Page<MissionTemplateResponse> responses = missionService.getSystemMissions(pageable);
+        return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 
     /**
-     * 카테고리별 시스템 미션 목록 조회
+     * 카테고리별 시스템 미션 템플릿 목록 조회
      */
     @GetMapping("/system/category/{categoryId}")
-    public ResponseEntity<ApiResult<Page<MissionResponse>>> getSystemMissionsByCategory(
+    public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissionsByCategory(
         @PathVariable Long categoryId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<MissionResponse> responses = missionService.getSystemMissionsByCategory(categoryId, pageable);
-        return ResponseEntity.ok(ApiResult.<Page<MissionResponse>>builder().value(responses).build());
+        Page<MissionTemplateResponse> responses = missionService.getSystemMissionsByCategory(categoryId, pageable);
+        return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 
     @PutMapping("/{missionId}")
