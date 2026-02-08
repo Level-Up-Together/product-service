@@ -1,7 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -40,16 +39,15 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     /**
      * 내 미션 목록 조회 (고정미션 > 길드미션 > 일반미션 순으로 정렬)
      * 정렬 우선순위:
-     * 1. 고정미션: source = SYSTEM AND isCustomizable = false
-     * 2. 길드미션: type = GUILD
+     * 1. 고정미션: isPinned = true
+     * 2. 길드미션: guildId IS NOT NULL
      * 3. 일반미션: 나머지
      */
     @Query("SELECT m FROM Mission m WHERE m.creatorId = :creatorId " +
            "ORDER BY " +
            "CASE " +
-           "  WHEN m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
-           "       AND m.isCustomizable = false THEN 1 " +
-           "  WHEN m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD THEN 2 " +
+           "  WHEN m.isPinned = true THEN 1 " +
+           "  WHEN m.guildId IS NOT NULL THEN 2 " +
            "  ELSE 3 " +
            "END ASC, " +
            "m.createdAt DESC")
@@ -73,39 +71,11 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     Page<Mission> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     /**
-     * 시스템 개인 미션 목록 조회 (미션북용)
-     * - source = SYSTEM
-     * - status = OPEN (사용자가 참여 가능한 상태)
-     * - type = PERSONAL (개인 미션만, 길드 미션 제외)
-     */
-    @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
-           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
-           "ORDER BY m.category.displayOrder ASC, m.createdAt DESC")
-    Page<Mission> findBySourceAndStatus(
-        @Param("source") MissionSource source,
-        @Param("status") MissionStatus status,
-        Pageable pageable);
-
-    /**
-     * 카테고리별 시스템 개인 미션 목록 조회
-     * - type = PERSONAL (개인 미션만, 길드 미션 제외)
-     */
-    @Query("SELECT m FROM Mission m WHERE m.source = :source AND m.status = :status " +
-           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
-           "AND m.category.id = :categoryId " +
-           "ORDER BY m.createdAt DESC")
-    Page<Mission> findBySourceAndStatusAndCategoryId(
-        @Param("source") MissionSource source,
-        @Param("status") MissionStatus status,
-        @Param("categoryId") Long categoryId,
-        Pageable pageable);
-
-    /**
      * 사용자가 참여중인 미션 목록 조회 (활성 상태인 참여자)
      * 활성 상태: PENDING, ACCEPTED, IN_PROGRESS (WITHDRAWN, FAILED, COMPLETED 제외)
      * 정렬 우선순위:
-     * 1. 고정미션: source = SYSTEM AND isCustomizable = false
-     * 2. 길드미션: type = GUILD
+     * 1. 고정미션: isPinned = true
+     * 2. 길드미션: guildId IS NOT NULL
      * 3. 일반미션: 나머지
      */
     @Query("SELECT m FROM Mission m " +
@@ -116,9 +86,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS) " +
            "ORDER BY " +
            "CASE " +
-           "  WHEN m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
-           "       AND m.isCustomizable = false THEN 1 " +
-           "  WHEN m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD THEN 2 " +
+           "  WHEN m.isPinned = true THEN 1 " +
+           "  WHEN m.guildId IS NOT NULL THEN 2 " +
            "  ELSE 3 " +
            "END ASC, " +
            "m.createdAt DESC")
