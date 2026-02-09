@@ -13,12 +13,14 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
+import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionImageStorageService missionImageStorageService;
     private final ActivityFeedService activityFeedService;
+    private final ApplicationEventPublisher eventPublisher;
     private final UserService userService;
     private final UserExperienceService userExperienceService;
     private final TitleService titleService;
@@ -136,9 +139,9 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         execution.setImageUrl(imageUrl);
         executionRepository.save(execution);
 
-        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트
+        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트 (이벤트 기반)
         if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-            activityFeedService.updateFeedImageUrlByExecutionId(execution.getId(), imageUrl);
+            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), imageUrl));
         }
 
         log.info("미션 이미지 업로드: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
@@ -163,9 +166,9 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
             execution.setImageUrl(null);
             executionRepository.save(execution);
 
-            // 이미 공유된 피드가 있으면 피드의 이미지 URL도 삭제
+            // 이미 공유된 피드가 있으면 피드의 이미지 URL도 삭제 (이벤트 기반)
             if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-                activityFeedService.updateFeedImageUrlByExecutionId(execution.getId(), null);
+                eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), null));
             }
 
             log.info("미션 이미지 삭제: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);

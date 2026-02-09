@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.event.MissionFeedImageChangedEvent;
+import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
@@ -22,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserSe
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -50,6 +53,7 @@ public class DailyMissionInstanceService {
     private final DailyMissionInstanceScheduler instanceScheduler;
     private final UserExperienceService userExperienceService;
     private final ActivityFeedService activityFeedService;
+    private final ApplicationEventPublisher eventPublisher;
     private final TitleService titleService;
     private final UserService userService;
     private final UserStatsService userStatsService;
@@ -321,19 +325,14 @@ public class DailyMissionInstanceService {
             throw new IllegalStateException("공유된 피드가 없습니다.");
         }
 
-        try {
-            // executionId(instanceId)로 피드 삭제
-            activityFeedService.deleteFeedByExecutionId(instance.getId());
-            instance.unshareFromFeed();
-            instanceRepository.save(instance);
+        instance.unshareFromFeed();
+        instanceRepository.save(instance);
 
-            log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
-                instanceId, userId);
-        } catch (Exception e) {
-            log.error("피드 삭제 실패: instanceId={}, error={}",
-                instanceId, e.getMessage());
-            throw new IllegalStateException("피드 공유 취소에 실패했습니다: " + e.getMessage(), e);
-        }
+        // 이벤트 기반으로 피드 삭제 (AFTER_COMMIT)
+        eventPublisher.publishEvent(new MissionFeedUnsharedEvent(userId, instance.getId()));
+
+        log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
+            instanceId, userId);
 
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -363,9 +362,9 @@ public class DailyMissionInstanceService {
 
         instance.setImageUrl(imageUrl);
 
-        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트
+        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트 (이벤트 기반)
         if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
-            activityFeedService.updateFeedImageUrlByExecutionId(instance.getId(), imageUrl);
+            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), imageUrl));
         }
 
         instanceRepository.save(instance);
@@ -402,9 +401,9 @@ public class DailyMissionInstanceService {
             missionImageStorageService.delete(instance.getImageUrl());
             instance.setImageUrl(null);
 
-            // 피드 이미지도 삭제
+            // 피드 이미지도 삭제 (이벤트 기반)
             if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
-                activityFeedService.updateFeedImageUrlByExecutionId(instance.getId(), null);
+                eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), null));
             }
 
             instanceRepository.save(instance);

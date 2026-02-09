@@ -39,8 +39,11 @@ import io.pinkspider.leveluptogethermvp.userservice.achievement.application.Titl
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.global.event.MissionFeedImageChangedEvent;
+import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
+import org.springframework.context.ApplicationEventPublisher;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -74,6 +77,9 @@ class DailyMissionInstanceServiceTest {
 
     @Mock
     private ActivityFeedService activityFeedService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private TitleService titleService;
@@ -425,7 +431,7 @@ class DailyMissionInstanceServiceTest {
 
             // then
             assertThat(response.getIsSharedToFeed()).isFalse();
-            verify(activityFeedService).deleteFeedByExecutionId(INSTANCE_ID);
+            verify(eventPublisher).publishEvent(any(MissionFeedUnsharedEvent.class));
         }
 
         @Test
@@ -512,7 +518,7 @@ class DailyMissionInstanceServiceTest {
             service.uploadImage(INSTANCE_ID, TEST_USER_ID, mockFile);
 
             // then
-            verify(activityFeedService).updateFeedImageUrlByExecutionId(INSTANCE_ID, "https://example.com/image.jpg");
+            verify(eventPublisher).publishEvent(any(MissionFeedImageChangedEvent.class));
         }
     }
 
@@ -555,7 +561,7 @@ class DailyMissionInstanceServiceTest {
             service.deleteImage(INSTANCE_ID, TEST_USER_ID);
 
             // then
-            verify(activityFeedService).updateFeedImageUrlByExecutionId(INSTANCE_ID, null);
+            verify(eventPublisher).publishEvent(any(MissionFeedImageChangedEvent.class));
         }
     }
 

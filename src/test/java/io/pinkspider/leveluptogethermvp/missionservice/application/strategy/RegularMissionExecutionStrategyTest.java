@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserE
 import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
 import java.time.LocalDate;
+import org.springframework.context.ApplicationEventPublisher;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +61,9 @@ class RegularMissionExecutionStrategyTest {
 
     @Mock
     private ActivityFeedService activityFeedService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private UserService userService;

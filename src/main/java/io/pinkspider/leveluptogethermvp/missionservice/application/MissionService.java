@@ -21,7 +21,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
-import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.List;
@@ -48,7 +48,6 @@ public class MissionService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildRepository guildRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final ActivityFeedService activityFeedService;
     private final ReportService reportService;
 
     @Transactional(transactionManager = "missionTransactionManager")
@@ -416,13 +415,8 @@ public class MissionService {
             missionRepository.delete(mission);
             log.info("미션 삭제: id={}, deletedBy={}", missionId, userId);
 
-            // 관련 피드 삭제 (미션 공유 피드)
-            try {
-                int deletedFeedCount = activityFeedService.deleteFeedsByMissionId(missionId);
-                log.info("미션 관련 피드 삭제: missionId={}, deletedFeedCount={}", missionId, deletedFeedCount);
-            } catch (Exception e) {
-                log.warn("미션 관련 피드 삭제 실패: missionId={}, error={}", missionId, e.getMessage());
-            }
+            // 관련 피드 삭제 (이벤트 기반, AFTER_COMMIT)
+            eventPublisher.publishEvent(new MissionDeletedEvent(userId, missionId));
             return;
         }
 

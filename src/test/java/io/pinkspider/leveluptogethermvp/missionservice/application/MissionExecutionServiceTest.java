@@ -31,8 +31,9 @@ import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserE
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.global.saga.SagaResult;
-import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
+import org.springframework.context.ApplicationEventPublisher;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.LocalMissionImageStorageService;
 import java.time.LocalDate;
@@ -73,7 +74,7 @@ class MissionExecutionServiceTest {
     private MissionCompletionSaga missionCompletionSaga;
 
     @Mock
-    private ActivityFeedService activityFeedService;
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
@@ -677,7 +678,7 @@ class MissionExecutionServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(activityFeedService).deleteFeedByExecutionId(1L);
+            verify(eventPublisher).publishEvent(any(MissionFeedUnsharedEvent.class));
         }
 
         @Test

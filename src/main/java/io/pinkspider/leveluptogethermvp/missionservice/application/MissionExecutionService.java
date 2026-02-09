@@ -16,11 +16,12 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSag
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.userservice.feed.application.ActivityFeedService;
+import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +39,7 @@ public class MissionExecutionService {
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
     private final MissionCompletionSaga missionCompletionSaga;
-    private final ActivityFeedService activityFeedService;
+    private final ApplicationEventPublisher eventPublisher;
     private final MissionExecutionStrategyResolver strategyResolver;
 
     /**
@@ -305,21 +306,15 @@ public class MissionExecutionService {
             throw new IllegalStateException("공유된 피드가 없습니다.");
         }
 
-        try {
-            // executionId로 피드 삭제
-            activityFeedService.deleteFeedByExecutionId(execution.getId());
+        // 공유 상태 초기화
+        execution.unshareFromFeed();
+        executionRepository.save(execution);
 
-            // 공유 상태 초기화
-            execution.unshareFromFeed();
-            executionRepository.save(execution);
+        // 이벤트 기반으로 피드 삭제 (AFTER_COMMIT)
+        eventPublisher.publishEvent(new MissionFeedUnsharedEvent(userId, execution.getId()));
 
-            log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, executionId={}",
-                userId, missionId, executionDate, execution.getId());
-
-        } catch (Exception e) {
-            log.error("피드 공유 취소 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
-            throw new IllegalStateException("피드 공유 취소에 실패했습니다: " + e.getMessage(), e);
-        }
+        log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, executionId={}",
+            userId, missionId, executionDate, execution.getId());
 
         return MissionExecutionResponse.from(execution);
     }
