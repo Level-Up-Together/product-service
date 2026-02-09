@@ -63,7 +63,6 @@ public class DailyMissionInstanceResponse {
 
     // ============ 피드 연동 ============
 
-    private Long feedId;
     private Boolean isSharedToFeed;
 
     // ============ 메타 정보 ============
@@ -99,8 +98,7 @@ public class DailyMissionInstanceResponse {
             .totalExpEarned(instance.getTotalExpEarned())
             .note(instance.getNote())
             .imageUrl(instance.getImageUrl())
-            .feedId(instance.getFeedId())
-            .isSharedToFeed(instance.getIsSharedToFeed())
+            .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
             .createdAt(instance.getCreatedAt())
             .modifiedAt(instance.getModifiedAt())
             .build();

@@ -89,8 +89,13 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     private String imageUrl;
 
     @Column(name = "feed_id")
-    @Comment("공유된 피드 ID")
+    @Comment("공유된 피드 ID (deprecated - isSharedToFeed 사용)")
     private Long feedId;
+
+    @Column(name = "is_shared_to_feed", nullable = false)
+    @Comment("피드 공유 여부")
+    @Builder.Default
+    private Boolean isSharedToFeed = false;
 
     @Column(name = "is_auto_completed", nullable = false)
     @Comment("자동 종료 여부 (2시간 초과)")
@@ -191,6 +196,20 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
 
     public void setExpEarned(int exp) {
         this.expEarned = exp;
+    }
+
+    /**
+     * 피드에 공유 처리
+     */
+    public void shareToFeed() {
+        this.isSharedToFeed = true;
+    }
+
+    /**
+     * 피드 공유 취소 처리
+     */
+    public void unshareFromFeed() {
+        this.isSharedToFeed = false;
     }
 
     /**

@@ -59,7 +59,7 @@ class PinnedMissionExecutionStrategyTest {
         when(mockResponse.getExpEarned()).thenReturn(status == ExecutionStatus.COMPLETED ? 50 : 0);
         when(mockResponse.getNote()).thenReturn(null);
         when(mockResponse.getImageUrl()).thenReturn(null);
-        when(mockResponse.getFeedId()).thenReturn(null);
+        when(mockResponse.getIsSharedToFeed()).thenReturn(false);
         when(mockResponse.getCreatedAt()).thenReturn(LocalDateTime.now());
         return mockResponse;
     }
@@ -167,7 +167,7 @@ class PinnedMissionExecutionStrategyTest {
     void shareExecutionToFeed_delegatesToDailyMissionInstanceService() {
         // given
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
-        when(mockResponse.getFeedId()).thenReturn(100L);
+        when(mockResponse.getIsSharedToFeed()).thenReturn(true);
 
         when(dailyMissionInstanceService.shareToFeedByMission(testMissionId, testUserId, testDate))
             .thenReturn(mockResponse);
@@ -178,7 +178,7 @@ class PinnedMissionExecutionStrategyTest {
         // then
         verify(dailyMissionInstanceService).shareToFeedByMission(testMissionId, testUserId, testDate);
         assertThat(response).isNotNull();
-        assertThat(response.getFeedId()).isEqualTo(100L);
+        assertThat(response.getIsSharedToFeed()).isTrue();
     }
 
     @Test

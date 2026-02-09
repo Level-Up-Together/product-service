@@ -301,21 +301,20 @@ public class MissionExecutionService {
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
-        if (execution.getFeedId() == null) {
+        if (!Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
             throw new IllegalStateException("공유된 피드가 없습니다.");
         }
 
         try {
-            // 피드 삭제
-            activityFeedService.deleteFeedById(execution.getFeedId());
+            // executionId로 피드 삭제
+            activityFeedService.deleteFeedByExecutionId(execution.getId());
 
-            Long deletedFeedId = execution.getFeedId();
-            // feedId 초기화
-            execution.setFeedId(null);
+            // 공유 상태 초기화
+            execution.unshareFromFeed();
             executionRepository.save(execution);
 
-            log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, deletedFeedId={}",
-                userId, missionId, executionDate, deletedFeedId);
+            log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, executionId={}",
+                userId, missionId, executionDate, execution.getId());
 
         } catch (Exception e) {
             log.error("피드 공유 취소 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());

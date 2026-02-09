@@ -106,8 +106,8 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
             context.setCreatedFeedId(feed.getId());
 
-            // execution 엔티티에도 feedId 저장 (별도 트랜잭션으로 missionTransactionManager 사용)
-            self.updateExecutionFeedId(execution.getId(), feed.getId());
+            // execution 엔티티의 공유 상태 업데이트 (별도 트랜잭션으로 missionTransactionManager 사용)
+            self.updateExecutionSharedStatus(execution.getId(), true);
 
             log.info("Mission shared feed created: userId={}, feedId={}, executionId={}",
                 userId, feed.getId(), execution.getId());
@@ -140,7 +140,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 profile.titleName(),
                 profile.titleRarity(),
                 profile.titleColorCode(),
-                null,  // executionId - 고정 미션은 null
+                instance.getId(),  // executionId - 고정 미션은 instanceId 사용
                 mission.getId(),
                 instance.getMissionTitle(),
                 instance.getMissionDescription(),
@@ -153,8 +153,8 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
             context.setCreatedFeedId(feed.getId());
 
-            // 인스턴스에 피드 정보 업데이트 (별도 트랜잭션)
-            self.updateInstanceFeedInfo(instance.getId(), feed.getId());
+            // 인스턴스의 공유 상태 업데이트 (별도 트랜잭션)
+            self.updateInstanceSharedStatus(instance.getId(), true);
 
             log.info("Pinned mission feed created: feedId={}, instanceId={}", feed.getId(), instance.getId());
             return SagaStepResult.success("피드 생성 완료: feedId=" + feed.getId());
@@ -178,21 +178,20 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
         try {
             if (context.isPinned()) {
-                // 인스턴스의 feedId 초기화
+                // 인스턴스의 공유 상태 초기화
                 DailyMissionInstance instance = context.getInstance();
-                if (instance != null && instance.getFeedId() != null) {
-                    instance.setFeedId(null);
-                    instance.setIsSharedToFeed(false);
+                if (instance != null && Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
+                    instance.unshareFromFeed();
                     instanceRepository.save(instance);
-                    log.info("Instance feedId cleared: instanceId={}", instance.getId());
+                    log.info("Instance shared status cleared: instanceId={}", instance.getId());
                 }
             } else {
-                // execution의 feedId 초기화
+                // execution의 공유 상태 초기화
                 MissionExecution execution = context.getExecution();
-                if (execution != null && execution.getFeedId() != null) {
-                    execution.setFeedId(null);
+                if (execution != null && Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
+                    execution.unshareFromFeed();
                     executionRepository.save(execution);
-                    log.info("Execution feedId cleared: executionId={}", execution.getId());
+                    log.info("Execution shared status cleared: executionId={}", execution.getId());
                 }
             }
 
@@ -207,27 +206,30 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
     }
 
     /**
-     * execution의 feedId를 업데이트 (별도 트랜잭션)
+     * execution의 공유 상태를 업데이트 (별도 트랜잭션)
      */
     @Transactional(transactionManager = "missionTransactionManager")
-    public void updateExecutionFeedId(Long executionId, Long feedId) {
+    public void updateExecutionSharedStatus(Long executionId, boolean shared) {
         MissionExecution execution = executionRepository.findById(executionId)
             .orElseThrow(() -> new IllegalArgumentException("Execution not found: " + executionId));
-        execution.setFeedId(feedId);
+        if (shared) {
+            execution.shareToFeed();
+        } else {
+            execution.unshareFromFeed();
+        }
         executionRepository.save(execution);
-        log.info("Execution feedId updated: executionId={}, feedId={}", executionId, feedId);
+        log.info("Execution shared status updated: executionId={}, shared={}", executionId, shared);
     }
 
     /**
-     * instance의 feedId와 isSharedToFeed를 업데이트 (별도 트랜잭션)
+     * instance의 공유 상태를 업데이트 (별도 트랜잭션)
      */
     @Transactional(transactionManager = "missionTransactionManager")
-    public void updateInstanceFeedInfo(Long instanceId, Long feedId) {
+    public void updateInstanceSharedStatus(Long instanceId, boolean shared) {
         instanceRepository.findById(instanceId).ifPresent(instance -> {
-            instance.setFeedId(feedId);
-            instance.setIsSharedToFeed(true);
+            instance.setIsSharedToFeed(shared);
             instanceRepository.save(instance);
-            log.info("Instance feedId updated: instanceId={}, feedId={}", instanceId, feedId);
+            log.info("Instance shared status updated: instanceId={}, shared={}", instanceId, shared);
         });
     }
 }

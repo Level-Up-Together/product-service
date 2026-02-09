@@ -48,8 +48,7 @@ import org.hibernate.annotations.Comment;
     ),
     indexes = {
         @Index(name = "idx_instance_user_date", columnList = "participant_id, instance_date"),
-        @Index(name = "idx_instance_status", columnList = "status"),
-        @Index(name = "idx_instance_feed", columnList = "feed_id")
+        @Index(name = "idx_instance_status", columnList = "status")
     }
 )
 @Comment("고정 미션 일일 인스턴스")
@@ -151,7 +150,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     // ============ 피드 연동 ============
 
     @Column(name = "feed_id")
-    @Comment("연결된 피드 ID (1:1 관계)")
+    @Comment("연결된 피드 ID (deprecated - isSharedToFeed 사용)")
     private Long feedId;
 
     @Column(name = "is_shared_to_feed", nullable = false)
@@ -295,8 +294,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     /**
      * 피드 공유 처리
      */
-    public void shareToFeed(Long feedId) {
-        this.feedId = feedId;
+    public void shareToFeed() {
         this.isSharedToFeed = true;
     }
 
@@ -304,7 +302,6 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
      * 피드 공유 취소
      */
     public void unshareFromFeed() {
-        this.feedId = null;
         this.isSharedToFeed = false;
     }
 

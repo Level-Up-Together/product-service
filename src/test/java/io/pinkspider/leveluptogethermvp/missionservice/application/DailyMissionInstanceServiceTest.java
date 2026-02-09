@@ -390,7 +390,7 @@ class DailyMissionInstanceServiceTest {
             TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             TestReflectionUtils.setField(instance, "completedAt", LocalDateTime.now());
-            instance.shareToFeed(100L);
+            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
@@ -413,7 +413,7 @@ class DailyMissionInstanceServiceTest {
             instance.start();
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
             instance.complete();
-            instance.shareToFeed(FEED_ID);
+            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
@@ -425,8 +425,7 @@ class DailyMissionInstanceServiceTest {
 
             // then
             assertThat(response.getIsSharedToFeed()).isFalse();
-            assertThat(response.getFeedId()).isNull();
-            verify(activityFeedService).deleteFeedById(FEED_ID);
+            verify(activityFeedService).deleteFeedByExecutionId(INSTANCE_ID);
         }
 
         @Test
@@ -497,7 +496,7 @@ class DailyMissionInstanceServiceTest {
         @DisplayName("피드가 있으면 피드 이미지도 업데이트한다")
         void uploadImage_updatesFeedImage() {
             // given
-            instance.shareToFeed(FEED_ID);
+            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
 
             MockMultipartFile mockFile = new MockMultipartFile(
                 "image", "test.jpg", "image/jpeg", "test content".getBytes());
@@ -513,7 +512,7 @@ class DailyMissionInstanceServiceTest {
             service.uploadImage(INSTANCE_ID, TEST_USER_ID, mockFile);
 
             // then
-            verify(activityFeedService).updateFeedImageUrl(FEED_ID, "https://example.com/image.jpg");
+            verify(activityFeedService).updateFeedImageUrlByExecutionId(INSTANCE_ID, "https://example.com/image.jpg");
         }
     }
 
@@ -545,7 +544,7 @@ class DailyMissionInstanceServiceTest {
         void deleteImage_updatesFeedImage() {
             // given
             instance.setImageUrl("https://example.com/image.jpg");
-            instance.shareToFeed(FEED_ID);
+            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
@@ -556,7 +555,7 @@ class DailyMissionInstanceServiceTest {
             service.deleteImage(INSTANCE_ID, TEST_USER_ID);
 
             // then
-            verify(activityFeedService).updateFeedImageUrl(FEED_ID, null);
+            verify(activityFeedService).updateFeedImageUrlByExecutionId(INSTANCE_ID, null);
         }
     }
 

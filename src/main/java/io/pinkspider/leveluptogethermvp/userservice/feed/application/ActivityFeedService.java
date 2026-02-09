@@ -849,4 +849,34 @@ public class ActivityFeedService {
             log.info("Feed image updated: feedId={}, imageUrl={}", feedId, imageUrl);
         });
     }
+
+    /**
+     * executionId로 피드 삭제 (feedId 역참조 제거 후 unshare용)
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public void deleteFeedByExecutionId(Long executionId) {
+        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+            activityFeedRepository.delete(feed);
+            log.info("Feed deleted by executionId: executionId={}, feedId={}", executionId, feed.getId());
+        });
+    }
+
+    /**
+     * executionId로 피드 이미지 URL 업데이트 (feedId 역참조 제거 후 이미지 동기화용)
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public void updateFeedImageUrlByExecutionId(Long executionId, String imageUrl) {
+        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+            feed.setImageUrl(imageUrl);
+            activityFeedRepository.save(feed);
+            log.info("Feed image updated by executionId: executionId={}, imageUrl={}", executionId, imageUrl);
+        });
+    }
+
+    /**
+     * executionId로 피드 존재 여부 확인
+     */
+    public boolean existsFeedByExecutionId(Long executionId) {
+        return activityFeedRepository.findByExecutionId(executionId).isPresent();
+    }
 }

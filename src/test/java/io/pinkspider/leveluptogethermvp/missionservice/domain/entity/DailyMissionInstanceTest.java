@@ -405,32 +405,29 @@ class DailyMissionInstanceTest {
     class FeedSharingTest {
 
         @Test
-        @DisplayName("피드 공유 시 feedId와 isSharedToFeed가 설정된다")
+        @DisplayName("피드 공유 시 isSharedToFeed가 설정된다")
         void shareToFeed_success() {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
-            Long feedId = 100L;
 
             // when
-            instance.shareToFeed(feedId);
+            instance.shareToFeed();
 
             // then
-            assertThat(instance.getFeedId()).isEqualTo(100L);
             assertThat(instance.getIsSharedToFeed()).isTrue();
         }
 
         @Test
-        @DisplayName("피드 공유 취소 시 feedId와 isSharedToFeed가 초기화된다")
+        @DisplayName("피드 공유 취소 시 isSharedToFeed가 초기화된다")
         void unshareFromFeed_success() {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
-            instance.shareToFeed(100L);
+            instance.shareToFeed();
 
             // when
             instance.unshareFromFeed();
 
             // then
-            assertThat(instance.getFeedId()).isNull();
             assertThat(instance.getIsSharedToFeed()).isFalse();
         }
     }

@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -186,7 +185,7 @@ class CreateFeedFromMissionStepTest {
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
                 anyString(), anyString(), any(Integer.class), anyInt()
             )).thenReturn(activityFeed);
-            doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
@@ -197,8 +196,8 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("피드 생성 시 execution feedId 업데이트 메서드가 호출된다")
-        void execute_savesFeedIdToExecution() {
+        @DisplayName("피드 생성 시 execution 공유 상태 업데이트 메서드가 호출된다")
+        void execute_updatesSharedStatusOnExecution() {
             // given
             when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(activityFeedService.createMissionSharedFeed(
@@ -206,13 +205,13 @@ class CreateFeedFromMissionStepTest {
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
                 anyString(), anyString(), any(Integer.class), anyInt()
             )).thenReturn(activityFeed);
-            doNothing().when(selfMock).updateExecutionFeedId(anyLong(), anyLong());
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
             // when
             createFeedFromMissionStep.execute(context);
 
             // then
-            verify(selfMock).updateExecutionFeedId(EXECUTION_ID, FEED_ID);
+            verify(selfMock).updateExecutionSharedStatus(EXECUTION_ID, true);
         }
 
         @Test
@@ -264,11 +263,11 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("보상 시 execution의 feedId도 초기화한다")
-        void compensate_clearsFeedIdFromExecution() {
+        @DisplayName("보상 시 execution의 공유 상태도 초기화한다")
+        void compensate_clearsSharedStatusFromExecution() {
             // given
             context.setCreatedFeedId(FEED_ID);
-            execution.setFeedId(FEED_ID);
+            execution.shareToFeed();
             when(executionRepository.save(any(MissionExecution.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -277,7 +276,7 @@ class CreateFeedFromMissionStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getFeedId()).isNull();
+            assertThat(execution.getIsSharedToFeed()).isFalse();
             verify(executionRepository).save(execution);
         }
 

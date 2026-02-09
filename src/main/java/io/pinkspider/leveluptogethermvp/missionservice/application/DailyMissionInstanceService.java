@@ -289,8 +289,8 @@ public class DailyMissionInstanceService {
         createFeedFromInstance(instance, userId);
         instanceRepository.save(instance);
 
-        log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}, feedId={}",
-            instanceId, userId, instance.getFeedId());
+        log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}",
+            instanceId, userId);
 
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -317,18 +317,18 @@ public class DailyMissionInstanceService {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
-        if (!instance.getIsSharedToFeed() || instance.getFeedId() == null) {
+        if (!Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
             throw new IllegalStateException("공유된 피드가 없습니다.");
         }
 
         try {
-            activityFeedService.deleteFeedById(instance.getFeedId());
-            Long deletedFeedId = instance.getFeedId();
+            // executionId(instanceId)로 피드 삭제
+            activityFeedService.deleteFeedByExecutionId(instance.getId());
             instance.unshareFromFeed();
             instanceRepository.save(instance);
 
-            log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}, deletedFeedId={}",
-                instanceId, userId, deletedFeedId);
+            log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
+                instanceId, userId);
         } catch (Exception e) {
             log.error("피드 삭제 실패: instanceId={}, feedId={}, error={}",
                 instanceId, instance.getFeedId(), e.getMessage());
@@ -364,8 +364,8 @@ public class DailyMissionInstanceService {
         instance.setImageUrl(imageUrl);
 
         // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트
-        if (instance.getFeedId() != null) {
-            activityFeedService.updateFeedImageUrl(instance.getFeedId(), imageUrl);
+        if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
+            activityFeedService.updateFeedImageUrlByExecutionId(instance.getId(), imageUrl);
         }
 
         instanceRepository.save(instance);
@@ -403,8 +403,8 @@ public class DailyMissionInstanceService {
             instance.setImageUrl(null);
 
             // 피드 이미지도 삭제
-            if (instance.getFeedId() != null) {
-                activityFeedService.updateFeedImageUrl(instance.getFeedId(), null);
+            if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
+                activityFeedService.updateFeedImageUrlByExecutionId(instance.getId(), null);
             }
 
             instanceRepository.save(instance);
@@ -467,7 +467,7 @@ public class DailyMissionInstanceService {
                 instance.getExpEarned()
             );
 
-            instance.shareToFeed(feed.getId());
+            instance.setIsSharedToFeed(true);
         } catch (Exception e) {
             log.error("피드 생성 실패: instanceId={}, error={}", instance.getId(), e.getMessage());
             throw new IllegalStateException("피드 생성에 실패했습니다: " + e.getMessage(), e);

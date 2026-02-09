@@ -137,8 +137,8 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         executionRepository.save(execution);
 
         // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트
-        if (execution.getFeedId() != null) {
-            activityFeedService.updateFeedImageUrl(execution.getFeedId(), imageUrl);
+        if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
+            activityFeedService.updateFeedImageUrlByExecutionId(execution.getId(), imageUrl);
         }
 
         log.info("미션 이미지 업로드: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
@@ -164,8 +164,8 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
             executionRepository.save(execution);
 
             // 이미 공유된 피드가 있으면 피드의 이미지 URL도 삭제
-            if (execution.getFeedId() != null) {
-                activityFeedService.updateFeedImageUrl(execution.getFeedId(), null);
+            if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
+                activityFeedService.updateFeedImageUrlByExecutionId(execution.getId(), null);
             }
 
             log.info("미션 이미지 삭제: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
@@ -187,7 +187,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         }
 
         // 이미 공유된 경우 확인
-        if (execution.getFeedId() != null) {
+        if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
             throw new IllegalStateException("이미 피드에 공유된 미션입니다.");
         }
 
@@ -219,7 +219,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 execution.getExpEarned()
             );
 
-            execution.setFeedId(createdFeed.getId());
+            execution.shareToFeed();
             executionRepository.save(execution);
 
             log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}, feedId={}",

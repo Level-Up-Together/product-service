@@ -662,7 +662,7 @@ class MissionExecutionServiceTest {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            TestReflectionUtils.setField(execution, "feedId", 100L);
+            TestReflectionUtils.setField(execution, "isSharedToFeed", true);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -677,7 +677,7 @@ class MissionExecutionServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(activityFeedService).deleteFeedById(100L);
+            verify(activityFeedService).deleteFeedByExecutionId(1L);
         }
 
         @Test

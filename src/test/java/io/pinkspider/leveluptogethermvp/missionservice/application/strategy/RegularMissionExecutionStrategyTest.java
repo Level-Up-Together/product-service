@@ -513,7 +513,7 @@ class RegularMissionExecutionStrategyTest {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            TestReflectionUtils.setField(execution, "feedId", 100L);
+            TestReflectionUtils.setField(execution, "isSharedToFeed", true);
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));

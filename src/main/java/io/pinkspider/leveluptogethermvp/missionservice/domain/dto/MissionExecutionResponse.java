@@ -48,7 +48,7 @@ public class MissionExecutionResponse {
     private Integer expEarned;
     private String note;
     private String imageUrl;
-    private Long feedId;
+    private Boolean isSharedToFeed;
 
     // 자동 종료 여부 (2시간 초과 시 true, 프론트엔드에서 알림 모달 표시용)
     private Boolean isAutoCompleted;
@@ -79,7 +79,7 @@ public class MissionExecutionResponse {
             .expEarned(execution.getExpEarned())
             .note(execution.getNote())
             .imageUrl(execution.getImageUrl())
-            .feedId(execution.getFeedId())
+            .isSharedToFeed(Boolean.TRUE.equals(execution.getIsSharedToFeed()))
             .isAutoCompleted(execution.getIsAutoCompleted())
             .createdAt(execution.getCreatedAt())
             .build();
@@ -104,7 +104,7 @@ public class MissionExecutionResponse {
             .expEarned(instanceResponse.getExpEarned())
             .note(instanceResponse.getNote())
             .imageUrl(instanceResponse.getImageUrl())
-            .feedId(instanceResponse.getFeedId())
+            .isSharedToFeed(instanceResponse.getIsSharedToFeed())
             .createdAt(instanceResponse.getCreatedAt())
             .build();
     }
@@ -130,7 +130,7 @@ public class MissionExecutionResponse {
             .expEarned(instance.getExpEarned())
             .note(instance.getNote())
             .imageUrl(instance.getImageUrl())
-            .feedId(instance.getFeedId())
+            .isSharedToFeed(Boolean.TRUE.equals(instance.getIsSharedToFeed()))
             .isAutoCompleted(instance.getIsAutoCompleted())
             .createdAt(instance.getCreatedAt())
             .build();

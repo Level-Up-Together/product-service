@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -126,4 +127,7 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     @Transactional(transactionManager = "feedTransactionManager")
     @Query("DELETE FROM ActivityFeed f WHERE f.missionId = :missionId")
     int deleteByMissionId(@Param("missionId") Long missionId);
+
+    // executionId로 피드 조회 (mission → feed 단방향 조회용)
+    Optional<ActivityFeed> findByExecutionId(Long executionId);
 }
