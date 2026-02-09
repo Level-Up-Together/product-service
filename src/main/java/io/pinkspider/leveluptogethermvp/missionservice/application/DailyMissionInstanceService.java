@@ -330,8 +330,8 @@ public class DailyMissionInstanceService {
             log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
                 instanceId, userId);
         } catch (Exception e) {
-            log.error("피드 삭제 실패: instanceId={}, feedId={}, error={}",
-                instanceId, instance.getFeedId(), e.getMessage());
+            log.error("피드 삭제 실패: instanceId={}, error={}",
+                instanceId, e.getMessage());
             throw new IllegalStateException("피드 공유 취소에 실패했습니다: " + e.getMessage(), e);
         }
 

@@ -164,11 +164,6 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
-     * 피드 ID로 인스턴스 조회
-     */
-    Optional<DailyMissionInstance> findByFeedId(Long feedId);
-
-    /**
      * 참여자의 특정 날짜 마지막 sequence_number 조회
      */
     @Query("SELECT COALESCE(MAX(dmi.sequenceNumber), 0) FROM DailyMissionInstance dmi " +

@@ -291,7 +291,7 @@ public class MissionExecutionService {
 
     /**
      * 피드 공유 취소
-     * - 공유된 피드 삭제 및 feedId 초기화
+     * - 공유된 피드 삭제 및 isSharedToFeed 초기화
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate) {

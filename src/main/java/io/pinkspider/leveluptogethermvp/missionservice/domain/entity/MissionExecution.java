@@ -88,10 +88,6 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
     @Comment("첨부 이미지 URL")
     private String imageUrl;
 
-    @Column(name = "feed_id")
-    @Comment("공유된 피드 ID (deprecated - isSharedToFeed 사용)")
-    private Long feedId;
-
     @Column(name = "is_shared_to_feed", nullable = false)
     @Comment("피드 공유 여부")
     @Builder.Default

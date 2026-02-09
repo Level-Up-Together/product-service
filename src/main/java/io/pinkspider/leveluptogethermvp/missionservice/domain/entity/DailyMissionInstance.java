@@ -149,10 +149,6 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
 
     // ============ 피드 연동 ============
 
-    @Column(name = "feed_id")
-    @Comment("연결된 피드 ID (deprecated - isSharedToFeed 사용)")
-    private Long feedId;
-
     @Column(name = "is_shared_to_feed", nullable = false)
     @Comment("피드 공유 여부")
     @Builder.Default
@@ -239,7 +235,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
         this.expEarned = 0;
         this.note = null;
         this.imageUrl = null;
-        // feedId와 isSharedToFeed는 유지 (마지막 완료의 피드 연동 정보)
+        // isSharedToFeed는 유지 (마지막 완료의 피드 연동 정보)
     }
 
     /**
