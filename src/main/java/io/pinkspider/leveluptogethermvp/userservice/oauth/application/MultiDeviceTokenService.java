@@ -39,19 +39,19 @@ public class MultiDeviceTokenService {
 
         // 세션 데이터 저장
         Map<String, String> sessionData = Map.of(
-            "access_token", accessToken,
-            "refresh_token", refreshToken,
-            "login_time", String.valueOf(System.currentTimeMillis()),
-            "device_type", deviceType,
-            "device_id", deviceId,
-            "user_id", userId
+            "accessToken", accessToken,
+            "refreshToken", refreshToken,
+            "loginTime", String.valueOf(System.currentTimeMillis()),
+            "deviceType", deviceType,
+            "deviceId", deviceId,
+            "userId", userId
         );
 
         redisTemplate.opsForHash().putAll(sessionKey, sessionData);
         redisTemplate.expire(sessionKey, Duration.ofDays(7));
 
         // 사용자별 활성 세션 목록 관리
-        String userSessionsKey = "user_sessions:" + userId;
+        String userSessionsKey = "userSessions:" + userId;
         redisTemplate.opsForSet().add(userSessionsKey, sessionKey);
         redisTemplate.expire(userSessionsKey, Duration.ofDays(7));
     }
@@ -62,12 +62,12 @@ public class MultiDeviceTokenService {
         String sessionKey = buildSessionKey(userId, deviceType, deviceId);
 
         // Access Token 업데이트
-        redisTemplate.opsForHash().put(sessionKey, "access_token", newAccessToken);
+        redisTemplate.opsForHash().put(sessionKey, "accessToken", newAccessToken);
 
         // Refresh Token이 제공된 경우에만 업데이트
         if (newRefreshToken != null) {
-            redisTemplate.opsForHash().put(sessionKey, "refresh_token", newRefreshToken);
-            redisTemplate.opsForHash().put(sessionKey, "last_refresh_time", String.valueOf(System.currentTimeMillis()));
+            redisTemplate.opsForHash().put(sessionKey, "refreshToken", newRefreshToken);
+            redisTemplate.opsForHash().put(sessionKey, "lastRefreshTime", String.valueOf(System.currentTimeMillis()));
             log.info("Refresh token renewed for user: {}, device: {}", userId, deviceId);
         }
 
@@ -128,15 +128,15 @@ public class MultiDeviceTokenService {
 
         try {
             // 토큰들을 블랙리스트에 추가
-            String accessToken = (String) redisTemplate.opsForHash().get(sessionKey, "access_token");
-            String refreshToken = (String) redisTemplate.opsForHash().get(sessionKey, "refresh_token");
+            String accessToken = (String) redisTemplate.opsForHash().get(sessionKey, "accessToken");
+            String refreshToken = (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
 
             blacklistToken(accessToken);
             blacklistToken(refreshToken);
 
             // 세션 삭제
             redisTemplate.delete(sessionKey);
-            redisTemplate.opsForSet().remove("user_sessions:" + userId, sessionKey);
+            redisTemplate.opsForSet().remove("userSessions:" + userId, sessionKey);
 
             log.info("User logged out: {}, device: {}", userId, deviceId);
 
@@ -147,15 +147,15 @@ public class MultiDeviceTokenService {
 
     // 모든 디바이스에서 로그아웃
     public void logoutAllDevices(String userId) {
-        String userSessionsKey = "user_sessions:" + userId;
+        String userSessionsKey = "userSessions:" + userId;
 
         try {
             Set<String> sessions = redisTemplate.opsForSet().members(userSessionsKey);
 
             if (sessions != null && !sessions.isEmpty()) {
                 for (String sessionKey : sessions) {
-                    String accessToken = (String) redisTemplate.opsForHash().get(sessionKey, "access_token");
-                    String refreshToken = (String) redisTemplate.opsForHash().get(sessionKey, "refresh_token");
+                    String accessToken = (String) redisTemplate.opsForHash().get(sessionKey, "accessToken");
+                    String refreshToken = (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
 
                     blacklistToken(accessToken);
                     blacklistToken(refreshToken);
@@ -175,13 +175,13 @@ public class MultiDeviceTokenService {
 
     public String getRefreshToken(String userId, String deviceType, String deviceId) {
         String sessionKey = buildSessionKey(userId, deviceType, deviceId);
-        return (String) redisTemplate.opsForHash().get(sessionKey, "refresh_token");
+        return (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
     }
 
     // 저장된 Access Token 조회
     public String getAccessToken(String userId, String deviceType, String deviceId) {
         String sessionKey = buildSessionKey(userId, deviceType, deviceId);
-        return (String) redisTemplate.opsForHash().get(sessionKey, "access_token");
+        return (String) redisTemplate.opsForHash().get(sessionKey, "accessToken");
     }
 
     // 특정 세션의 모든 정보 조회
@@ -192,19 +192,19 @@ public class MultiDeviceTokenService {
         Map<String, Object> result = new HashMap<>();
         sessionData.forEach((k, v) -> result.put(k.toString(), v));
 
-        String refreshToken = (String) result.get("refresh_token");
+        String refreshToken = (String) result.get("refreshToken");
         if (refreshToken != null) {
             try {
-                result.put("refresh_token_remaining", jwtUtil.getRemainingTime(refreshToken));
-                result.put("should_renew_refresh_token", shouldRenewRefreshToken(refreshToken));
-                result.put("refresh_token_valid", jwtUtil.validateToken(refreshToken));
-                result.put("can_renew_refresh_token", canRenewRefreshToken(refreshToken));
+                result.put("refreshTokenRemaining", jwtUtil.getRemainingTime(refreshToken));
+                result.put("shouldRenewRefreshToken", shouldRenewRefreshToken(refreshToken));
+                result.put("refreshTokenValid", jwtUtil.validateToken(refreshToken));
+                result.put("canRenewRefreshToken", canRenewRefreshToken(refreshToken));
 
             } catch (Exception e) {
-                result.put("refresh_token_remaining", 0);
-                result.put("should_renew_refresh_token", false);
-                result.put("refresh_token_valid", false);
-                result.put("can_renew_refresh_token", false);
+                result.put("refreshTokenRemaining", 0);
+                result.put("shouldRenewRefreshToken", false);
+                result.put("refreshTokenValid", false);
+                result.put("canRenewRefreshToken", false);
             }
         }
 
@@ -213,7 +213,7 @@ public class MultiDeviceTokenService {
 
     // 사용자의 모든 활성 세션 조회
     public List<Session> getActiveSessions(String userId) {
-        String userSessionsKey = "user_sessions:" + userId;
+        String userSessionsKey = "userSessions:" + userId;
         Set<String> sessions = redisTemplate.opsForSet().members(userSessionsKey);
 
         List<Session> activeSessions = new ArrayList<>();
@@ -223,37 +223,43 @@ public class MultiDeviceTokenService {
                 Map<Object, Object> sessionData = redisTemplate.opsForHash().entries(sessionKey);
 
                 if (!sessionData.isEmpty()) {
-                    Map<String, Object> session = new HashMap<>();
-                    sessionData.forEach((k, v) -> session.put(k.toString(), v));
+                    Map<String, String> session = new HashMap<>();
+                    sessionData.forEach((k, v) -> session.put(k.toString(), (String) v));
 
-                    // 추가 정보 계산
-                    String refreshToken = (String) session.get("refresh_token");
-                    String accessToken = (String) session.get("access_token");
+                    String refreshToken = session.get("refreshToken");
+                    String accessToken = session.get("accessToken");
+
+                    Session.SessionBuilder builder = Session.builder()
+                        .deviceType(session.get("deviceType"))
+                        .deviceId(session.get("deviceId"))
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .loginTime(session.get("loginTime"))
+                        .memberId(session.get("userId"));
 
                     if (refreshToken != null) {
                         try {
-                            long remainingTime = jwtUtil.getRemainingTime(refreshToken);
-                            session.put("refresh_token_remaining", remainingTime);
-                            session.put("should_renew", shouldRenewRefreshToken(refreshToken));
-                            session.put("refresh_token_valid", jwtUtil.validateToken(refreshToken));
+                            builder.refreshTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(refreshToken)));
+                            builder.shouldRenew(shouldRenewRefreshToken(refreshToken));
+                            builder.refreshTokenValid(jwtUtil.validateToken(refreshToken));
                         } catch (Exception e) {
-                            session.put("refresh_token_remaining", 0);
-                            session.put("should_renew", false);
-                            session.put("refresh_token_valid", false);
+                            builder.refreshTokenRemaining(java.math.BigInteger.ZERO);
+                            builder.shouldRenew(false);
+                            builder.refreshTokenValid(false);
                         }
                     }
 
                     if (accessToken != null) {
                         try {
-                            session.put("access_token_remaining", jwtUtil.getRemainingTime(accessToken));
-                            session.put("access_token_valid", jwtUtil.validateToken(accessToken));
+                            builder.accessTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(accessToken)));
+                            builder.accessTokenValid(jwtUtil.validateToken(accessToken));
                         } catch (Exception e) {
-                            session.put("access_token_remaining", 0);
-                            session.put("access_token_valid", false);
+                            builder.accessTokenRemaining(java.math.BigInteger.ZERO);
+                            builder.accessTokenValid(false);
                         }
                     }
-                    Session result = objectMapper.convertValue(session, Session.class);
-                    activeSessions.add(result);
+
+                    activeSessions.add(builder.build());
                 }
             }
         }
@@ -300,38 +306,32 @@ public class MultiDeviceTokenService {
         List<Session> sessions = getActiveSessions(userId);
 
         Map<String, Object> stats = new HashMap<>();
-        stats.put("total_sessions", sessions.size());
+        stats.put("totalSessions", sessions.size());
 
-        // 디바이스 타입별 세션 수
         Map<String, Long> deviceTypeCount = sessions.stream()
             .collect(Collectors.groupingBy(
-//                session -> (String) session.get("deviceType"),
                 session -> session.getDeviceType(),
                 Collectors.counting()
             ));
-        stats.put("device_type_counts", deviceTypeCount);
+        stats.put("deviceTypeCounts", deviceTypeCount);
 
-        // 가장 오래된 세션과 가장 최근 세션
         if (!sessions.isEmpty()) {
             OptionalLong oldestLogin = sessions.stream()
-//                .mapToLong(session -> Long.parseLong((String) session.get("loginTime")))
                 .mapToLong(session -> Long.parseLong(session.getLoginTime()))
                 .min();
 
             OptionalLong newestLogin = sessions.stream()
-//                .mapToLong(session -> Long.parseLong((String) session.get("loginTime")))
                 .mapToLong(session -> Long.parseLong(session.getLoginTime()))
                 .max();
 
             if (oldestLogin.isPresent()) {
-                stats.put("oldest_login_time", oldestLogin.getAsLong());
+                stats.put("oldestLoginTime", oldestLogin.getAsLong());
             }
             if (newestLogin.isPresent()) {
-                stats.put("newest_login_time", newestLogin.getAsLong());
+                stats.put("newestLoginTime", newestLogin.getAsLong());
             }
         }
 
-//        return stats;
         return objectMapper.convertValue(stats, Session.class);
     }
 
@@ -343,14 +343,14 @@ public class MultiDeviceTokenService {
         if (sessionKeys != null) {
             for (String sessionKey : sessionKeys) {
                 String refreshToken = (String) redisTemplate.opsForHash()
-                    .get(sessionKey, "refresh_token");
+                    .get(sessionKey, "refreshToken");
 
                 if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
                     // 세션에서 사용자 ID 추출하여 user_sessions에서도 제거
                     String[] parts = sessionKey.split(":");
                     if (parts.length >= 2) {
                         String userId = parts[1];
-                        redisTemplate.opsForSet().remove("user_sessions:" + userId, sessionKey);
+                        redisTemplate.opsForSet().remove("userSessions:" + userId, sessionKey);
                     }
 
                     redisTemplate.delete(sessionKey);

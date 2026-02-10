@@ -161,24 +161,28 @@ public class JwtService {
             }
 
             Map<String, Object> sessionInfo = tokenService.getSessionInfo(memberId, deviceType, deviceId);
-            String refreshToken = (String) sessionInfo.get("refresh_token");
+            String refreshToken = (String) sessionInfo.get("refreshToken");
 
-            Map<String, Object> status = new HashMap<>();
-            status.put("access_token_valid", true);
-            status.put("access_token_remaining", jwtUtil.getRemainingTime(token));
+            TokenStatusResponseDto.TokenStatusResponseDtoBuilder builder = TokenStatusResponseDto.builder()
+                .accessTokenValid(true)
+                .accessTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(token)));
 
             if (refreshToken != null) {
-                status.put("refresh_token_valid", jwtUtil.validateToken(refreshToken));
-                status.put("refresh_token_remaining", jwtUtil.getRemainingTime(refreshToken));
-                status.put("should_renew_refresh_token", tokenService.shouldRenewRefreshToken(refreshToken));
-                status.put("can_renew_refresh_token", tokenService.canRenewRefreshToken(refreshToken));
+                builder.refreshTokenValid(jwtUtil.validateToken(refreshToken))
+                    .refreshTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(refreshToken)))
+                    .shouldRenewRefreshToken(tokenService.shouldRenewRefreshToken(refreshToken))
+                    .canRenewRefreshToken(tokenService.canRenewRefreshToken(refreshToken));
             }
 
-            status.put("last_refresh_time", sessionInfo.get("last_refresh_time"));
-            status.put("login_time", sessionInfo.get("login_time"));
+            String lastRefreshTime = (String) sessionInfo.get("lastRefreshTime");
+            builder.lastRefreshTime(lastRefreshTime);
 
-//            objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
-            return objectMapper.convertValue(status, TokenStatusResponseDto.class);
+            Object loginTimeObj = sessionInfo.get("loginTime");
+            if (loginTimeObj != null) {
+                builder.loginTime(new java.math.BigInteger(loginTimeObj.toString()));
+            }
+
+            return builder.build();
         } catch (Exception e) {
             throw new CustomException(UserApiStatus.FAILED_TO_GET_TOKEN_STATUS.getResultCode(),
                 UserApiStatus.FAILED_TO_GET_TOKEN_STATUS.getResultMessage());

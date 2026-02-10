@@ -29,18 +29,17 @@ public class TokenMaintenanceScheduler {
 
             if (sessionKeys != null) {
                 for (String sessionKey : sessionKeys) {
-                    // 필드명 수정: "refreshToken" -> "refresh_token"
                     String refreshToken = (String) redisTemplate.opsForHash()
-                        .get(sessionKey, "refresh_token");
+                        .get(sessionKey, "refreshToken");
 
                     if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
                         // 만료된 세션 삭제
                         redisTemplate.delete(sessionKey);
 
                         // user_sessions에서도 제거
-                        String userId = (String) redisTemplate.opsForHash().get(sessionKey, "user_id");
+                        String userId = (String) redisTemplate.opsForHash().get(sessionKey, "userId");
                         if (userId != null) {
-                            redisTemplate.opsForSet().remove("user_sessions:" + userId, sessionKey);
+                            redisTemplate.opsForSet().remove("userSessions:" + userId, sessionKey);
                         }
 
                         cleanedCount++;
@@ -60,7 +59,7 @@ public class TokenMaintenanceScheduler {
     @Scheduled(cron = "0 30 2 * * *") // 매일 새벽 2시 30분
     public void cleanupOrphanedUserSessions() {
         try {
-            Set<String> userSessionKeys = redisTemplate.keys("user_sessions:*");
+            Set<String> userSessionKeys = redisTemplate.keys("userSessions:*");
             int cleanedCount = 0;
 
             if (userSessionKeys != null) {

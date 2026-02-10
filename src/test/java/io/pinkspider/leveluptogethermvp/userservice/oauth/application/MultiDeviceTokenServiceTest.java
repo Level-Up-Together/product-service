@@ -104,8 +104,8 @@ class MultiDeviceTokenServiceTest {
 
             // then
             String expectedSessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
-            verify(hashOperations).put(eq(expectedSessionKey), eq("access_token"), eq("new-access-token"));
-            verify(hashOperations, never()).put(eq(expectedSessionKey), eq("refresh_token"), anyString());
+            verify(hashOperations).put(eq(expectedSessionKey), eq("accessToken"), eq("new-access-token"));
+            verify(hashOperations, never()).put(eq(expectedSessionKey), eq("refreshToken"), anyString());
         }
 
         @Test
@@ -119,8 +119,8 @@ class MultiDeviceTokenServiceTest {
 
             // then
             String expectedSessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
-            verify(hashOperations).put(eq(expectedSessionKey), eq("access_token"), eq("new-access-token"));
-            verify(hashOperations).put(eq(expectedSessionKey), eq("refresh_token"), eq("new-refresh-token"));
+            verify(hashOperations).put(eq(expectedSessionKey), eq("accessToken"), eq("new-access-token"));
+            verify(hashOperations).put(eq(expectedSessionKey), eq("refreshToken"), eq("new-refresh-token"));
         }
     }
 
@@ -266,15 +266,15 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
             String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
-            when(hashOperations.get(sessionKey, "access_token")).thenReturn(ACCESS_TOKEN);
-            when(hashOperations.get(sessionKey, "refresh_token")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get(sessionKey, "accessToken")).thenReturn(ACCESS_TOKEN);
+            when(hashOperations.get(sessionKey, "refreshToken")).thenReturn(REFRESH_TOKEN);
 
             // when
             multiDeviceTokenService.logout(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
 
             // then
             verify(redisTemplate).delete(sessionKey);
-            verify(setOperations).remove(eq("user_sessions:" + TEST_USER_ID), eq(sessionKey));
+            verify(setOperations).remove(eq("userSessions:" + TEST_USER_ID), eq(sessionKey));
         }
     }
 
@@ -293,7 +293,7 @@ class MultiDeviceTokenServiceTest {
             sessions.add("session:" + TEST_USER_ID + ":mobile:device1");
             sessions.add("session:" + TEST_USER_ID + ":web:device2");
 
-            when(setOperations.members("user_sessions:" + TEST_USER_ID)).thenReturn(sessions);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
 
             // when
             multiDeviceTokenService.logoutAllDevices(TEST_USER_ID);
@@ -302,7 +302,7 @@ class MultiDeviceTokenServiceTest {
             for (String session : sessions) {
                 verify(redisTemplate).delete(session);
             }
-            verify(redisTemplate).delete("user_sessions:" + TEST_USER_ID);
+            verify(redisTemplate).delete("userSessions:" + TEST_USER_ID);
         }
 
         @Test
@@ -310,13 +310,13 @@ class MultiDeviceTokenServiceTest {
         void logoutAllDevices_noSessions() {
             // given
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(setOperations.members("user_sessions:" + TEST_USER_ID)).thenReturn(null);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(null);
 
             // when
             multiDeviceTokenService.logoutAllDevices(TEST_USER_ID);
 
             // then
-            verify(redisTemplate).delete("user_sessions:" + TEST_USER_ID);
+            verify(redisTemplate).delete("userSessions:" + TEST_USER_ID);
         }
     }
 
@@ -330,7 +330,7 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
-            when(hashOperations.get(sessionKey, "refresh_token")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get(sessionKey, "refreshToken")).thenReturn(REFRESH_TOKEN);
 
             // when
             String result = multiDeviceTokenService.getRefreshToken(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
@@ -350,7 +350,7 @@ class MultiDeviceTokenServiceTest {
             // given
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
-            when(hashOperations.get(sessionKey, "access_token")).thenReturn(ACCESS_TOKEN);
+            when(hashOperations.get(sessionKey, "accessToken")).thenReturn(ACCESS_TOKEN);
 
             // when
             String result = multiDeviceTokenService.getAccessToken(TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
@@ -402,7 +402,7 @@ class MultiDeviceTokenServiceTest {
         void getActiveSessions_noSessions() {
             // given
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(setOperations.members("user_sessions:" + TEST_USER_ID)).thenReturn(null);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(null);
 
             // when
             List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
@@ -439,7 +439,7 @@ class MultiDeviceTokenServiceTest {
             when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
             when(redisTemplate.opsForHash()).thenReturn(hashOperations);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
-            when(hashOperations.get("session:user1:mobile:device1", "refresh_token")).thenReturn(REFRESH_TOKEN);
+            when(hashOperations.get("session:user1:mobile:device1", "refreshToken")).thenReturn(REFRESH_TOKEN);
             when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(false);
 
             // when

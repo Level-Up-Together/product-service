@@ -141,13 +141,9 @@ public class RedisConfig implements CachingConfigurer {
         cacheConfigurations.put("reportUnderReview", reportConfig);
         cacheConfigurations.put("reportUnderReviewBatch", reportConfig);
 
-        // Master Data 캐시: 24시간 TTL (Admin에서 변경 시 즉시 삭제됨)
-        // Note: missionCategories, userLevelConfigs, guildLevelConfigs는 TTL 없음
-        //       (Admin evict+reload로 관리, 자주 변경되지 않는 데이터)
-        RedisCacheConfiguration masterDataConfig = defaultConfig.entryTtl(Duration.ofHours(24));
-        cacheConfigurations.put("achievements", masterDataConfig);
-        cacheConfigurations.put("achievementCategories", masterDataConfig);
-        cacheConfigurations.put("profanityWords", masterDataConfig);
+        // Note: Master Data 캐시(missionCategories, userLevelConfigs, guildLevelConfigs,
+        //       achievements, achievementCategories, profanityWords)는 TTL 없음
+        //       → Admin evict+reload로 관리, 자주 변경되지 않는 데이터
 
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(redisConnectionFactory())
