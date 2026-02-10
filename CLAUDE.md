@@ -108,6 +108,43 @@ Each service module follows a consistent layered structure:
 
 Note: Some services vary slightly (e.g., `noticeservice`/`supportservice` use `core/` instead of `application/`). `feedservice` follows CQRS pattern with `FeedQueryService` (read) + `FeedCommandService` (write).
 
+### Cross-Service Boundary Rules (MSA 준비)
+
+**다른 서비스의 DB에 직접 접근(Repository import) 금지** — 반드시 해당 서비스의 Service 계층을 통해 접근:
+
+```java
+// BAD — 다른 서비스의 Repository 직접 사용
+@Service
+public class MyPageService {
+    private final UserTitleRepository userTitleRepository; // gamification_db 직접 접근
+}
+
+// GOOD — 해당 서비스의 Service를 통해 접근
+@Service
+public class MyPageService {
+    private final TitleService titleService; // gamificationservice Service 계층
+}
+```
+
+**현재 적용 완료:**
+- userservice → gamification_db: Service 계층 전환 완료 (P5)
+- Entity/Enum import는 현행 유지 (MSA 전환 시 DTO/common 라이브러리로 교체 예정)
+
+**gamificationservice 주요 크로스-서비스 조회 API:**
+
+| Service | Method | 용도 |
+|---------|--------|------|
+| `UserExperienceService` | `getUserLevel(userId)` | 단건 레벨 조회 |
+| `UserExperienceService` | `getUserLevelMap(userIds)` | 배치 레벨 조회 (N+1 방지) |
+| `UserExperienceService` | `getOrCreateUserExperience(userId)` | 경험치 엔티티 조회 |
+| `UserExperienceService` | `findTopExpGainersByPeriod(...)` | MVP 랭킹 조회 |
+| `TitleService` | `getEquippedLeftTitleNameMap(userIds)` | 배치 칭호명 조회 |
+| `TitleService` | `getEquippedTitleEntitiesByUserIds(userIds)` | 배치 칭호 엔티티 조회 |
+| `TitleService` | `getEquippedTitleEntitiesByUserId(userId)` | 단건 칭호 엔티티 조회 |
+| `TitleService` | `changeTitles(userId, leftId, rightId)` | 칭호 변경 (WRITE) |
+| `UserStatsService` | `getOrCreateUserStats(userId)` | 통계 조회 |
+| `UserStatsService` | `calculateRankingPercentile(points)` | 랭킹 퍼센타일 계산 |
+
 ### API Response Format
 
 All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
