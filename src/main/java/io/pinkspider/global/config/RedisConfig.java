@@ -120,11 +120,6 @@ public class RedisConfig implements CachingConfigurer {
         cacheConfigurations.put("currentSeason", seasonConfig);
         cacheConfigurations.put("seasonMvpData", seasonConfig);
 
-        // Mission Category 캐시: 1시간 TTL (카테고리는 자주 변경되지 않음)
-        RedisCacheConfiguration categoryConfig = defaultConfig.entryTtl(Duration.ofHours(1));
-        cacheConfigurations.put("missionCategories", categoryConfig);
-        cacheConfigurations.put("activeMissionCategories", categoryConfig);
-
         // User Title 캐시: 5분 TTL (칭호 장착 변경 빈도 고려)
         RedisCacheConfiguration titleConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
         cacheConfigurations.put("userTitleInfo", titleConfig);
@@ -147,8 +142,9 @@ public class RedisConfig implements CachingConfigurer {
         cacheConfigurations.put("reportUnderReviewBatch", reportConfig);
 
         // Master Data 캐시: 24시간 TTL (Admin에서 변경 시 즉시 삭제됨)
+        // Note: missionCategories, userLevelConfigs, guildLevelConfigs는 TTL 없음
+        //       (Admin evict+reload로 관리, 자주 변경되지 않는 데이터)
         RedisCacheConfiguration masterDataConfig = defaultConfig.entryTtl(Duration.ofHours(24));
-        cacheConfigurations.put("levelConfigs", masterDataConfig);
         cacheConfigurations.put("achievements", masterDataConfig);
         cacheConfigurations.put("achievementCategories", masterDataConfig);
         cacheConfigurations.put("profanityWords", masterDataConfig);
