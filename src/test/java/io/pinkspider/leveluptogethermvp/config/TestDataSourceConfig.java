@@ -402,6 +402,51 @@ public class TestDataSourceConfig {
         }
     }
 
+    // ========== Chat DataSource ==========
+    @Configuration
+    @Profile({"test", "push-test"})
+    @EnableJpaRepositories(
+        basePackages = "io.pinkspider.leveluptogethermvp.chatservice",
+        entityManagerFactoryRef = "chatEntityManagerFactory",
+        transactionManagerRef = "chatTransactionManager"
+    )
+    static class TestChatDataSourceConfig {
+
+        @Bean
+        @ConfigurationProperties("spring.datasource.chat")
+        public DataSource chatDataSource() {
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "chatEntityManagerFactory")
+        public LocalContainerEntityManagerFactoryBean chatEntityManagerFactory(
+            @Qualifier("chatDataSource") DataSource dataSource) {
+            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            em.setDataSource(dataSource);
+            em.setPackagesToScan("io.pinkspider.leveluptogethermvp.chatservice");
+            em.setPersistenceUnitName("chat");
+            HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+            em.setJpaVendorAdapter(vendorAdapter);
+            em.setJpaProperties(jpaProperties());
+            return em;
+        }
+
+        @Bean(name = "chatTransactionManager")
+        public PlatformTransactionManager chatTransactionManager(
+            @Qualifier("chatEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            return new JpaTransactionManager(entityManagerFactory);
+        }
+
+        private Properties jpaProperties() {
+            Properties properties = new Properties();
+            properties.setProperty("hibernate.hbm2ddl.auto", "create-drop");
+            properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+            properties.setProperty("hibernate.format_sql", "true");
+            properties.setProperty("hibernate.show_sql", "true");
+            return properties;
+        }
+    }
+
     // ========== Gamification DataSource ==========
     @Configuration
     @Profile({"test", "push-test"})

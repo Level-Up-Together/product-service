@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildInvitationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildInvitation;
@@ -61,9 +62,6 @@ class GuildInvitationServiceTest {
 
     @Mock
     private MissionCategoryService missionCategoryService;
-
-    @Mock
-    private GuildChatService guildChatService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -422,7 +420,7 @@ class GuildInvitationServiceTest {
             assertThat(invitation.getStatus()).isEqualTo(GuildInvitationStatus.ACCEPTED);
 
             verify(guildMemberRepository).save(any(GuildMember.class));
-            verify(guildChatService).notifyMemberJoin(eq(1L), eq("초대받는사람"));
+            verify(eventPublisher).publishEvent(any(GuildMemberJoinedChatNotifyEvent.class));
         }
 
         @Test
@@ -463,7 +461,7 @@ class GuildInvitationServiceTest {
             assertThat(leftMember.getLeftAt()).isNull();
 
             verify(guildMemberRepository, never()).save(any(GuildMember.class));
-            verify(guildChatService).notifyMemberJoin(eq(1L), eq("초대받는사람"));
+            verify(eventPublisher).publishEvent(any(GuildMemberJoinedChatNotifyEvent.class));
         }
 
         @Test

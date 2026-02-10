@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildInvitationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildInvitation;
@@ -42,7 +43,6 @@ public class GuildInvitationService {
     private final GuildMemberRepository guildMemberRepository;
     private final UserRepository userRepository;
     private final MissionCategoryService missionCategoryService;
-    private final GuildChatService guildChatService;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -201,7 +201,7 @@ public class GuildInvitationService {
         String memberNickname = userRepository.findById(userId)
             .map(Users::getNickname)
             .orElse("새 멤버");
-        guildChatService.notifyMemberJoin(guild.getId(), memberNickname);
+        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         log.info("초대 수락: invitationId={}, userId={}", invitationId, userId);
 

@@ -42,7 +42,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---------|----------|---------|
 | `userservice` | user_db | OAuth2 authentication (Google, Kakao, Apple), JWT tokens, profiles, friends, quests |
 | `missionservice` | mission_db | Mission definition, progress tracking, Saga orchestration, mission book, daily mission instances (pinned missions) |
-| `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, chat, territory, invitations |
+| `guildservice` | guild_db | Guild creation/management, members, experience/levels, bulletin board, territory, invitations |
+| `chatservice` | chat_db | Guild chat messaging, chat participants, read status, direct messages |
 | `metaservice` | meta_db | Common codes, calendar holidays, Redis-cached metadata, level configuration |
 | `feedservice` | feed_db | Activity feed, likes, comments, feed visibility management |
 | `notificationservice` | notification_db | Push notifications, notification preferences, notification management |
@@ -86,6 +87,7 @@ public void updateMission(...) { ... }
 | userservice | `userTransactionManager` (Primary) |
 | missionservice | `missionTransactionManager` |
 | guildservice | `guildTransactionManager` |
+| chatservice | `chatTransactionManager` |
 | metaservice | `metaTransactionManager` |
 | feedservice | `feedTransactionManager` |
 | notificationservice | `notificationTransactionManager` |
@@ -245,6 +247,9 @@ public class YourEventListener {
 | GamificationService | `TitleAcquiredEvent` | `NotificationEventListener` | 칭호 획득 알림 |
 | GamificationService | `AchievementCompletedEvent` | `NotificationEventListener` | 업적 달성 알림 |
 | MissionService | `MissionStateChangedEvent` | `MissionStateHistoryEventListener` | 미션 상태 이력 저장 |
+| GuildMemberService | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener` | 채팅방 입장 알림 |
+| GuildMemberService | `GuildMemberLeftChatNotifyEvent` | `ChatEventListener` | 채팅방 퇴장 알림 |
+| GuildMemberService | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener` | 채팅방 추방 알림 |
 
 ## Redis Caching
 
@@ -303,7 +308,8 @@ public class YourStep extends AbstractSagaStep<YourContext> {
 |------|------|
 | `oauth-jwt.http` | OAuth2 로그인, JWT 토큰 관리, 모바일 소셜 로그인 |
 | `mission.http` | 미션 CRUD, 참가자, 실행 추적, 캘린더 |
-| `guild.http` | 길드 관리, 채팅, 게시판, 거점, DM |
+| `guild.http` | 길드 관리, 게시판, 거점 |
+| `guild-chat.http` | 길드 채팅 (메시지, 참여자, 읽음) |
 | `activity-feed.http` | 피드, 좋아요, 댓글, 검색 |
 | `friend.http` | 친구 요청/수락/거절/차단 |
 | `mypage.http` | 프로필, 닉네임, 칭호 관리 |

@@ -1,5 +1,8 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
+import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
+import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestDto;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
@@ -38,7 +41,6 @@ public class GuildMemberService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
     private final MissionCategoryService missionCategoryService;
-    private final GuildChatService guildChatService;
     private final UserRepository userRepository;
     private final TitleService titleService;
     private final ApplicationEventPublisher eventPublisher;
@@ -210,7 +212,7 @@ public class GuildMemberService {
         String memberNickname = userRepository.findById(request.getRequesterId())
             .map(Users::getNickname)
             .orElse("새 멤버");
-        guildChatService.notifyMemberJoin(guild.getId(), memberNickname);
+        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         return GuildMemberResponse.from(savedMember);
     }
@@ -287,7 +289,7 @@ public class GuildMemberService {
         String memberNickname = userRepository.findById(inviteeId)
             .map(Users::getNickname)
             .orElse("새 멤버");
-        guildChatService.notifyMemberJoin(guildId, memberNickname);
+        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guildId, memberNickname));
 
         log.info("길드원 초대: guildId={}, inviteeId={}", guildId, inviteeId);
 
@@ -317,7 +319,7 @@ public class GuildMemberService {
         member.leave();
 
         // 채팅방에 탈퇴 알림 메시지 전송
-        guildChatService.notifyMemberLeave(guildId, memberNickname);
+        eventPublisher.publishEvent(new GuildMemberLeftChatNotifyEvent(guildId, memberNickname));
 
         log.info("길드 탈퇴: guildId={}, userId={}", guildId, userId);
     }
@@ -423,7 +425,7 @@ public class GuildMemberService {
         targetMember.kick();
 
         // 채팅방에 추방 알림 메시지 전송
-        guildChatService.notifyMemberKick(guildId, memberNickname);
+        eventPublisher.publishEvent(new GuildMemberKickedChatNotifyEvent(guildId, memberNickname));
 
         log.info("멤버 추방: guildId={}, operator={}, target={}", guildId, operatorId, targetUserId);
     }

@@ -60,9 +60,6 @@ class GuildMemberServiceTest {
     private MissionCategoryService missionCategoryService;
 
     @Mock
-    private GuildChatService guildChatService;
-
-    @Mock
     private UserRepository userRepository;
 
     @Mock
