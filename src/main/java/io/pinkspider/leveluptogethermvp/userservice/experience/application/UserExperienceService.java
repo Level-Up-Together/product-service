@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.experience.application;
 
 import io.pinkspider.global.cache.UserLevelConfigCacheService;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
+import io.pinkspider.global.event.UserProfileChangedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.userlevelconfig.infrastructure.UserLevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.achievement.application.AchievementService;
@@ -13,6 +14,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +42,8 @@ public class UserExperienceService {
     private final UserLevelConfigRepository userLevelConfigRepository; // for write operations
     private final ApplicationContext applicationContext;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserProfileCacheService userProfileCacheService;
+    private final UserRepository userRepository;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
@@ -82,6 +88,19 @@ public class UserExperienceService {
 
         if (levelAfter > levelBefore) {
             log.info("레벨 업! userId={}, {} -> {}", userId, levelBefore, levelAfter);
+
+            // 프로필 캐시 무효화 + 스냅샷 동기화 이벤트 발행
+            userProfileCacheService.evictUserProfileCache(userId);
+            try {
+                Users user = userRepository.findById(userId).orElse(null);
+                if (user != null) {
+                    eventPublisher.publishEvent(new UserProfileChangedEvent(
+                        userId, user.getNickname(), user.getPicture(), levelAfter));
+                }
+            } catch (Exception e) {
+                log.warn("프로필 스냅샷 이벤트 발행 실패: userId={}, error={}", userId, e.getMessage());
+            }
+
             // 동적 Strategy 패턴으로 USER_EXPERIENCE 관련 업적 체크 (순환 의존성 방지를 위해 ApplicationContext 사용)
             try {
                 AchievementService achievementService = applicationContext.getBean(AchievementService.class);

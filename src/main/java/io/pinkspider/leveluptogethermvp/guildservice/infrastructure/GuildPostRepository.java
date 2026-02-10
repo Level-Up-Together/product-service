@@ -7,9 +7,11 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface GuildPostRepository extends JpaRepository<GuildPost, Long> {
@@ -55,4 +57,9 @@ public interface GuildPostRepository extends JpaRepository<GuildPost, Long> {
 
     @Query("SELECT COUNT(p) FROM GuildPost p WHERE p.guild.id = :guildId AND p.isDeleted = false")
     long countByGuildId(@Param("guildId") Long guildId);
+
+    @Modifying
+    @Transactional(transactionManager = "guildTransactionManager")
+    @Query("UPDATE GuildPost p SET p.authorNickname = :nickname WHERE p.authorId = :userId")
+    int updateAuthorNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
 }

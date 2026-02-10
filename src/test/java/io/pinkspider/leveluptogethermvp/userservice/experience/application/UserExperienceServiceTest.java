@@ -19,6 +19,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.userlevelconfig.infrastructure.UserLevelConfigRepository;
 import io.pinkspider.leveluptogethermvp.userservice.experience.domain.dto.UserExperienceResponse;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +58,12 @@ class UserExperienceServiceTest {
 
     @Mock
     private ApplicationContext applicationContext;
+
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private UserExperienceService userExperienceService;
@@ -132,10 +141,12 @@ class UserExperienceServiceTest {
         void addExperience_levelUp_defaultFormula() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
+            Users user = Users.builder().nickname("테스터").build();
 
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
             when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(null);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when
             UserExperienceResponse result = userExperienceService.addExperience(
@@ -144,6 +155,7 @@ class UserExperienceServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(userExp.getCurrentLevel()).isEqualTo(2);
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
         }
     }
 
@@ -594,6 +606,7 @@ class UserExperienceServiceTest {
         void addExperience_levelUpWithConfig() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
+            Users user = Users.builder().nickname("테스터").build();
             // 새 로직: 다음 레벨의 required_exp를 체크하므로, level 2의 required_exp가 100이어야 110 exp로 레벨업 가능
             List<UserLevelConfig> configs = List.of(
                 createUserLevelConfig(1, 0, 0),       // level 1 (시작 레벨)
@@ -604,11 +617,11 @@ class UserExperienceServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
             when(userLevelConfigCacheService.getMaxLevel()).thenReturn(3);
-            // getNextLevelRequiredExp에서 레벨업 후 현재 레벨(2)의 config를 조회함
             when(userLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenAnswer(invocation -> {
                 int level = invocation.getArgument(0);
                 return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
             });
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when - 20 exp 추가하면 총 110 exp, level 2의 required_exp(100)을 충족하므로 레벨업
             UserExperienceResponse result = userExperienceService.addExperience(
@@ -651,6 +664,7 @@ class UserExperienceServiceTest {
         void addExperience_multipleLevelUp() {
             // given
             UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 0, 0);
+            Users user = Users.builder().nickname("테스터").build();
             // 새 로직: 다음 레벨의 required_exp를 체크
             // level 2의 required_exp=100, level 3의 required_exp=150, level 4의 required_exp=200
             // 300 exp 추가 시: 300 >= 100 (level up to 2, remaining=200)
@@ -666,11 +680,11 @@ class UserExperienceServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(configs);
             when(userLevelConfigCacheService.getMaxLevel()).thenReturn(10);
-            // getNextLevelRequiredExp에서 최종 레벨의 config를 조회함
             when(userLevelConfigCacheService.getLevelConfigByLevel(anyInt())).thenAnswer(invocation -> {
                 int level = invocation.getArgument(0);
                 return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
             });
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
 
             // when - 300 경험치 추가 (레벨 1 -> 2 -> 3까지 도달)
             UserExperienceResponse result = userExperienceService.addExperience(

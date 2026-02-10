@@ -6,9 +6,11 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface MissionCommentRepository extends JpaRepository<MissionComment, Long> {
@@ -26,4 +28,13 @@ public interface MissionCommentRepository extends JpaRepository<MissionComment, 
 
     @Query("SELECT c FROM MissionComment c WHERE c.userId = :userId AND c.isDeleted = false ORDER BY c.createdAt DESC")
     Page<MissionComment> findByUserId(@Param("userId") String userId, Pageable pageable);
+
+    @Modifying
+    @Transactional(transactionManager = "missionTransactionManager")
+    @Query("UPDATE MissionComment c SET c.userNickname = :nickname, c.userProfileImageUrl = :profileImageUrl, c.userLevel = :level WHERE c.userId = :userId")
+    int updateUserProfileByUserId(
+        @Param("userId") String userId,
+        @Param("nickname") String nickname,
+        @Param("profileImageUrl") String profileImageUrl,
+        @Param("level") Integer level);
 }

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.application;
 
 import io.pinkspider.global.cache.UserLevelConfigCacheService;
+import io.pinkspider.global.event.UserProfileChangedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
@@ -33,6 +34,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleL
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -43,6 +45,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +69,8 @@ public class MyPageService {
     private final GuildMemberRepository guildMemberRepository;
     private final TransactionTemplate feedTransactionTemplate;
     private final ReportService reportService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final UserProfileCacheService userProfileCacheService;
 
     public MyPageService(
             UserRepository userRepository,
@@ -79,7 +84,9 @@ public class MyPageService {
             ActivityFeedRepository activityFeedRepository,
             GuildMemberRepository guildMemberRepository,
             @Qualifier("feedTransactionManager") PlatformTransactionManager feedTransactionManager,
-            ReportService reportService) {
+            ReportService reportService,
+            ApplicationEventPublisher eventPublisher,
+            UserProfileCacheService userProfileCacheService) {
         this.userRepository = userRepository;
         this.userExperienceRepository = userExperienceRepository;
         this.userTitleRepository = userTitleRepository;
@@ -92,6 +99,8 @@ public class MyPageService {
         this.guildMemberRepository = guildMemberRepository;
         this.feedTransactionTemplate = new TransactionTemplate(feedTransactionManager);
         this.reportService = reportService;
+        this.eventPublisher = eventPublisher;
+        this.userProfileCacheService = userProfileCacheService;
     }
 
     /**
@@ -252,6 +261,12 @@ public class MyPageService {
         user.updatePicture(request.getProfileImageUrl());
         userRepository.save(user);
 
+        userProfileCacheService.evictUserProfileCache(userId);
+        Integer level = userExperienceRepository.findByUserId(userId)
+            .map(UserExperience::getCurrentLevel).orElse(1);
+        eventPublisher.publishEvent(new UserProfileChangedEvent(
+            userId, user.getNickname(), request.getProfileImageUrl(), level));
+
         log.info("프로필 이미지 변경: userId={}", userId);
 
         return buildProfileInfo(user, userId);
@@ -295,6 +310,12 @@ public class MyPageService {
         // 사용자 정보 업데이트
         user.updatePicture(newImageUrl);
         userRepository.save(user);
+
+        userProfileCacheService.evictUserProfileCache(userId);
+        Integer level = userExperienceRepository.findByUserId(userId)
+            .map(UserExperience::getCurrentLevel).orElse(1);
+        eventPublisher.publishEvent(new UserProfileChangedEvent(
+            userId, user.getNickname(), newImageUrl, level));
 
         log.info("프로필 이미지 업로드: userId={}, newImageUrl={}", userId, newImageUrl);
 
@@ -373,6 +394,12 @@ public class MyPageService {
         Users user = findUserOrThrow(userId);
         user.updateNickname(nickname);
         userRepository.save(user);
+
+        userProfileCacheService.evictUserProfileCache(userId);
+        Integer level = userExperienceRepository.findByUserId(userId)
+            .map(UserExperience::getCurrentLevel).orElse(1);
+        eventPublisher.publishEvent(new UserProfileChangedEvent(
+            userId, nickname, user.getPicture(), level));
 
         log.info("닉네임 변경: userId={}, newNickname={}", userId, nickname);
 

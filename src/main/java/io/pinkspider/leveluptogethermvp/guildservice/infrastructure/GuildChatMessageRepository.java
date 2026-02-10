@@ -6,9 +6,11 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface GuildChatMessageRepository extends JpaRepository<GuildChatMessage, Long> {
@@ -53,4 +55,9 @@ public interface GuildChatMessageRepository extends JpaRepository<GuildChatMessa
     // 길드 메시지 수 조회
     @Query("SELECT COUNT(m) FROM GuildChatMessage m WHERE m.guild.id = :guildId AND m.isDeleted = false")
     long countByGuildId(@Param("guildId") Long guildId);
+
+    @Modifying
+    @Transactional(transactionManager = "guildTransactionManager")
+    @Query("UPDATE GuildChatMessage m SET m.senderNickname = :nickname WHERE m.senderId = :userId")
+    int updateSenderNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
 }

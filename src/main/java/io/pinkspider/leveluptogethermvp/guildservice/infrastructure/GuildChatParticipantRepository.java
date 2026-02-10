@@ -4,9 +4,11 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildChatPart
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface GuildChatParticipantRepository extends JpaRepository<GuildChatParticipant, Long> {
@@ -24,4 +26,9 @@ public interface GuildChatParticipantRepository extends JpaRepository<GuildChatP
     boolean isParticipating(@Param("guildId") Long guildId, @Param("userId") String userId);
 
     void deleteByGuildIdAndUserId(Long guildId, String userId);
+
+    @Modifying
+    @Transactional(transactionManager = "guildTransactionManager")
+    @Query("UPDATE GuildChatParticipant p SET p.userNickname = :nickname WHERE p.userId = :userId")
+    int updateUserNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
 }

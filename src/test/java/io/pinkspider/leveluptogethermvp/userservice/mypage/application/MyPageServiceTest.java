@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.UserProfileChangedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
@@ -40,6 +41,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportTargetType;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class MyPageServiceTest {
@@ -91,6 +94,12 @@ class MyPageServiceTest {
     @Mock
     private ReportService reportService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
+
     private MyPageService myPageService;
 
     @org.junit.jupiter.api.BeforeEach
@@ -107,7 +116,9 @@ class MyPageServiceTest {
             activityFeedRepository,
             guildMemberRepository,
             feedTransactionManager,
-            reportService
+            reportService,
+            eventPublisher,
+            userProfileCacheService
         );
     }
 
@@ -503,6 +514,8 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(
+                UserExperience.builder().currentLevel(3).build()));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
@@ -512,6 +525,8 @@ class MyPageServiceTest {
             // then
             assertThat(result).isNotNull();
             verify(userRepository).save(any(Users.class));
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+            verify(eventPublisher).publishEvent(any(UserProfileChangedEvent.class));
         }
     }
 
@@ -606,6 +621,8 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(newNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(
+                UserExperience.builder().currentLevel(5).build()));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
@@ -615,6 +632,8 @@ class MyPageServiceTest {
             // then
             assertThat(result).isNotNull();
             verify(userRepository).save(any(Users.class));
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+            verify(eventPublisher).publishEvent(any(UserProfileChangedEvent.class));
         }
 
         @Test
@@ -626,6 +645,7 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(englishNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
@@ -646,6 +666,7 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(arabicNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
@@ -666,6 +687,7 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(mixedNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 

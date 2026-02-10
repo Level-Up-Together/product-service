@@ -130,4 +130,14 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // executionId로 피드 조회 (mission → feed 단방향 조회용)
     Optional<ActivityFeed> findByExecutionId(Long executionId);
+
+    // 사용자의 모든 피드의 프로필 스냅샷 업데이트
+    @Modifying
+    @Transactional(transactionManager = "feedTransactionManager")
+    @Query("UPDATE ActivityFeed f SET f.userNickname = :nickname, f.userProfileImageUrl = :profileImageUrl, f.userLevel = :level WHERE f.userId = :userId")
+    int updateUserProfileByUserId(
+        @Param("userId") String userId,
+        @Param("nickname") String nickname,
+        @Param("profileImageUrl") String profileImageUrl,
+        @Param("level") Integer level);
 }

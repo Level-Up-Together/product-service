@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface GuildDirectMessageRepository extends JpaRepository<GuildDirectMessage, Long> {
@@ -94,4 +95,9 @@ public interface GuildDirectMessageRepository extends JpaRepository<GuildDirectM
            "WHERE m.conversation.id = :conversationId " +
            "AND m.isDeleted = false")
     long countByConversationId(@Param("conversationId") Long conversationId);
+
+    @Modifying
+    @Transactional(transactionManager = "guildTransactionManager")
+    @Query("UPDATE GuildDirectMessage m SET m.senderNickname = :nickname WHERE m.senderId = :userId")
+    int updateSenderNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
 }

@@ -6,9 +6,11 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface GuildPostCommentRepository extends JpaRepository<GuildPostComment, Long> {
@@ -33,4 +35,9 @@ public interface GuildPostCommentRepository extends JpaRepository<GuildPostComme
     @Query("SELECT c FROM GuildPostComment c WHERE c.authorId = :authorId AND c.isDeleted = false " +
            "ORDER BY c.createdAt DESC")
     Page<GuildPostComment> findByAuthorId(@Param("authorId") String authorId, Pageable pageable);
+
+    @Modifying
+    @Transactional(transactionManager = "guildTransactionManager")
+    @Query("UPDATE GuildPostComment c SET c.authorNickname = :nickname WHERE c.authorId = :userId")
+    int updateAuthorNicknameByUserId(@Param("userId") String userId, @Param("nickname") String nickname);
 }
