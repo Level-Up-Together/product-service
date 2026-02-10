@@ -86,8 +86,6 @@ class UserExperienceServiceTest {
             .level(level)
             .requiredExp(requiredExp)
             .cumulativeExp(cumulativeExp)
-            .title("레벨 " + level)
-            .description("레벨 " + level + " 설명")
             .build();
     }
 
@@ -431,7 +429,7 @@ class UserExperienceServiceTest {
 
             // when
             UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(
-                10, 500, 2000, "레벨 10", "상급 모험가");
+                10, 500, 2000);
 
             // then
             assertThat(result).isNotNull();
@@ -449,7 +447,7 @@ class UserExperienceServiceTest {
 
             // when
             UserLevelConfig result = userExperienceService.createOrUpdateLevelConfig(
-                5, 350, 750, "업데이트된 레벨 5", "업데이트된 설명");
+                5, 350, 750);
 
             // then
             assertThat(result.getRequiredExp()).isEqualTo(350);

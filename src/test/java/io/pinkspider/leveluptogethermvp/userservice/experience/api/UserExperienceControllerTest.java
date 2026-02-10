@@ -225,9 +225,9 @@ class UserExperienceControllerTest {
     void getLevelConfigsTest() throws Exception {
         // given
         List<UserLevelConfig> configs = List.of(
-            UserLevelConfig.builder().id(1L).level(1).requiredExp(100).cumulativeExp(0).title("새싹").build(),
-            UserLevelConfig.builder().id(2L).level(2).requiredExp(200).cumulativeExp(100).title("초보자").build(),
-            UserLevelConfig.builder().id(3L).level(3).requiredExp(300).cumulativeExp(300).title("중급자").build()
+            UserLevelConfig.builder().id(1L).level(1).requiredExp(100).cumulativeExp(0).build(),
+            UserLevelConfig.builder().id(2L).level(2).requiredExp(200).cumulativeExp(100).build(),
+            UserLevelConfig.builder().id(3L).level(3).requiredExp(300).cumulativeExp(300).build()
         );
 
         when(userExperienceService.getAllLevelConfigs()).thenReturn(configs);
@@ -252,8 +252,6 @@ class UserExperienceControllerTest {
                             fieldWithPath("value[].level").type(JsonFieldType.NUMBER).description("레벨"),
                             fieldWithPath("value[].required_exp").type(JsonFieldType.NUMBER).description("해당 레벨 필요 경험치"),
                             fieldWithPath("value[].cumulative_exp").type(JsonFieldType.NUMBER).description("누적 경험치").optional(),
-                            fieldWithPath("value[].title").type(JsonFieldType.STRING).description("레벨 칭호").optional(),
-                            fieldWithPath("value[].description").type(JsonFieldType.STRING).description("설명").optional(),
                             fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
                         )
@@ -275,11 +273,9 @@ class UserExperienceControllerTest {
             .level(10)
             .requiredExp(1000)
             .cumulativeExp(4500)
-            .title("고급자")
-            .description("고급자 레벨입니다.")
             .build();
 
-        when(userExperienceService.createOrUpdateLevelConfig(anyInt(), anyInt(), any(), any(), any()))
+        when(userExperienceService.createOrUpdateLevelConfig(anyInt(), anyInt(), any()))
             .thenReturn(config);
 
         // when
@@ -288,8 +284,6 @@ class UserExperienceControllerTest {
                 .queryParam("level", "10")
                 .queryParam("requiredExp", "1000")
                 .queryParam("cumulativeExp", "4500")
-                .queryParam("title", "고급자")
-                .queryParam("description", "고급자 레벨입니다.")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("경험치-04. 레벨 설정 생성/수정",
@@ -302,9 +296,7 @@ class UserExperienceControllerTest {
                         .queryParameters(
                             parameterWithName("level").type(SimpleType.INTEGER).description("레벨"),
                             parameterWithName("requiredExp").type(SimpleType.INTEGER).description("필요 경험치"),
-                            parameterWithName("cumulativeExp").type(SimpleType.INTEGER).description("누적 경험치").optional(),
-                            parameterWithName("title").type(SimpleType.STRING).description("레벨 칭호").optional(),
-                            parameterWithName("description").type(SimpleType.STRING).description("설명").optional()
+                            parameterWithName("cumulativeExp").type(SimpleType.INTEGER).description("누적 경험치").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
@@ -314,8 +306,6 @@ class UserExperienceControllerTest {
                             fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
                             fieldWithPath("value.required_exp").type(JsonFieldType.NUMBER).description("필요 경험치"),
                             fieldWithPath("value.cumulative_exp").type(JsonFieldType.NUMBER).description("누적 경험치").optional(),
-                            fieldWithPath("value.title").type(JsonFieldType.STRING).description("레벨 칭호").optional(),
-                            fieldWithPath("value.description").type(JsonFieldType.STRING).description("설명").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
                         )

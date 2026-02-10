@@ -66,12 +66,10 @@ public class UserExperienceController {
     public ResponseEntity<ApiResult<UserLevelConfig>> createOrUpdateLevelConfig(
         @RequestParam Integer level,
         @RequestParam Integer requiredExp,
-        @RequestParam(required = false) Integer cumulativeExp,
-        @RequestParam(required = false) String title,
-        @RequestParam(required = false) String description) {
+        @RequestParam(required = false) Integer cumulativeExp) {
 
         UserLevelConfig config = userExperienceService.createOrUpdateLevelConfig(
-            level, requiredExp, cumulativeExp, title, description);
+            level, requiredExp, cumulativeExp);
         return ResponseEntity.ok(ApiResult.<UserLevelConfig>builder().value(config).build());
     }
 }

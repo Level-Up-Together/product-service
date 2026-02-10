@@ -347,14 +347,12 @@ public class UserExperienceService {
 
     @Transactional(transactionManager = "metaTransactionManager")
     public UserLevelConfig createOrUpdateLevelConfig(Integer level, Integer requiredExp,
-                                                  Integer cumulativeExp, String title, String description) {
+                                                  Integer cumulativeExp) {
         UserLevelConfig config = userLevelConfigRepository.findByLevel(level)
             .orElse(UserLevelConfig.builder().level(level).build());
 
         config.setRequiredExp(requiredExp);
         config.setCumulativeExp(cumulativeExp);
-        config.setTitle(title);
-        config.setDescription(description);
 
         return userLevelConfigRepository.save(config);
     }

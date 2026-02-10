@@ -51,12 +51,4 @@ public class UserLevelConfig extends LocalDateTimeBaseEntity {
     @Column(name = "cumulative_exp")
     @Comment("이 레벨까지 누적 필요 경험치")
     private Integer cumulativeExp;
-
-    @Column(name = "title", length = 50)
-    @Comment("레벨 칭호")
-    private String title;
-
-    @Column(name = "description", length = 200)
-    @Comment("레벨 설명")
-    private String description;
 }
