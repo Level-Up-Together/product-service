@@ -99,6 +99,17 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer maxCompletedMissionDuration = 0;
 
+    // 소셜 통계 (크로스-서비스 카운터)
+    @Column(name = "total_likes_received", nullable = false)
+    @Comment("받은 총 좋아요 수")
+    @Builder.Default
+    private Long totalLikesReceived = 0L;
+
+    @Column(name = "friend_count", nullable = false)
+    @Comment("친구 수")
+    @Builder.Default
+    private Integer friendCount = 0;
+
     public void incrementMissionCompletion() {
         this.totalMissionCompletions++;
         updateRankingPoints();
@@ -145,6 +156,26 @@ public class UserStats extends LocalDateTimeBaseEntity {
 
     public void incrementTitleAcquired() {
         this.totalTitlesAcquired++;
+    }
+
+    public void incrementLikesReceived() {
+        this.totalLikesReceived++;
+    }
+
+    public void decrementLikesReceived() {
+        if (this.totalLikesReceived > 0) {
+            this.totalLikesReceived--;
+        }
+    }
+
+    public void incrementFriendCount() {
+        this.friendCount++;
+    }
+
+    public void decrementFriendCount() {
+        if (this.friendCount > 0) {
+            this.friendCount--;
+        }
     }
 
     private void updateRankingPoints() {

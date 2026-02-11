@@ -11,11 +11,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
@@ -61,9 +61,6 @@ class FriendServiceTest {
 
     @Mock
     private TitleService titleService;
-
-    @Mock
-    private AchievementService achievementService;
 
     @InjectMocks
     private FriendService friendService;
@@ -215,9 +212,6 @@ class FriendServiceTest {
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.ACCEPTED);
             verify(eventPublisher).publishEvent(any(FriendRequestProcessedEvent.class));
             verify(eventPublisher).publishEvent(any(FriendRequestAcceptedEvent.class));
-            // 동적 업적 체크 호출 확인
-            verify(achievementService).checkAchievementsByDataSource(eq(TEST_USER_ID), eq("FRIEND_SERVICE"));
-            verify(achievementService).checkAchievementsByDataSource(eq(FRIEND_USER_ID), eq("FRIEND_SERVICE"));
         }
 
         @Test
@@ -292,6 +286,7 @@ class FriendServiceTest {
 
             // then
             verify(friendshipRepository).delete(friendship);
+            verify(eventPublisher).publishEvent(any(FriendRemovedEvent.class));
         }
 
         @Test
@@ -315,8 +310,8 @@ class FriendServiceTest {
     class BlockUserTest {
 
         @Test
-        @DisplayName("기존 관계가 있는 사용자를 차단한다")
-        void blockUser_existingRelation() {
+        @DisplayName("기존 친구 관계가 있는 사용자를 차단하면 FriendRemovedEvent가 발행된다")
+        void blockUser_existingAcceptedRelation() {
             // given
             Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
@@ -328,6 +323,24 @@ class FriendServiceTest {
 
             // then
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.BLOCKED);
+            verify(eventPublisher).publishEvent(any(FriendRemovedEvent.class));
+        }
+
+        @Test
+        @DisplayName("PENDING 관계인 사용자를 차단하면 FriendRemovedEvent가 발행되지 않는다")
+        void blockUser_existingPendingRelation_noEvent() {
+            // given
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.of(friendship));
+
+            // when
+            friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
+
+            // then
+            assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.BLOCKED);
+            verify(eventPublisher, never()).publishEvent(any(FriendRemovedEvent.class));
         }
 
         @Test

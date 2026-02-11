@@ -76,6 +76,40 @@ public class UserStatsService {
             .orElse(0);
     }
 
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void incrementLikesReceived(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.incrementLikesReceived();
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void decrementLikesReceived(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.decrementLikesReceived();
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void incrementFriendCount(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.incrementFriendCount();
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void decrementFriendCount(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.decrementFriendCount();
+    }
+
+    /**
+     * 기존 사용자의 좋아요/친구 카운터 초기화 (일회성 마이그레이션용)
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void syncCountersForUser(String userId, long likesReceived, int friendCount) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.setTotalLikesReceived(likesReceived);
+        stats.setFriendCount(friendCount);
+    }
+
     /**
      * 랭킹 퍼센타일 계산 (상위 X%)
      */

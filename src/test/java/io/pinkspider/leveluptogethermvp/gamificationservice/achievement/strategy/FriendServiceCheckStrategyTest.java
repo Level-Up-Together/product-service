@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
-import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class FriendServiceCheckStrategyTest {
 
     @Mock
-    private FriendshipRepository friendshipRepository;
+    private UserStatsRepository userStatsRepository;
 
     @InjectMocks
     private FriendServiceCheckStrategy strategy;
@@ -35,6 +37,13 @@ class FriendServiceCheckStrategyTest {
             .build();
         setId(achievement, id);
         return achievement;
+    }
+
+    private UserStats createTestUserStats(Integer friendCount) {
+        return UserStats.builder()
+            .userId(TEST_USER_ID)
+            .friendCount(friendCount)
+            .build();
     }
 
     @Nested
@@ -60,13 +69,27 @@ class FriendServiceCheckStrategyTest {
         @DisplayName("friendCount 필드 값을 반환한다")
         void fetchCurrentValue_friendCount() {
             // given
-            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+            UserStats stats = createTestUserStats(10);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "friendCount");
 
             // then
             assertThat(result).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("UserStats가 없으면 0을 반환한다")
+        void fetchCurrentValue_noStats_returnsZero() {
+            // given
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "friendCount");
+
+            // then
+            assertThat(result).isEqualTo(0);
         }
 
         @Test
@@ -89,7 +112,8 @@ class FriendServiceCheckStrategyTest {
         void checkCondition_satisfied_returnsTrue() {
             // given
             Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 5);
-            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+            UserStats stats = createTestUserStats(10);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -103,7 +127,8 @@ class FriendServiceCheckStrategyTest {
         void checkCondition_notSatisfied_returnsFalse() {
             // given
             Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 20);
-            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(10);
+            UserStats stats = createTestUserStats(10);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);

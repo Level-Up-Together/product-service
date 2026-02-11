@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.feedservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.FeedLikedEvent;
+import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
@@ -142,6 +144,7 @@ public class FeedCommandService {
                 feedLikeRepository.delete(like);
                 feed.decrementLikeCount();
                 activityFeedRepository.save(feed);
+                eventPublisher.publishEvent(new FeedUnlikedEvent(userId, feed.getUserId(), feedId));
                 log.info("Feed unliked: feedId={}, userId={}", feedId, userId);
                 return false;
             })
@@ -154,6 +157,7 @@ public class FeedCommandService {
                 feedLikeRepository.save(like);
                 feed.incrementLikeCount();
                 activityFeedRepository.save(feed);
+                eventPublisher.publishEvent(new FeedLikedEvent(userId, feed.getUserId(), feedId));
                 log.info("Feed liked: feedId={}, userId={}", feedId, userId);
                 return true;
             });

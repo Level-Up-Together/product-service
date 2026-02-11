@@ -27,6 +27,8 @@ public class UserStatsResponse {
     private Integer totalTitlesAcquired;
     private Long rankingPoints;
     private Integer maxCompletedMissionDuration;
+    private Long totalLikesReceived;
+    private Integer friendCount;
 
     public static UserStatsResponse from(UserStats stats) {
         return UserStatsResponse.builder()
@@ -41,6 +43,8 @@ public class UserStatsResponse {
             .totalTitlesAcquired(stats.getTotalTitlesAcquired())
             .rankingPoints(stats.getRankingPoints())
             .maxCompletedMissionDuration(stats.getMaxCompletedMissionDuration())
+            .totalLikesReceived(stats.getTotalLikesReceived())
+            .friendCount(stats.getFriendCount())
             .build();
     }
 }

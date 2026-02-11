@@ -4,8 +4,10 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class FeedServiceCheckStrategyTest {
 
     @Mock
-    private FeedLikeRepository feedLikeRepository;
+    private UserStatsRepository userStatsRepository;
 
     @InjectMocks
     private FeedServiceCheckStrategy strategy;
@@ -35,6 +37,13 @@ class FeedServiceCheckStrategyTest {
             .build();
         setId(achievement, id);
         return achievement;
+    }
+
+    private UserStats createTestUserStats(Long totalLikesReceived) {
+        return UserStats.builder()
+            .userId(TEST_USER_ID)
+            .totalLikesReceived(totalLikesReceived)
+            .build();
     }
 
     @Nested
@@ -60,13 +69,27 @@ class FeedServiceCheckStrategyTest {
         @DisplayName("totalLikesReceived 필드 값을 반환한다")
         void fetchCurrentValue_totalLikesReceived() {
             // given
-            when(feedLikeRepository.countLikesReceivedByUser(TEST_USER_ID)).thenReturn(50L);
+            UserStats stats = createTestUserStats(50L);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             Object result = strategy.fetchCurrentValue(TEST_USER_ID, "totalLikesReceived");
 
             // then
             assertThat(result).isEqualTo(50L);
+        }
+
+        @Test
+        @DisplayName("UserStats가 없으면 0을 반환한다")
+        void fetchCurrentValue_noStats_returnsZero() {
+            // given
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "totalLikesReceived");
+
+            // then
+            assertThat(result).isEqualTo(0L);
         }
 
         @Test
@@ -89,7 +112,8 @@ class FeedServiceCheckStrategyTest {
         void checkCondition_satisfied_returnsTrue() {
             // given
             Achievement achievement = createTestAchievement(1L, "totalLikesReceived", "GTE", 10);
-            when(feedLikeRepository.countLikesReceivedByUser(TEST_USER_ID)).thenReturn(50L);
+            UserStats stats = createTestUserStats(50L);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);
@@ -103,7 +127,8 @@ class FeedServiceCheckStrategyTest {
         void checkCondition_notSatisfied_returnsFalse() {
             // given
             Achievement achievement = createTestAchievement(1L, "totalLikesReceived", "GTE", 100);
-            when(feedLikeRepository.countLikesReceivedByUser(TEST_USER_ID)).thenReturn(50L);
+            UserStats stats = createTestUserStats(50L);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
 
             // when
             boolean result = strategy.checkCondition(TEST_USER_ID, achievement);

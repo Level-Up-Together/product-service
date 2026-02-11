@@ -1,10 +1,10 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.application;
 
+import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
@@ -38,7 +38,6 @@ public class FriendService {
     private final UserRepository userRepository;
     private final UserExperienceService userExperienceService;
     private final TitleService titleService;
-    private final AchievementService achievementService;
 
     // 친구 요청 보내기
     @Transactional
@@ -116,14 +115,6 @@ public class FriendService {
             userId, friendship.getUserId(), accepterNickname, friendship.getId()
         ));
 
-        // 양쪽 모두 친구 업적 체크 - 동적 Strategy 패턴 사용
-        try {
-            achievementService.checkAchievementsByDataSource(userId, "FRIEND_SERVICE");
-            achievementService.checkAchievementsByDataSource(friendship.getUserId(), "FRIEND_SERVICE");
-        } catch (Exception e) {
-            log.warn("친구 업적 체크 실패: {}", e.getMessage());
-        }
-
         log.info("친구 요청 수락: {} accepted {}", userId, friendship.getUserId());
         return FriendResponse.simpleFrom(friendship, userId);
     }
@@ -168,6 +159,9 @@ public class FriendService {
         // 양쪽 사용자의 친구 캐시 무효화
         friendCacheService.evictBothFriendCaches(userId, friendId);
 
+        // 친구 삭제 이벤트 발행 (카운터 감소용)
+        eventPublisher.publishEvent(new FriendRemovedEvent(userId, friendId));
+
         log.info("친구 삭제: {} removed {}", userId, friendId);
     }
 
@@ -178,7 +172,11 @@ public class FriendService {
 
         if (existing.isPresent()) {
             Friendship friendship = existing.get();
+            boolean wasAccepted = friendship.isAccepted();
             friendship.block();
+            if (wasAccepted) {
+                eventPublisher.publishEvent(new FriendRemovedEvent(userId, targetId));
+            }
         } else {
             Friendship friendship = Friendship.builder()
                 .userId(userId)

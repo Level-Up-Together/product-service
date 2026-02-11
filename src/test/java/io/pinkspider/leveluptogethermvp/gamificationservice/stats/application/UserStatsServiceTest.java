@@ -275,6 +275,118 @@ class UserStatsServiceTest {
     }
 
     @Nested
+    @DisplayName("incrementLikesReceived 테스트")
+    class IncrementLikesReceivedTest {
+
+        @Test
+        @DisplayName("좋아요 카운터를 증가시킨다")
+        void incrementLikesReceived_success() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.incrementLikesReceived(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getTotalLikesReceived()).isEqualTo(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("decrementLikesReceived 테스트")
+    class DecrementLikesReceivedTest {
+
+        @Test
+        @DisplayName("좋아요 카운터를 감소시킨다")
+        void decrementLikesReceived_success() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            stats.setTotalLikesReceived(5L);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.decrementLikesReceived(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getTotalLikesReceived()).isEqualTo(4L);
+        }
+
+        @Test
+        @DisplayName("좋아요 카운터가 0이면 감소하지 않는다")
+        void decrementLikesReceived_zeroDoesNotGoNegative() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.decrementLikesReceived(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getTotalLikesReceived()).isEqualTo(0L);
+        }
+    }
+
+    @Nested
+    @DisplayName("incrementFriendCount 테스트")
+    class IncrementFriendCountTest {
+
+        @Test
+        @DisplayName("친구 카운터를 증가시킨다")
+        void incrementFriendCount_success() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.incrementFriendCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getFriendCount()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("decrementFriendCount 테스트")
+    class DecrementFriendCountTest {
+
+        @Test
+        @DisplayName("친구 카운터를 감소시킨다")
+        void decrementFriendCount_success() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            stats.setFriendCount(3);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.decrementFriendCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getFriendCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("친구 카운터가 0이면 감소하지 않는다")
+        void decrementFriendCount_zeroDoesNotGoNegative() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            userStatsService.decrementFriendCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getFriendCount()).isEqualTo(0);
+        }
+    }
+
+    @Nested
     @DisplayName("getMaxStreak 테스트")
     class GetMaxStreakTest {
 

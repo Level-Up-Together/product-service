@@ -535,6 +535,8 @@ class AchievementControllerTest {
             .totalAchievementsCompleted(10)
             .totalTitlesAcquired(5)
             .rankingPoints(3500L)
+            .totalLikesReceived(120L)
+            .friendCount(25)
             .build();
 
         when(userStatsService.getUserStats(anyString())).thenReturn(response);
@@ -566,7 +568,9 @@ class AchievementControllerTest {
                             fieldWithPath("value.total_achievements_completed").type(JsonFieldType.NUMBER).description("총 업적 완료 수"),
                             fieldWithPath("value.total_titles_acquired").type(JsonFieldType.NUMBER).description("총 칭호 획득 수"),
                             fieldWithPath("value.ranking_points").type(JsonFieldType.NUMBER).description("랭킹 포인트"),
-                            fieldWithPath("value.max_completed_mission_duration").type(JsonFieldType.NUMBER).description("최대 미션 수행 시간 (분)").optional()
+                            fieldWithPath("value.max_completed_mission_duration").type(JsonFieldType.NUMBER).description("최대 미션 수행 시간 (분)").optional(),
+                            fieldWithPath("value.total_likes_received").type(JsonFieldType.NUMBER).description("받은 총 좋아요 수"),
+                            fieldWithPath("value.friend_count").type(JsonFieldType.NUMBER).description("친구 수")
                         )
                         .build()
                 )

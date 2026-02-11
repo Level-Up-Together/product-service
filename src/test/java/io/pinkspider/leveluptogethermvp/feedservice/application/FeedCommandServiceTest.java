@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.FeedLikedEvent;
+import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
@@ -190,6 +192,7 @@ class FeedCommandServiceTest {
             assertThat(result.isLiked()).isTrue();
             assertThat(result.likeCount()).isEqualTo(1);
             verify(feedLikeRepository).save(any(FeedLike.class));
+            verify(eventPublisher).publishEvent(any(FeedLikedEvent.class));
         }
 
         @Test
@@ -214,6 +217,7 @@ class FeedCommandServiceTest {
             // then
             assertThat(result.isLiked()).isFalse();
             verify(feedLikeRepository).delete(existingLike);
+            verify(eventPublisher).publishEvent(any(FeedUnlikedEvent.class));
         }
 
         @Test
