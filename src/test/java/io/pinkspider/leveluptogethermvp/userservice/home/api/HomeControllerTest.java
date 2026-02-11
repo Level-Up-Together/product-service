@@ -26,8 +26,8 @@ import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerRespo
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.LinkType;
+import io.pinkspider.global.enums.BannerType;
+import io.pinkspider.global.enums.LinkType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;

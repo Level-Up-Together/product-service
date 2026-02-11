@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.enums.NotificationType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;

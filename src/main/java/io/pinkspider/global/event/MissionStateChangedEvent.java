@@ -1,6 +1,6 @@
 package io.pinkspider.global.event;
 
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
+import io.pinkspider.global.enums.MissionStatus;
 import java.time.LocalDateTime;
 
 /**

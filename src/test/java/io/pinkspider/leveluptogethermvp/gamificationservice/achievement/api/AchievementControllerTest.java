@@ -26,8 +26,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.d
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;

@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.notificationservice.domain.enums;
+package io.pinkspider.global.enums;
 
 import java.text.MessageFormat;
 import lombok.Getter;

@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
+import io.pinkspider.global.enums.TitlePosition;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

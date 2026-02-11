@@ -7,7 +7,7 @@ import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerRespo
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
+import io.pinkspider.global.enums.BannerType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;

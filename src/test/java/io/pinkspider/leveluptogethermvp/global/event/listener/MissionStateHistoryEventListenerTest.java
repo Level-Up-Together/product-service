@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import io.pinkspider.global.event.MissionStateChangedEvent;
 import io.pinkspider.global.event.listener.MissionStateHistoryEventListener;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionStateHistory;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
+import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionStateHistoryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -17,7 +17,7 @@ import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.global.event.listener.NotificationEventListener;
 import java.time.LocalDateTime;
 import java.util.Arrays;

@@ -1,6 +1,6 @@
 package io.pinkspider.leveluptogethermvp.feedservice.domain.dto;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 
 /**
  * 사용자의 장착된 칭호 정보

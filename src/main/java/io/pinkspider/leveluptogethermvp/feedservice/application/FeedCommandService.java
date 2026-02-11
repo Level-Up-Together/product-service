@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.feedservice.application;
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;

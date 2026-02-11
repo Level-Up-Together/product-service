@@ -18,7 +18,7 @@ import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.enums.NotificationType;
 import java.util.List;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;

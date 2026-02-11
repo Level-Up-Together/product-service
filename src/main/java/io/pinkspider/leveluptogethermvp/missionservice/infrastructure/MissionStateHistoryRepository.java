@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionStateHistory;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
+import io.pinkspider.global.enums.MissionStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;

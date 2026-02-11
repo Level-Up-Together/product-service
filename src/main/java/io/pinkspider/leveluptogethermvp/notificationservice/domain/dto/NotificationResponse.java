@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.notificationservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.enums.NotificationType;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

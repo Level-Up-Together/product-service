@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
+import io.pinkspider.global.enums.TitlePosition;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

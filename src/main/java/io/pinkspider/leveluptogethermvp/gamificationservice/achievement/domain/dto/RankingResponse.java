@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

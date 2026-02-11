@@ -1,6 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionStatus;
+import io.pinkspider.global.enums.MissionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

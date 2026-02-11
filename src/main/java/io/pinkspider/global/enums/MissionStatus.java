@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.missionservice.domain.enums;
+package io.pinkspider.global.enums;
 
 import java.util.List;
 import java.util.Set;

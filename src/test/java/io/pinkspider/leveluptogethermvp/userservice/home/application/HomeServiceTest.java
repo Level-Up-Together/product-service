@@ -12,8 +12,8 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
 import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.enums.LinkType;
+import io.pinkspider.global.enums.BannerType;
+import io.pinkspider.global.enums.LinkType;
 import io.pinkspider.leveluptogethermvp.adminservice.infrastructure.HomeBannerRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto;
@@ -24,8 +24,8 @@ import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryRe
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;

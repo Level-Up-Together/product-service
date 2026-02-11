@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.CreatedAtEntity;
+import io.pinkspider.global.enums.GuildExpSourceType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -72,11 +73,4 @@ public class GuildExperienceHistory extends CreatedAtEntity {
     @Column(name = "level_after")
     @Comment("획득 후 레벨")
     private Integer levelAfter;
-
-    public enum GuildExpSourceType {
-        GUILD_MISSION_EXECUTION,
-        GUILD_MISSION_FULL_COMPLETION,
-        ADMIN_GRANT,
-        EVENT_BONUS
-    }
 }

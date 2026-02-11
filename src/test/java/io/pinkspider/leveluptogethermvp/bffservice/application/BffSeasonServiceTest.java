@@ -20,7 +20,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonMyRankingResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;

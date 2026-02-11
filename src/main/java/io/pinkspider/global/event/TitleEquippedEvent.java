@@ -1,6 +1,6 @@
 package io.pinkspider.global.event;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDateTime;
 
 /**

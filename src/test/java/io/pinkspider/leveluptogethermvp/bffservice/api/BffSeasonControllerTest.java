@@ -23,7 +23,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;

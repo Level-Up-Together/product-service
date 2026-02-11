@@ -16,7 +16,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.Notificat
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.NotificationSummaryResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.enums.NotificationType;
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.global.kafka.producer.KafkaAppPushProducer;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;

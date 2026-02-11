@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
-import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ExpSourceType;
+import io.pinkspider.global.enums.ExpSourceType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
