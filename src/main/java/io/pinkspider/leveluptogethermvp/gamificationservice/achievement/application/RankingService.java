@@ -9,10 +9,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRa
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +35,7 @@ public class RankingService {
     private final UserStatsRepository userStatsRepository;
     private final UserTitleRepository userTitleRepository;
     private final UserExperienceRepository userExperienceRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final ExperienceHistoryRepository experienceHistoryRepository;
 
     // 종합 랭킹 (랭킹 포인트 기준)
@@ -141,9 +141,9 @@ public class RankingService {
         long totalUsers = userExperienceRepository.countTotalUsers();
 
         // 사용자 정보 조회 (닉네임, 프로필 이미지)
-        Users user = userRepository.findById(userId).orElse(null);
-        String nickname = user != null ? user.getDisplayName() : null;
-        String profileImageUrl = user != null ? user.getPicture() : null;
+        UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
+        String nickname = profile.nickname();
+        String profileImageUrl = profile.picture();
 
         // 장착된 칭호 조회 (이름, 등급, 색상 코드)
         TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
@@ -178,9 +178,8 @@ public class RankingService {
             .map(UserExperience::getUserId)
             .collect(Collectors.toList());
 
-        // 사용자 정보 일괄 조회
-        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        // 사용자 정보 일괄 조회 (캐시)
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합, 등급, 색상 코드 포함)
         Map<String, TitleInfo> titleInfoMap = new HashMap<>();
@@ -192,9 +191,9 @@ public class RankingService {
         long startRank = pageable.getOffset() + 1;
 
         for (UserExperience exp : expPage.getContent()) {
-            Users user = userMap.get(exp.getUserId());
-            String nickname = user != null ? user.getDisplayName() : null;
-            String profileImageUrl = user != null ? user.getPicture() : null;
+            UserProfileCache profile = profileMap.get(exp.getUserId());
+            String nickname = profile != null ? profile.nickname() : null;
+            String profileImageUrl = profile != null ? profile.picture() : null;
             TitleInfo titleInfo = titleInfoMap.get(exp.getUserId());
 
             responses.add(LevelRankingResponse.from(
@@ -229,9 +228,8 @@ public class RankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
 
-        // 사용자 정보 일괄 조회
-        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        // 사용자 정보 일괄 조회 (캐시)
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         // 사용자 경험치 정보 일괄 조회
         // Collectors.toMap()은 null 값을 허용하지 않으므로 HashMap 직접 사용
@@ -253,12 +251,12 @@ public class RankingService {
             String odayUserId = (String) row[0];
             Long categoryExp = ((Number) row[1]).longValue();
 
-            Users user = userMap.get(odayUserId);
+            UserProfileCache profile = profileMap.get(odayUserId);
             UserExperience userExp = expMap.get(odayUserId);
             TitleInfo titleInfo = titleInfoMap.get(odayUserId);
 
-            String nickname = user != null ? user.getDisplayName() : null;
-            String profileImageUrl = user != null ? user.getPicture() : null;
+            String nickname = profile != null ? profile.nickname() : null;
+            String profileImageUrl = profile != null ? profile.picture() : null;
 
             // 카테고리별 랭킹은 카테고리 내 경험치를 기준으로 함
             if (userExp != null) {

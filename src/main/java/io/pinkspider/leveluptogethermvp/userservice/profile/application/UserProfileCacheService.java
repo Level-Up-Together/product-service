@@ -6,6 +6,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicati
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -72,6 +76,31 @@ public class UserProfileCacheService {
      * 사용자 프로필 캐시 무효화
      * - 닉네임, 프로필 사진, 레벨, 칭호 변경 시 호출
      */
+    /**
+     * 여러 사용자 프로필 배치 조회
+     * - 개별 캐시 활용 (userId별 @Cacheable)
+     * - 랭킹, 멤버 목록 등 배치 조회에 사용
+     */
+    public Map<String, UserProfileCache> getUserProfiles(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userIds.stream()
+            .distinct()
+            .collect(Collectors.toMap(
+                Function.identity(),
+                this::getUserProfile
+            ));
+    }
+
+    /**
+     * 사용자 닉네임만 조회 (캐시 활용)
+     * - 채팅 알림, 이벤트 발행 등 닉네임만 필요한 경우
+     */
+    public String getUserNickname(String userId) {
+        return getUserProfile(userId).nickname();
+    }
+
     @CacheEvict(value = "userProfile", key = "#userId")
     public void evictUserProfileCache(String userId) {
         log.debug("사용자 프로필 캐시 무효화: userId={}", userId);

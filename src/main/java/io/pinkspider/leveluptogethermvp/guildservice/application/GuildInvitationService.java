@@ -14,8 +14,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,8 @@ public class GuildInvitationService {
     private final GuildInvitationRepository invitationRepository;
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
-    private final UserRepository userRepository;
+    private final UserExistsCacheService userExistsCacheService;
+    private final UserProfileCacheService userProfileCacheService;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -69,8 +71,9 @@ public class GuildInvitationService {
         validateMasterOrSubMaster(guildId, inviterId);
 
         // 초대 대상자가 존재하는지 확인
-        Users invitee = userRepository.findById(inviteeId)
-            .orElseThrow(() -> new IllegalArgumentException("초대 대상자를 찾을 수 없습니다."));
+        if (!userExistsCacheService.existsById(inviteeId)) {
+            throw new IllegalArgumentException("초대 대상자를 찾을 수 없습니다.");
+        }
 
         // 이미 해당 길드 멤버인지 확인
         if (isMember(guildId, inviteeId)) {
@@ -101,9 +104,7 @@ public class GuildInvitationService {
         GuildInvitation saved = invitationRepository.save(invitation);
 
         // 초대자 닉네임 조회
-        String inviterNickname = userRepository.findById(inviterId)
-            .map(Users::getNickname)
-            .orElse("알 수 없는 사용자");
+        String inviterNickname = userProfileCacheService.getUserNickname(inviterId);
 
         // 알림 이벤트 발행
         eventPublisher.publishEvent(new GuildInvitationEvent(
@@ -118,7 +119,8 @@ public class GuildInvitationService {
         log.info("길드 초대 발송: guildId={}, inviterId={}, inviteeId={}, invitationId={}",
             guildId, inviterId, inviteeId, saved.getId());
 
-        return GuildInvitationResponse.from(saved, inviterNickname, invitee.getNickname());
+        String inviteeNickname = userProfileCacheService.getUserNickname(inviteeId);
+        return GuildInvitationResponse.from(saved, inviterNickname, inviteeNickname);
     }
 
     /**
@@ -198,19 +200,13 @@ public class GuildInvitationService {
         }
 
         // 채팅방에 가입 알림 메시지 전송
-        String memberNickname = userRepository.findById(userId)
-            .map(Users::getNickname)
-            .orElse("새 멤버");
+        String memberNickname = userProfileCacheService.getUserNickname(userId);
         eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         log.info("초대 수락: invitationId={}, userId={}", invitationId, userId);
 
-        String inviterNickname = userRepository.findById(invitation.getInviterId())
-            .map(Users::getNickname)
-            .orElse("알 수 없는 사용자");
-        String inviteeNickname = userRepository.findById(invitation.getInviteeId())
-            .map(Users::getNickname)
-            .orElse("알 수 없는 사용자");
+        String inviterNickname = userProfileCacheService.getUserNickname(invitation.getInviterId());
+        String inviteeNickname = userProfileCacheService.getUserNickname(invitation.getInviteeId());
 
         return GuildInvitationResponse.from(invitation, inviterNickname, inviteeNickname);
     }
@@ -281,18 +277,16 @@ public class GuildInvitationService {
             .distinct()
             .toList();
 
-        // 초대자 정보 조회
-        Map<String, Users> inviterMap = userRepository.findAllByIdIn(inviterIds).stream()
-            .collect(Collectors.toMap(Users::getId, Function.identity()));
+        // 초대자 프로필 조회 (캐시)
+        Map<String, UserProfileCache> inviterProfileMap = userProfileCacheService.getUserProfiles(inviterIds);
 
-        // 초대 받는 사람 정보 조회
-        Users invitee = userRepository.findById(userId).orElse(null);
-        String inviteeNickname = invitee != null ? invitee.getNickname() : "알 수 없는 사용자";
+        // 초대 받는 사람 닉네임 조회
+        String inviteeNickname = userProfileCacheService.getUserNickname(userId);
 
         return validInvitations.stream()
             .map(inv -> {
-                Users inviter = inviterMap.get(inv.getInviterId());
-                String inviterNickname = inviter != null ? inviter.getNickname() : "알 수 없는 사용자";
+                UserProfileCache inviterProfile = inviterProfileMap.get(inv.getInviterId());
+                String inviterNickname = inviterProfile != null ? inviterProfile.nickname() : "알 수 없는 사용자";
                 return GuildInvitationResponse.from(inv, inviterNickname, inviteeNickname);
             })
             .toList();
@@ -316,16 +310,15 @@ public class GuildInvitationService {
             .distinct()
             .toList();
 
-        // 사용자 정보 조회
-        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, Function.identity()));
+        // 사용자 프로필 조회 (캐시)
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         return invitations.stream()
             .map(inv -> {
-                Users inviter = userMap.get(inv.getInviterId());
-                Users invitee = userMap.get(inv.getInviteeId());
-                String inviterNickname = inviter != null ? inviter.getNickname() : "알 수 없는 사용자";
-                String inviteeNickname = invitee != null ? invitee.getNickname() : "알 수 없는 사용자";
+                UserProfileCache inviterProfile = profileMap.get(inv.getInviterId());
+                UserProfileCache inviteeProfile = profileMap.get(inv.getInviteeId());
+                String inviterNickname = inviterProfile != null ? inviterProfile.nickname() : "알 수 없는 사용자";
+                String inviteeNickname = inviteeProfile != null ? inviteeProfile.nickname() : "알 수 없는 사용자";
                 return GuildInvitationResponse.from(inv, inviterNickname, inviteeNickname);
             })
             .toList();

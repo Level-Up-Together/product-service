@@ -28,7 +28,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
@@ -60,7 +61,7 @@ class GuildMemberServiceTest {
     private MissionCategoryService missionCategoryService;
 
     @Mock
-    private UserRepository userRepository;
+    private UserProfileCacheService userProfileCacheService;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService titleService;
@@ -528,7 +529,8 @@ class GuildMemberServiceTest {
 
             when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
-            when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
+            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileCache(testUserId, "테스트유저", null, 1, null, null, null));
 
             // when
             GuildMemberResponse response = guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId);
@@ -593,7 +595,8 @@ class GuildMemberServiceTest {
 
             when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(subMasterMember));
-            when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
+            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileCache(testUserId, "테스트유저", null, 1, null, null, null));
 
             // when
             GuildMemberResponse response = guildMemberService.demoteFromSubMaster(1L, testMasterId, testUserId);

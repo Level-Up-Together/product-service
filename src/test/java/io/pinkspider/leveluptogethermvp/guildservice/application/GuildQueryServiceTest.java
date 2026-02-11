@@ -29,7 +29,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,7 +63,7 @@ class GuildQueryServiceTest {
     private FeaturedContentQueryService featuredContentQueryService;
 
     @Mock
-    private UserRepository userRepository;
+    private UserProfileCacheService userProfileCacheService;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService titleService;
@@ -426,7 +426,7 @@ class GuildQueryServiceTest {
             lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
             when(guildMemberRepository.findActiveMembers(1L))
                 .thenReturn(List.of(testMasterMember, member));
-            when(userRepository.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
+            when(userProfileCacheService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             // when
             List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);

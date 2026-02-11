@@ -21,8 +21,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.global.translation.LocaleUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,7 @@ public class SeasonRankingService {
     private final SeasonRepository seasonRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final GuildExperienceHistoryRepository guildExperienceHistoryRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
     private final GuildRepository guildRepository;
@@ -128,9 +128,8 @@ public class SeasonRankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
 
-        // 2. 배치 조회: 사용자 정보
-        Map<String, Users> userMap = userRepository.findAllById(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        // 2. 배치 조회: 사용자 프로필 (캐시)
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         // 3. 배치 조회: 레벨 정보
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
@@ -148,18 +147,15 @@ public class SeasonRankingService {
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
-            Users user = userMap.get(odayUserId);
-            if (user == null) {
-                continue;
-            }
+            UserProfileCache profile = profileMap.get(odayUserId);
 
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(odayUserId), locale);
 
             result.add(SeasonMvpPlayerResponse.of(
                 odayUserId,
-                user.getNickname(),
-                user.getPicture(),
+                profile != null ? profile.nickname() : null,
+                profile != null ? profile.picture() : null,
                 level,
                 titleInfo.name(),
                 titleInfo.rarity(),
@@ -437,8 +433,7 @@ public class SeasonRankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
 
-        Map<String, Users> userMap = userRepository.findAllById(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
             .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
@@ -453,18 +448,15 @@ public class SeasonRankingService {
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
-            Users user = userMap.get(odayUserId);
-            if (user == null) {
-                continue;
-            }
+            UserProfileCache profile = profileMap.get(odayUserId);
 
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(odayUserId), locale);
 
             result.add(SeasonMvpPlayerResponse.of(
                 odayUserId,
-                user.getNickname(),
-                user.getPicture(),
+                profile != null ? profile.nickname() : null,
+                profile != null ? profile.picture() : null,
                 level,
                 titleInfo.name(),
                 titleInfo.rarity(),

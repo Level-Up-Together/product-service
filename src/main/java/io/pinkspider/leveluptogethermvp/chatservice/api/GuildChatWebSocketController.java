@@ -4,7 +4,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatParticipantRepository;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.security.Principal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,18 +20,18 @@ public class GuildChatWebSocketController {
 
     private final GuildChatService chatService;
     private final GuildChatParticipantRepository participantRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     public GuildChatWebSocketController(
             GuildChatService chatService,
             GuildChatParticipantRepository participantRepository,
-            UserRepository userRepository,
+            UserProfileCacheService userProfileCacheService,
             @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
         this.chatService = chatService;
         this.participantRepository = participantRepository;
-        this.userRepository = userRepository;
+        this.userProfileCacheService = userProfileCacheService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -59,9 +59,7 @@ public class GuildChatWebSocketController {
         String userId = principal.getName();
 
         // 사용자 닉네임 조회
-        String nickname = userRepository.findById(userId)
-            .map(user -> user.getNickname())
-            .orElse("알 수 없음");
+        String nickname = userProfileCacheService.getUserNickname(userId);
 
         try {
             // 메시지 저장

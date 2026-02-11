@@ -18,10 +18,9 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,7 +36,7 @@ public class FeedCommandService {
     private final ActivityFeedRepository activityFeedRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
-    private final UserRepository userRepository;
+    private final UserExistsCacheService userExistsCacheService;
     private final UserProfileCacheService userProfileCacheService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserTitleInfoHelper userTitleInfoHelper;
@@ -85,9 +84,13 @@ public class FeedCommandService {
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeedResponse createFeed(String userId, CreateFeedRequest request) {
-        // 사용자 정보 조회
-        Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다"));
+        // 사용자 존재 확인
+        if (!userExistsCacheService.existsById(userId)) {
+            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다");
+        }
+
+        // 사용자 프로필 조회 (캐시)
+        UserProfileCache userProfile = userProfileCacheService.getUserProfile(userId);
 
         // 사용자 장착 칭호 정보 조회
         UserTitleInfo titleInfo = userTitleInfoHelper.getUserEquippedTitleInfo(userId);
@@ -97,8 +100,8 @@ public class FeedCommandService {
 
         ActivityFeed feed = ActivityFeed.builder()
             .userId(userId)
-            .userNickname(user.getDisplayName())
-            .userProfileImageUrl(user.getPicture())
+            .userNickname(userProfile.nickname())
+            .userProfileImageUrl(userProfile.picture())
             .userTitle(userTitle)
             .userTitleRarity(userTitleRarity)
             .userTitleColorCode(userTitleColorCode)

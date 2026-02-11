@@ -13,8 +13,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -39,7 +39,7 @@ public class DailyMvpHistoryService {
     private final DailyMvpHistoryRepository historyRepository;
     private final DailyMvpCategoryStatsRepository categoryStatsRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
     private final MissionCategoryService missionCategoryService;
@@ -83,9 +83,8 @@ public class DailyMvpHistoryService {
             .map(row -> (String) row[0])
             .toList();
 
-        // 3. 배치 조회: 사용자 정보
-        Map<String, Users> userMap = userRepository.findAllById(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        // 3. 배치 조회: 사용자 프로필 (캐시)
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         // 4. 배치 조회: 레벨 정보
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
@@ -117,7 +116,7 @@ public class DailyMvpHistoryService {
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
-            Users user = userMap.get(odayUserId);
+            UserProfileCache profile = profileMap.get(odayUserId);
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfo(titleMap.get(odayUserId));
 
@@ -128,8 +127,8 @@ public class DailyMvpHistoryService {
                 .mvpDate(targetDate)
                 .mvpRank(rank++)
                 .userId(odayUserId)
-                .nickname(user != null ? user.getNickname() : null)
-                .picture(user != null ? user.getPicture() : null)
+                .nickname(profile != null ? profile.nickname() : null)
+                .picture(profile != null ? profile.picture() : null)
                 .userLevel(level)
                 .earnedExp(earnedExp)
                 .topCategoryName(topCategory.name())
@@ -184,8 +183,7 @@ public class DailyMvpHistoryService {
             .map(row -> (String) row[0])
             .toList();
 
-        Map<String, Users> userMap = userRepository.findAllById(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, u -> u));
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
             .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));
@@ -212,7 +210,7 @@ public class DailyMvpHistoryService {
             String odayUserId = (String) row[0];
             Long earnedExp = ((Number) row[1]).longValue();
 
-            Users user = userMap.get(odayUserId);
+            UserProfileCache profile = profileMap.get(odayUserId);
             Integer level = levelMap.getOrDefault(odayUserId, 1);
             TitleInfo titleInfo = buildTitleInfo(titleMap.get(odayUserId));
             CategoryInfo topCategory = getTopCategory(categoryStatsMap.get(odayUserId), categoryNameToIdMap);
@@ -221,8 +219,8 @@ public class DailyMvpHistoryService {
                 .mvpDate(targetDate)
                 .mvpRank(rank++)
                 .userId(odayUserId)
-                .nickname(user != null ? user.getNickname() : null)
-                .picture(user != null ? user.getPicture() : null)
+                .nickname(profile != null ? profile.nickname() : null)
+                .picture(profile != null ? profile.picture() : null)
                 .userLevel(level)
                 .earnedExp(earnedExp)
                 .topCategoryName(topCategory.name())

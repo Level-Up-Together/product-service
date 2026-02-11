@@ -20,8 +20,8 @@ import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryS
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class GuildMemberService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
     private final MissionCategoryService missionCategoryService;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final TitleService titleService;
     private final ApplicationEventPublisher eventPublisher;
     private final GuildHelper guildHelper;
@@ -209,9 +209,7 @@ public class GuildMemberService {
         publishGuildAchievementEvents(request.getRequesterId(), guild, true, false);
 
         // 채팅방에 가입 알림 메시지 전송
-        String memberNickname = userRepository.findById(request.getRequesterId())
-            .map(Users::getNickname)
-            .orElse("새 멤버");
+        String memberNickname = userProfileCacheService.getUserNickname(request.getRequesterId());
         eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         return GuildMemberResponse.from(savedMember);
@@ -286,9 +284,7 @@ public class GuildMemberService {
         publishGuildAchievementEvents(inviteeId, guild, true, false);
 
         // 채팅방에 가입 알림 메시지 전송
-        String memberNickname = userRepository.findById(inviteeId)
-            .map(Users::getNickname)
-            .orElse("새 멤버");
+        String memberNickname = userProfileCacheService.getUserNickname(inviteeId);
         eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guildId, memberNickname));
 
         log.info("길드원 초대: guildId={}, inviteeId={}", guildId, inviteeId);
@@ -312,9 +308,7 @@ public class GuildMemberService {
         }
 
         // 탈퇴 전에 닉네임 조회 (탈퇴 후 조회 시 멤버가 아니라 실패할 수 있음)
-        String memberNickname = userRepository.findById(userId)
-            .map(Users::getNickname)
-            .orElse("멤버");
+        String memberNickname = userProfileCacheService.getUserNickname(userId);
 
         member.leave();
 
@@ -418,9 +412,7 @@ public class GuildMemberService {
         }
 
         // 추방 전에 닉네임 조회
-        String memberNickname = userRepository.findById(targetUserId)
-            .map(Users::getNickname)
-            .orElse("멤버");
+        String memberNickname = userProfileCacheService.getUserNickname(targetUserId);
 
         targetMember.kick();
 
@@ -444,11 +436,11 @@ public class GuildMemberService {
 
     private GuildMemberResponse buildGuildMemberResponse(GuildMember member) {
         GuildMemberResponse response = GuildMemberResponse.from(member);
-        Users user = userRepository.findById(member.getUserId()).orElse(null);
-        if (user != null) {
-            response.setNickname(user.getDisplayName());
-            response.setProfileImageUrl(user.getPicture());
-            response.setUserLevel(1);
+        UserProfileCache profile = userProfileCacheService.getUserProfile(member.getUserId());
+        if (profile != null) {
+            response.setNickname(profile.nickname());
+            response.setProfileImageUrl(profile.picture());
+            response.setUserLevel(profile.level() != null ? profile.level() : 1);
             try {
                 DetailedTitleInfo titleInfo = titleService.getDetailedEquippedTitleInfo(member.getUserId());
                 response.setEquippedTitleName(titleInfo.combinedName());

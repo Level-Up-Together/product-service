@@ -11,8 +11,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.time.LocalDateTime;
@@ -41,7 +41,7 @@ public class GuildQueryService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
     private final FeaturedContentQueryService featuredContentQueryService;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final TitleService titleService;
     private final ReportService reportService;
     private final GuildHelper guildHelper;
@@ -218,17 +218,16 @@ public class GuildQueryService {
             .map(GuildMember::getUserId)
             .toList();
 
-        Map<String, Users> userMap = userRepository.findAllByIdIn(userIds).stream()
-            .collect(Collectors.toMap(Users::getId, Function.identity()));
+        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
 
         // 멤버 정보에 사용자 정보 추가
         return members.stream()
             .map(member -> {
                 GuildMemberResponse response = GuildMemberResponse.from(member);
-                Users user = userMap.get(member.getUserId());
-                if (user != null) {
-                    response.setNickname(user.getDisplayName());
-                    response.setProfileImageUrl(user.getPicture());
+                UserProfileCache profile = profileMap.get(member.getUserId());
+                if (profile != null) {
+                    response.setNickname(profile.nickname());
+                    response.setProfileImageUrl(profile.picture());
                     // TODO: userLevel은 별도 서비스에서 조회 필요
                     response.setUserLevel(1);
                     // 칭호 정보 조회

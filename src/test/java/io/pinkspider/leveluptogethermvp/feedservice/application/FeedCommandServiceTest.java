@@ -26,10 +26,9 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +52,7 @@ class FeedCommandServiceTest {
     private FeedCommentRepository feedCommentRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserExistsCacheService userExistsCacheService;
 
     @Mock
     private UserProfileCacheService userProfileCacheService;
@@ -101,17 +100,6 @@ class FeedCommandServiceTest {
         return feed;
     }
 
-    private Users createTestUser(String userId) {
-        Users user = Users.builder()
-            .nickname("테스트유저")
-            .email("test@example.com")
-            .provider("GOOGLE")
-            .picture("https://example.com/profile.jpg")
-            .build();
-        TestReflectionUtils.setField(user, "id", userId);
-        return user;
-    }
-
     @Nested
     @DisplayName("createActivityFeed 테스트")
     class CreateActivityFeedTest {
@@ -147,11 +135,11 @@ class FeedCommandServiceTest {
         @DisplayName("사용자가 직접 피드를 생성한다")
         void createFeed_success() {
             // given
-            Users user = createTestUser(TEST_USER_ID);
             ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
             CreateFeedRequest request = createTestFeedRequest();
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(true);
+            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileCache(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
             when(userTitleInfoHelper.getUserEquippedTitleInfo(TEST_USER_ID)).thenReturn(UserTitleInfo.empty());
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
@@ -160,7 +148,7 @@ class FeedCommandServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(userRepository).findById(TEST_USER_ID);
+            verify(userExistsCacheService).existsById(TEST_USER_ID);
             verify(activityFeedRepository).save(any(ActivityFeed.class));
         }
 
@@ -170,7 +158,7 @@ class FeedCommandServiceTest {
             // given
             CreateFeedRequest request = createTestFeedRequest();
 
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.createFeed(TEST_USER_ID, request))

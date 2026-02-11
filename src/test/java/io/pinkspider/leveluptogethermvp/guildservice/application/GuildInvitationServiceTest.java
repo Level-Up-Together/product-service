@@ -27,8 +27,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -58,7 +59,10 @@ class GuildInvitationServiceTest {
     private GuildMemberRepository guildMemberRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserExistsCacheService userExistsCacheService;
+
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     @Mock
     private MissionCategoryService missionCategoryService;
@@ -76,8 +80,6 @@ class GuildInvitationServiceTest {
     private Guild testPublicGuild;
     private GuildMember testMasterMember;
     private GuildMember testSubMasterMember;
-    private Users testInviter;
-    private Users testInvitee;
     private Long testCategoryId;
     private MissionCategoryResponse testCategory;
 
@@ -135,19 +137,6 @@ class GuildInvitationServiceTest {
             .build();
         setId(testSubMasterMember, 2L);
 
-        testInviter = Users.builder()
-            .id(testInviterId)
-            .nickname("초대자")
-            .email("inviter@test.com")
-            .provider("google")
-            .build();
-
-        testInvitee = Users.builder()
-            .id(testInviteeId)
-            .nickname("초대받는사람")
-            .email("invitee@test.com")
-            .provider("google")
-            .build();
     }
 
     @Nested
@@ -163,7 +152,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -176,9 +165,8 @@ class GuildInvitationServiceTest {
                 setId(invitation, 1L);
                 return invitation;
             });
-            when(userRepository.findById(testMasterId)).thenReturn(Optional.of(
-                Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build()
-            ));
+            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             GuildInvitationResponse response = invitationService.sendInvitation(1L, testMasterId, testInviteeId, message);
@@ -204,7 +192,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviterId))
                 .thenReturn(Optional.of(testSubMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -217,7 +205,8 @@ class GuildInvitationServiceTest {
                 setId(invitation, 1L);
                 return invitation;
             });
-            when(userRepository.findById(testInviterId)).thenReturn(Optional.of(testInviter));
+            when(userProfileCacheService.getUserNickname(testInviterId)).thenReturn("초대자");
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             GuildInvitationResponse response = invitationService.sendInvitation(1L, testInviterId, testInviteeId, message);
@@ -271,7 +260,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.empty());
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> invitationService.sendInvitation(1L, testMasterId, testInviteeId, null))
@@ -293,7 +282,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.of(existingMember));
 
@@ -310,7 +299,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -330,7 +319,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -351,7 +340,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -406,10 +395,8 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
-            when(userRepository.findById(testMasterId)).thenReturn(Optional.of(
-                Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build()
-            ));
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
 
             // when
             GuildInvitationResponse response = invitationService.acceptInvitation(1L, testInviteeId);
@@ -445,10 +432,8 @@ class GuildInvitationServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.of(leftMember));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
-            when(userRepository.findById(testMasterId)).thenReturn(Optional.of(
-                Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build()
-            ));
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
 
             // when
             GuildInvitationResponse response = invitationService.acceptInvitation(1L, testInviteeId);
@@ -765,12 +750,12 @@ class GuildInvitationServiceTest {
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation1, invitation2));
-            when(userRepository.findAllByIdIn(List.of(testMasterId, "another-master")))
-                .thenReturn(List.of(
-                    Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build(),
-                    Users.builder().id("another-master").nickname("다른마스터").email("other@test.com").provider("google").build()
+            when(userProfileCacheService.getUserProfiles(List.of(testMasterId, "another-master")))
+                .thenReturn(java.util.Map.of(
+                    testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null),
+                    "another-master", new UserProfileCache("another-master", "다른마스터", null, 1, null, null, null)
                 ));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             List<GuildInvitationResponse> result = invitationService.getMyPendingInvitations(testInviteeId);
@@ -800,11 +785,11 @@ class GuildInvitationServiceTest {
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(validInvitation, expiredInvitation));
-            when(userRepository.findAllByIdIn(List.of(testMasterId)))
-                .thenReturn(List.of(
-                    Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build()
+            when(userProfileCacheService.getUserProfiles(List.of(testMasterId)))
+                .thenReturn(java.util.Map.of(
+                    testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null)
                 ));
-            when(userRepository.findById(testInviteeId)).thenReturn(Optional.of(testInvitee));
+            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             List<GuildInvitationResponse> result = invitationService.getMyPendingInvitations(testInviteeId);
@@ -844,10 +829,10 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.of(testMasterMember));
             when(invitationRepository.findByGuildIdAndStatus(1L, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation));
-            when(userRepository.findAllByIdIn(List.of(testMasterId, testInviteeId)))
-                .thenReturn(List.of(
-                    Users.builder().id(testMasterId).nickname("마스터").email("master@test.com").provider("google").build(),
-                    testInvitee
+            when(userProfileCacheService.getUserProfiles(List.of(testMasterId, testInviteeId)))
+                .thenReturn(java.util.Map.of(
+                    testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null),
+                    testInviteeId, new UserProfileCache(testInviteeId, "초대받는사람", null, 1, null, null, null)
                 ));
 
             // when
@@ -870,8 +855,11 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.of(testSubMasterMember));
             when(invitationRepository.findByGuildIdAndStatus(1L, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation));
-            when(userRepository.findAllByIdIn(List.of(testInviterId, testInviteeId)))
-                .thenReturn(List.of(testInviter, testInvitee));
+            when(userProfileCacheService.getUserProfiles(List.of(testInviterId, testInviteeId)))
+                .thenReturn(java.util.Map.of(
+                    testInviterId, new UserProfileCache(testInviterId, "초대자", null, 1, null, null, null),
+                    testInviteeId, new UserProfileCache(testInviteeId, "초대받는사람", null, 1, null, null, null)
+                ));
 
             // when
             List<GuildInvitationResponse> result = invitationService.getGuildPendingInvitations(1L, testInviterId);

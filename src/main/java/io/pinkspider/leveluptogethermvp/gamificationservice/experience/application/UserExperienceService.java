@@ -16,8 +16,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Exper
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,6 @@ public class UserExperienceService {
     private final ApplicationContext applicationContext;
     private final ApplicationEventPublisher eventPublisher;
     private final UserProfileCacheService userProfileCacheService;
-    private final UserRepository userRepository;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
@@ -99,11 +97,9 @@ public class UserExperienceService {
             // 프로필 캐시 무효화 + 스냅샷 동기화 이벤트 발행
             userProfileCacheService.evictUserProfileCache(userId);
             try {
-                Users user = userRepository.findById(userId).orElse(null);
-                if (user != null) {
-                    eventPublisher.publishEvent(new UserProfileChangedEvent(
-                        userId, user.getNickname(), user.getPicture(), levelAfter));
-                }
+                UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
+                eventPublisher.publishEvent(new UserProfileChangedEvent(
+                    userId, profile.nickname(), profile.picture(), levelAfter));
             } catch (Exception e) {
                 log.warn("프로필 스냅샷 이벤트 발행 실패: userId={}, error={}", userId, e.getMessage());
             }
