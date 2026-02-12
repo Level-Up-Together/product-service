@@ -62,6 +62,28 @@ public interface FeaturedFeedRepository extends JpaRepository<FeaturedFeed, Long
     Page<FeaturedFeed> findAll(Pageable pageable);
 
     /**
+     * 카테고리+표시순서 정렬된 페이징 목록 조회 (Admin 관리용)
+     */
+    @Query("""
+        SELECT ff FROM FeaturedFeed ff
+        ORDER BY ff.categoryId ASC NULLS FIRST, ff.displayOrder ASC
+        """)
+    Page<FeaturedFeed> findAllOrderByCategoryAndDisplayOrder(Pageable pageable);
+
+    /**
+     * 정확한 카테고리ID로 조회 (NULL 포함 처리)
+     */
+    @Query("""
+        SELECT ff FROM FeaturedFeed ff
+        WHERE (:categoryId IS NULL AND ff.categoryId IS NULL)
+           OR (:categoryId IS NOT NULL AND ff.categoryId = :categoryId)
+        ORDER BY ff.displayOrder ASC
+        """)
+    Page<FeaturedFeed> findByExactCategoryId(
+        @Param("categoryId") Long categoryId,
+        Pageable pageable);
+
+    /**
      * 특정 피드가 해당 카테고리에 이미 추천으로 등록되어 있는지 확인
      */
     boolean existsByCategoryIdAndFeedId(Long categoryId, Long feedId);
