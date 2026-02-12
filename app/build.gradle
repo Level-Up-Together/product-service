@@ -70,6 +70,7 @@ generateJava {
 }
 
 // OpenAPI / RestDocs
+// Controller 테스트가 :service 모듈에서 실행되므로 snippets 경로를 service 모듈로 지정
 openapi3 {
     def serverIp = System.getenv('LUT_IP') ?: 'dev.level-up-together.com'
     def serverPort = System.getenv('USER_SERVICE_PORT') ?: '8443'
@@ -77,6 +78,7 @@ openapi3 {
     title = rootProject.name + " API 문서"
     description = rootProject.name + "API 문서 입니다. 작성된 테스트 코드 기반으로 생성됩니다."
     version = getVersion()
+    snippetsDirectory = project(':service').file("build/generated-snippets")
     outputDirectory = "build/resources/main/restdocs"
     outputFileNamePrefix = rootProject.name + "-api"
     format = 'json'

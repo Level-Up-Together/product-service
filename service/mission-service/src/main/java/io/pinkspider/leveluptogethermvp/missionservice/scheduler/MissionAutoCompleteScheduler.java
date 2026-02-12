@@ -43,6 +43,7 @@ public class MissionAutoCompleteScheduler {
      * 5분마다 실행: 미션 자동 종료
      */
     @Scheduled(fixedRate = 300000) // 5분 = 300,000ms
+    @Transactional(transactionManager = "missionTransactionManager")
     public void autoCompleteExpiredMissions() {
         log.debug("=== 미션 자동 종료 스케줄러 시작 ===");
 
@@ -126,7 +127,6 @@ public class MissionAutoCompleteScheduler {
      * 일반 미션 (MissionExecution) 2시간 초과 자동 종료
      * 목표시간 설정 미션은 위에서 Saga로 처리하므로 스킵
      */
-    @Transactional(transactionManager = "missionTransactionManager")
     private int autoCompleteExpiredExecutions(LocalDateTime expireThreshold) {
         List<MissionExecution> expiredExecutions = executionRepository.findExpiredInProgressExecutions(expireThreshold);
 
@@ -154,7 +154,6 @@ public class MissionAutoCompleteScheduler {
      * 고정 미션 (DailyMissionInstance) 2시간 초과 자동 종료
      * 목표시간 설정 미션은 DailyMissionInstance.autoCompleteIfExpired()에서 false 반환하여 자동 스킵
      */
-    @Transactional(transactionManager = "missionTransactionManager")
     private int autoCompleteExpiredInstances(LocalDateTime expireThreshold) {
         List<DailyMissionInstance> expiredInstances = instanceRepository.findExpiredInProgressInstances(expireThreshold);
 

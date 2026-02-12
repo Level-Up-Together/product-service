@@ -35,7 +35,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > src/main/resources/keystore-dev.p12
+          echo "$KEYSTORE_BASE64" | base64 -d > app/src/main/resources/keystore-dev.p12
           echo "✅ Keystore restored successfully"
 
       # 5. JDK 설정
@@ -75,10 +75,10 @@ jobs:
           ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts
           
           # 빌드 파일 전송
-          scp -i ~/.ssh/github_action build/libs/*.jar $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/backend/
-          
+          scp -i ~/.ssh/github_action app/build/libs/*.jar $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/backend/
+
           # swagger rest doc json
-          scp -i ~/.ssh/github_action build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
+          scp -i ~/.ssh/github_action app/build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
 
       # 9. 서버에서 애플리케이션 실행
       - name: Start Application

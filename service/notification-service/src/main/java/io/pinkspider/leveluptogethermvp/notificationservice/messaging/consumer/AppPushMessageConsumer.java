@@ -27,6 +27,10 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
     public void onMessage(MapRecord<String, String, String> record) {
         try {
             String payload = record.getValue().get("payload");
+            if (payload == null) {
+                log.warn("Redis Stream 메시지 payload가 null: id={}", record.getId());
+                return;
+            }
             AppPushMessageDto message = objectMapper.readValue(payload, AppPushMessageDto.class);
             log.info("Redis Stream 메시지 수신: id={}, message={}", record.getId(), message);
 

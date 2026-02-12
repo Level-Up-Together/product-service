@@ -41,8 +41,8 @@ out/
 
 ### DOC ###
 logs
-/src/main/generated/
-/src/test/generated_tests/
+**/src/main/generated/
+**/src/test/generated_tests/
 /docs/deploy.sh
 /docs/deploy_prod.sh
 /docs/deploy.sh.org
@@ -52,7 +52,6 @@ logs
 ### Claude Code ###
 *-command-message*.txt
 .mcp.json
-/src/main/resources/restdocs/
 /app/src/main/resources/restdocs/
 /uploads/
 /last_prompting_history.log
