@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.component;
+package io.pinkspider.global.security;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,10 +18,6 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
 
-//        int httpStatus = (ex instanceof JwtException) ? 401
-//            : (ex instanceof BlacklistedJwtException) ? 401
-//                : 401;
-
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
@@ -31,7 +27,6 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
         body.put("value", request.getServletPath());
 
         final ObjectMapper mapper = new ObjectMapper();
-//        mapper.writeValue(response.getOutputStream(), body);
         response.getWriter().write(mapper.writeValueAsString(body));
     }
 }

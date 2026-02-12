@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.annotation;
+package io.pinkspider.global.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

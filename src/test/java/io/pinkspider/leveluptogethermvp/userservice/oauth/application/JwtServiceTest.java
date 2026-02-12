@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.userservice.core.exception.custom.JwtException;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.ReissueJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.RefreshTokenRequestDto;
 import org.junit.jupiter.api.BeforeEach;

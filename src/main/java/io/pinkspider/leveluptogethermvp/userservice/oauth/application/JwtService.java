@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.userservice.core.api.UserApiStatus;
 import io.pinkspider.leveluptogethermvp.userservice.core.exception.custom.JwtException;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.ReissueJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.RefreshTokenRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.response.SessionsResponseDto;

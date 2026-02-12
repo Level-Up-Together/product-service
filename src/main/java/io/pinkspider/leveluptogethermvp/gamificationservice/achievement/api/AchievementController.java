@@ -11,7 +11,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.d
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserTitleResponse;
 import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

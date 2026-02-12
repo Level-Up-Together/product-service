@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.mypage.presentation;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.BioUpdateRequest;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;

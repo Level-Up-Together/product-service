@@ -1,8 +1,5 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.filter;
+package io.pinkspider.global.security;
 
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
-import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,8 +23,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final MultiDeviceTokenService tokenService;
-    private final UserExistsCacheService userExistsCacheService;
+    private final TokenBlacklistChecker tokenBlacklistChecker;
+    private final UserExistenceChecker userExistenceChecker;
 
     private static final String REISSUE_PATH = "/jwt/reissue";
 
@@ -45,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     handleReissueRequest(request, token);
                 }
                 // 일반 요청: 유효한 토큰만 허용
-                else if (jwtUtil.validateToken(token) && !tokenService.isTokenBlacklisted(token)) {
+                else if (jwtUtil.validateToken(token) && !tokenBlacklistChecker.isTokenBlacklisted(token)) {
                     handleValidToken(request, token);
                 }
             }
@@ -61,14 +58,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 토큰 재발급 요청 처리: 만료된 토큰도 서명이 유효하면 인증 컨텍스트 설정
      */
     private void handleReissueRequest(HttpServletRequest request, String token) {
-        if (jwtUtil.validateTokenSignature(token) && !tokenService.isTokenBlacklisted(token)) {
+        if (jwtUtil.validateTokenSignature(token) && !tokenBlacklistChecker.isTokenBlacklisted(token)) {
             String userId = jwtUtil.getUserIdFromExpiredToken(token);
             String email = jwtUtil.getEmailFromExpiredToken(token);
             String deviceId = jwtUtil.getDeviceIdFromExpiredToken(token);
 
             if (userId != null) {
                 // DB에 사용자가 존재하는지 확인 (Redis 캐싱)
-                if (!userExistsCacheService.existsById(userId)) {
+                if (!userExistenceChecker.existsById(userId)) {
                     log.warn("JWT 재발급 요청 - DB에 사용자가 존재하지 않음: userId={}", userId);
                     return; // SecurityContext 설정 안함 → 401 반환
                 }
@@ -89,7 +86,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String deviceId = jwtUtil.getDeviceIdFromToken(token);
 
         // DB에 사용자가 존재하는지 확인 (Redis 캐싱)
-        if (!userExistsCacheService.existsById(userId)) {
+        if (!userExistenceChecker.existsById(userId)) {
             log.warn("JWT는 유효하나 DB에 사용자가 존재하지 않음: userId={}", userId);
             return; // SecurityContext 설정 안함 → 401 반환
         }

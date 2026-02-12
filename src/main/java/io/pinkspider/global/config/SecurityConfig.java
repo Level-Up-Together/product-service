@@ -1,9 +1,9 @@
 package io.pinkspider.global.config;
 
 
-import io.pinkspider.leveluptogethermvp.userservice.core.component.AuthEntryPointJwt;
-import io.pinkspider.leveluptogethermvp.userservice.core.filter.JwtAuthenticationFilter;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.OAuth2Properties;
+import io.pinkspider.global.security.AuthEntryPointJwt;
+import io.pinkspider.global.security.JwtAuthenticationFilter;
+import io.pinkspider.global.security.OAuth2Properties;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

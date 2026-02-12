@@ -4,7 +4,7 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;

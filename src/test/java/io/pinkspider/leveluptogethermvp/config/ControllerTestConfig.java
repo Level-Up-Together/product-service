@@ -15,7 +15,7 @@ import io.pinkspider.global.validation.ProfanityDetectionMode;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityDetectionEngine;
 import io.pinkspider.leveluptogethermvp.profanity.application.ProfanityValidationService;
 import io.pinkspider.leveluptogethermvp.profanity.domain.dto.ProfanityDetectionResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageProperties;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildImageProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageProperties;

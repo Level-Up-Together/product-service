@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushS
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.DeviceTokenRequest;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.DeviceTokenResponse;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -83,7 +83,7 @@ public class PerUserRateLimitAspect {
         for (int i = 0; i < parameters.length; i++) {
             // @CurrentUser 어노테이션 확인
             if (parameters[i].isAnnotationPresent(
-                    io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser.class)) {
+                    io.pinkspider.global.annotation.CurrentUser.class)) {
                 if (args[i] instanceof String) {
                     return (String) args[i];
                 }

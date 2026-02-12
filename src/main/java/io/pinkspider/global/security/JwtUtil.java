@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.util;
+package io.pinkspider.global.security;
 
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
@@ -45,31 +45,10 @@ public class JwtUtil {
 
     public String generateAccessToken(String userId, String email, String deviceId) {
         return generateToken(userId, email, deviceId, "access", ACCESS_TOKEN_EXPIRY);
-//        return Jwts.builder()
-//            .subject(memberId)
-//            .id(UUID.randomUUID().toString()) // jti
-//            .claim("memberId", memberId)
-//            .claim("deviceId", deviceId)
-//            .claim("type", "access")
-//            .issuedAt(new Date())
-//            .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRY))
-//            .signWith(getSigningKey()) // SignatureAlgorithm 파라미터 제거됨
-//            .compact();
     }
 
     public String generateRefreshToken(String userId, String email, String deviceId) {
         return generateToken(userId, email, deviceId, "refresh", REFRESH_TOKEN_EXPIRY);
-
-//        return Jwts.builder()
-//            .subject(memberId)
-//            .id(UUID.randomUUID().toString()) // jti
-//            .claim("memberId", memberId)
-//            .claim("deviceId", deviceId)
-//            .claim("type", "refresh")
-//            .issuedAt(new Date())
-//            .expiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRY))
-//            .signWith(getSigningKey())
-//            .compact();
     }
 
     public Claims getClaimsFromToken(String token) {
@@ -219,5 +198,3 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }
-
-

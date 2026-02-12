@@ -1,7 +1,7 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.resolver;
+package io.pinkspider.global.resolver;
 
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.MethodParameter;
 import org.springframework.security.core.Authentication;

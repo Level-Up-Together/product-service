@@ -1,6 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.oauth.scheduler;
 
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;

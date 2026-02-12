@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.userservice.core.application;
 
+import io.pinkspider.global.security.UserExistenceChecker;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true, transactionManager = "userTransactionManager")
-public class UserExistsCacheService {
+public class UserExistsCacheService implements UserExistenceChecker {
 
     private final UserRepository userRepository;
 

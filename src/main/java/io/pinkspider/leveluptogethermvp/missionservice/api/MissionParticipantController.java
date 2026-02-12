@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionParticipantService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionParticipantResponse;
 import java.util.List;

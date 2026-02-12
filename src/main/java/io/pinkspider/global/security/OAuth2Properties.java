@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.properties;
+package io.pinkspider.global.security;
 
 import java.util.ArrayList;
 import java.util.List;

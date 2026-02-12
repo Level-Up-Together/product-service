@@ -5,7 +5,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.application.GuildDirectMessa
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectConversationResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectMessageResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

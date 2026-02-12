@@ -1,7 +1,7 @@
 package io.pinkspider.global.config;
 
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
-import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
+import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.global.security.TokenBlacklistChecker;
 import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtUtil jwtUtil;
-    private final MultiDeviceTokenService tokenService;
+    private final TokenBlacklistChecker tokenBlacklistChecker;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -32,7 +32,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = extractToken(accessor);
 
-            if (token != null && jwtUtil.validateToken(token) && !tokenService.isTokenBlacklisted(token)) {
+            if (token != null && jwtUtil.validateToken(token) && !tokenBlacklistChecker.isTokenBlacklisted(token)) {
                 String userId = jwtUtil.getUserIdFromToken(token);
 
                 UsernamePasswordAuthenticationToken authentication =

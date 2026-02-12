@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.friend.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;

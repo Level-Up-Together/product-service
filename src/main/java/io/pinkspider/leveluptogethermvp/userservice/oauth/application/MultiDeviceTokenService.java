@@ -1,7 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.oauth.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.global.security.TokenBlacklistChecker;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.response.SessionsResponseDto.Session;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
-public class MultiDeviceTokenService {
+public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
     private final StringRedisTemplate redisTemplate;
     private final JwtUtil jwtUtil;

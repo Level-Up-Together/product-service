@@ -2,7 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.ratelimit.PerUserRateLimit;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;

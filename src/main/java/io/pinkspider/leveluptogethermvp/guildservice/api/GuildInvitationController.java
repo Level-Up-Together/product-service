@@ -4,7 +4,7 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildInvitationService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildInvitationRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildInvitationResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

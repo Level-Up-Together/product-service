@@ -1,12 +1,10 @@
-package io.pinkspider.leveluptogethermvp.userservice.core.resolver;
+package io.pinkspider.global.resolver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

@@ -2,7 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.oauth.application;
 
 import io.jsonwebtoken.Claims;
 import io.pinkspider.leveluptogethermvp.userservice.core.properties.JwtProperties;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;

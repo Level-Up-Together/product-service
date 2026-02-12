@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.userservice.core.properties.OAuth2Properties;
+import io.pinkspider.global.security.OAuth2Properties;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.webhook.domain.dto.KakaoUnlinkWebhookRequest;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.webhook.domain.enums.KakaoAccountEventType;

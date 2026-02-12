@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.api.dto.InquiryTypeOption;
 import io.pinkspider.leveluptogethermvp.supportservice.application.CustomerInquiryService;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

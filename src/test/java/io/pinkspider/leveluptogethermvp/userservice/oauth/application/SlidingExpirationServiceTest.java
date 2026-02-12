@@ -6,7 +6,7 @@ import static org.mockito.Mockito.when;
 
 import io.jsonwebtoken.Claims;
 import io.pinkspider.leveluptogethermvp.userservice.core.properties.JwtProperties;
-import io.pinkspider.leveluptogethermvp.userservice.core.util.JwtUtil;
+import io.pinkspider.global.security.JwtUtil;
 import java.util.Date;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;

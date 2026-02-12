@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.userservice.core.annotation.CurrentUser;
+import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildMemberService;
