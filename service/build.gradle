@@ -1,0 +1,40 @@
+apply plugin: 'java-library'
+
+jar { enabled = true }
+
+// 12개 서비스를 하나의 컴파일 단위로 구성 (서비스 간 순환 의존성 존재)
+// 디렉토리 분리는 유지하여 논리적 서비스 경계를 표현
+sourceSets {
+    main.java.srcDirs = [
+        'user-service/src/main/java',
+        'guild-service/src/main/java',
+        'mission-service/src/main/java',
+        'gamification-service/src/main/java',
+        'feed-service/src/main/java',
+        'chat-service/src/main/java',
+        'meta-service/src/main/java',
+        'notification-service/src/main/java',
+        'admin-service/src/main/java',
+        'bff-service/src/main/java',
+        'notice-service/src/main/java',
+        'support-service/src/main/java',
+    ]
+}
+
+dependencies {
+    api project(':platform:kernel')
+    api project(':platform:infra')
+    implementation project(':platform:saga')
+
+    // QueryDSL
+    implementation "com.querydsl:querydsl-jpa:${queryDslVersion}:jakarta"
+    annotationProcessor "com.querydsl:querydsl-apt:${queryDslVersion}:jakarta"
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+    // kernel/infra의 MappedSuperclass Q-class 생성을 위해 필요
+    annotationProcessor project(':platform:kernel')
+    annotationProcessor project(':platform:infra')
+
+    // GeoIP (user-service)
+    implementation 'com.maxmind.geoip2:geoip2:4.2.0'
+}

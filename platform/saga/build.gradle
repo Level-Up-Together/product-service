@@ -1,0 +1,8 @@
+apply plugin: 'java-library'
+
+jar { enabled = true }
+
+dependencies {
+    api project(':platform:kernel')
+    implementation project(':platform:infra')
+}

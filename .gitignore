@@ -53,18 +53,16 @@ logs
 *-command-message*.txt
 .mcp.json
 /src/main/resources/restdocs/
+/app/src/main/resources/restdocs/
 /uploads/
 /last_prompting_history.log
 /prompt_log/
 
 ### Firebase ###
 firebase-service-account.json
-src/main/resources/firebase-service-account.json
-src/main/resources/firebase-service-account-prod.json
+**/firebase-service-account.json
+**/firebase-service-account-prod.json
 /firebase-debug.log
-
-/src/main/resources/firebase-service-account.json.org
-/src/main/resources/level-up-together-dev-720d2-f2881475594a.json
 
 ### Keystore ###
 *.p12

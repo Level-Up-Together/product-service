@@ -1,0 +1,197 @@
+apply plugin: 'org.springframework.boot'
+apply plugin: 'jacoco'
+apply plugin: 'com.epages.restdocs-api-spec'
+apply plugin: 'com.netflix.dgs.codegen'
+
+// DGS codegen 6.1.4와 DGS platform 8.x간 java-dataloader 버전 충돌 해결
+configurations.all {
+    resolutionStrategy {
+        force 'com.graphql-java:java-dataloader:3.3.0'
+    }
+}
+
+springBoot {
+    mainClass = 'io.pinkspider.LevelUpTogetherMvpApplication'
+}
+
+bootJar {
+    archiveBaseName = rootProject.name
+    archiveFileName = rootProject.name + '-' + version + '-exec.jar'
+}
+
+jar { enabled = false }
+
+dependencies {
+    implementation project(':platform:kernel')
+    implementation project(':platform:infra')
+    implementation project(':platform:saga')
+    implementation project(':service')
+
+    // Actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Runtime
+    runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos:4.1.119.Final:osx-aarch_64'
+
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock:4.0.3'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+    testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-stub-runner'
+    testImplementation "com.epages:restdocs-api-spec-mockmvc:${restdocsApiSpecVersion}"
+    testImplementation("com.netflix.graphql.dgs:graphql-dgs-client:8.2.5") {
+        exclude group: 'com.netflix.graphql.dgs', module: 'graphql-dgs-platform'
+    }
+    testImplementation 'com.fasterxml.jackson.module:jackson-module-mrbean:2.17.1'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'com.h2database:h2'
+
+    // Pact
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.6.5'
+    testImplementation 'au.com.dius.pact.provider:junit5:4.6.5'
+}
+
+// Netflix DGS Codegen
+generateJava {
+    schemaPaths = ["${projectDir}/src/main/resources/schema"]
+    packageName = 'io.pinkspider'
+    generateClient = true
+}
+
+// OpenAPI / RestDocs
+openapi3 {
+    def serverIp = System.getenv('LUT_IP') ?: 'dev.level-up-together.com'
+    def serverPort = System.getenv('USER_SERVICE_PORT') ?: '8443'
+    server = "http://${serverIp}:${serverPort}"
+    title = rootProject.name + " API 문서"
+    description = rootProject.name + "API 문서 입니다. 작성된 테스트 코드 기반으로 생성됩니다."
+    version = getVersion()
+    outputDirectory = "build/resources/main/restdocs"
+    outputFileNamePrefix = rootProject.name + "-api"
+    format = 'json'
+}
+
+// Test
+tasks.named('test') {
+    systemProperty 'file.encoding', 'UTF-8'
+    useJUnitPlatform {
+        excludeTags 'excluded'
+    }
+}
+
+tasks.named('test').configure {
+    finalizedBy(sortOpenApiJson, jacocoTestReport)
+}
+
+// Swagger JSON 정렬
+tasks.register('sortOpenApiJson') {
+    def openApiFile = file("build/resources/main/restdocs/${rootProject.name}-api.json")
+    def sortedFile = file("build/resources/main/restdocs/${rootProject.name}-api-sorted.json")
+
+    doLast {
+        if (openApiFile.exists()) {
+            def jsonText = openApiFile.getText('UTF-8')
+            def json = new groovy.json.JsonSlurper().parseText(jsonText)
+
+            def sortedPaths = new LinkedHashMap()
+            json.paths.entrySet().sort { a, b ->
+                def descA = a.value?.post?.description ?: a.value?.get?.description ?: ""
+                def descB = b.value?.post?.description ?: b.value?.get?.description ?: ""
+                def matchA = (descA =~ /^\d+/)
+                def matchB = (descB =~ /^\d+/)
+                def numA = matchA.find() ? matchA[0].toInteger() : Integer.MAX_VALUE
+                def numB = matchB.find() ? matchB[0].toInteger() : Integer.MAX_VALUE
+                numA <=> numB
+            }.each { entry ->
+                sortedPaths.put(entry.key, entry.value)
+            }
+            json.paths = sortedPaths
+
+            def generator = new groovy.json.JsonGenerator.Options()
+                    .disableUnicodeEscaping()
+                    .build()
+
+            sortedFile.withWriter('UTF-8') { writer ->
+                writer.write(generator.toJson(json))
+            }
+        }
+    }
+    dependsOn('openapi3')
+}
+
+tasks.register('copySortedOpenApiJson') {
+    doFirst {
+        project.file('src/main/resources/restdocs').mkdirs()
+    }
+    doLast {
+        def buildSortedFile = file("build/resources/main/restdocs/${rootProject.name}-api-sorted.json")
+        def targetFile = file("src/main/resources/restdocs/${rootProject.name}-api.json")
+        if (targetFile.exists()) {
+            targetFile.delete()
+        }
+        copy {
+            from buildSortedFile
+            into "src/main/resources/restdocs"
+            rename { "${rootProject.name}-api.json" }
+        }
+        if (buildSortedFile.exists()) {
+            buildSortedFile.delete()
+        }
+    }
+}
+
+sortOpenApiJson.finalizedBy(copySortedOpenApiJson)
+
+// JaCoCo
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/html')
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    '**/Q*.class',
+                    '**/config/**',
+                    '**/constants/**',
+                    '**/dto/**',
+                    '**/entity/**',
+                    '**/enums/**',
+                    '**/exception/**',
+                    '**/generated/**',
+                    '**/properties/**',
+                    '**/pagenation/**',
+                    '**/types/**',
+                    '**/DgsConstants*.class',
+                    '**/*Application.class'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.70
+            }
+        }
+    }
+}

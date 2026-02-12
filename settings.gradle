@@ -3,3 +3,14 @@ plugins {
 }
 
 rootProject.name = 'level-up-together-mvp'
+
+// Platform modules
+include ':platform:kernel'
+include ':platform:infra'
+include ':platform:saga'
+
+// Service module (single compilation unit — services share circular deps)
+include ':service'
+
+// App (bootstrap + tests)
+include ':app'
