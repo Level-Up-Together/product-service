@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class SlackNotifier {
+public class SlackNotifier implements io.pinkspider.global.handler.RestExceptionHandler.ErrorNotifier {
 
     @Value("${app.slack.webhook.url}")
     private String webhookUrl;
@@ -31,6 +31,11 @@ public class SlackNotifier {
     private String applicationName;
 
     private final Slack slackClient = Slack.getInstance();
+
+    @Override
+    public void sendAlert(Exception exception, HttpServletRequest request) {
+        sendSlackAlert(exception, request);
+    }
 
     @Async
     public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request) {

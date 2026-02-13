@@ -22,9 +22,10 @@ bootJar {
 jar { enabled = false }
 
 dependencies {
-    implementation project(':platform:kernel')
+    implementation 'io.pinkspider:lut-platform-kernel:1.0.0-SNAPSHOT'
+    implementation 'io.pinkspider:lut-platform-infra:1.0.0-SNAPSHOT'
+    implementation 'io.pinkspider:lut-platform-saga:1.0.0-SNAPSHOT'
     implementation project(':platform:infra')
-    implementation project(':platform:saga')
     implementation project(':service')
 
     // Actuator

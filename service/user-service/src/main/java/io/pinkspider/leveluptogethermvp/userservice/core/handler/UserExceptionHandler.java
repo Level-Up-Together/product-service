@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.userservice.core.handler;
 
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.global.component.SlackNotifier;
 import io.pinkspider.global.handler.RestExceptionHandler;
 import io.pinkspider.leveluptogethermvp.userservice.core.api.UserApiStatus;
 import io.pinkspider.leveluptogethermvp.userservice.core.exception.AccessTokenNotValidException;
@@ -19,10 +18,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Slf4j
 public class UserExceptionHandler extends RestExceptionHandler {
-
-    public UserExceptionHandler(SlackNotifier slackNotifier) {
-        super(slackNotifier);
-    }
 
     @ExceptionHandler(NotExistUserException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

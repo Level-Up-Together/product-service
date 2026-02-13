@@ -4,10 +4,8 @@ plugins {
 
 rootProject.name = 'level-up-together-mvp'
 
-// Platform modules
-include ':platform:kernel'
+// Platform — MVP-specific infra only (shared code is in external lut-platform-* artifacts)
 include ':platform:infra'
-include ':platform:saga'
 
 // Service module (single compilation unit — services share circular deps)
 include ':service'
