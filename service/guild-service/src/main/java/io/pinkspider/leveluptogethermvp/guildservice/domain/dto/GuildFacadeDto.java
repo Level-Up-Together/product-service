@@ -40,6 +40,20 @@ public class GuildFacadeDto {
     ) {}
 
     /**
+     * 사용자 길드 상세 (Admin Internal API에서 사용)
+     */
+    public record UserGuildAdminInfo(
+        Long guildId,
+        String guildName,
+        String guildImageUrl,
+        Integer guildLevel,
+        String role,
+        java.time.LocalDateTime joinedAt,
+        Integer memberCount,
+        Integer maxMembers
+    ) {}
+
+    /**
      * 권한 체크 결과 (미션 삭제 권한에서 사용)
      */
     public record GuildPermissionCheck(

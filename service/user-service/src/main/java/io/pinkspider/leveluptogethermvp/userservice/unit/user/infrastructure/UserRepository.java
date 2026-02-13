@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -46,4 +47,28 @@ public interface UserRepository extends JpaRepository<Users, String> {
     @Query("SELECT u FROM Users u WHERE u.nicknameSet = true " +
            "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<Users> searchByNickname(@Param("keyword") String keyword, Pageable pageable);
+
+    // ========== Admin Internal API 전용 ==========
+
+    @Query("SELECT u FROM Users u WHERE " +
+        "(:keyword IS NULL OR u.nickname LIKE %:keyword%) AND " +
+        "(:provider IS NULL OR u.provider = :provider)")
+    Page<Users> searchUsersForAdmin(
+        @Param("keyword") String keyword,
+        @Param("provider") String provider,
+        Pageable pageable);
+
+    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail", nativeQuery = true)
+    Optional<Users> findByEncryptedEmail(@Param("encryptedEmail") String encryptedEmail);
+
+    @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :date")
+    long countNewUsersSince(@Param("date") LocalDateTime date);
+
+    @Query("SELECT u.provider, COUNT(u) FROM Users u GROUP BY u.provider")
+    List<Object[]> countUsersByProvider();
+
+    @Query("SELECT FUNCTION('DATE', u.createdAt), COUNT(u) FROM Users u " +
+        "WHERE u.createdAt BETWEEN :start AND :end " +
+        "GROUP BY FUNCTION('DATE', u.createdAt) ORDER BY FUNCTION('DATE', u.createdAt)")
+    List<Object[]> countDailyNewUsers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

@@ -110,6 +110,13 @@ public class Users extends LocalDateTimeBaseEntity {
     }
 
     /**
+     * 상태 변경 (Admin용)
+     */
+    public void updateStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    /**
      * 회원 탈퇴 처리
      */
     public void withdraw() {

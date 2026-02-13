@@ -7,12 +7,15 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildAdmin
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildMemberAdminResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.admin.GuildStatisticsAdminResponse;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -72,6 +75,13 @@ public class GuildAdminInternalController {
     public ApiResult<GuildAdminResponse> toggleActive(@PathVariable Long id) {
         return ApiResult.<GuildAdminResponse>builder()
             .value(guildAdminInternalService.toggleActive(id))
+            .build();
+    }
+
+    @PostMapping("/batch-names")
+    public ApiResult<Map<Long, String>> getGuildNamesByIds(@RequestBody List<Long> guildIds) {
+        return ApiResult.<Map<Long, String>>builder()
+            .value(guildAdminInternalService.getGuildNamesByIds(guildIds))
             .build();
     }
 }

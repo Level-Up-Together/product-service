@@ -4,6 +4,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.G
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildPermissionCheck;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildWithMemberCount;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.UserGuildAdminInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
@@ -129,6 +130,24 @@ public class GuildQueryFacadeService {
                 );
             })
             .toList();
+    }
+
+    /**
+     * Admin Internal API 전용: 사용자 길드 상세 정보 (첫 번째 활성 길드)
+     */
+    public UserGuildAdminInfo getUserGuildInfoForAdmin(String userId) {
+        List<GuildMember> memberships = guildMemberRepository.findAllActiveGuildMemberships(userId);
+        if (memberships.isEmpty()) {
+            return null;
+        }
+        GuildMember m = memberships.get(0);
+        Guild g = m.getGuild();
+        int memberCount = (int) guildMemberRepository.countActiveMembers(g.getId());
+        return new UserGuildAdminInfo(
+            g.getId(), g.getName(), g.getImageUrl(), g.getCurrentLevel(),
+            m.getRole() != null ? m.getRole().name() : null,
+            m.getJoinedAt(), memberCount, g.getMaxMembers()
+        );
     }
 
     public Map<Long, Integer> countActiveMembersByGuildIds(List<Long> guildIds) {

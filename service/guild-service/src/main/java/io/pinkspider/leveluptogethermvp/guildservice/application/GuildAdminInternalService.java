@@ -175,6 +175,14 @@ public class GuildAdminInternalService {
             masterNickname);
     }
 
+    public Map<Long, String> getGuildNamesByIds(List<Long> guildIds) {
+        if (guildIds == null || guildIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return guildRepository.findAllById(guildIds).stream()
+            .collect(Collectors.toMap(Guild::getId, Guild::getName));
+    }
+
     // ========== Private helpers ==========
 
     private Map<Long, MissionCategoryResponse> getCategoryMap() {

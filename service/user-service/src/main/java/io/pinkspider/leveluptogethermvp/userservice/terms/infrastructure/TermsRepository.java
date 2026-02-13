@@ -1,9 +1,10 @@
 package io.pinkspider.leveluptogethermvp.userservice.terms.infrastructure;
 
-import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.RecentTermsResponseDto;
-import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.TermAgreementsByUserResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Term;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -84,4 +85,30 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
         WHERE uta.id IS NULL OR uta.is_agreed = false;
         """, nativeQuery = true)
     List<Object[]> getPendingTermsByUserRaw(@Param("userId") String userId);
+
+    // ========== Admin Internal API 용 ==========
+
+    List<Term> findAllByOrderByIdDesc();
+
+    Optional<Term> findByCode(String code);
+
+    boolean existsByCode(String code);
+
+    List<Term> findByIsRequiredTrueOrderByIdAsc();
+
+    List<Term> findByTypeOrderByIdAsc(String type);
+
+    @Query("SELECT DISTINCT t.type FROM Term t WHERE t.type IS NOT NULL ORDER BY t.type")
+    List<String> findAllTypes();
+
+    @Query("SELECT t FROM Term t LEFT JOIN FETCH t.termVersions WHERE t.id = :id")
+    Optional<Term> findByIdWithVersions(@Param("id") Long id);
+
+    @Query(value = "SELECT t FROM Term t WHERE " +
+           "(:keyword IS NULL OR :keyword = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(t.code) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+           countQuery = "SELECT COUNT(t) FROM Term t WHERE " +
+           "(:keyword IS NULL OR :keyword = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(t.code) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Term> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }
