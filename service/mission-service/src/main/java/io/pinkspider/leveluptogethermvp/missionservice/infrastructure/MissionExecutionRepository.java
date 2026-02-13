@@ -35,6 +35,15 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     @Query("SELECT COUNT(me) FROM MissionExecution me WHERE me.participant.id = :participantId AND me.status = :status")
     long countByParticipantIdAndStatus(@Param("participantId") Long participantId, @Param("status") ExecutionStatus status);
 
+    @Query("SELECT COALESCE(SUM(me.expEarned), 0) FROM MissionExecution me WHERE me.participant.id = :participantId AND me.status = 'COMPLETED'")
+    Integer sumExpEarnedByParticipantId(@Param("participantId") Long participantId);
+
+    @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant mp WHERE mp.userId = :userId")
+    long countByUserId(@Param("userId") String userId);
+
+    @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant mp WHERE mp.userId = :userId AND me.status = 'COMPLETED'")
+    long countCompletedByUserId(@Param("userId") String userId);
+
     @Modifying
     @Query("UPDATE MissionExecution me SET me.status = 'MISSED' " +
            "WHERE me.status = 'PENDING' AND me.executionDate < :date")

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import org.springframework.data.domain.Page;
@@ -36,4 +37,24 @@ public interface MissionTemplateRepository extends JpaRepository<MissionTemplate
         @Param("visibility") MissionVisibility visibility,
         @Param("categoryId") Long categoryId,
         Pageable pageable);
+
+    // ========== Admin Internal API용 쿼리 ==========
+
+    Page<MissionTemplate> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query(value = "SELECT * FROM mission_template t WHERE " +
+        "(:keyword IS NULL OR LOWER(CAST(t.title AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%') " +
+        "OR LOWER(CAST(t.description AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%')) " +
+        "ORDER BY t.created_at DESC",
+        countQuery = "SELECT COUNT(*) FROM mission_template t WHERE " +
+        "(:keyword IS NULL OR LOWER(CAST(t.title AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%') " +
+        "OR LOWER(CAST(t.description AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%'))",
+        nativeQuery = true)
+    Page<MissionTemplate> searchTemplatesAdmin(
+        @Param("keyword") String keyword,
+        Pageable pageable);
+
+    long countBySource(MissionSource source);
+
+    long countBySourceAndParticipationType(MissionSource source, MissionParticipationType participationType);
 }

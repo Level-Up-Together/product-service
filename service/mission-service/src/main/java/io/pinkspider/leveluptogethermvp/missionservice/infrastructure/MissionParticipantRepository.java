@@ -4,6 +4,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,6 +37,19 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
 
     @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId ORDER BY mp.createdAt DESC")
     List<MissionParticipant> findByUserIdWithMission(@Param("userId") String userId);
+
+    // ========== Admin Internal API용 쿼리 ==========
+
+    @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId ORDER BY mp.joinedAt DESC",
+        countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp WHERE mp.userId = :userId")
+    Page<MissionParticipant> findByUserIdWithMissionPaged(@Param("userId") String userId, Pageable pageable);
+
+    @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId AND mp.status = :status ORDER BY mp.joinedAt DESC")
+    List<MissionParticipant> findByUserIdAndStatusWithMission(@Param("userId") String userId, @Param("status") ParticipantStatus status);
+
+    long countByUserId(String userId);
+
+    long countByUserIdAndStatus(String userId, ParticipantStatus status);
 
     /**
      * 사용자가 참여 중인 고정 미션(isPinned=true) 참여자 목록 조회

@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import java.util.List;
@@ -92,4 +94,49 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "END ASC, " +
            "m.createdAt DESC")
     List<Mission> findByParticipantUserIdSorted(@Param("userId") String userId);
+
+    // ========== Admin Internal API용 쿼리 ==========
+
+    Page<Mission> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    List<Mission> findBySource(MissionSource source);
+
+    @Query(value = "SELECT * FROM mission m WHERE " +
+        "(:keyword IS NULL OR LOWER(CAST(m.title AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%') " +
+        "OR LOWER(CAST(m.description AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%')) " +
+        "AND (:source IS NULL OR m.source = CAST(:source AS TEXT)) " +
+        "AND (:status IS NULL OR m.status = CAST(:status AS TEXT)) " +
+        "AND (:type IS NULL OR m.type = CAST(:type AS TEXT)) " +
+        "AND (:participationType IS NULL OR m.participation_type = CAST(:participationType AS TEXT)) " +
+        "AND (:creatorId IS NULL OR m.creator_id = CAST(:creatorId AS TEXT)) " +
+        "AND (:categoryId IS NULL OR m.category_id = :categoryId) " +
+        "ORDER BY m.created_at DESC",
+        countQuery = "SELECT COUNT(*) FROM mission m WHERE " +
+        "(:keyword IS NULL OR LOWER(CAST(m.title AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%') " +
+        "OR LOWER(CAST(m.description AS TEXT)) LIKE LOWER('%' || CAST(:keyword AS TEXT) || '%')) " +
+        "AND (:source IS NULL OR m.source = CAST(:source AS TEXT)) " +
+        "AND (:status IS NULL OR m.status = CAST(:status AS TEXT)) " +
+        "AND (:type IS NULL OR m.type = CAST(:type AS TEXT)) " +
+        "AND (:participationType IS NULL OR m.participation_type = CAST(:participationType AS TEXT)) " +
+        "AND (:creatorId IS NULL OR m.creator_id = CAST(:creatorId AS TEXT)) " +
+        "AND (:categoryId IS NULL OR m.category_id = :categoryId)",
+        nativeQuery = true)
+    Page<Mission> searchMissionsAdmin(
+        @Param("keyword") String keyword,
+        @Param("source") String source,
+        @Param("status") String status,
+        @Param("type") String type,
+        @Param("participationType") String participationType,
+        @Param("creatorId") String creatorId,
+        @Param("categoryId") Long categoryId,
+        Pageable pageable);
+
+    List<Mission> findBySourceAndParticipationType(MissionSource source, MissionParticipationType participationType);
+
+    long countBySource(MissionSource source);
+
+    long countBySourceAndParticipationType(MissionSource source, MissionParticipationType participationType);
+
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.source = :source AND m.creatorId = :creatorId")
+    long countBySourceAndCreatorId(@Param("source") MissionSource source, @Param("creatorId") String creatorId);
 }
