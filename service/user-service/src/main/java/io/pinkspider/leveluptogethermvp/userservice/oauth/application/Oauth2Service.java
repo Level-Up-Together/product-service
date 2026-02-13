@@ -18,7 +18,7 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJ
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.kakao.KakaoUserInfo;
 import io.pinkspider.global.enums.NotificationType;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
@@ -35,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -57,9 +58,9 @@ public class Oauth2Service {
     private final MultiDeviceTokenService tokenService;
     private final DeviceIdentifier deviceIdentifier;
     private final OAuth2Properties oAuth2Properties;
-    private final TitleService titleService;
     private final GeoIpService geoIpService;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
         ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(provider);
@@ -296,14 +297,8 @@ public class Oauth2Service {
         Users savedUser = userRepository.save(newUsers);
         log.info("신규 사용자 가입: userId={}, provider={}", savedUser.getId(), userInfo.getProvider());
 
-        // 신규 사용자에게 기본 칭호 부여 (LEFT: 신입, RIGHT: 수련생)
-        // 칭호 부여 실패해도 회원가입은 완료되어야 함
-        try {
-            titleService.grantAndEquipDefaultTitles(savedUser.getId());
-        } catch (Exception e) {
-            log.error("기본 칭호 부여 실패: userId={}, error={}", savedUser.getId(), e.getMessage(), e);
-            // 칭호 부여 실패는 회원가입을 막지 않음 - 추후 배치로 복구 가능
-        }
+        // 회원가입 이벤트 발행 → 기본 칭호 부여 등 후속 처리 (UserSignedUpEventListener)
+        eventPublisher.publishEvent(new UserSignedUpEvent(savedUser.getId()));
 
         // 환영 알림 발송
         try {

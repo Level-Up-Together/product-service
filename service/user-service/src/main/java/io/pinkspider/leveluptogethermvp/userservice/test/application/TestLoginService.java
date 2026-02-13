@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.test.application;
 
 import io.pinkspider.global.util.CryptoUtils;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
@@ -14,6 +14,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,7 @@ public class TestLoginService {
     private final JwtUtil jwtUtil;
     private final MultiDeviceTokenService tokenService;
     private final DeviceIdentifier deviceIdentifier;
-    private final TitleService titleService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String TEST_PROVIDER = "test";
 
@@ -159,12 +160,8 @@ public class TestLoginService {
         log.info("신규 테스트 사용자 생성: userId={}, email={}, nickname={}",
             savedUser.getId(), email, nickname);
 
-        // 기본 칭호 부여
-        try {
-            titleService.grantAndEquipDefaultTitles(savedUser.getId());
-        } catch (Exception e) {
-            log.warn("테스트 사용자 기본 칭호 부여 실패: {}", e.getMessage());
-        }
+        // 회원가입 이벤트 발행 → 기본 칭호 부여 등 후속 처리
+        eventPublisher.publishEvent(new UserSignedUpEvent(savedUser.getId()));
 
         return savedUser;
     }

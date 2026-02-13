@@ -5,8 +5,7 @@ import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -36,8 +35,7 @@ public class FriendService {
     private final FriendCacheService friendCacheService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
-    private final UserExperienceService userExperienceService;
-    private final TitleService titleService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
 
     // 친구 요청 보내기
     @Transactional
@@ -281,12 +279,12 @@ public class FriendService {
 
     // 레벨 정보 조회 헬퍼 메서드 (배치 조회)
     private Map<String, Integer> getLevelMap(List<String> userIds) {
-        return userExperienceService.getUserLevelMap(userIds);
+        return gamificationQueryFacadeService.getUserLevelMap(userIds);
     }
 
     // 칭호 정보 조회 헬퍼 메서드 (LEFT 포지션의 칭호를 대표 칭호로 사용, 배치 조회)
     private Map<String, String> getTitleMap(List<String> userIds) {
-        return titleService.getEquippedLeftTitleNameMap(userIds);
+        return gamificationQueryFacadeService.getEquippedLeftTitleNameMap(userIds);
     }
 
     // 받은 친구 요청 목록
@@ -303,7 +301,7 @@ public class FriendService {
             .collect(Collectors.toMap(Users::getId, u -> u));
 
         // 레벨 정보 배치 조회
-        Map<String, Integer> levelMap = userExperienceService.getUserLevelMap(requesterIds);
+        Map<String, Integer> levelMap = gamificationQueryFacadeService.getUserLevelMap(requesterIds);
 
         return friendships.stream()
             .map(friendship -> {

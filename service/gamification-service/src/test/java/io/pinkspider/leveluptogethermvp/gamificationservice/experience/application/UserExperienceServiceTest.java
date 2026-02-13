@@ -18,8 +18,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserC
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -53,9 +51,6 @@ class UserExperienceServiceTest {
 
     @Mock
     private ApplicationContext applicationContext;
-
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
 
     @InjectMocks
     private UserExperienceService userExperienceService;
@@ -135,8 +130,6 @@ class UserExperienceServiceTest {
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
             when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
             when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(null);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileCache(TEST_USER_ID, "테스터", null, 2, null, null, null));
 
             // when
             UserExperienceResponse result = userExperienceService.addExperience(
@@ -145,7 +138,6 @@ class UserExperienceServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(userExp.getCurrentLevel()).isEqualTo(2);
-            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
         }
     }
 
@@ -608,8 +600,6 @@ class UserExperienceServiceTest {
                 int level = invocation.getArgument(0);
                 return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
             });
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileCache(TEST_USER_ID, "테스터", null, 2, null, null, null));
 
             // when - 20 exp 추가하면 총 110 exp, level 2의 required_exp(100)을 충족하므로 레벨업
             UserExperienceResponse result = userExperienceService.addExperience(
@@ -671,8 +661,6 @@ class UserExperienceServiceTest {
                 int level = invocation.getArgument(0);
                 return configs.stream().filter(c -> c.getLevel().equals(level)).findFirst().orElse(null);
             });
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileCache(TEST_USER_ID, "테스터", null, 3, null, null, null));
 
             // when - 300 경험치 추가 (레벨 1 -> 2 -> 3까지 도달)
             UserExperienceResponse result = userExperienceService.addExperience(

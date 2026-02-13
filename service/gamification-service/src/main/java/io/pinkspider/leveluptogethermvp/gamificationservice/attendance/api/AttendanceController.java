@@ -6,7 +6,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.applicati
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.global.annotation.CurrentUser;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
-    private final UserService userService;
+    private final UserQueryFacadeService userQueryFacadeService;
 
     // 출석 체크 (Rate Limit: 사용자당 1분에 5회)
     @PostMapping("/check-in")
@@ -32,7 +32,7 @@ public class AttendanceController {
     public ResponseEntity<ApiResult<AttendanceCheckInResponse>> checkIn(
         @CurrentUser String userId) {
         // 오늘 가입한 신규 유저는 출석 체크 대상에서 제외
-        if (userService.isNewUserToday(userId)) {
+        if (userQueryFacadeService.isNewUserToday(userId)) {
             log.info("신규 가입 유저는 첫날 출석 체크 제외: userId={}", userId);
             AttendanceCheckInResponse response = AttendanceCheckInResponse.builder()
                 .isAlreadyCheckedIn(true)

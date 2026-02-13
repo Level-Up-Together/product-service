@@ -19,7 +19,7 @@ import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.global.translation.LocaleUtils;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class SeasonRankingService {
     private final SeasonRepository seasonRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final GuildQueryFacadeService guildQueryFacadeService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
     private final MissionCategoryService missionCategoryService;
@@ -125,7 +125,7 @@ public class SeasonRankingService {
             .collect(Collectors.toList());
 
         // 2. 배치 조회: 사용자 프로필 (캐시)
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         // 3. 배치 조회: 레벨 정보
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
@@ -420,7 +420,7 @@ public class SeasonRankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
 
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         Map<String, Integer> levelMap = userExperienceRepository.findByUserIdIn(userIds).stream()
             .collect(Collectors.toMap(UserExperience::getUserId, UserExperience::getCurrentLevel));

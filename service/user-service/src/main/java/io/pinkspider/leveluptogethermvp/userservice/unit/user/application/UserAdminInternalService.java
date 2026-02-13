@@ -2,8 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.unit.user.application;
 
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.util.CryptoUtils;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
@@ -51,8 +50,7 @@ public class UserAdminInternalService {
 
     private final UserRepository userRepository;
     private final UserBlacklistRepository userBlacklistRepository;
-    private final TitleService titleService;
-    private final AchievementService achievementService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
     private final GuildQueryFacadeService guildQueryFacadeService;
 
     // ========== 유저 검색/조회 ==========
@@ -336,7 +334,7 @@ public class UserAdminInternalService {
     // ========== private helpers ==========
 
     private List<UserTitleAdminResponse> buildTitleResponses(String userId) {
-        List<UserTitle> titles = titleService.getUserTitleEntitiesWithTitle(userId);
+        List<UserTitle> titles = gamificationQueryFacadeService.getUserTitleEntitiesWithTitle(userId);
         return titles.stream()
             .map(ut -> UserTitleAdminResponse.builder()
                 .id(ut.getId())
@@ -356,7 +354,7 @@ public class UserAdminInternalService {
     }
 
     private List<UserAchievementAdminResponse> buildAchievementResponses(String userId) {
-        List<UserAchievementResponse> achievements = achievementService.getUserAchievements(userId);
+        List<UserAchievementResponse> achievements = gamificationQueryFacadeService.getUserAchievements(userId);
         return achievements.stream()
             .map(ua -> UserAchievementAdminResponse.builder()
                 .id(ua.getId())

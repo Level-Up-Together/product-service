@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.supportservice.report.application;
 
-import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,8 +16,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,7 +33,7 @@ class ReportServiceTest {
     private AdminReportFeignClient adminReportFeignClient;
 
     @Mock
-    private UserService userService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
@@ -45,15 +43,6 @@ class ReportServiceTest {
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final String TARGET_USER_ID = "target-user-456";
-
-    private Users createTestUser(String userId, String nickname) {
-        Users user = Users.builder()
-            .nickname(nickname)
-            .email(userId + "@test.com")
-            .build();
-        setId(user, userId);
-        return user;
-    }
 
     private AdminReportApiResponse createSuccessResponse(Long id, String targetType, String targetId) {
         AdminReportApiResponse response = new AdminReportApiResponse();
@@ -88,9 +77,6 @@ class ReportServiceTest {
         @DisplayName("신고를 생성한다")
         void createReport_success() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-            Users targetUser = createTestUser(TARGET_USER_ID, "대상자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.USER_PROFILE,
                 TARGET_USER_ID,
@@ -101,8 +87,8 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "USER_PROFILE", TARGET_USER_ID);
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
-            when(userService.findByUserId(TARGET_USER_ID)).thenReturn(targetUser);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when
@@ -127,7 +113,7 @@ class ReportServiceTest {
                 "신고 사유"
             );
 
-            when(userService.findByUserId(TEST_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
 
             // when & then
             assertThatThrownBy(() -> reportService.createReport(TEST_USER_ID, request))
@@ -139,8 +125,6 @@ class ReportServiceTest {
         @DisplayName("Admin 서버 오류 시 예외가 발생한다")
         void createReport_adminServerError_throwsException() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.USER_PROFILE,
                 TARGET_USER_ID,
@@ -151,7 +135,7 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createErrorResponse("ERROR_001", "오류 발생");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when & then
@@ -163,8 +147,6 @@ class ReportServiceTest {
         @DisplayName("대상 사용자가 없어도 신고는 가능하다")
         void createReport_targetUserNotFound_stillWorks() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.FEED,
                 "feed-123",
@@ -175,8 +157,8 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
-            when(userService.findByUserId(TARGET_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenThrow(new RuntimeException("사용자를 찾을 수 없습니다."));
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when
@@ -191,9 +173,6 @@ class ReportServiceTest {
         @DisplayName("신고 생성 시 ContentReportedEvent를 발행한다")
         void createReport_publishesEvent() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-            Users targetUser = createTestUser(TARGET_USER_ID, "대상자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.FEED,
                 "feed-123",
@@ -204,8 +183,8 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
-            when(userService.findByUserId(TARGET_USER_ID)).thenReturn(targetUser);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when
@@ -219,9 +198,6 @@ class ReportServiceTest {
         @DisplayName("신고 생성 시 올바른 이벤트 정보를 발행한다")
         void createReport_publishesCorrectEvent() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-            Users targetUser = createTestUser(TARGET_USER_ID, "대상자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.GUILD,
                 "100",
@@ -232,8 +208,8 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "GUILD", "100");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
-            when(userService.findByUserId(TARGET_USER_ID)).thenReturn(targetUser);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when
@@ -259,9 +235,6 @@ class ReportServiceTest {
         @DisplayName("이벤트 발행 실패 시에도 신고 생성은 성공한다")
         void createReport_eventPublishFails_stillSucceeds() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-            Users targetUser = createTestUser(TARGET_USER_ID, "대상자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.FEED,
                 "feed-123",
@@ -272,8 +245,8 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "FEED", "feed-123");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
-            when(userService.findByUserId(TARGET_USER_ID)).thenReturn(targetUser);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
+            when(userQueryFacadeService.findUserNickname(TARGET_USER_ID)).thenReturn("대상자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
             org.mockito.Mockito.doThrow(new RuntimeException("이벤트 발행 실패"))
                 .when(eventPublisher).publishEvent(any());
@@ -290,8 +263,6 @@ class ReportServiceTest {
         @DisplayName("targetUserId가 null일 때도 이벤트를 발행한다")
         void createReport_nullTargetUserId_stillPublishesEvent() {
             // given
-            Users reporter = createTestUser(TEST_USER_ID, "신고자");
-
             ReportCreateRequest request = new ReportCreateRequest(
                 ReportTargetType.MISSION,
                 "mission-456",
@@ -302,7 +273,7 @@ class ReportServiceTest {
 
             AdminReportApiResponse apiResponse = createSuccessResponse(1L, "MISSION", "mission-456");
 
-            when(userService.findByUserId(TEST_USER_ID)).thenReturn(reporter);
+            when(userQueryFacadeService.findUserNickname(TEST_USER_ID)).thenReturn("신고자");
             when(adminReportFeignClient.createReport(any(AdminReportCreateRequest.class))).thenReturn(apiResponse);
 
             // when

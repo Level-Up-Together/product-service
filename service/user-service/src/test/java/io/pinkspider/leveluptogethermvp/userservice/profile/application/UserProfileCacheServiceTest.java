@@ -6,8 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
@@ -29,10 +28,7 @@ class UserProfileCacheServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserExperienceService userExperienceService;
-
-    @Mock
-    private TitleService titleService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @InjectMocks
     private UserProfileCacheService userProfileCacheService;
@@ -55,8 +51,8 @@ class UserProfileCacheServiceTest {
             TitleInfo titleInfo = new TitleInfo("전설적인 모험가", TitleRarity.LEGENDARY, "#FFD700");
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(userExperienceService.getUserLevel(userId)).thenReturn(15);
-            when(titleService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(15);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
 
             // when
             UserProfileCache result = userProfileCacheService.getUserProfile(userId);
@@ -102,8 +98,8 @@ class UserProfileCacheServiceTest {
             TitleInfo titleInfo = new TitleInfo(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(userExperienceService.getUserLevel(userId)).thenReturn(1);
-            when(titleService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(1);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
 
             // when
             UserProfileCache result = userProfileCacheService.getUserProfile(userId);
@@ -125,8 +121,8 @@ class UserProfileCacheServiceTest {
             TitleInfo titleInfo = new TitleInfo(null, null, null);
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(userExperienceService.getUserLevel(userId)).thenReturn(5);
-            when(titleService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
+            when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(5);
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId)).thenReturn(titleInfo);
 
             // when
             UserProfileCache result = userProfileCacheService.getUserProfile(userId);

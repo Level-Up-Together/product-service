@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.event.UserProfileChangedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -22,8 +22,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserSt
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto;
@@ -41,7 +39,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
-import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.time.LocalDateTime;
@@ -64,13 +62,7 @@ class MyPageServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private UserExperienceService userExperienceService;
-
-    @Mock
-    private TitleService titleService;
-
-    @Mock
-    private UserStatsService userStatsService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @Mock
     private FriendshipRepository friendshipRepository;
@@ -88,7 +80,7 @@ class MyPageServiceTest {
     private GuildQueryFacadeService guildQueryFacadeService;
 
     @Mock
-    private ReportService reportService;
+    private ContentReviewChecker contentReviewChecker;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -154,10 +146,10 @@ class MyPageServiceTest {
 
     /** getPublicProfile 공통 스텁 설정 */
     private void stubPublicProfileDefaults(String userId) {
-        when(titleService.getEquippedTitleEntitiesByUserId(userId)).thenReturn(Collections.emptyList());
-        when(userExperienceService.getUserLevel(userId)).thenReturn(1);
-        when(userStatsService.getOrCreateUserStats(userId)).thenReturn(createDefaultUserStats(userId));
-        when(titleService.countUserTitles(userId)).thenReturn(0L);
+        when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(userId)).thenReturn(Collections.emptyList());
+        when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(1);
+        when(gamificationQueryFacadeService.getOrCreateUserStats(userId)).thenReturn(createDefaultUserStats(userId));
+        when(gamificationQueryFacadeService.countUserTitles(userId)).thenReturn(0L);
         when(guildQueryFacadeService.getUserGuildMemberships(userId)).thenReturn(Collections.emptyList());
     }
 
@@ -172,14 +164,14 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(5);
-            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
                 UserExperience.builder().userId(TEST_USER_ID).currentLevel(1).currentExp(0).totalExp(0).build());
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
-            when(titleService.countUserTitles(TEST_USER_ID)).thenReturn(3L);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(3L);
             when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
-            when(userStatsService.calculateRankingPercentile(0L)).thenReturn(50.0);
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
 
             // when
             MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
@@ -433,7 +425,7 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -474,8 +466,8 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(userExperienceService.getUserLevel(TEST_USER_ID)).thenReturn(3);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(3);
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -500,7 +492,7 @@ class MyPageServiceTest {
             Title title = createTestTitle(1L, "테스트 칭호", TitleRarity.COMMON, TitlePosition.LEFT);
             UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
 
-            when(titleService.getUserTitleEntitiesWithTitle(TEST_USER_ID)).thenReturn(List.of(userTitle));
+            when(gamificationQueryFacadeService.getUserTitleEntitiesWithTitle(TEST_USER_ID)).thenReturn(List.of(userTitle));
 
             // when
             UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
@@ -515,7 +507,7 @@ class MyPageServiceTest {
         @DisplayName("칭호가 없으면 빈 목록을 반환한다")
         void getUserTitles_empty() {
             // given
-            when(titleService.getUserTitleEntitiesWithTitle(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserTitleEntitiesWithTitle(TEST_USER_ID)).thenReturn(Collections.emptyList());
 
             // when
             UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
@@ -580,8 +572,8 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(newNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(userExperienceService.getUserLevel(TEST_USER_ID)).thenReturn(5);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(5);
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -603,8 +595,8 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(englishNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(userExperienceService.getUserLevel(TEST_USER_ID)).thenReturn(1);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -624,8 +616,8 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(arabicNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(userExperienceService.getUserLevel(TEST_USER_ID)).thenReturn(1);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -645,8 +637,8 @@ class MyPageServiceTest {
             when(userRepository.existsByNicknameAndIdNot(mixedNickname, TEST_USER_ID)).thenReturn(false);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             when(userRepository.save(any(Users.class))).thenReturn(user);
-            when(userExperienceService.getUserLevel(TEST_USER_ID)).thenReturn(1);
-            when(titleService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
 
             // when
@@ -735,7 +727,7 @@ class MyPageServiceTest {
             TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
             TestReflectionUtils.setField(request, "rightUserTitleId", 2L);
 
-            when(titleService.changeTitles(TEST_USER_ID, 1L, 2L))
+            when(gamificationQueryFacadeService.changeTitles(TEST_USER_ID, 1L, 2L))
                 .thenReturn(new TitleChangeResult(leftUserTitle, rightUserTitle));
 
             // when
@@ -744,7 +736,7 @@ class MyPageServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.getMessage()).isEqualTo("칭호가 변경되었습니다.");
-            verify(titleService).changeTitles(TEST_USER_ID, 1L, 2L);
+            verify(gamificationQueryFacadeService).changeTitles(TEST_USER_ID, 1L, 2L);
         }
 
         @Test
@@ -755,7 +747,7 @@ class MyPageServiceTest {
             TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
             TestReflectionUtils.setField(request, "rightUserTitleId", 1L);
 
-            when(titleService.changeTitles(TEST_USER_ID, 1L, 1L))
+            when(gamificationQueryFacadeService.changeTitles(TEST_USER_ID, 1L, 1L))
                 .thenThrow(new CustomException("TITLE_001", "좌측과 우측에 같은 칭호를 설정할 수 없습니다."));
 
             // when & then
@@ -772,7 +764,7 @@ class MyPageServiceTest {
             TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
             TestReflectionUtils.setField(request, "rightUserTitleId", 2L);
 
-            when(titleService.changeTitles(TEST_USER_ID, 1L, 2L))
+            when(gamificationQueryFacadeService.changeTitles(TEST_USER_ID, 1L, 2L))
                 .thenThrow(new CustomException("TITLE_003", "본인의 칭호만 장착할 수 있습니다."));
 
             // when & then
@@ -794,7 +786,7 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
+            when(contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -802,7 +794,7 @@ class MyPageServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.getIsUnderReview()).isTrue();
-            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
+            verify(contentReviewChecker).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
         }
 
         @Test
@@ -813,7 +805,7 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(false);
+            when(contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(false);
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
@@ -831,7 +823,7 @@ class MyPageServiceTest {
 
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
+            when(contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID)).thenReturn(true);
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
@@ -839,7 +831,7 @@ class MyPageServiceTest {
             // then
             assertThat(result.getIsOwner()).isTrue();
             assertThat(result.getIsUnderReview()).isTrue();
-            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
+            verify(contentReviewChecker).isUnderReview(ReportTargetType.USER_PROFILE, TEST_USER_ID);
         }
 
         @Test
@@ -851,7 +843,7 @@ class MyPageServiceTest {
 
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(otherUserId);
-            when(reportService.isUnderReview(ReportTargetType.USER_PROFILE, otherUserId)).thenReturn(true);
+            when(contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, otherUserId)).thenReturn(true);
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(otherUserId, TEST_USER_ID);
@@ -859,7 +851,7 @@ class MyPageServiceTest {
             // then
             assertThat(result.getIsOwner()).isFalse();
             assertThat(result.getIsUnderReview()).isTrue();
-            verify(reportService).isUnderReview(ReportTargetType.USER_PROFILE, otherUserId);
+            verify(contentReviewChecker).isUnderReview(ReportTargetType.USER_PROFILE, otherUserId);
         }
     }
 }

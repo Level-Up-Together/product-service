@@ -27,8 +27,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -59,10 +58,7 @@ class GuildInvitationServiceTest {
     private GuildMemberRepository guildMemberRepository;
 
     @Mock
-    private UserExistsCacheService userExistsCacheService;
-
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private MissionCategoryService missionCategoryService;
@@ -152,7 +148,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -165,8 +161,8 @@ class GuildInvitationServiceTest {
                 setId(invitation, 1L);
                 return invitation;
             });
-            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("마스터");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             GuildInvitationResponse response = invitationService.sendInvitation(1L, testMasterId, testInviteeId, message);
@@ -192,7 +188,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviterId))
                 .thenReturn(Optional.of(testSubMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -205,8 +201,8 @@ class GuildInvitationServiceTest {
                 setId(invitation, 1L);
                 return invitation;
             });
-            when(userProfileCacheService.getUserNickname(testInviterId)).thenReturn("초대자");
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testInviterId)).thenReturn("초대자");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             GuildInvitationResponse response = invitationService.sendInvitation(1L, testInviterId, testInviteeId, message);
@@ -260,7 +256,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(false);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> invitationService.sendInvitation(1L, testMasterId, testInviteeId, null))
@@ -282,7 +278,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.of(existingMember));
 
@@ -299,7 +295,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -319,7 +315,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -340,7 +336,7 @@ class GuildInvitationServiceTest {
             when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
                 .thenReturn(Optional.of(testMasterMember));
-            when(userExistsCacheService.existsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
@@ -395,8 +391,8 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
             when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
-            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("마스터");
 
             // when
             GuildInvitationResponse response = invitationService.acceptInvitation(1L, testInviteeId);
@@ -432,8 +428,8 @@ class GuildInvitationServiceTest {
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.of(leftMember));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
-            when(userProfileCacheService.getUserNickname(testMasterId)).thenReturn("마스터");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("마스터");
 
             // when
             GuildInvitationResponse response = invitationService.acceptInvitation(1L, testInviteeId);
@@ -750,12 +746,12 @@ class GuildInvitationServiceTest {
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation1, invitation2));
-            when(userProfileCacheService.getUserProfiles(List.of(testMasterId, "another-master")))
+            when(userQueryFacadeService.getUserProfiles(List.of(testMasterId, "another-master")))
                 .thenReturn(java.util.Map.of(
                     testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null),
                     "another-master", new UserProfileCache("another-master", "다른마스터", null, 1, null, null, null)
                 ));
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             List<GuildInvitationResponse> result = invitationService.getMyPendingInvitations(testInviteeId);
@@ -785,11 +781,11 @@ class GuildInvitationServiceTest {
 
             when(invitationRepository.findByInviteeIdAndStatusWithGuild(testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(validInvitation, expiredInvitation));
-            when(userProfileCacheService.getUserProfiles(List.of(testMasterId)))
+            when(userQueryFacadeService.getUserProfiles(List.of(testMasterId)))
                 .thenReturn(java.util.Map.of(
                     testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null)
                 ));
-            when(userProfileCacheService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
 
             // when
             List<GuildInvitationResponse> result = invitationService.getMyPendingInvitations(testInviteeId);
@@ -829,7 +825,7 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.of(testMasterMember));
             when(invitationRepository.findByGuildIdAndStatus(1L, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation));
-            when(userProfileCacheService.getUserProfiles(List.of(testMasterId, testInviteeId)))
+            when(userQueryFacadeService.getUserProfiles(List.of(testMasterId, testInviteeId)))
                 .thenReturn(java.util.Map.of(
                     testMasterId, new UserProfileCache(testMasterId, "마스터", null, 1, null, null, null),
                     testInviteeId, new UserProfileCache(testInviteeId, "초대받는사람", null, 1, null, null, null)
@@ -855,7 +851,7 @@ class GuildInvitationServiceTest {
                 .thenReturn(Optional.of(testSubMasterMember));
             when(invitationRepository.findByGuildIdAndStatus(1L, GuildInvitationStatus.PENDING))
                 .thenReturn(List.of(invitation));
-            when(userProfileCacheService.getUserProfiles(List.of(testInviterId, testInviteeId)))
+            when(userQueryFacadeService.getUserProfiles(List.of(testInviterId, testInviteeId)))
                 .thenReturn(java.util.Map.of(
                     testInviterId, new UserProfileCache(testInviterId, "초대자", null, 1, null, null, null),
                     testInviteeId, new UserProfileCache(testInviteeId, "초대받는사람", null, 1, null, null, null)

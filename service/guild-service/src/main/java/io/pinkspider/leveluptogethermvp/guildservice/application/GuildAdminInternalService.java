@@ -13,7 +13,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,7 +40,7 @@ public class GuildAdminInternalService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final MissionCategoryService missionCategoryService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
 
     public GuildAdminPageResponse searchGuilds(String keyword, Long categoryId,
             Boolean isActive, String visibility, Pageable pageable) {
@@ -144,7 +144,7 @@ public class GuildAdminInternalService {
 
         List<String> userIds = members.stream()
             .map(GuildMember::getUserId).distinct().collect(Collectors.toList());
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         return members.stream()
             .map(member -> {
@@ -217,7 +217,7 @@ public class GuildAdminInternalService {
 
     private Map<String, String> getMasterNicknameMap(List<String> masterIds) {
         if (masterIds.isEmpty()) return new HashMap<>();
-        Map<String, UserProfileCache> profiles = userProfileCacheService.getUserProfiles(masterIds);
+        Map<String, UserProfileCache> profiles = userQueryFacadeService.getUserProfiles(masterIds);
         Map<String, String> result = new HashMap<>();
         profiles.forEach((userId, profile) -> {
             if (profile != null) {
@@ -229,7 +229,7 @@ public class GuildAdminInternalService {
 
     private String getMasterNickname(String masterId) {
         if (masterId == null) return null;
-        UserProfileCache profile = userProfileCacheService.getUserProfile(masterId);
+        UserProfileCache profile = userQueryFacadeService.getUserProfile(masterId);
         return profile != null ? profile.nickname() : null;
     }
 }

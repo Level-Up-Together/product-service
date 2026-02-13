@@ -14,8 +14,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,8 +41,7 @@ public class GuildInvitationService {
     private final GuildInvitationRepository invitationRepository;
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
-    private final UserExistsCacheService userExistsCacheService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -71,7 +69,7 @@ public class GuildInvitationService {
         validateMasterOrSubMaster(guildId, inviterId);
 
         // 초대 대상자가 존재하는지 확인
-        if (!userExistsCacheService.existsById(inviteeId)) {
+        if (!userQueryFacadeService.userExistsById(inviteeId)) {
             throw new IllegalArgumentException("초대 대상자를 찾을 수 없습니다.");
         }
 
@@ -104,7 +102,7 @@ public class GuildInvitationService {
         GuildInvitation saved = invitationRepository.save(invitation);
 
         // 초대자 닉네임 조회
-        String inviterNickname = userProfileCacheService.getUserNickname(inviterId);
+        String inviterNickname = userQueryFacadeService.getUserNickname(inviterId);
 
         // 알림 이벤트 발행
         eventPublisher.publishEvent(new GuildInvitationEvent(
@@ -119,7 +117,7 @@ public class GuildInvitationService {
         log.info("길드 초대 발송: guildId={}, inviterId={}, inviteeId={}, invitationId={}",
             guildId, inviterId, inviteeId, saved.getId());
 
-        String inviteeNickname = userProfileCacheService.getUserNickname(inviteeId);
+        String inviteeNickname = userQueryFacadeService.getUserNickname(inviteeId);
         return GuildInvitationResponse.from(saved, inviterNickname, inviteeNickname);
     }
 
@@ -200,13 +198,13 @@ public class GuildInvitationService {
         }
 
         // 채팅방에 가입 알림 메시지 전송
-        String memberNickname = userProfileCacheService.getUserNickname(userId);
+        String memberNickname = userQueryFacadeService.getUserNickname(userId);
         eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
         log.info("초대 수락: invitationId={}, userId={}", invitationId, userId);
 
-        String inviterNickname = userProfileCacheService.getUserNickname(invitation.getInviterId());
-        String inviteeNickname = userProfileCacheService.getUserNickname(invitation.getInviteeId());
+        String inviterNickname = userQueryFacadeService.getUserNickname(invitation.getInviterId());
+        String inviteeNickname = userQueryFacadeService.getUserNickname(invitation.getInviteeId());
 
         return GuildInvitationResponse.from(invitation, inviterNickname, inviteeNickname);
     }
@@ -278,10 +276,10 @@ public class GuildInvitationService {
             .toList();
 
         // 초대자 프로필 조회 (캐시)
-        Map<String, UserProfileCache> inviterProfileMap = userProfileCacheService.getUserProfiles(inviterIds);
+        Map<String, UserProfileCache> inviterProfileMap = userQueryFacadeService.getUserProfiles(inviterIds);
 
         // 초대 받는 사람 닉네임 조회
-        String inviteeNickname = userProfileCacheService.getUserNickname(userId);
+        String inviteeNickname = userQueryFacadeService.getUserNickname(userId);
 
         return validInvitations.stream()
             .map(inv -> {
@@ -311,7 +309,7 @@ public class GuildInvitationService {
             .toList();
 
         // 사용자 프로필 조회 (캐시)
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         return invitations.stream()
             .map(inv -> {

@@ -9,9 +9,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinReq
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
@@ -41,8 +41,8 @@ public class GuildQueryService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
     private final FeaturedContentQueryService featuredContentQueryService;
-    private final UserProfileCacheService userProfileCacheService;
-    private final TitleService titleService;
+    private final UserQueryFacadeService userQueryFacadeService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
     private final ReportService reportService;
     private final GuildHelper guildHelper;
 
@@ -218,7 +218,7 @@ public class GuildQueryService {
             .map(GuildMember::getUserId)
             .toList();
 
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(userIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(userIds);
 
         // 멤버 정보에 사용자 정보 추가
         return members.stream()
@@ -232,7 +232,7 @@ public class GuildQueryService {
                     response.setUserLevel(1);
                     // 칭호 정보 조회
                     try {
-                        DetailedTitleInfo titleInfo = titleService.getDetailedEquippedTitleInfo(member.getUserId());
+                        DetailedTitleInfo titleInfo = gamificationQueryFacadeService.getDetailedEquippedTitleInfo(member.getUserId());
                         response.setEquippedTitleName(titleInfo.combinedName());
                         response.setEquippedTitleRarity(titleInfo.highestRarity());
                         response.setLeftTitleName(titleInfo.leftTitle());

@@ -6,15 +6,13 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
@@ -33,7 +31,7 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleL
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse.UserTitleItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.global.enums.ReportTargetType;
-import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -57,15 +55,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class MyPageService {
 
     private final UserRepository userRepository;
-    private final UserExperienceService userExperienceService;
-    private final TitleService titleService;
-    private final UserStatsService userStatsService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
     private final FriendshipRepository friendshipRepository;
     private final UserLevelConfigCacheService userLevelConfigCacheService;
     private final ProfileImageStorageService profileImageStorageService;
     private final ImageModerationService imageModerationService;
     private final GuildQueryFacadeService guildQueryFacadeService;
-    private final ReportService reportService;
+    private final ContentReviewChecker contentReviewChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final UserProfileCacheService userProfileCacheService;
 
@@ -93,7 +89,7 @@ public class MyPageService {
         Users user = findUserOrThrow(targetUserId);
 
         // 장착된 칭호 조회
-        List<UserTitle> equippedTitles = titleService.getEquippedTitleEntitiesByUserId(targetUserId);
+        List<UserTitle> equippedTitles = gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(targetUserId);
         PublicProfileResponse.EquippedTitleInfo leftTitle = null;
         PublicProfileResponse.EquippedTitleInfo rightTitle = null;
 
@@ -106,10 +102,10 @@ public class MyPageService {
         }
 
         // 레벨 정보
-        int level = userExperienceService.getUserLevel(targetUserId);
+        int level = gamificationQueryFacadeService.getUserLevel(targetUserId);
 
         // 통계 정보
-        UserStats stats = userStatsService.getOrCreateUserStats(targetUserId);
+        UserStats stats = gamificationQueryFacadeService.getOrCreateUserStats(targetUserId);
 
         LocalDate startDate = user.getCreatedAt() != null
             ? user.getCreatedAt().toLocalDate()
@@ -117,7 +113,7 @@ public class MyPageService {
         long daysSinceJoined = ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
 
         // 보유 칭호 수
-        long titlesCount = titleService.countUserTitles(targetUserId);
+        long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
 
         // 소속 길드 목록 조회
         List<GuildMembershipInfo> guildMemberships = guildQueryFacadeService.getUserGuildMemberships(targetUserId);
@@ -168,7 +164,7 @@ public class MyPageService {
         }
 
         // 신고 처리중 여부 확인
-        boolean isUnderReview = reportService.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
+        boolean isUnderReview = contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
 
         return PublicProfileResponse.builder()
             .userId(targetUserId)
@@ -225,7 +221,7 @@ public class MyPageService {
         userRepository.save(user);
 
         userProfileCacheService.evictUserProfileCache(userId);
-        int level = userExperienceService.getUserLevel(userId);
+        int level = gamificationQueryFacadeService.getUserLevel(userId);
         eventPublisher.publishEvent(new UserProfileChangedEvent(
             userId, user.getNickname(), request.getProfileImageUrl(), level));
 
@@ -274,7 +270,7 @@ public class MyPageService {
         userRepository.save(user);
 
         userProfileCacheService.evictUserProfileCache(userId);
-        int level = userExperienceService.getUserLevel(userId);
+        int level = gamificationQueryFacadeService.getUserLevel(userId);
         eventPublisher.publishEvent(new UserProfileChangedEvent(
             userId, user.getNickname(), newImageUrl, level));
 
@@ -287,7 +283,7 @@ public class MyPageService {
      * 보유 칭호 목록 조회
      */
     public UserTitleListResponse getUserTitles(String userId) {
-        List<UserTitle> userTitles = titleService.getUserTitleEntitiesWithTitle(userId);
+        List<UserTitle> userTitles = gamificationQueryFacadeService.getUserTitleEntitiesWithTitle(userId);
 
         Long equippedLeftId = null;
         Long equippedRightId = null;
@@ -357,7 +353,7 @@ public class MyPageService {
         userRepository.save(user);
 
         userProfileCacheService.evictUserProfileCache(userId);
-        int level = userExperienceService.getUserLevel(userId);
+        int level = gamificationQueryFacadeService.getUserLevel(userId);
         eventPublisher.publishEvent(new UserProfileChangedEvent(
             userId, nickname, user.getPicture(), level));
 
@@ -400,7 +396,7 @@ public class MyPageService {
      * 칭호 변경 (좌측/우측 동시 변경) — TitleService에 위임
      */
     public TitleChangeResponse changeTitles(String userId, TitleChangeRequest request) {
-        TitleChangeResult result = titleService.changeTitles(
+        TitleChangeResult result = gamificationQueryFacadeService.changeTitles(
             userId, request.getLeftUserTitleId(), request.getRightUserTitleId());
 
         return TitleChangeResponse.builder()
@@ -445,7 +441,7 @@ public class MyPageService {
 
     private ProfileInfo buildProfileInfo(Users user, String userId) {
         // 장착된 칭호 조회
-        List<UserTitle> equippedTitles = titleService.getEquippedTitleEntitiesByUserId(userId);
+        List<UserTitle> equippedTitles = gamificationQueryFacadeService.getEquippedTitleEntitiesByUserId(userId);
 
         EquippedTitleInfo leftTitle = null;
         EquippedTitleInfo rightTitle = null;
@@ -474,7 +470,7 @@ public class MyPageService {
     }
 
     private ExperienceInfo buildExperienceInfo(String userId) {
-        UserExperience userExp = userExperienceService.getOrCreateUserExperience(userId);
+        UserExperience userExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
 
         Integer nextLevelRequiredExp = getNextLevelRequiredExp(userExp.getCurrentLevel());
 
@@ -496,7 +492,7 @@ public class MyPageService {
     }
 
     private UserInfo buildUserInfo(Users user, String userId) {
-        UserStats stats = userStatsService.getOrCreateUserStats(userId);
+        UserStats stats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
 
         // 가입일 (createdAt)
         LocalDate startDate = user.getCreatedAt() != null
@@ -507,10 +503,10 @@ public class MyPageService {
         long daysSinceJoined = ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
 
         // 랭킹 퍼센타일 계산 (상위 X%)
-        Double rankingPercentile = userStatsService.calculateRankingPercentile(stats.getRankingPoints());
+        Double rankingPercentile = gamificationQueryFacadeService.calculateRankingPercentile(stats.getRankingPoints());
 
         // 보유 칭호 수
-        long titlesCount = titleService.countUserTitles(userId);
+        long titlesCount = gamificationQueryFacadeService.countUserTitles(userId);
 
         return UserInfo.builder()
             .startDate(startDate)

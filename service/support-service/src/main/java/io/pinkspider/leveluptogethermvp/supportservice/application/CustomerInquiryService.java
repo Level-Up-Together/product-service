@@ -10,8 +10,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInq
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryTypesApiResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,20 +22,19 @@ import org.springframework.stereotype.Service;
 public class CustomerInquiryService {
 
     private final AdminInquiryFeignClient adminInquiryFeignClient;
-    private final UserExistsCacheService userExistsCacheService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
 
     /**
      * 문의 등록
      */
     public InquiryResponse createInquiry(String userId, InquiryCreateRequest request) {
         try {
-            if (!userExistsCacheService.existsById(userId)) {
+            if (!userQueryFacadeService.userExistsById(userId)) {
                 throw new CustomException("404", "사용자를 찾을 수 없습니다.");
             }
 
-            UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
-            String email = userProfileCacheService.getUserEmail(userId);
+            UserProfileCache profile = userQueryFacadeService.getUserProfile(userId);
+            String email = userQueryFacadeService.getUserEmail(userId);
 
             AdminInquiryApiResponse response = adminInquiryFeignClient.createInquiry(
                 userId,

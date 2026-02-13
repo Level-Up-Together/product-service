@@ -19,7 +19,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.applicati
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -63,7 +63,7 @@ class AttendanceControllerTest {
     private AttendanceService attendanceService;
 
     @MockitoBean
-    private UserService userService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     private static final String MOCK_USER_ID = "test-user-123";
 
@@ -71,7 +71,7 @@ class AttendanceControllerTest {
     @DisplayName("POST /api/v1/attendance/check-in : 출석 체크")
     void checkInTest() throws Exception {
         // given
-        when(userService.isNewUserToday(anyString())).thenReturn(false);
+        when(userQueryFacadeService.isNewUserToday(anyString())).thenReturn(false);
 
         AttendanceResponse attendance = AttendanceResponse.builder()
             .id(1L)

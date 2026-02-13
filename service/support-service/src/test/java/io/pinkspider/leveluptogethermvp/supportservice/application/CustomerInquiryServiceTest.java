@@ -19,8 +19,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInq
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryPageApiResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.core.feignclient.AdminInquiryTypesApiResponse;
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -38,10 +37,7 @@ class CustomerInquiryServiceTest {
     private AdminInquiryFeignClient adminInquiryFeignClient;
 
     @Mock
-    private UserExistsCacheService userExistsCacheService;
-
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @InjectMocks
     private CustomerInquiryService customerInquiryService;
@@ -85,9 +81,9 @@ class CustomerInquiryServiceTest {
             InquiryResponse inquiryResponse = createTestInquiryResponse(1L);
             AdminInquiryApiResponse apiResponse = new AdminInquiryApiResponse("0000", "success", inquiryResponse);
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
-            when(userProfileCacheService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
+            when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
             when(adminInquiryFeignClient.createInquiry(
                 eq(TEST_USER_ID), eq(profile.nickname()), eq(TEST_EMAIL), any(InquiryCreateRequest.class)
             )).thenReturn(apiResponse);
@@ -107,7 +103,7 @@ class CustomerInquiryServiceTest {
             // given
             InquiryCreateRequest request = createTestRequest();
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
@@ -122,9 +118,9 @@ class CustomerInquiryServiceTest {
             UserProfileCache profile = createTestProfile();
             InquiryCreateRequest request = createTestRequest();
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
-            when(userProfileCacheService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
+            when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
             when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), any()))
                 .thenReturn(null);
 
@@ -141,9 +137,9 @@ class CustomerInquiryServiceTest {
             UserProfileCache profile = createTestProfile();
             InquiryCreateRequest request = createTestRequest();
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
-            when(userProfileCacheService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
+            when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
             when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), any()))
                 .thenThrow(new RuntimeException("API 연결 실패"));
 

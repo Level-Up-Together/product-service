@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicat
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
-import io.pinkspider.global.event.UserProfileChangedEvent;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
@@ -14,8 +13,6 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +40,6 @@ public class UserExperienceService {
     private final UserLevelConfigCacheService userLevelConfigCacheService;
     private final ApplicationContext applicationContext;
     private final ApplicationEventPublisher eventPublisher;
-    private final UserProfileCacheService userProfileCacheService;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
@@ -92,15 +88,7 @@ public class UserExperienceService {
             // 레벨업 피드 프로젝션 이벤트 발행
             eventPublisher.publishEvent(new UserLevelUpEvent(userId, levelAfter, userExp.getTotalExp()));
 
-            // 프로필 캐시 무효화 + 스냅샷 동기화 이벤트 발행
-            userProfileCacheService.evictUserProfileCache(userId);
-            try {
-                UserProfileCache profile = userProfileCacheService.getUserProfile(userId);
-                eventPublisher.publishEvent(new UserProfileChangedEvent(
-                    userId, profile.nickname(), profile.picture(), levelAfter));
-            } catch (Exception e) {
-                log.warn("프로필 스냅샷 이벤트 발행 실패: userId={}, error={}", userId, e.getMessage());
-            }
+            // 프로필 캐시 무효화 + 스냅샷 동기화는 UserLevelUpProfileSyncListener에서 처리
 
             // 동적 Strategy 패턴으로 USER_EXPERIENCE 관련 업적 체크 (순환 의존성 방지를 위해 ApplicationContext 사용)
             try {

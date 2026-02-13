@@ -1,8 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.profile.application;
 
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -13,7 +12,6 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserProfileCacheService {
 
     private final UserRepository userRepository;
-    private final UserExperienceService userExperienceService;
-    private final TitleService titleService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
 
     public UserProfileCacheService(UserRepository userRepository,
-                                    @Lazy UserExperienceService userExperienceService,
-                                    TitleService titleService) {
+                                    GamificationQueryFacadeService gamificationQueryFacadeService) {
         this.userRepository = userRepository;
-        this.userExperienceService = userExperienceService;
-        this.titleService = titleService;
+        this.gamificationQueryFacadeService = gamificationQueryFacadeService;
     }
 
     /**
@@ -56,10 +51,10 @@ public class UserProfileCacheService {
         }
 
         // 사용자 레벨 조회
-        int level = userExperienceService.getUserLevel(userId);
+        int level = gamificationQueryFacadeService.getUserLevel(userId);
 
-        // 사용자 칭호 조회 (TitleService의 캐시 사용)
-        TitleInfo titleInfo = titleService.getCombinedEquippedTitleInfo(userId);
+        // 사용자 칭호 조회 (캐시 사용)
+        TitleInfo titleInfo = gamificationQueryFacadeService.getCombinedEquippedTitleInfo(userId);
 
         return new UserProfileCache(
             userId,

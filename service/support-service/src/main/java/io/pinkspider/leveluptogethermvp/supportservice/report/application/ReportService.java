@@ -12,13 +12,13 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCheckResponse;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportCreateRequest;
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
+import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.event.ContentReportedEvent;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.application.UserService;
-import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -28,19 +28,24 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ReportService {
+public class ReportService implements ContentReviewChecker {
 
     private static final String CIRCUIT_BREAKER_NAME = "report-service";
 
     private final AdminReportFeignClient adminReportFeignClient;
-    private final UserService userService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
 
     public ReportResponse createReport(String userId, ReportCreateRequest request) {
-        // 신고자 정보 조회
-        Users reporter;
+        // 신고자 닉네임 조회
+        String reporterNickname;
         try {
-            reporter = userService.findByUserId(userId);
+            reporterNickname = userQueryFacadeService.findUserNickname(userId);
+            if (reporterNickname == null) {
+                throw new CustomException("USER_001", "사용자를 찾을 수 없습니다.");
+            }
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
             throw new CustomException("USER_001", "사용자를 찾을 수 없습니다.");
         }
@@ -49,8 +54,7 @@ public class ReportService {
         String targetUserNickname = null;
         if (request.targetUserId() != null) {
             try {
-                Users targetUser = userService.findByUserId(request.targetUserId());
-                targetUserNickname = targetUser.getNickname();
+                targetUserNickname = userQueryFacadeService.findUserNickname(request.targetUserId());
             } catch (Exception e) {
                 // 대상 사용자가 없어도 신고는 가능
                 log.warn("대상 사용자 조회 실패: {}", request.targetUserId());
@@ -60,7 +64,7 @@ public class ReportService {
         // Admin 서버로 신고 전송
         AdminReportCreateRequest adminRequest = AdminReportCreateRequest.builder()
             .reporterId(userId)
-            .reporterNickname(reporter.getNickname())
+            .reporterNickname(reporterNickname)
             .targetType(request.targetType().name())
             .targetId(request.targetId())
             .targetUserId(request.targetUserId())

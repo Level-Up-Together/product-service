@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,7 +68,7 @@ class GuildServiceTest {
     private GuildImageStorageService guildImageStorageService;
 
     @Mock
-    private io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService userExperienceService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -138,7 +139,7 @@ class GuildServiceTest {
                 .userId(testUserId)
                 .currentLevel(20)
                 .build();
-            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
@@ -182,7 +183,7 @@ class GuildServiceTest {
                 .userId(testUserId)
                 .currentLevel(20)
                 .build();
-            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
 
@@ -209,7 +210,7 @@ class GuildServiceTest {
                 .userId(testUserId)
                 .currentLevel(20)
                 .build();
-            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
@@ -236,7 +237,7 @@ class GuildServiceTest {
                 .userId(testUserId)
                 .currentLevel(20)
                 .build();
-            when(userExperienceService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(true);
 
             // when & then
