@@ -179,4 +179,52 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         @Param("userId") String userId,
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 경험치 Top N 사용자 (Admin - 전체 경험치, 카테고리 필터 없음)
+     */
+    @Query("""
+        SELECT eh.userId, SUM(eh.expAmount) as totalExp
+        FROM ExperienceHistory eh
+        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        GROUP BY eh.userId
+        ORDER BY totalExp DESC
+        """)
+    List<Object[]> findTopExpGainersAllByPeriod(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        Pageable pageable);
+
+    /**
+     * 경험치 Top N 사용자 (Admin - 특정 사용자 제외)
+     */
+    @Query("""
+        SELECT eh.userId, SUM(eh.expAmount) as totalExp
+        FROM ExperienceHistory eh
+        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.userId NOT IN :excludedUserIds
+        GROUP BY eh.userId
+        ORDER BY totalExp DESC
+        """)
+    List<Object[]> findTopExpGainersAllByPeriodExcluding(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
+
+    /**
+     * 카테고리별 미션 수행 통계 (Admin)
+     */
+    @Query("""
+        SELECT eh.categoryName, COUNT(eh) as executionCount, SUM(eh.expAmount) as totalExp
+        FROM ExperienceHistory eh
+        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.sourceType = io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION
+        AND eh.categoryName IS NOT NULL
+        GROUP BY eh.categoryName
+        ORDER BY executionCount DESC
+        """)
+    List<Object[]> findCategoryMissionStatsByPeriod(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
 }

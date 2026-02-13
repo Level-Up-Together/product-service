@@ -93,4 +93,20 @@ public interface DailyMvpHistoryRepository extends JpaRepository<DailyMvpHistory
     List<Object[]> countMvpByUserAndRankAndPeriod(
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate);
+
+    /**
+     * 기간별 총 MVP 레코드 수 (Admin)
+     */
+    @Query("SELECT COUNT(d) FROM DailyMvpHistory d WHERE d.mvpDate >= :startDate AND d.mvpDate <= :endDate")
+    long countByPeriod(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
+
+    /**
+     * 기간별 고유 MVP 사용자 수 (Admin)
+     */
+    @Query("SELECT COUNT(DISTINCT d.userId) FROM DailyMvpHistory d WHERE d.mvpDate >= :startDate AND d.mvpDate <= :endDate")
+    long countDistinctUsersByPeriod(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
 }

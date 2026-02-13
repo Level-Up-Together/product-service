@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.event.infrastructur
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.domain.entity.Event;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +29,18 @@ public interface EventRepository extends JpaRepository<Event, Long> {
      */
     @Query("SELECT e FROM Event e WHERE e.isActive = true AND e.endAt >= :now ORDER BY e.startAt ASC")
     List<Event> findActiveOrUpcomingEvents(@Param("now") LocalDateTime now);
+
+    /**
+     * 키워드 검색 (Admin)
+     */
+    @Query("SELECT e FROM Event e WHERE " +
+        "(:keyword IS NULL OR :keyword = '' OR LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+        "OR LOWER(e.nameEn) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+        "OR LOWER(e.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Event> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * 전체 이벤트 페이징 조회 (Admin)
+     */
+    Page<Event> findAllByOrderByStartAtDesc(Pageable pageable);
 }
