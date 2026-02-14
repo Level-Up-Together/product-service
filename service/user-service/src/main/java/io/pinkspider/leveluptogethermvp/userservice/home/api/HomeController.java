@@ -1,8 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class HomeController {
 
     private final HomeService homeService;
-    private final SeasonRankingService seasonRankingService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
 
     /**
      * 활성화된 배너 목록 조회
@@ -95,7 +95,7 @@ public class HomeController {
     public ResponseEntity<ApiResult<SeasonMvpData>> getSeasonMvpData(
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        return seasonRankingService.getSeasonMvpData(acceptLanguage)
+        return gamificationQueryFacadeService.getSeasonMvpData(acceptLanguage)
             .map(data -> ResponseEntity.ok(ApiResult.<SeasonMvpData>builder().value(data).build()))
             .orElseGet(() -> ResponseEntity.ok(ApiResult.<SeasonMvpData>builder().value(null).build()));
     }

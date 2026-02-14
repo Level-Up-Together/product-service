@@ -21,7 +21,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCommentRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +49,7 @@ class MissionCommentServiceTest {
     private MissionRepository missionRepository;
 
     @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -120,7 +120,7 @@ class MissionCommentServiceTest {
             UserProfileCache userProfile = createTestUserProfile();
 
             when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
                 setId(saved, COMMENT_ID);
@@ -150,7 +150,7 @@ class MissionCommentServiceTest {
             UserProfileCache userProfile = createTestUserProfile();
 
             when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
                 setId(saved, COMMENT_ID);
@@ -181,7 +181,7 @@ class MissionCommentServiceTest {
             );
 
             when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
-            when(userProfileCacheService.getUserProfile(CREATOR_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(CREATOR_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
                 setId(saved, COMMENT_ID);

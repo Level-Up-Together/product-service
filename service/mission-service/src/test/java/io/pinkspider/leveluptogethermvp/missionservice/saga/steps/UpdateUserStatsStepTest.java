@@ -20,8 +20,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,10 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class UpdateUserStatsStepTest {
 
     @Mock
-    private UserStatsService userStatsService;
-
-    @Mock
-    private AchievementService achievementService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @InjectMocks
     private UpdateUserStatsStep updateUserStatsStep;
@@ -127,7 +123,7 @@ class UpdateUserStatsStepTest {
                 .maxStreak(10)
                 .build();
 
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
                 .thenReturn(userStats)
                 .thenReturn(updatedStats);
 
@@ -136,15 +132,15 @@ class UpdateUserStatsStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(userStatsService).recordMissionCompletion(TEST_USER_ID, false);
-            verify(achievementService).checkAchievementsByDataSource(eq(TEST_USER_ID), eq("USER_STATS"));
+            verify(gamificationQueryFacadeService).recordMissionCompletion(TEST_USER_ID, false);
+            verify(gamificationQueryFacadeService).checkAchievementsByDataSource(eq(TEST_USER_ID), eq("USER_STATS"));
         }
 
         @Test
         @DisplayName("통계 업데이트 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
                 .thenThrow(new RuntimeException("DB 오류"));
 
             // when
@@ -159,10 +155,10 @@ class UpdateUserStatsStepTest {
         @DisplayName("업적 체크 중 오류가 발생해도 실패로 처리한다")
         void execute_failsWhenAchievementCheckFails() {
             // given
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
                 .thenReturn(userStats);
             doThrow(new RuntimeException("업적 체크 오류"))
-                .when(userStatsService).recordMissionCompletion(anyString(), eq(false));
+                .when(gamificationQueryFacadeService).recordMissionCompletion(anyString(), eq(false));
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -184,7 +180,7 @@ class UpdateUserStatsStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(userStatsService, never()).getOrCreateUserStats(anyString());
+            verify(gamificationQueryFacadeService, never()).getOrCreateUserStats(anyString());
         }
 
         @Test
@@ -199,7 +195,7 @@ class UpdateUserStatsStepTest {
                 snapshot
             );
 
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
                 .thenReturn(userStats);
 
             // when
@@ -221,7 +217,7 @@ class UpdateUserStatsStepTest {
                 snapshot
             );
 
-            when(userStatsService.getOrCreateUserStats(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
                 .thenThrow(new RuntimeException("DB 오류"));
 
             // when

@@ -1,7 +1,10 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.application;
 
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
@@ -10,23 +13,24 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 외부 서비스용 게임화 읽기 전용 Facade
- * gamificationservice 외부에서 gamification_db에 직접 접근하지 않고 이 서비스를 통해 조회한다.
+ * 외부 서비스용 게임화 Facade
+ * gamificationservice 외부에서 gamification_db에 직접 접근하지 않고 이 서비스를 통해 접근한다.
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class GamificationQueryFacadeService {
 
@@ -34,6 +38,21 @@ public class GamificationQueryFacadeService {
     private final UserExperienceService userExperienceService;
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
+    private final SeasonRankingService seasonRankingService;
+
+    public GamificationQueryFacadeService(
+        TitleService titleService,
+        UserExperienceService userExperienceService,
+        UserStatsService userStatsService,
+        AchievementService achievementService,
+        @Lazy SeasonRankingService seasonRankingService
+    ) {
+        this.titleService = titleService;
+        this.userExperienceService = userExperienceService;
+        this.userStatsService = userStatsService;
+        this.achievementService = achievementService;
+        this.seasonRankingService = seasonRankingService;
+    }
 
     // ========== 레벨 조회 ==========
 
@@ -115,6 +134,40 @@ public class GamificationQueryFacadeService {
 
     public List<UserAchievementResponse> getUserAchievements(String userId) {
         return achievementService.getUserAchievements(userId);
+    }
+
+    // ========== 경험치 WRITE (Saga step용) ==========
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceResponse addExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                 Long sourceId, String description, Long categoryId, String categoryName) {
+        return userExperienceService.addExperience(userId, expAmount, sourceType, sourceId, description, categoryId, categoryName);
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserExperienceResponse subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
+                                                      Long sourceId, String description, Long categoryId, String categoryName) {
+        return userExperienceService.subtractExperience(userId, expAmount, sourceType, sourceId, description, categoryId, categoryName);
+    }
+
+    // ========== 통계 WRITE (Saga step용) ==========
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void recordMissionCompletion(String userId, boolean isGuildMission) {
+        userStatsService.recordMissionCompletion(userId, isGuildMission);
+    }
+
+    // ========== 업적 체크 (Saga step용) ==========
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void checkAchievementsByDataSource(String userId, String dataSource) {
+        achievementService.checkAchievementsByDataSource(userId, dataSource);
+    }
+
+    // ========== 시즌 조회 ==========
+
+    public Optional<SeasonMvpData> getSeasonMvpData(String locale) {
+        return seasonRankingService.getSeasonMvpData(locale);
     }
 
 }

@@ -22,7 +22,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatPart
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatReadStatusRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildBasicInfo;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -58,7 +58,7 @@ class GuildChatServiceTest {
     private GuildQueryFacadeService guildQueryFacadeService;
 
     @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
@@ -520,7 +520,7 @@ class GuildChatServiceTest {
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(profile);
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(profile);
             when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
                 .thenReturn(Optional.empty());
             when(participantRepository.save(any(GuildChatParticipant.class)))
@@ -545,7 +545,7 @@ class GuildChatServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(userProfileCacheService).getUserProfile(testUserId);
+            verify(userQueryFacadeService).getUserProfile(testUserId);
         }
 
         @Test
@@ -859,7 +859,7 @@ class GuildChatServiceTest {
             when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
             when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(java.util.Collections.emptyList());
-            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(profile);
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(profile);
             when(chatMessageRepository.save(any(GuildChatMessage.class))).thenAnswer(inv -> {
                 GuildChatMessage msg = inv.getArgument(0);
                 setId(msg, 1L);
@@ -871,7 +871,7 @@ class GuildChatServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(userProfileCacheService).getUserProfile(testUserId);
+            verify(userQueryFacadeService).getUserProfile(testUserId);
         }
 
         @Test
@@ -888,7 +888,7 @@ class GuildChatServiceTest {
             when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
                 .thenReturn(Optional.of(participant));
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(testUserId)).thenReturn(profile);
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(profile);
             when(chatMessageRepository.save(any(GuildChatMessage.class)))
                 .thenAnswer(inv -> {
                     GuildChatMessage msg = inv.getArgument(0);
@@ -900,7 +900,7 @@ class GuildChatServiceTest {
             guildChatService.leaveChat(1L, testUserId, "  ");
 
             // then
-            verify(userProfileCacheService).getUserProfile(testUserId);
+            verify(userQueryFacadeService).getUserProfile(testUserId);
         }
     }
 

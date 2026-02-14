@@ -18,7 +18,8 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
@@ -28,8 +29,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.Optional;
@@ -54,16 +54,13 @@ class FeedCommandServiceTest {
     private FeedCommentRepository feedCommentRepository;
 
     @Mock
-    private UserExistsCacheService userExistsCacheService;
-
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Mock
-    private TitleService titleService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @InjectMocks
     private FeedCommandService feedCommandService;
@@ -140,9 +137,10 @@ class FeedCommandServiceTest {
             ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
             CreateFeedRequest request = createTestFeedRequest();
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(true);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileCache(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
-            when(titleService.getCombinedEquippedTitleInfo(TEST_USER_ID)).thenReturn(new TitleService.TitleInfo(null, null, null));
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileCache(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(new TitleInfo("초보 모험가", TitleRarity.COMMON, "#FFFFFF"));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
 
             // when
@@ -150,7 +148,7 @@ class FeedCommandServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(userExistsCacheService).existsById(TEST_USER_ID);
+            verify(userQueryFacadeService).userExistsById(TEST_USER_ID);
             verify(activityFeedRepository).save(any(ActivityFeed.class));
         }
 
@@ -160,7 +158,7 @@ class FeedCommandServiceTest {
             // given
             CreateFeedRequest request = createTestFeedRequest();
 
-            when(userExistsCacheService.existsById(TEST_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(false);
 
             // when & then
             assertThatThrownBy(() -> feedCommandService.createFeed(TEST_USER_ID, request))
@@ -263,7 +261,7 @@ class FeedCommandServiceTest {
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
@@ -572,7 +570,7 @@ class FeedCommandServiceTest {
             setId(savedComment, 1L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 

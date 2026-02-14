@@ -9,7 +9,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionComment;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionCommentRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ public class MissionCommentService {
 
     private final MissionCommentRepository missionCommentRepository;
     private final MissionRepository missionRepository;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -40,7 +40,7 @@ public class MissionCommentService {
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "미션을 찾을 수 없습니다"));
 
         // 사용자 프로필 조회 (캐시)
-        UserProfileCache userProfile = userProfileCacheService.getUserProfile(userId);
+        UserProfileCache userProfile = userQueryFacadeService.getUserProfile(userId);
 
         // 댓글 생성
         MissionComment comment = MissionComment.builder()

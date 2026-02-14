@@ -13,7 +13,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -39,9 +38,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("GrantGuildExperienceStep 단위 테스트")
 class GrantGuildExperienceStepTest {
-
-    @Mock
-    private GuildExperienceService guildExperienceService;
 
     @Mock
     private GuildQueryFacadeService guildQueryFacadeService;
@@ -179,7 +175,7 @@ class GrantGuildExperienceStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(guildExperienceService).addExperience(
+            verify(guildQueryFacadeService).addGuildExperience(
                 eq(GUILD_ID),
                 eq(GUILD_EXP),
                 eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
@@ -201,7 +197,7 @@ class GrantGuildExperienceStepTest {
             // then
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("길드를 찾을 수 없습니다");
-            verify(guildExperienceService, never()).addExperience(
+            verify(guildQueryFacadeService, never()).addGuildExperience(
                 anyLong(), anyInt(), any(), anyLong(), anyString(), anyString());
         }
 
@@ -211,7 +207,7 @@ class GrantGuildExperienceStepTest {
             // given
             when(guildQueryFacadeService.getGuildExpInfo(GUILD_ID)).thenReturn(guildExpInfo);
             doThrow(new RuntimeException("DB 오류"))
-                .when(guildExperienceService).addExperience(
+                .when(guildQueryFacadeService).addGuildExperience(
                     anyLong(), anyInt(), any(), anyLong(), anyString(), anyString());
 
             // when
@@ -249,7 +245,7 @@ class GrantGuildExperienceStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(guildExperienceService, never()).subtractExperience(
+            verify(guildQueryFacadeService, never()).subtractGuildExperience(
                 anyLong(), anyInt(), any(), anyLong(), anyString(), anyString());
         }
 
@@ -261,7 +257,7 @@ class GrantGuildExperienceStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(guildExperienceService).subtractExperience(
+            verify(guildQueryFacadeService).subtractGuildExperience(
                 eq(GUILD_ID),
                 eq(GUILD_EXP),
                 eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
@@ -276,7 +272,7 @@ class GrantGuildExperienceStepTest {
         void compensate_failsWhenServiceThrowsException() {
             // given
             doThrow(new RuntimeException("DB 오류"))
-                .when(guildExperienceService).subtractExperience(
+                .when(guildQueryFacadeService).subtractGuildExperience(
                     anyLong(), anyInt(), any(), anyLong(), anyString(), anyString());
 
             // when

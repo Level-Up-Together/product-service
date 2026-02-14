@@ -14,7 +14,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatPart
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatReadStatusRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildBasicInfo;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +38,7 @@ public class GuildChatService {
     private final GuildChatReadStatusRepository readStatusRepository;
     private final GuildChatParticipantRepository participantRepository;
     private final GuildQueryFacadeService guildQueryFacadeService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "chatTransactionManager")
@@ -52,7 +52,7 @@ public class GuildChatService {
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
-            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+            effectiveNickname = userQueryFacadeService.getUserProfile(userId).nickname();
         }
 
         GuildChatMessage message;
@@ -305,7 +305,7 @@ public class GuildChatService {
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
-            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+            effectiveNickname = userQueryFacadeService.getUserProfile(userId).nickname();
         }
         final String finalNickname = effectiveNickname;
 
@@ -337,7 +337,7 @@ public class GuildChatService {
 
         String effectiveNickname = nickname;
         if (effectiveNickname == null || effectiveNickname.isBlank()) {
-            effectiveNickname = userProfileCacheService.getUserProfile(userId).nickname();
+            effectiveNickname = userQueryFacadeService.getUserProfile(userId).nickname();
         }
         final String finalNickname = effectiveNickname;
 

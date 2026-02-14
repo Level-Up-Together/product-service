@@ -4,7 +4,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatParticipantRepository;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import java.security.Principal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,18 +20,18 @@ public class GuildChatWebSocketController {
 
     private final GuildChatService chatService;
     private final GuildChatParticipantRepository participantRepository;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     public GuildChatWebSocketController(
             GuildChatService chatService,
             GuildChatParticipantRepository participantRepository,
-            UserProfileCacheService userProfileCacheService,
+            UserQueryFacadeService userQueryFacadeService,
             @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
         this.chatService = chatService;
         this.participantRepository = participantRepository;
-        this.userProfileCacheService = userProfileCacheService;
+        this.userQueryFacadeService = userQueryFacadeService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -59,7 +59,7 @@ public class GuildChatWebSocketController {
         String userId = principal.getName();
 
         // 사용자 닉네임 조회
-        String nickname = userProfileCacheService.getUserNickname(userId);
+        String nickname = userQueryFacadeService.getUserNickname(userId);
 
         try {
             // 메시지 저장

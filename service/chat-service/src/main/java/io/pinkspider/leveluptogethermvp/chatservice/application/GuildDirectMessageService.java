@@ -10,7 +10,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMe
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ public class GuildDirectMessageService {
     private final GuildDirectConversationRepository conversationRepository;
     private final GuildDirectMessageRepository messageRepository;
     private final GuildQueryFacadeService guildQueryFacadeService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final FcmPushService fcmPushService;
 
     @Transactional(transactionManager = "chatTransactionManager")
@@ -45,7 +45,7 @@ public class GuildDirectMessageService {
         validateGuildExists(guildId);
         validateBothAreMember(guildId, senderId, recipientId);
 
-        String senderNickname = userProfileCacheService.getUserNickname(senderId);
+        String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
         GuildDirectConversation conversation = conversationRepository
             .findConversation(guildId, senderId, recipientId)
@@ -84,7 +84,7 @@ public class GuildDirectMessageService {
             .distinct()
             .toList();
 
-        Map<String, UserProfileCache> profileMap = userProfileCacheService.getUserProfiles(otherUserIds);
+        Map<String, UserProfileCache> profileMap = userQueryFacadeService.getUserProfiles(otherUserIds);
 
         return conversations.stream()
             .map(conv -> {
@@ -177,7 +177,7 @@ public class GuildDirectMessageService {
                 return conversationRepository.save(newConversation);
             });
 
-        UserProfileCache otherProfile = userProfileCacheService.getUserProfile(otherUserId);
+        UserProfileCache otherProfile = userQueryFacadeService.getUserProfile(otherUserId);
         String otherNickname = otherProfile != null ? otherProfile.nickname() : "알 수 없음";
         String otherProfileImage = otherProfile != null ? otherProfile.picture() : null;
         int unreadCount = messageRepository.countUnreadMessages(conversation.getId(), userId);

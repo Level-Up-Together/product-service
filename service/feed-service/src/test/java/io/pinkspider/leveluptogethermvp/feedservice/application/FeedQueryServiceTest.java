@@ -12,7 +12,7 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.translation.TranslationService;
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
@@ -24,9 +24,7 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.application.Report
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
-import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.Collections;
@@ -58,16 +56,10 @@ class FeedQueryServiceTest {
     private FeedCommentRepository feedCommentRepository;
 
     @Mock
-    private FriendService friendService;
+    private AdminInternalFeignClient adminInternalFeignClient;
 
     @Mock
-    private FriendCacheService friendCacheService;
-
-    @Mock
-    private FeaturedContentQueryService featuredContentQueryService;
-
-    @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private TranslationService translationService;
@@ -133,7 +125,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -155,7 +147,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             List<String> friendIds = List.of("friend-1", "friend-2");
 
-            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
             when(activityFeedRepository.findTimelineFeeds(eq(TEST_USER_ID), eq(friendIds), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -185,7 +177,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
 
             // when
             Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
@@ -382,7 +374,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "ar";
 
-            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -408,7 +400,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -544,7 +536,7 @@ class FeedQueryServiceTest {
             String acceptLanguage = "es";
 
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileCache(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -568,7 +560,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(featuredContentQueryService.getActiveFeaturedFeedIds(eq(categoryId), any())).thenReturn(Collections.emptyList());
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -590,7 +582,7 @@ class FeedQueryServiceTest {
             ActivityFeed featuredFeed = createTestFeed(1L, TEST_USER_ID);
             ActivityFeed normalFeed = createTestFeed(2L, OTHER_USER_ID);
 
-            when(featuredContentQueryService.getActiveFeaturedFeedIds(eq(categoryId), any()))
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(featuredFeed));
@@ -614,7 +606,7 @@ class FeedQueryServiceTest {
             Long categoryId = 1L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
 
-            when(featuredContentQueryService.getActiveFeaturedFeedIds(eq(categoryId), any()))
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId))
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(feed));
@@ -640,7 +632,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "en";
 
-            when(featuredContentQueryService.getActiveFeaturedFeedIds(eq(categoryId), any())).thenReturn(Collections.emptyList());
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -679,7 +671,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, TEST_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, TEST_USER_ID)).thenReturn(false);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -709,7 +701,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(true);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -739,7 +731,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -826,7 +818,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(friendCacheService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
@@ -856,7 +848,7 @@ class FeedQueryServiceTest {
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(friendService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);

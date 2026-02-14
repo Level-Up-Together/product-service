@@ -6,7 +6,7 @@ import io.pinkspider.global.translation.TranslationService;
 import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.global.translation.enums.ContentType;
 import io.pinkspider.global.translation.enums.SupportedLocale;
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminPageResponse;
@@ -21,9 +21,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRe
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
-import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendCacheService;
-import io.pinkspider.leveluptogethermvp.userservice.friend.application.FriendService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,10 +51,8 @@ public class FeedQueryService {
     private final ActivityFeedRepository activityFeedRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
-    private final FriendService friendService;
-    private final FriendCacheService friendCacheService;
-    private final FeaturedContentQueryService featuredContentQueryService;
-    private final UserProfileCacheService userProfileCacheService;
+    private final AdminInternalFeignClient adminInternalFeignClient;
+    private final UserQueryFacadeService userQueryFacadeService;
     private final TranslationService translationService;
     private final ReportService reportService;
 
@@ -154,7 +150,7 @@ public class FeedQueryService {
         LocalDateTime endTime = timeRange[1];
 
         // 1. Admin Featured Feeds 먼저 조회
-        List<Long> featuredFeedIds = featuredContentQueryService.getActiveFeaturedFeedIds(categoryId, now);
+        List<Long> featuredFeedIds = adminInternalFeignClient.getFeaturedFeedIds(categoryId);
 
         List<ActivityFeed> featuredFeedList = new ArrayList<>();
         if (!featuredFeedIds.isEmpty()) {
@@ -239,7 +235,7 @@ public class FeedQueryService {
      */
     public Page<ActivityFeedResponse> getTimelineFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        List<String> friendIds = friendCacheService.getFriendIds(userId);
+        List<String> friendIds = userQueryFacadeService.getFriendIds(userId);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Page<ActivityFeed> feeds;
@@ -281,7 +277,7 @@ public class FeedQueryService {
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
         // 친구 여부에 따라 visibility 필터링
-        boolean isFriend = friendService.areFriends(currentUserId, targetUserId);
+        boolean isFriend = userQueryFacadeService.areFriends(currentUserId, targetUserId);
         boolean isSelf = currentUserId.equals(targetUserId);
 
         // 신고 상태 일괄 조회
@@ -485,7 +481,7 @@ public class FeedQueryService {
             // 모든 댓글에 대해 현재 유저 레벨 조회
             Integer userLevel;
             try {
-                UserProfileCache userProfile = userProfileCacheService.getUserProfile(comment.getUserId());
+                UserProfileCache userProfile = userQueryFacadeService.getUserProfile(comment.getUserId());
                 userLevel = userProfile.level();
             } catch (Exception e) {
                 log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());

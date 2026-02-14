@@ -23,7 +23,7 @@ import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,7 +42,7 @@ class FeedProjectionEventListenerTest {
     private FeedCommandService feedCommandService;
 
     @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @InjectMocks
     private FeedProjectionEventListener feedProjectionEventListener;
@@ -73,7 +73,7 @@ class FeedProjectionEventListenerTest {
         void handleTitleAcquired_success() {
             // given
             TitleAcquiredEvent event = new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleTitleAcquired(event);
@@ -94,7 +94,7 @@ class FeedProjectionEventListenerTest {
         void handleTitleAcquired_profileFetchFails() {
             // given
             TitleAcquiredEvent event = new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
@@ -119,7 +119,7 @@ class FeedProjectionEventListenerTest {
         void handleAchievementCompleted_success() {
             // given
             AchievementCompletedEvent event = new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleAchievementCompleted(event);
@@ -140,7 +140,7 @@ class FeedProjectionEventListenerTest {
         void handleAchievementCompleted_feedCreationFails() {
             // given
             AchievementCompletedEvent event = new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
             when(feedCommandService.createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(),
                 any(TitleRarity.class), anyString(), any(ActivityType.class),
@@ -170,7 +170,7 @@ class FeedProjectionEventListenerTest {
         void handleGuildJoined_success() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(TEST_USER_ID, 5L, "최강 길드");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleGuildJoined(event);
@@ -198,8 +198,8 @@ class FeedProjectionEventListenerTest {
             FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
                 TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L
             );
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
-            when(userProfileCacheService.getUserProfile(REQUESTER_USER_ID)).thenReturn(requesterProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(REQUESTER_USER_ID)).thenReturn(requesterProfile);
 
             // when
             feedProjectionEventListener.handleFriendRequestAccepted(event);
@@ -239,7 +239,7 @@ class FeedProjectionEventListenerTest {
             FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
                 TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L
             );
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
@@ -264,7 +264,7 @@ class FeedProjectionEventListenerTest {
         void handleUserLevelUp_success() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 15, 5000L);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleUserLevelUp(event);
@@ -290,7 +290,7 @@ class FeedProjectionEventListenerTest {
         void handleGuildCreated_success() {
             // given
             GuildCreatedEvent event = new GuildCreatedEvent(TEST_USER_ID, 7L, "새로운 길드");
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleGuildCreated(event);
@@ -316,7 +316,7 @@ class FeedProjectionEventListenerTest {
         void handleGuildLevelUp_success() {
             // given
             GuildLevelUpEvent event = new GuildLevelUpEvent(TEST_USER_ID, 5L, "최강 길드", 3);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleGuildLevelUp(event);
@@ -342,7 +342,7 @@ class FeedProjectionEventListenerTest {
         void handleAttendanceStreak_success() {
             // given
             AttendanceStreakEvent event = new AttendanceStreakEvent(TEST_USER_ID, 30);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleAttendanceStreak(event);
@@ -363,7 +363,7 @@ class FeedProjectionEventListenerTest {
         void handleAttendanceStreak_exceptionSwallowed() {
             // given
             AttendanceStreakEvent event = new AttendanceStreakEvent(TEST_USER_ID, 7);
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("캐시 실패"));
 
             // when - should not throw

@@ -3,8 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
 
-    private final UserStatsService userStatsService;
-    private final AchievementService achievementService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @Override
     public String getName() {
@@ -44,7 +42,7 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
 
         try {
             // 현재 상태 저장 (보상용)
-            UserStats currentStats = userStatsService.getOrCreateUserStats(userId);
+            UserStats currentStats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
             UserStatsSnapshot snapshot = new UserStatsSnapshot(
                 currentStats.getTotalMissionCompletions(),
                 currentStats.getTotalGuildMissionCompletions(),
@@ -56,12 +54,12 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
                 snapshot);
 
             // 미션 완료 기록 (pinned 미션은 길드 미션이 아님 → isGuildMission()이 false 반환)
-            userStatsService.recordMissionCompletion(userId, isGuildMission);
+            gamificationQueryFacadeService.recordMissionCompletion(userId, isGuildMission);
 
             // 동적 Strategy 패턴으로 USER_STATS 관련 업적 체크
-            achievementService.checkAchievementsByDataSource(userId, "USER_STATS");
+            gamificationQueryFacadeService.checkAchievementsByDataSource(userId, "USER_STATS");
 
-            UserStats updatedStats = userStatsService.getOrCreateUserStats(userId);
+            UserStats updatedStats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
             log.info("User stats updated: userId={}, totalCompletions={}, streak={}, pinned={}",
                 userId, updatedStats.getTotalMissionCompletions(), updatedStats.getCurrentStreak(), context.isPinned());
 
@@ -87,7 +85,7 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
 
             if (snapshot != null) {
                 // 이전 상태로 복원
-                UserStats stats = userStatsService.getOrCreateUserStats(userId);
+                UserStats stats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
                 stats.setTotalMissionCompletions(snapshot.totalMissionCompletions);
                 stats.setTotalGuildMissionCompletions(snapshot.totalGuildMissionCompletions);
                 stats.setCurrentStreak(snapshot.currentStreak);

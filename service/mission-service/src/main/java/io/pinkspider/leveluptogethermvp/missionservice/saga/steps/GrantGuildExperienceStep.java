@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -21,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class GrantGuildExperienceStep implements SagaStep<MissionCompletionContext> {
 
-    private final GuildExperienceService guildExperienceService;
     private final GuildQueryFacadeService guildQueryFacadeService;
 
     @Override
@@ -71,7 +69,7 @@ public class GrantGuildExperienceStep implements SagaStep<MissionCompletionConte
                 guildExpInfo.currentLevel());
 
             // 길드 경험치 지급
-            guildExperienceService.addExperience(
+            guildQueryFacadeService.addGuildExperience(
                 guildId,
                 expToGrant,
                 GuildExpSourceType.GUILD_MISSION_EXECUTION,
@@ -105,7 +103,7 @@ public class GrantGuildExperienceStep implements SagaStep<MissionCompletionConte
 
         try {
             // 지급한 경험치 차감
-            guildExperienceService.subtractExperience(
+            guildQueryFacadeService.subtractGuildExperience(
                 guildId,
                 expGranted,
                 GuildExpSourceType.GUILD_MISSION_EXECUTION,

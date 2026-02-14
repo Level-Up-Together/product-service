@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.enums.GuildExpSourceType;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildBasicInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildPermissionCheck;
@@ -35,6 +37,7 @@ public class GuildQueryFacadeService {
     private final GuildMemberRepository guildMemberRepository;
     private final GuildExperienceHistoryRepository guildExpHistoryRepository;
     private final GuildPostRepository guildPostRepository;
+    private final GuildExperienceService guildExperienceService;
 
     // ========== 단일 길드 정보 ==========
 
@@ -198,5 +201,19 @@ public class GuildQueryFacadeService {
         return guildRepository.findById(guildId)
             .map(g -> new GuildExpInfo(g.getCurrentExp(), g.getCurrentLevel()))
             .orElse(null);
+    }
+
+    // ========== 경험치 WRITE (Saga step용) ==========
+
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildExperienceResponse addGuildExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
+                                                       Long sourceId, String contributorId, String description) {
+        return guildExperienceService.addExperience(guildId, expAmount, sourceType, sourceId, contributorId, description);
+    }
+
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildExperienceResponse subtractGuildExperience(Long guildId, int expAmount, GuildExpSourceType sourceType,
+                                                            Long sourceId, String contributorId, String description) {
+        return guildExperienceService.subtractExperience(guildId, expAmount, sourceType, sourceId, contributorId, description);
     }
 }

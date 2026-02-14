@@ -28,7 +28,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
-import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -49,7 +49,7 @@ class CreateFeedFromMissionStepTest {
     private FeedCommandService feedCommandService;
 
     @Mock
-    private UserProfileCacheService userProfileCacheService;
+    private UserQueryFacadeService userQueryFacadeService;
 
     @Mock
     private MissionExecutionRepository executionRepository;
@@ -78,7 +78,7 @@ class CreateFeedFromMissionStepTest {
         // self-injection mock을 사용하여 CreateFeedFromMissionStep 생성
         createFeedFromMissionStep = new CreateFeedFromMissionStep(
             feedCommandService,
-            userProfileCacheService,
+            userQueryFacadeService,
             executionRepository,
             instanceRepository,
             selfMock
@@ -179,7 +179,7 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("정상적으로 피드를 생성한다")
         void execute_success() {
             // given
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
@@ -199,7 +199,7 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("피드 생성 시 execution 공유 상태 업데이트 메서드가 호출된다")
         void execute_updatesSharedStatusOnExecution() {
             // given
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
@@ -218,7 +218,7 @@ class CreateFeedFromMissionStepTest {
         @DisplayName("피드 생성 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
-            when(userProfileCacheService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when

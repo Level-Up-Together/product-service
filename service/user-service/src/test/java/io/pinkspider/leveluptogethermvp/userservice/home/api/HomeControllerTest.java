@@ -20,7 +20,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.Seaso
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
@@ -73,7 +73,7 @@ class HomeControllerTest {
     private HomeService homeService;
 
     @MockitoBean
-    private SeasonRankingService seasonRankingService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     private HomeBannerResponse createMockBannerResponse(BannerType type) {
         return HomeBannerResponse.builder()
@@ -395,7 +395,7 @@ class HomeControllerTest {
 
         SeasonMvpData seasonMvpData = SeasonMvpData.of(season, players, guilds);
 
-        when(seasonRankingService.getSeasonMvpData(isNull())).thenReturn(Optional.of(seasonMvpData));
+        when(gamificationQueryFacadeService.getSeasonMvpData(isNull())).thenReturn(Optional.of(seasonMvpData));
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -461,7 +461,7 @@ class HomeControllerTest {
     @DisplayName("GET /api/v1/home/season : 활성 시즌이 없을 경우 null 반환")
     void getSeasonMvpDataEmptyTest() throws Exception {
         // given
-        when(seasonRankingService.getSeasonMvpData(isNull())).thenReturn(Optional.empty());
+        when(gamificationQueryFacadeService.getSeasonMvpData(isNull())).thenReturn(Optional.empty());
 
         // when & then
         mockMvc.perform(

@@ -21,7 +21,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -40,7 +40,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class GrantUserExperienceStepTest {
 
     @Mock
-    private UserExperienceService userExperienceService;
+    private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @InjectMocks
     private GrantUserExperienceStep grantUserExperienceStep;
@@ -140,11 +140,11 @@ class GrantUserExperienceStepTest {
                 .totalExp(550)
                 .build();
 
-            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
                 .thenReturn(userExperience)  // 첫 번째 호출 (before)
                 .thenReturn(afterExp);        // 두 번째 호출 (after)
 
-            when(userExperienceService.addExperience(
+            when(gamificationQueryFacadeService.addExperience(
                 anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
                 .thenReturn(mockResponse);
 
@@ -156,7 +156,7 @@ class GrantUserExperienceStepTest {
             assertThat(context.getUserLevelBefore()).isEqualTo(5);
             assertThat(context.getUserLevelAfter()).isEqualTo(6);
 
-            verify(userExperienceService).addExperience(
+            verify(gamificationQueryFacadeService).addExperience(
                 TEST_USER_ID,
                 EXP_TO_GRANT,
                 ExpSourceType.MISSION_EXECUTION,
@@ -171,11 +171,11 @@ class GrantUserExperienceStepTest {
         @DisplayName("경험치 지급 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
-            when(userExperienceService.getOrCreateUserExperience(TEST_USER_ID))
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
                 .thenReturn(userExperience);
 
             doThrow(new RuntimeException("DB 오류"))
-                .when(userExperienceService).addExperience(
+                .when(gamificationQueryFacadeService).addExperience(
                     anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
 
             // when
@@ -201,7 +201,7 @@ class GrantUserExperienceStepTest {
                 .totalExp(500)
                 .build();
 
-            when(userExperienceService.subtractExperience(
+            when(gamificationQueryFacadeService.subtractExperience(
                 anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
                 .thenReturn(mockResponse);
 
@@ -210,7 +210,7 @@ class GrantUserExperienceStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(userExperienceService).subtractExperience(
+            verify(gamificationQueryFacadeService).subtractExperience(
                 TEST_USER_ID,
                 EXP_TO_GRANT,
                 ExpSourceType.MISSION_EXECUTION,
@@ -226,7 +226,7 @@ class GrantUserExperienceStepTest {
         void compensate_failsWhenServiceThrowsException() {
             // given
             doThrow(new RuntimeException("DB 오류"))
-                .when(userExperienceService).subtractExperience(
+                .when(gamificationQueryFacadeService).subtractExperience(
                     anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString());
 
             // when

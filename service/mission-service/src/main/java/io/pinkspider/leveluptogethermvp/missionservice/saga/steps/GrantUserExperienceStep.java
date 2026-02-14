@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
-import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class GrantUserExperienceStep implements SagaStep<MissionCompletionContext> {
 
-    private final UserExperienceService userExperienceService;
+    private final GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @Override
     public String getName() {
@@ -47,7 +47,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
 
         try {
             // 현재 상태 저장 (보상용)
-            UserExperience currentExp = userExperienceService.getOrCreateUserExperience(userId);
+            UserExperience currentExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
             context.addCompensationData(
                 MissionCompletionContext.CompensationKeys.USER_EXP_BEFORE,
                 currentExp.getCurrentExp());
@@ -72,7 +72,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
             }
 
             // 경험치 지급
-            userExperienceService.addExperience(
+            gamificationQueryFacadeService.addExperience(
                 userId,
                 expToGrant,
                 ExpSourceType.MISSION_EXECUTION,
@@ -83,7 +83,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
             );
 
             // 지급 후 레벨 확인
-            UserExperience afterExp = userExperienceService.getOrCreateUserExperience(userId);
+            UserExperience afterExp = gamificationQueryFacadeService.getOrCreateUserExperience(userId);
             context.setUserLevelAfter(afterExp.getCurrentLevel());
 
             log.info("User experience granted: userId={}, exp={}, level: {} -> {}, pinned={}",
@@ -120,7 +120,7 @@ public class GrantUserExperienceStep implements SagaStep<MissionCompletionContex
                 description = "미션 완료 보상 - 경험치 환수";
             }
 
-            userExperienceService.subtractExperience(
+            gamificationQueryFacadeService.subtractExperience(
                 userId,
                 expGranted,
                 ExpSourceType.MISSION_EXECUTION,
