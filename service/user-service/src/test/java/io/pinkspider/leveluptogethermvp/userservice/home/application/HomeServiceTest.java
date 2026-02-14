@@ -2,19 +2,14 @@ package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
 import io.pinkspider.global.enums.BannerType;
-import io.pinkspider.global.enums.LinkType;
-import io.pinkspider.leveluptogethermvp.adminservice.application.HomeBannerService;
+import io.pinkspider.global.feign.admin.AdminBannerDto;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse;
@@ -49,16 +44,13 @@ import org.springframework.data.domain.PageRequest;
 class HomeServiceTest {
 
     @Mock
-    private HomeBannerService homeBannerService;
+    private AdminInternalFeignClient adminInternalFeignClient;
 
     @Mock
     private GamificationQueryFacadeService gamificationQueryFacadeService;
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private FeaturedContentQueryService featuredContentQueryService;
 
     @Mock
     private MissionCategoryService missionCategoryService;
@@ -320,7 +312,7 @@ class HomeServiceTest {
                 .build();
             setId(featuredUser, featuredUserId);
 
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(List.of(featuredUserId));
             when(userRepository.findById(featuredUserId)).thenReturn(Optional.of(featuredUser));
             when(gamificationQueryFacadeService.getUserLevel(featuredUserId)).thenReturn(10);
@@ -358,7 +350,7 @@ class HomeServiceTest {
         @DisplayName("Featured Player가 없으면 자동 선정만 조회한다")
         void getTodayPlayersByCategory_onlyAutoSelection() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(Collections.emptyList());
             when(missionCategoryService.getCategory(testCategoryId))
                 .thenReturn(testCategoryResponse);
@@ -386,7 +378,7 @@ class HomeServiceTest {
         @DisplayName("중복된 사용자는 제외된다")
         void getTodayPlayersByCategory_noDuplicates() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(List.of(testUserId));
             when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
             when(gamificationQueryFacadeService.getUserLevel(testUserId)).thenReturn(5);
@@ -415,7 +407,7 @@ class HomeServiceTest {
         @DisplayName("카테고리가 없으면 빈 목록을 반환한다")
         void getTodayPlayersByCategory_categoryNotFound() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(Collections.emptyList());
             when(missionCategoryService.getCategory(testCategoryId))
                 .thenThrow(new io.pinkspider.global.exception.CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
@@ -449,7 +441,7 @@ class HomeServiceTest {
                     .thenReturn(Collections.emptyList());
             }
 
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(manyFeaturedUserIds);
 
             // when
@@ -464,25 +456,33 @@ class HomeServiceTest {
     @DisplayName("배너 조회 테스트")
     class GetBannersTest {
 
-        private HomeBanner createTestBanner(Long id, String title, BannerType type) {
-            HomeBanner banner = HomeBanner.builder()
-                .title(title)
-                .bannerType(type)
-                .imageUrl("https://example.com/banner.jpg")
-                .isActive(true)
-                .build();
-            setId(banner, id);
-            return banner;
+        private AdminBannerDto createTestBannerDto(Long id, String title, BannerType type) {
+            return new AdminBannerDto(
+                id,
+                type.name(),
+                title,
+                "테스트 설명",
+                "https://example.com/banner.jpg",
+                null,
+                null,
+                null,
+                1,
+                true,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now(),
+                LocalDateTime.now()
+            );
         }
 
         @Test
         @DisplayName("활성 배너 목록을 조회한다")
         void getActiveBanners_success() {
             // given
-            HomeBanner banner1 = createTestBanner(1L, "배너1", BannerType.NOTICE);
-            HomeBanner banner2 = createTestBanner(2L, "배너2", BannerType.EVENT);
+            AdminBannerDto banner1 = createTestBannerDto(1L, "배너1", BannerType.NOTICE);
+            AdminBannerDto banner2 = createTestBannerDto(2L, "배너2", BannerType.EVENT);
 
-            when(homeBannerService.getActiveBanners(any(LocalDateTime.class)))
+            when(adminInternalFeignClient.getActiveBanners())
                 .thenReturn(List.of(banner1, banner2));
 
             // when
@@ -497,9 +497,9 @@ class HomeServiceTest {
         @DisplayName("특정 유형의 배너만 조회한다")
         void getActiveBannersByType_success() {
             // given
-            HomeBanner eventBanner = createTestBanner(1L, "이벤트배너", BannerType.EVENT);
+            AdminBannerDto eventBanner = createTestBannerDto(1L, "이벤트배너", BannerType.EVENT);
 
-            when(homeBannerService.getActiveBannersByType(eq(BannerType.EVENT), any(LocalDateTime.class)))
+            when(adminInternalFeignClient.getBannersByType("EVENT"))
                 .thenReturn(List.of(eventBanner));
 
             // when
@@ -581,145 +581,6 @@ class HomeServiceTest {
     }
 
     @Nested
-    @DisplayName("배너 관리 테스트")
-    class BannerManagementTest {
-
-        private HomeBanner createTestBanner(String title, BannerType type) {
-            return HomeBanner.builder()
-                .title(title)
-                .description("테스트 설명")
-                .imageUrl("https://example.com/banner.jpg")
-                .bannerType(type)
-                .linkType(LinkType.EXTERNAL)
-                .linkUrl("https://example.com")
-                .sortOrder(1)
-                .isActive(true)
-                .startAt(LocalDateTime.now())
-                .endAt(LocalDateTime.now().plusDays(7))
-                .build();
-        }
-
-
-        @Test
-        @DisplayName("배너를 생성한다")
-        void createBanner_success() {
-            // given
-            HomeBanner banner = createTestBanner("신규 배너", BannerType.EVENT);
-            HomeBanner savedBanner = createTestBanner("신규 배너", BannerType.EVENT);
-            setId(savedBanner, 1L);
-
-            when(homeBannerService.saveBanner(any(HomeBanner.class))).thenReturn(savedBanner);
-
-            // when
-            HomeBannerResponse result = homeService.createBanner(banner);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result.getTitle()).isEqualTo("신규 배너");
-            verify(homeBannerService).saveBanner(banner);
-        }
-
-        @Test
-        @DisplayName("배너를 수정한다")
-        void updateBanner_success() {
-            // given
-            Long bannerId = 1L;
-            HomeBanner existingBanner = createTestBanner("기존 배너", BannerType.NOTICE);
-            setId(existingBanner, bannerId);
-
-            HomeBanner updateData = HomeBanner.builder()
-                .title("수정된 배너")
-                .description("수정된 설명")
-                .imageUrl("https://example.com/new-banner.jpg")
-                .linkType(LinkType.INTERNAL)
-                .linkUrl("/new-page")
-                .sortOrder(2)
-                .isActive(false)
-                .startAt(LocalDateTime.now().plusDays(1))
-                .endAt(LocalDateTime.now().plusDays(10))
-                .build();
-
-            when(homeBannerService.findById(bannerId)).thenReturn(Optional.of(existingBanner));
-            when(homeBannerService.saveBanner(any(HomeBanner.class))).thenReturn(existingBanner);
-
-            // when
-            HomeBannerResponse result = homeService.updateBanner(bannerId, updateData);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(existingBanner.getTitle()).isEqualTo("수정된 배너");
-            assertThat(existingBanner.getDescription()).isEqualTo("수정된 설명");
-            assertThat(existingBanner.getImageUrl()).isEqualTo("https://example.com/new-banner.jpg");
-            assertThat(existingBanner.getLinkType()).isEqualTo(LinkType.INTERNAL);
-            assertThat(existingBanner.getLinkUrl()).isEqualTo("/new-page");
-            assertThat(existingBanner.getSortOrder()).isEqualTo(2);
-            assertThat(existingBanner.getIsActive()).isFalse();
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 배너 수정 시 예외 발생")
-        void updateBanner_notFound_throwsException() {
-            // given
-            Long bannerId = 999L;
-            HomeBanner updateData = HomeBanner.builder().title("수정").build();
-
-            when(homeBannerService.findById(bannerId)).thenReturn(Optional.empty());
-
-            // when & then
-            assertThatThrownBy(() -> homeService.updateBanner(bannerId, updateData))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("배너를 찾을 수 없습니다");
-        }
-
-        @Test
-        @DisplayName("배너를 삭제한다")
-        void deleteBanner_success() {
-            // given
-            Long bannerId = 1L;
-
-            // when
-            homeService.deleteBanner(bannerId);
-
-            // then
-            verify(homeBannerService).deleteById(bannerId);
-        }
-
-        @Test
-        @DisplayName("배너를 비활성화한다")
-        void deactivateBanner_success() {
-            // given
-            Long bannerId = 1L;
-            HomeBanner banner = createTestBanner("활성 배너", BannerType.EVENT);
-            setId(banner, bannerId);
-
-            when(homeBannerService.findById(bannerId)).thenReturn(Optional.of(banner));
-            when(homeBannerService.saveBanner(any(HomeBanner.class))).thenReturn(banner);
-
-            // when
-            HomeBannerResponse result = homeService.deactivateBanner(bannerId);
-
-            // then
-            assertThat(result).isNotNull();
-            assertThat(banner.getIsActive()).isFalse();
-            verify(homeBannerService).saveBanner(banner);
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 배너 비활성화 시 예외 발생")
-        void deactivateBanner_notFound_throwsException() {
-            // given
-            Long bannerId = 999L;
-
-            when(homeBannerService.findById(bannerId)).thenReturn(Optional.empty());
-
-            // when & then
-            assertThatThrownBy(() -> homeService.deactivateBanner(bannerId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("배너를 찾을 수 없습니다");
-        }
-    }
-
-    @Nested
     @DisplayName("다국어 지원 테스트")
     class MultilingualTest {
 
@@ -767,7 +628,7 @@ class HomeServiceTest {
         @DisplayName("아랍어로 카테고리별 플레이어를 조회한다")
         void getTodayPlayersByCategory_withArabicLocale() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(Collections.emptyList());
             when(missionCategoryService.getCategory(testCategoryId))
                 .thenReturn(testCategoryResponse);
@@ -819,7 +680,7 @@ class HomeServiceTest {
             // given
             String missingUserId = "missing-user-id";
 
-            when(featuredContentQueryService.getActiveFeaturedPlayerUserIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
                 .thenReturn(List.of(missingUserId));
             when(userRepository.findById(missingUserId)).thenReturn(Optional.empty());
             when(missionCategoryService.getCategory(testCategoryId))

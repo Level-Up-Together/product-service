@@ -62,11 +62,6 @@ spring:
       username: sa
       password:
       driver-class-name: org.h2.Driver
-    admin:
-      jdbc-url: jdbc:h2:mem:admin_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS admin_db
-      username: sa
-      password:
-      driver-class-name: org.h2.Driver
     feed:
       jdbc-url: jdbc:h2:mem:feed_db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS feed_db
       username: sa
@@ -199,10 +194,6 @@ resilience4j:
         event-consumer-buffer-size: 10
         register-health-indicator: true
     instance:
-      admin-service:
-        base-config: default
-        minimum-number-of-calls: 1
-        wait-duration-in-open-state: 5000
       loan-service:
         base-config: default
         minimum-number-of-calls: 1

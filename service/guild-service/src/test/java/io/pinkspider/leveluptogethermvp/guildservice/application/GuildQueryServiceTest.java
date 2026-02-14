@@ -18,7 +18,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHelper;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.global.enums.ReportTargetType;
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
@@ -61,7 +61,7 @@ class GuildQueryServiceTest {
     private GuildJoinRequestRepository joinRequestRepository;
 
     @Mock
-    private FeaturedContentQueryService featuredContentQueryService;
+    private AdminInternalFeignClient adminInternalFeignClient;
 
     @Mock
     private UserQueryFacadeService userQueryFacadeService;
@@ -138,7 +138,7 @@ class GuildQueryServiceTest {
                 .build();
             setId(featuredGuild, featuredGuildId);
 
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(List.of(featuredGuildId));
             when(guildRepository.findByIdAndIsActiveTrue(featuredGuildId))
                 .thenReturn(Optional.of(featuredGuild));
@@ -166,7 +166,7 @@ class GuildQueryServiceTest {
         @DisplayName("Featured 길드가 없으면 자동 선정만 조회한다")
         void getPublicGuildsByCategory_onlyAutoSelection() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(Collections.emptyList());
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
@@ -188,7 +188,7 @@ class GuildQueryServiceTest {
             // given
             Long guildId = 1L;
 
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(List.of(guildId));
             when(guildRepository.findByIdAndIsActiveTrue(guildId))
                 .thenReturn(Optional.of(testGuild));
@@ -211,7 +211,7 @@ class GuildQueryServiceTest {
         @DisplayName("카테고리가 null이면 빈 목록을 반환한다")
         void getPublicGuildsByCategory_nullCategory() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(null), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(null))
                 .thenReturn(Collections.emptyList());
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(null), any()))
                 .thenReturn(Collections.emptyList());
@@ -246,7 +246,7 @@ class GuildQueryServiceTest {
                 lenient().when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
             }
 
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(manyFeaturedGuildIds);
 
 
@@ -563,7 +563,7 @@ class GuildQueryServiceTest {
         @DisplayName("카테고리별 공개 길드 조회 시 신고 처리중 상태가 일괄 조회된다")
         void getPublicGuildsByCategory_batchUnderReviewCheck() {
             // given
-            when(featuredContentQueryService.getActiveFeaturedGuildIds(eq(testCategoryId), any()))
+            when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(Collections.emptyList());
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));

@@ -1,9 +1,8 @@
 package io.pinkspider.leveluptogethermvp.userservice.home.application;
 
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
-import io.pinkspider.leveluptogethermvp.adminservice.domain.entity.HomeBanner;
 import io.pinkspider.global.enums.BannerType;
-import io.pinkspider.leveluptogethermvp.adminservice.application.HomeBannerService;
+import io.pinkspider.global.feign.admin.AdminBannerDto;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildFacadeDto.GuildWithMemberCount;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
@@ -32,18 +31,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class HomeService {
 
-    private final HomeBannerService homeBannerService;
+    private final AdminInternalFeignClient adminInternalFeignClient;
     private final GamificationQueryFacadeService gamificationQueryFacadeService;
     private final UserRepository userRepository;
-    private final FeaturedContentQueryService featuredContentQueryService;
     private final MissionCategoryService missionCategoryService;
     private final GuildQueryFacadeService guildQueryFacadeService;
 
@@ -51,8 +47,7 @@ public class HomeService {
      * 활성화된 배너 목록 조회
      */
     public List<HomeBannerResponse> getActiveBanners() {
-        LocalDateTime now = LocalDateTime.now();
-        List<HomeBanner> banners = homeBannerService.getActiveBanners(now);
+        List<AdminBannerDto> banners = adminInternalFeignClient.getActiveBanners();
         return banners.stream()
             .map(HomeBannerResponse::from)
             .collect(Collectors.toList());
@@ -62,8 +57,7 @@ public class HomeService {
      * 특정 유형의 활성화된 배너 목록 조회
      */
     public List<HomeBannerResponse> getActiveBannersByType(BannerType bannerType) {
-        LocalDateTime now = LocalDateTime.now();
-        List<HomeBanner> banners = homeBannerService.getActiveBannersByType(bannerType, now);
+        List<AdminBannerDto> banners = adminInternalFeignClient.getBannersByType(bannerType.name());
         return banners.stream()
             .map(HomeBannerResponse::from)
             .collect(Collectors.toList());
@@ -170,7 +164,6 @@ public class HomeService {
      */
     @Cacheable(value = "todayPlayersByCategory", key = "#categoryId + '_' + (#locale ?: 'ko')", cacheManager = "redisCacheManager")
     public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale) {
-        LocalDateTime now = LocalDateTime.now();
         LocalDate today = LocalDate.now();
         LocalDateTime startDate = today.atStartOfDay();
         LocalDateTime endDate = today.atTime(LocalTime.MAX);
@@ -181,7 +174,7 @@ public class HomeService {
         int maxPlayers = 5;
 
         // 1. Admin Featured Players 먼저 조회
-        List<String> featuredUserIds = featuredContentQueryService.getActiveFeaturedPlayerUserIds(categoryId, now);
+        List<String> featuredUserIds = adminInternalFeignClient.getFeaturedPlayerUserIds(categoryId);
         for (String userId : featuredUserIds) {
             if (result.size() >= maxPlayers) break;
 
@@ -325,80 +318,6 @@ public class HomeService {
             earnedExp,
             rank
         );
-    }
-
-    /**
-     * 배너 생성 (관리자용)
-     */
-    @Transactional(transactionManager = "adminTransactionManager")
-    public HomeBannerResponse createBanner(HomeBanner banner) {
-        HomeBanner saved = homeBannerService.saveBanner(banner);
-        log.info("Banner created: id={}, type={}, title={}", saved.getId(), saved.getBannerType(), saved.getTitle());
-        return HomeBannerResponse.from(saved);
-    }
-
-    /**
-     * 배너 수정 (관리자용)
-     */
-    @Transactional(transactionManager = "adminTransactionManager")
-    public HomeBannerResponse updateBanner(Long bannerId, HomeBanner updateData) {
-        HomeBanner banner = homeBannerService.findById(bannerId)
-            .orElseThrow(() -> new IllegalArgumentException("배너를 찾을 수 없습니다: " + bannerId));
-
-        if (updateData.getTitle() != null) {
-            banner.setTitle(updateData.getTitle());
-        }
-        if (updateData.getDescription() != null) {
-            banner.setDescription(updateData.getDescription());
-        }
-        if (updateData.getImageUrl() != null) {
-            banner.setImageUrl(updateData.getImageUrl());
-        }
-        if (updateData.getLinkType() != null) {
-            banner.setLinkType(updateData.getLinkType());
-        }
-        if (updateData.getLinkUrl() != null) {
-            banner.setLinkUrl(updateData.getLinkUrl());
-        }
-        if (updateData.getSortOrder() != null) {
-            banner.setSortOrder(updateData.getSortOrder());
-        }
-        if (updateData.getIsActive() != null) {
-            banner.setIsActive(updateData.getIsActive());
-        }
-        if (updateData.getStartAt() != null) {
-            banner.setStartAt(updateData.getStartAt());
-        }
-        if (updateData.getEndAt() != null) {
-            banner.setEndAt(updateData.getEndAt());
-        }
-
-        HomeBanner saved = homeBannerService.saveBanner(banner);
-        log.info("Banner updated: id={}", saved.getId());
-        return HomeBannerResponse.from(saved);
-    }
-
-    /**
-     * 배너 삭제 (관리자용)
-     */
-    @Transactional(transactionManager = "adminTransactionManager")
-    public void deleteBanner(Long bannerId) {
-        homeBannerService.deleteById(bannerId);
-        log.info("Banner deleted: id={}", bannerId);
-    }
-
-    /**
-     * 배너 비활성화 (관리자용)
-     */
-    @Transactional(transactionManager = "adminTransactionManager")
-    public HomeBannerResponse deactivateBanner(Long bannerId) {
-        HomeBanner banner = homeBannerService.findById(bannerId)
-            .orElseThrow(() -> new IllegalArgumentException("배너를 찾을 수 없습니다: " + bannerId));
-
-        banner.setIsActive(false);
-        HomeBanner saved = homeBannerService.saveBanner(banner);
-        log.info("Banner deactivated: id={}", saved.getId());
-        return HomeBannerResponse.from(saved);
     }
 
     /**

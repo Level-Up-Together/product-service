@@ -8,14 +8,13 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.adminservice.application.FeaturedContentQueryService;
+import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.gamificationservice.application.GamificationQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserQueryFacadeService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.domain.dto.UserProfileCache;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -40,7 +39,7 @@ public class GuildQueryService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final GuildJoinRequestRepository joinRequestRepository;
-    private final FeaturedContentQueryService featuredContentQueryService;
+    private final AdminInternalFeignClient adminInternalFeignClient;
     private final UserQueryFacadeService userQueryFacadeService;
     private final GamificationQueryFacadeService gamificationQueryFacadeService;
     private final ReportService reportService;
@@ -124,13 +123,12 @@ public class GuildQueryService {
      * 3. 중복 제거 후 최대 5개 반환
      */
     public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId) {
-        LocalDateTime now = LocalDateTime.now();
         List<GuildResponse> result = new ArrayList<>();
         Set<Long> addedGuildIds = new HashSet<>();
         int maxGuilds = 5;
 
         // 1. Admin Featured Guilds 먼저 조회
-        List<Long> featuredGuildIds = featuredContentQueryService.getActiveFeaturedGuildIds(categoryId, now);
+        List<Long> featuredGuildIds = adminInternalFeignClient.getFeaturedGuildIds(categoryId);
         for (Long guildId : featuredGuildIds) {
             if (result.size() >= maxGuilds) break;
 
