@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
-import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,16 +9,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.SeasonDto;
+import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
+import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
+import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
+import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
@@ -40,10 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BffSeasonServiceTest {
 
     @Mock
-    private SeasonRankingService seasonRankingService;
-
-    @Mock
-    private SeasonRankRewardRepository seasonRankRewardRepository;
+    private GamificationQueryFacade gamificationQueryFacade;
 
     @Mock
     private MissionCategoryService missionCategoryService;
@@ -52,77 +45,53 @@ class BffSeasonServiceTest {
     private BffSeasonService bffSeasonService;
 
     private String testUserId;
-    private Season testSeason;
-    private SeasonRankReward testRankReward;
-    private SeasonMvpPlayerResponse testPlayerRanking;
-    private SeasonMvpGuildResponse testGuildRanking;
-    private SeasonMyRankingResponse testMyRanking;
+    private SeasonDto testSeasonDto;
+    private SeasonRankRewardDto testRankRewardDto;
+    private SeasonMvpPlayerDto testPlayerRanking;
+    private SeasonMvpGuildDto testGuildRanking;
+    private SeasonMyRankingDto testMyRanking;
     private MissionCategoryResponse testCategory;
 
     @BeforeEach
     void setUp() {
         testUserId = "test-user-id";
 
-        testSeason = Season.builder()
-            .title("2025 윈터 시즌")
-            .description("겨울 시즌 이벤트입니다.")
-            .startAt(LocalDateTime.of(2025, 1, 1, 0, 0))
-            .endAt(LocalDateTime.of(2025, 3, 31, 23, 59))
-            .rewardTitleId(100L)
-            .rewardTitleName("윈터 챔피언")
-            .build();
-        setId(testSeason, 1L);
-
-        testRankReward = SeasonRankReward.builder()
-            .season(testSeason)
-            .rankStart(1)
-            .rankEnd(1)
-            .titleId(101L)
-            .titleName("골드 챔피언")
-            .sortOrder(1)
-            .isActive(true)
-            .build();
-        setId(testRankReward, 1L);
-
-        testPlayerRanking = SeasonMvpPlayerResponse.of(
-            "user-1",
-            "플레이어1",
-            "https://example.com/profile.jpg",
-            15,
-            "모험가",
-            TitleRarity.RARE,
-            null,
-            null,
-            null,
-            null,
-            10000L,
-            1
+        testSeasonDto = new SeasonDto(
+            1L, "2025 윈터 시즌", "겨울 시즌 이벤트입니다.",
+            LocalDateTime.of(2025, 1, 1, 0, 0),
+            LocalDateTime.of(2025, 3, 31, 23, 59),
+            100L, "윈터 챔피언",
+            "ACTIVE", "진행중"
         );
 
-        testGuildRanking = SeasonMvpGuildResponse.of(
-            1L,
-            "테스트 길드",
-            "https://example.com/guild.jpg",
-            10,
-            25,
-            50000L,
-            1
+        testRankRewardDto = new SeasonRankRewardDto(
+            1L, 1L, 1, 1, "1위",
+            null, null, "전체 랭킹",
+            101L, "골드 챔피언", "LEGENDARY",
+            1, true
         );
 
-        testMyRanking = SeasonMyRankingResponse.of(
-            5,
-            8500L,
-            3,
-            45000L,
-            1L,
-            "테스트 길드"
+        testPlayerRanking = new SeasonMvpPlayerDto(
+            "user-1", "플레이어1", "https://example.com/profile.jpg",
+            15, "모험가", TitleRarity.RARE,
+            null, null, null, null,
+            10000L, 1
+        );
+
+        testGuildRanking = new SeasonMvpGuildDto(
+            1L, "테스트 길드", "https://example.com/guild.jpg",
+            10, 25, 50000L, 1
+        );
+
+        testMyRanking = new SeasonMyRankingDto(
+            5, 8500L, 3, 45000L, 1L, "테스트 길드"
         );
 
         testCategory = MissionCategoryResponse.builder()
             .id(1L)
             .name("운동")
             .nameEn("Exercise")
-            .icon("🏃")
+            .icon("\uD83C\uDFC3")
             .isActive(true)
             .build();
     }
@@ -135,14 +104,14 @@ class BffSeasonServiceTest {
         @DisplayName("시즌 상세 데이터를 조회한다")
         void getSeasonDetail_success() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -168,14 +137,14 @@ class BffSeasonServiceTest {
         void getSeasonDetail_withCategory_success() {
             // given
             String categoryName = "운동";
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -192,7 +161,7 @@ class BffSeasonServiceTest {
         @DisplayName("존재하지 않는 시즌 조회 시 예외를 던진다")
         void getSeasonDetail_seasonNotFound_throwsException() {
             // given
-            when(seasonRankingService.getSeasonById(999L)).thenReturn(Optional.empty());
+            when(gamificationQueryFacade.getSeasonById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getSeasonDetail(999L, testUserId, null, "ko"))
@@ -204,14 +173,14 @@ class BffSeasonServiceTest {
         @DisplayName("보상 조회 실패 시 빈 목록을 반환한다")
         void getSeasonDetail_rewardsFetchFailed_returnsEmptyList() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
                 .thenThrow(new RuntimeException("DB 오류"));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -228,14 +197,14 @@ class BffSeasonServiceTest {
         @DisplayName("플레이어 랭킹 조회 실패 시 빈 목록을 반환한다")
         void getSeasonDetail_playerRankingsFetchFailed_returnsEmptyList() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenThrow(new RuntimeException("DB 오류"));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -252,14 +221,14 @@ class BffSeasonServiceTest {
         @DisplayName("길드 랭킹 조회 실패 시 빈 목록을 반환한다")
         void getSeasonDetail_guildRankingsFetchFailed_returnsEmptyList() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenThrow(new RuntimeException("DB 오류"));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -276,14 +245,14 @@ class BffSeasonServiceTest {
         @DisplayName("내 랭킹 조회 실패 시 빈 랭킹 정보를 반환한다")
         void getSeasonDetail_myRankingFetchFailed_returnsEmptyRanking() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenThrow(new RuntimeException("DB 오류"));
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -301,14 +270,14 @@ class BffSeasonServiceTest {
         @DisplayName("카테고리 조회 실패 시 빈 목록을 반환한다")
         void getSeasonDetail_categoriesFetchFailed_returnsEmptyList() {
             // given
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenThrow(new RuntimeException("DB 오류"));
@@ -330,23 +299,15 @@ class BffSeasonServiceTest {
         @DisplayName("현재 활성 시즌 상세 데이터를 조회한다")
         void getCurrentSeasonDetail_success() {
             // given
-            SeasonResponse currentSeasonResponse = new SeasonResponse(
-                1L, "2025 윈터 시즌", "겨울 시즌 이벤트",
-                LocalDateTime.of(2025, 1, 1, 0, 0),
-                LocalDateTime.of(2025, 3, 31, 23, 59),
-                100L, "윈터 챔피언",
-                SeasonStatus.ACTIVE, "진행중"
-            );
-
-            when(seasonRankingService.getCurrentSeason()).thenReturn(Optional.of(currentSeasonResponse));
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(testSeason));
-            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
-                .thenReturn(List.of(testRankReward));
-            when(seasonRankingService.getSeasonPlayerRankings(any(Season.class), any(), anyInt(), any()))
+            when(gamificationQueryFacade.getCurrentSeason()).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonById(1L)).thenReturn(Optional.of(testSeasonDto));
+            when(gamificationQueryFacade.getSeasonRankRewards(1L))
+                .thenReturn(List.of(testRankRewardDto));
+            when(gamificationQueryFacade.getSeasonPlayerRankings(anyLong(), any(), anyInt(), any()))
                 .thenReturn(List.of(testPlayerRanking));
-            when(seasonRankingService.getSeasonGuildRankings(any(Season.class), anyInt()))
+            when(gamificationQueryFacade.getSeasonGuildRankings(anyLong(), anyInt()))
                 .thenReturn(List.of(testGuildRanking));
-            when(seasonRankingService.getMySeasonRanking(any(Season.class), anyString()))
+            when(gamificationQueryFacade.getMySeasonRanking(anyLong(), anyString()))
                 .thenReturn(testMyRanking);
             when(missionCategoryService.getActiveCategories())
                 .thenReturn(List.of(testCategory));
@@ -364,28 +325,7 @@ class BffSeasonServiceTest {
         @DisplayName("활성 시즌이 없는 경우 예외를 던진다")
         void getCurrentSeasonDetail_noActiveSeason_throwsException() {
             // given
-            when(seasonRankingService.getCurrentSeason()).thenReturn(Optional.empty());
-
-            // when & then
-            assertThatThrownBy(() -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("현재 활성화된 시즌이 없습니다");
-        }
-
-        @Test
-        @DisplayName("현재 시즌 응답은 있지만 시즌 엔티티 조회 실패 시 예외를 던진다")
-        void getCurrentSeasonDetail_seasonEntityNotFound_throwsException() {
-            // given
-            SeasonResponse currentSeasonResponse = new SeasonResponse(
-                1L, "2025 윈터 시즌", "겨울 시즌 이벤트",
-                LocalDateTime.of(2025, 1, 1, 0, 0),
-                LocalDateTime.of(2025, 3, 31, 23, 59),
-                100L, "윈터 챔피언",
-                SeasonStatus.ACTIVE, "진행중"
-            );
-
-            when(seasonRankingService.getCurrentSeason()).thenReturn(Optional.of(currentSeasonResponse));
-            when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.empty());
+            when(gamificationQueryFacade.getCurrentSeason()).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
@@ -395,14 +335,14 @@ class BffSeasonServiceTest {
     }
 
     @Nested
-    @DisplayName("SeasonMyRankingResponse 테스트")
-    class SeasonMyRankingResponseTest {
+    @DisplayName("SeasonMyRankingDto 테스트")
+    class SeasonMyRankingDtoTest {
 
         @Test
         @DisplayName("빈 랭킹 정보를 생성한다")
         void empty_createsEmptyRanking() {
             // when
-            SeasonMyRankingResponse emptyRanking = SeasonMyRankingResponse.empty();
+            SeasonMyRankingDto emptyRanking = SeasonMyRankingDto.empty();
 
             // then
             assertThat(emptyRanking).isNotNull();
@@ -416,9 +356,9 @@ class BffSeasonServiceTest {
 
         @Test
         @DisplayName("랭킹 정보를 생성한다")
-        void of_createsRanking() {
+        void constructor_createsRanking() {
             // when
-            SeasonMyRankingResponse ranking = SeasonMyRankingResponse.of(
+            SeasonMyRankingDto ranking = new SeasonMyRankingDto(
                 1, 10000L, 2, 50000L, 100L, "최강 길드"
             );
 
@@ -440,16 +380,16 @@ class BffSeasonServiceTest {
         @DisplayName("시즌 상세 응답을 생성한다")
         void of_createsResponse() {
             // given
-            SeasonResponse seasonResponse = new SeasonResponse(
+            SeasonDto seasonDto = new SeasonDto(
                 1L, "테스트 시즌", "설명",
                 LocalDateTime.now(), LocalDateTime.now().plusMonths(3),
                 100L, "보상 칭호",
-                SeasonStatus.ACTIVE, "진행중"
+                "ACTIVE", "진행중"
             );
 
             // when
             SeasonDetailResponse response = SeasonDetailResponse.of(
-                seasonResponse,
+                seasonDto,
                 Collections.emptyList(),
                 List.of(testPlayerRanking),
                 List.of(testGuildRanking),
@@ -459,7 +399,7 @@ class BffSeasonServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            assertThat(response.season()).isEqualTo(seasonResponse);
+            assertThat(response.season()).isEqualTo(seasonDto);
             assertThat(response.rankRewards()).isEmpty();
             assertThat(response.playerRankings()).hasSize(1);
             assertThat(response.guildRankings()).hasSize(1);

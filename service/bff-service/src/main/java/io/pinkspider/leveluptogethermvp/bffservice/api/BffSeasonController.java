@@ -1,7 +1,7 @@
 package io.pinkspider.leveluptogethermvp.bffservice.api;
 
 import io.pinkspider.global.api.ApiResult;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import io.pinkspider.global.annotation.CurrentUser;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class BffSeasonController {
 
     private final BffSeasonService bffSeasonService;
-    private final SeasonRankingService seasonRankingService;
+    private final GamificationQueryFacade gamificationQueryFacade;
 
     /**
      * 시즌 상세 데이터 조회 (BFF)
@@ -88,7 +88,7 @@ public class BffSeasonController {
      */
     @DeleteMapping("/cache")
     public ResponseEntity<ApiResult<String>> evictSeasonCache() {
-        seasonRankingService.evictAllSeasonCaches();
+        gamificationQueryFacade.evictAllSeasonCaches();
         return ResponseEntity.ok(ApiResult.<String>builder().value("시즌 캐시 삭제 완료").build());
     }
 }

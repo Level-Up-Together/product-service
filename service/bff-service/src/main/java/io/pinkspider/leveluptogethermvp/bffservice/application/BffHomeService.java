@@ -2,8 +2,8 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
@@ -44,7 +44,7 @@ public class BffHomeService {
     private final GuildQueryService guildQueryService;
     private final NoticeService noticeService;
     private final EventService eventService;
-    private final SeasonRankingService seasonRankingService;
+    private final GamificationQueryFacade gamificationQueryFacade;
     private final AchievementService achievementService;
     private final Executor bffExecutor;
 
@@ -55,7 +55,7 @@ public class BffHomeService {
             GuildQueryService guildQueryService,
             NoticeService noticeService,
             EventService eventService,
-            SeasonRankingService seasonRankingService,
+            GamificationQueryFacade gamificationQueryFacade,
             AchievementService achievementService,
             @Qualifier("bffExecutor") Executor bffExecutor) {
         this.feedQueryService = feedQueryService;
@@ -64,7 +64,7 @@ public class BffHomeService {
         this.guildQueryService = guildQueryService;
         this.noticeService = noticeService;
         this.eventService = eventService;
-        this.seasonRankingService = seasonRankingService;
+        this.gamificationQueryFacade = gamificationQueryFacade;
         this.achievementService = achievementService;
         this.bffExecutor = bffExecutor;
     }
@@ -235,7 +235,7 @@ public class BffHomeService {
 
         CompletableFuture<Optional<SeasonMvpDataDto>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return seasonRankingService.getSeasonMvpDataDto(locale);
+                return gamificationQueryFacade.getSeasonMvpData(locale);
             } catch (Exception e) {
                 log.error("Failed to fetch season MVP data", e);
                 return Optional.empty();

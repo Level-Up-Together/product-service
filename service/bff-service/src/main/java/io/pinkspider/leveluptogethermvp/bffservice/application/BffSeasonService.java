@@ -1,16 +1,13 @@
 package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.SeasonDto;
+import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
+import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
+import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
+import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +28,7 @@ import java.util.concurrent.CompletableFuture;
 @Transactional(readOnly = true)
 public class BffSeasonService {
 
-    private final SeasonRankingService seasonRankingService;
-    private final SeasonRankRewardRepository seasonRankRewardRepository;
+    private final GamificationQueryFacade gamificationQueryFacade;
     private final MissionCategoryService missionCategoryService;
 
     private static final int DEFAULT_RANKING_LIMIT = 10;
@@ -51,45 +47,43 @@ public class BffSeasonService {
             seasonId, userId, categoryName, locale);
 
         // 1. 시즌 조회
-        Season season = seasonRankingService.getSeasonById(seasonId)
+        SeasonDto season = gamificationQueryFacade.getSeasonById(seasonId)
             .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "시즌을 찾을 수 없습니다."));
 
         // 2. 병렬로 데이터 조회
-        CompletableFuture<List<SeasonRankRewardResponse>> rewardsFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<SeasonRankRewardDto>> rewardsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId).stream()
-                    .map(SeasonRankRewardResponse::from)
-                    .toList();
+                return gamificationQueryFacade.getSeasonRankRewards(seasonId);
             } catch (Exception e) {
                 log.error("시즌 보상 조회 실패: seasonId={}", seasonId, e);
                 return List.of();
             }
         });
 
-        CompletableFuture<List<SeasonMvpPlayerResponse>> playersFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<SeasonMvpPlayerDto>> playersFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return seasonRankingService.getSeasonPlayerRankings(season, categoryName, DEFAULT_RANKING_LIMIT, locale);
+                return gamificationQueryFacade.getSeasonPlayerRankings(seasonId, categoryName, DEFAULT_RANKING_LIMIT, locale);
             } catch (Exception e) {
                 log.error("시즌 플레이어 랭킹 조회 실패: seasonId={}, categoryName={}", seasonId, categoryName, e);
                 return List.of();
             }
         });
 
-        CompletableFuture<List<SeasonMvpGuildResponse>> guildsFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<SeasonMvpGuildDto>> guildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return seasonRankingService.getSeasonGuildRankings(season, DEFAULT_RANKING_LIMIT);
+                return gamificationQueryFacade.getSeasonGuildRankings(seasonId, DEFAULT_RANKING_LIMIT);
             } catch (Exception e) {
                 log.error("시즌 길드 랭킹 조회 실패: seasonId={}", seasonId, e);
                 return List.of();
             }
         });
 
-        CompletableFuture<SeasonMyRankingResponse> myRankingFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<SeasonMyRankingDto> myRankingFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return seasonRankingService.getMySeasonRanking(season, userId);
+                return gamificationQueryFacade.getMySeasonRanking(seasonId, userId);
             } catch (Exception e) {
                 log.error("내 시즌 랭킹 조회 실패: seasonId={}, userId={}", seasonId, userId, e);
-                return SeasonMyRankingResponse.empty();
+                return SeasonMyRankingDto.empty();
             }
         });
 
@@ -106,7 +100,7 @@ public class BffSeasonService {
         CompletableFuture.allOf(rewardsFuture, playersFuture, guildsFuture, myRankingFuture, categoriesFuture).join();
 
         return SeasonDetailResponse.of(
-            SeasonResponse.from(season),
+            season,
             rewardsFuture.join(),
             playersFuture.join(),
             guildsFuture.join(),
@@ -119,10 +113,9 @@ public class BffSeasonService {
      * 현재 활성 시즌 상세 정보 조회
      */
     public SeasonDetailResponse getCurrentSeasonDetail(String userId, String categoryName, String locale) {
-        Season currentSeason = seasonRankingService.getCurrentSeason()
-            .map(response -> seasonRankingService.getSeasonById(response.id()).orElse(null))
+        SeasonDto currentSeason = gamificationQueryFacade.getCurrentSeason()
             .orElseThrow(() -> new CustomException("NO_ACTIVE_SEASON", "현재 활성화된 시즌이 없습니다."));
 
-        return getSeasonDetail(currentSeason.getId(), userId, categoryName, locale);
+        return getSeasonDetail(currentSeason.id(), userId, categoryName, locale);
     }
 }

@@ -497,6 +497,7 @@ Note: Config files are located in `app/src/main/resources/config/`, not the root
 |-------------------|-------------------------------------------------------------------------------------|
 | Admin Backend     | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin`      |
 | Admin Frontend    | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend` |
+| Product Backend   | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp`            |
 | Product Frontend  | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend`       |
 | SQL Scripts       | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-sql/queries`    |
 | Config Server     | `/Users/pink-spider/Code/github/Level-Up-Together/config-repository`                |

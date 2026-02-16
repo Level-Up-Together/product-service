@@ -19,17 +19,16 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.SeasonDto;
+import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
+import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
+import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
+import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.SeasonDetailResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSeasonService;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.global.enums.TitleRarity;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpGuildResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRankRewardResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonResponse;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.enums.SeasonStatus;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -77,12 +76,12 @@ class BffSeasonControllerTest {
     private BffSeasonService bffSeasonService;
 
     @MockitoBean
-    private SeasonRankingService seasonRankingService;
+    private GamificationQueryFacade gamificationQueryFacade;
 
     // ========== Mock 데이터 생성 헬퍼 메서드 ==========
 
-    private SeasonResponse createMockSeasonResponse() {
-        return new SeasonResponse(
+    private SeasonDto createMockSeasonDto() {
+        return new SeasonDto(
             1L,
             "2025 윈터 시즌",
             "겨울 시즌 이벤트입니다.",
@@ -90,13 +89,13 @@ class BffSeasonControllerTest {
             LocalDateTime.of(2025, 3, 31, 23, 59),
             100L,
             "윈터 챔피언",
-            SeasonStatus.ACTIVE,
+            "ACTIVE",
             "진행중"
         );
     }
 
-    private SeasonRankRewardResponse createMockRankRewardResponse(int rank) {
-        return new SeasonRankRewardResponse(
+    private SeasonRankRewardDto createMockRankRewardDto(int rank) {
+        return new SeasonRankRewardDto(
             (long) rank,
             1L,
             rank,
@@ -113,8 +112,8 @@ class BffSeasonControllerTest {
         );
     }
 
-    private SeasonMvpPlayerResponse createMockPlayerRankingResponse(int rank) {
-        return SeasonMvpPlayerResponse.of(
+    private SeasonMvpPlayerDto createMockPlayerRankingDto(int rank) {
+        return new SeasonMvpPlayerDto(
             "user-" + rank,
             "플레이어" + rank,
             "https://example.com/profile" + rank + ".jpg",
@@ -130,8 +129,8 @@ class BffSeasonControllerTest {
         );
     }
 
-    private SeasonMvpGuildResponse createMockGuildRankingResponse(int rank) {
-        return SeasonMvpGuildResponse.of(
+    private SeasonMvpGuildDto createMockGuildRankingDto(int rank) {
+        return new SeasonMvpGuildDto(
             (long) rank,
             "길드" + rank,
             "https://example.com/guild" + rank + ".jpg",
@@ -142,8 +141,8 @@ class BffSeasonControllerTest {
         );
     }
 
-    private SeasonMyRankingResponse createMockMyRankingResponse() {
-        return SeasonMyRankingResponse.of(
+    private SeasonMyRankingDto createMockMyRankingDto() {
+        return new SeasonMyRankingDto(
             5,
             8500L,
             3,
@@ -158,30 +157,30 @@ class BffSeasonControllerTest {
             .id(id)
             .name(name)
             .nameEn(name + " EN")
-            .icon("📚")
+            .icon("\uD83D\uDCDA")
             .isActive(true)
             .build();
     }
 
     private SeasonDetailResponse createMockSeasonDetailResponse() {
         return SeasonDetailResponse.of(
-            createMockSeasonResponse(),
+            createMockSeasonDto(),
             List.of(
-                createMockRankRewardResponse(1),
-                createMockRankRewardResponse(2),
-                createMockRankRewardResponse(3)
+                createMockRankRewardDto(1),
+                createMockRankRewardDto(2),
+                createMockRankRewardDto(3)
             ),
             List.of(
-                createMockPlayerRankingResponse(1),
-                createMockPlayerRankingResponse(2),
-                createMockPlayerRankingResponse(3)
+                createMockPlayerRankingDto(1),
+                createMockPlayerRankingDto(2),
+                createMockPlayerRankingDto(3)
             ),
             List.of(
-                createMockGuildRankingResponse(1),
-                createMockGuildRankingResponse(2),
-                createMockGuildRankingResponse(3)
+                createMockGuildRankingDto(1),
+                createMockGuildRankingDto(2),
+                createMockGuildRankingDto(3)
             ),
-            createMockMyRankingResponse(),
+            createMockMyRankingDto(),
             List.of(
                 createMockCategoryResponse(1L, "운동"),
                 createMockCategoryResponse(2L, "공부")
@@ -450,7 +449,7 @@ class BffSeasonControllerTest {
     @DisplayName("DELETE /api/v1/bff/season/cache : 시즌 캐시 삭제")
     void evictSeasonCacheTest() throws Exception {
         // given
-        doNothing().when(seasonRankingService).evictAllSeasonCaches();
+        doNothing().when(gamificationQueryFacade).evictAllSeasonCaches();
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -476,6 +475,6 @@ class BffSeasonControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-        verify(seasonRankingService).evictAllSeasonCaches();
+        verify(gamificationQueryFacade).evictAllSeasonCaches();
     }
 }

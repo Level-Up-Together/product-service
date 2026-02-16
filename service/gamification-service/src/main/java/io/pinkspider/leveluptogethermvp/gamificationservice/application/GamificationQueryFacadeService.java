@@ -7,6 +7,8 @@ import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
+import io.pinkspider.global.facade.dto.SeasonMyRankingDto;
+import io.pinkspider.global.facade.dto.SeasonRankRewardDto;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.global.facade.dto.UserAchievementDto;
@@ -27,6 +29,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.experience.applicati
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpData;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,8 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 외부 서비스용 게임화 Facade
- * gamificationservice 외부에서 gamification_db에 직접 접근하지 않고 이 서비스를 통해 접근한다.
+ * 외부 서비스용 게임화 Facade gamificationservice 외부에서 gamification_db에 직접 접근하지 않고 이 서비스를 통해 접근한다.
  */
 @Service
 @Slf4j
@@ -53,19 +57,22 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
     private final SeasonRankingService seasonRankingService;
+    private final SeasonRankRewardRepository seasonRankRewardRepository;
 
     public GamificationQueryFacadeService(
         TitleService titleService,
         UserExperienceService userExperienceService,
         UserStatsService userStatsService,
         AchievementService achievementService,
-        @Lazy SeasonRankingService seasonRankingService
+        @Lazy SeasonRankingService seasonRankingService,
+        SeasonRankRewardRepository seasonRankRewardRepository
     ) {
         this.titleService = titleService;
         this.userExperienceService = userExperienceService;
         this.userStatsService = userStatsService;
         this.achievementService = achievementService;
         this.seasonRankingService = seasonRankingService;
+        this.seasonRankRewardRepository = seasonRankRewardRepository;
     }
 
     // ========== 레벨 조회 ==========
@@ -94,7 +101,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     @Override
     public List<Object[]> findTopExpGainersByCategoryAndPeriod(String categoryName, LocalDateTime start,
-                                                                LocalDateTime end, Pageable pageable) {
+                                                               LocalDateTime end, Pageable pageable) {
         return userExperienceService.findTopExpGainersByCategoryAndPeriod(categoryName, start, end, pageable);
     }
 
@@ -194,16 +201,18 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Override
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceDto addExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                            Long sourceId, String description, Long categoryId, String categoryName) {
-        UserExperienceResponse resp = userExperienceService.addExperience(userId, expAmount, sourceType, sourceId, description, categoryId, categoryName);
+                                           Long sourceId, String description, Long categoryId, String categoryName) {
+        UserExperienceResponse resp = userExperienceService.addExperience(userId, expAmount, sourceType, sourceId, description, categoryId,
+            categoryName);
         return toExperienceResponseDto(resp);
     }
 
     @Override
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserExperienceDto subtractExperience(String userId, int expAmount, ExpSourceType sourceType,
-                                                 Long sourceId, String description, Long categoryId, String categoryName) {
-        UserExperienceResponse resp = userExperienceService.subtractExperience(userId, expAmount, sourceType, sourceId, description, categoryId, categoryName);
+                                                Long sourceId, String description, Long categoryId, String categoryName) {
+        UserExperienceResponse resp = userExperienceService.subtractExperience(userId, expAmount, sourceType, sourceId, description, categoryId,
+            categoryName);
         return toExperienceResponseDto(resp);
     }
 
@@ -229,6 +238,81 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     public Optional<SeasonMvpDataDto> getSeasonMvpData(String locale) {
         return seasonRankingService.getSeasonMvpData(locale)
             .map(this::toSeasonMvpDataDto);
+    }
+
+    @Override
+    public Optional<SeasonDto> getSeasonById(Long seasonId) {
+        return seasonRankingService.getSeasonById(seasonId)
+            .map(this::toSeasonDto);
+    }
+
+    @Override
+    public Optional<SeasonDto> getCurrentSeason() {
+        return seasonRankingService.getCurrentSeason()
+            .map(r -> new SeasonDto(
+                r.id(), r.title(), r.description(), r.startAt(), r.endAt(),
+                r.rewardTitleId(), r.rewardTitleName(),
+                r.status() != null ? r.status().name() : null, r.statusName()
+            ));
+    }
+
+    @Override
+    public List<SeasonRankRewardDto> getSeasonRankRewards(Long seasonId) {
+        return seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId).stream()
+            .map(r -> new SeasonRankRewardDto(
+                r.getId(), r.getSeason().getId(), r.getRankStart(), r.getRankEnd(),
+                r.getRankRangeDisplay(), r.getCategoryId(), r.getCategoryName(),
+                r.getRankingTypeDisplay(), r.getTitleId(), r.getTitleName(),
+                r.getTitleRarity(), r.getSortOrder(), r.getIsActive()
+            ))
+            .toList();
+    }
+
+    @Override
+    public List<SeasonMvpPlayerDto> getSeasonPlayerRankings(Long seasonId, String categoryName, int limit, String locale) {
+        Season season = seasonRankingService.getSeasonById(seasonId).orElse(null);
+        if (season == null) {
+            return List.of();
+        }
+        return seasonRankingService.getSeasonPlayerRankings(season, categoryName, limit, locale).stream()
+            .map(p -> new SeasonMvpPlayerDto(
+                p.userId(), p.nickname(), p.profileImageUrl(), p.level(),
+                p.title(), p.titleRarity(), p.leftTitle(), p.leftTitleRarity(),
+                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank()
+            ))
+            .toList();
+    }
+
+    @Override
+    public List<SeasonMvpGuildDto> getSeasonGuildRankings(Long seasonId, int limit) {
+        Season season = seasonRankingService.getSeasonById(seasonId).orElse(null);
+        if (season == null) {
+            return List.of();
+        }
+        return seasonRankingService.getSeasonGuildRankings(season, limit).stream()
+            .map(g -> new SeasonMvpGuildDto(
+                g.guildId(), g.name(), g.imageUrl(), g.level(),
+                g.memberCount(), g.seasonExp(), g.rank()
+            ))
+            .toList();
+    }
+
+    @Override
+    public SeasonMyRankingDto getMySeasonRanking(Long seasonId, String userId) {
+        Season season = seasonRankingService.getSeasonById(seasonId).orElse(null);
+        if (season == null) {
+            return SeasonMyRankingDto.empty();
+        }
+        SeasonMyRankingResponse r = seasonRankingService.getMySeasonRanking(season, userId);
+        return new SeasonMyRankingDto(
+            r.playerRank(), r.playerSeasonExp(), r.guildRank(),
+            r.guildSeasonExp(), r.guildId(), r.guildName()
+        );
+    }
+
+    @Override
+    public void evictAllSeasonCaches() {
+        seasonRankingService.evictAllSeasonCaches();
     }
 
     // ========== 변환 유틸리티 ==========
@@ -276,6 +360,17 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             resp.getIconUrl(), resp.getCurrentCount(), resp.getRequiredCount(),
             resp.getProgressPercent(), resp.getIsCompleted(), resp.getCompletedAt(),
             resp.getIsRewardClaimed(), resp.getRewardExp(), resp.getRewardTitleId()
+        );
+    }
+
+    private SeasonDto toSeasonDto(Season season) {
+        String status = season.getStatus() != null ? season.getStatus().name() : null;
+        String statusName = season.getStatus() != null ? season.getStatus().getDescription() : null;
+        return new SeasonDto(
+            season.getId(), season.getTitle(), season.getDescription(),
+            season.getStartAt(), season.getEndAt(),
+            season.getRewardTitleId(), season.getRewardTitleName(),
+            status, statusName
         );
     }
 

@@ -8,11 +8,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
-import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -63,7 +63,7 @@ class BffHomeServiceTest {
     private NoticeService noticeService;
 
     @Mock
-    private SeasonRankingService seasonRankingService;
+    private GamificationQueryFacade gamificationQueryFacade;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventService eventService;
@@ -97,7 +97,7 @@ class BffHomeServiceTest {
             guildQueryService,
             noticeService,
             eventService,
-            seasonRankingService,
+            gamificationQueryFacade,
             achievementService,
             directExecutor
         );
@@ -228,7 +228,7 @@ class BffHomeServiceTest {
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-            when(seasonRankingService.getSeasonMvpDataDto(any())).thenReturn(Optional.of(testSeasonMvpData));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
 
             // when - categoryId = null (전체 조회)
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
@@ -532,7 +532,7 @@ class BffHomeServiceTest {
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-            when(seasonRankingService.getSeasonMvpDataDto(any())).thenReturn(Optional.of(testSeasonMvpData));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
 
             // when
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
@@ -569,7 +569,7 @@ class BffHomeServiceTest {
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-            when(seasonRankingService.getSeasonMvpDataDto(any())).thenReturn(Optional.empty());
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
 
             // when
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
@@ -602,7 +602,7 @@ class BffHomeServiceTest {
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-            when(seasonRankingService.getSeasonMvpDataDto(any())).thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
 
             // when
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);

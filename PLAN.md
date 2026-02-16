@@ -6,25 +6,18 @@
 
 - **Phase 1**: Platform 별도 레포지토리 분리 (2026-02-12)
 - **platform/infra 모듈 제거**: 76개 파일 `service/src/`로 통합 + `includeBuild` 설정 (2026-02-15)
+- **Phase 3**: 서비스 간 순환 의존 제거 — Facade 인터페이스 + DTO 전환 (2026-02-15)
+  - 4개 순환 쌍 해소: user↔guild, user↔gamification, user↔support, guild↔gamification
+  - platform kernel에 Facade 인터페이스 3개 + DTO 23개 추가
+  - MVP 72개 파일 전환, 전체 테스트 통과
+  - 잔여 정리 완료: BffSeasonService/BffHomeService → GamificationQueryFacade 전환 (2026-02-15)
 
 ## 다음 작업
 
-### Phase 3: MVP 서비스 간 순환 의존 제거
+> 현재 작업은 Admin Backend PLAN.md Phase 8로 이동.
+> Admin Backend: `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin/PLAN.md`
 
-4개 순환 쌍을 제거하여 향후 서비스 모듈을 독립 Gradle 모듈로 분리할 수 있는 기반 마련.
+### 기타 개선 사항
 
-| 순환 쌍 | A → B | B → A | 핵심 원인 |
-|---------|-------|-------|----------|
-| user ↔ guild | 3파일 (HomeService, MyPageService, UserAdminInternalService) | 4파일 (GuildInvitationService, GuildMemberService, GuildAdminInternalService, GuildQueryService) | user에서 길드 조회 / guild에서 유저 프로필 조회 |
-| user ↔ gamification | 8파일 (UserProfileCacheService, MyPageService, HomeService 등) | 5파일 (UserExperienceService, SeasonRankingService 등) | user에서 레벨/칭호/스탯 조회 / gamification에서 유저 프로필 캐시 사용 |
-| user ↔ support | 1파일 (MyPageService) | 2파일 (CustomerInquiryService, ReportService) | user에서 신고 상태 확인 / support에서 유저 정보 조회 |
-| guild ↔ gamification | 3파일 (GuildService, GuildMemberService, GuildQueryService) | 2파일 (SeasonRankingService, GuildServiceCheckStrategy) | guild에서 레벨/칭호 조회 / gamification에서 길드 랭킹 조회 |
-
-**핵심 패턴**: `UserProfileCacheService` 중심 순환
-- `UserProfileCacheService` → `TitleService`, `UserExperienceService` (레벨/칭호 캐시)
-- `UserExperienceService` → `UserProfileCacheService` (레벨업 시 캐시 무효화)
-
-**해결 전략 (계획 중)**:
-- 인터페이스 추출: 공통 조회 인터페이스를 platform 모듈에 정의, 각 서비스에서 구현
-- 이벤트 기반: 레벨업/칭호변경 시 이벤트 발행 → 캐시 무효화
-- Facade 패턴 강화: 기존 `GuildQueryFacadeService` 패턴 확대
+- [ ] platform 레포 GitHub Packages publish (facade 포함 버전)
+- [ ] 테스트 커버리지 확인 (JaCoCo 70% 목표)
