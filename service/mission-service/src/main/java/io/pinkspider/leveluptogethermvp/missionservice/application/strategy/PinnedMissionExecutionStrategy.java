@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
+import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
@@ -38,6 +39,7 @@ public class PinnedMissionExecutionStrategy implements MissionExecutionStrategy 
     }
 
     @Override
+    @ModerateImage
     public MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate,
                                                           MultipartFile image) {
         log.info("고정 미션 이미지 업로드 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);

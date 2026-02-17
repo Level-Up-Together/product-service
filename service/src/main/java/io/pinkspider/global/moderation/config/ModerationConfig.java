@@ -1,8 +1,9 @@
-package io.pinkspider.leveluptogethermvp.userservice.moderation.config;
+package io.pinkspider.global.moderation.config;
 
-import io.pinkspider.leveluptogethermvp.userservice.moderation.application.AwsRekognitionModerationService;
-import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
-import io.pinkspider.leveluptogethermvp.userservice.moderation.application.NoOpImageModerationService;
+import io.pinkspider.global.moderation.application.AwsRekognitionModerationService;
+import io.pinkspider.global.moderation.application.ImageModerationService;
+import io.pinkspider.global.moderation.application.NoOpImageModerationService;
+import io.pinkspider.global.moderation.application.OnnxNsfwModerationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
  *
  * moderation.image.provider 값에 따라 적절한 구현체를 빈으로 등록합니다.
  * - none (기본값): NoOpImageModerationService
+ * - onnx-nsfw: OnnxNsfwModerationService
  * - aws-rekognition: AwsRekognitionModerationService
  */
 @Slf4j
@@ -29,6 +31,11 @@ public class ModerationConfig {
         if (provider == null || provider.equalsIgnoreCase("none")) {
             log.info("이미지 검증 서비스: NoOp (비활성화)");
             return new NoOpImageModerationService();
+        }
+
+        if (provider.equalsIgnoreCase("onnx-nsfw")) {
+            log.info("이미지 검증 서비스: ONNX NSFW (활성화)");
+            return new OnnxNsfwModerationService(moderationProperties);
         }
 
         if (provider.equalsIgnoreCase("aws-rekognition")) {

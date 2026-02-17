@@ -35,7 +35,7 @@ app:
       url-prefix: /uploads/missions
 
 # 이미지 검증 설정
-# provider: none (기본값, 검증 비활성화), aws-rekognition (운영용)
+# provider: none (기본값, 검증 비활성화), onnx-nsfw (비용 절감), aws-rekognition (운영용)
 moderation:
   image:
     provider: none
@@ -47,6 +47,9 @@ moderation:
       - Hate Symbols
     aws:
       region: ap-northeast-2
+    onnx:
+      model-path: classpath:models/nsfw.onnx
+      nsfw-threshold: 0.8
 
 # Google Cloud Translation API 설정
 # enabled: true로 설정하면 번역 기능 활성화

@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto;
+package io.pinkspider.global.moderation.domain.dto;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +45,7 @@ public class ImageModerationResult {
     private String rejectionReason;
 
     /**
-     * 분석 제공자 (none, aws-rekognition 등)
+     * 분석 제공자 (none, onnx-nsfw, aws-rekognition 등)
      */
     private String provider;
 

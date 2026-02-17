@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.event.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventImageUploadResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.api.dto.EventResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.event.application.EventImageStorageService;
@@ -65,6 +66,7 @@ public class EventController {
     /**
      * 이벤트 이미지 업로드 (Admin용)
      */
+    @ModerateImage
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResult<EventImageUploadResponse> uploadEventImage(
         @RequestPart("file") MultipartFile file

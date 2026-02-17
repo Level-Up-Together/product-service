@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.userservice.moderation.application;
+package io.pinkspider.global.moderation.application;
 
-import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
+import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.multipart.MultipartFile;
 

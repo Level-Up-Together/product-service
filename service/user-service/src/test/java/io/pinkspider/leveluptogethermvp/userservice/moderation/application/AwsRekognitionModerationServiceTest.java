@@ -4,8 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.leveluptogethermvp.userservice.moderation.config.ModerationProperties;
-import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
+import io.pinkspider.global.moderation.application.AwsRekognitionModerationService;
+import io.pinkspider.global.moderation.config.ModerationProperties;
+import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
 import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

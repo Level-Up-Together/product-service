@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.userservice.moderation.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.pinkspider.global.moderation.config.ModerationProperties;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,17 @@ class ModerationPropertiesTest {
     }
 
     @Test
+    @DisplayName("provider가 onnx-nsfw이면 활성화 상태")
+    void isEnabled_shouldBeTrueWhenProviderIsOnnxNsfw() {
+        // given
+        ModerationProperties properties = new ModerationProperties();
+        properties.setProvider("onnx-nsfw");
+
+        // when & then
+        assertThat(properties.isEnabled()).isTrue();
+    }
+
+    @Test
     @DisplayName("차단 카테고리 기본값이 설정되어 있어야 함")
     void blockedCategories_shouldHaveDefaultValues() {
         // given
@@ -80,6 +92,21 @@ class ModerationPropertiesTest {
         // then
         assertThat(awsConfig).isNotNull();
         assertThat(awsConfig.getRegion()).isEqualTo("ap-northeast-2");
+    }
+
+    @Test
+    @DisplayName("ONNX 설정 기본값이 설정되어 있어야 함")
+    void onnxConfig_shouldHaveDefaultValues() {
+        // given
+        ModerationProperties properties = new ModerationProperties();
+
+        // when
+        ModerationProperties.OnnxConfig onnxConfig = properties.getOnnx();
+
+        // then
+        assertThat(onnxConfig).isNotNull();
+        assertThat(onnxConfig.getModelPath()).isEqualTo("classpath:models/nsfw.onnx");
+        assertThat(onnxConfig.getNsfwThreshold()).isEqualTo(0.8f);
     }
 
     @Test

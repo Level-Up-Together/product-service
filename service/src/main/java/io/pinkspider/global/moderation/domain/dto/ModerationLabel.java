@@ -1,4 +1,4 @@
-package io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto;
+package io.pinkspider.global.moderation.domain.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

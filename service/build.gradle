@@ -92,6 +92,9 @@ dependencies {
     annotationProcessor 'io.pinkspider:lut-platform-kernel:1.0.0-SNAPSHOT'
     annotationProcessor 'io.pinkspider:lut-platform-infra:1.0.0-SNAPSHOT'
 
+    // ONNX Runtime (이미지 모더레이션 NSFW 모델)
+    implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.3'
+
     // GeoIP (user-service)
     implementation 'com.maxmind.geoip2:geoip2:4.2.0'
 

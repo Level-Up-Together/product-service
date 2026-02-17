@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
+import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageStorageService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
@@ -113,6 +114,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     }
 
     @Override
+    @ModerateImage
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate,
                                                           MultipartFile image) {

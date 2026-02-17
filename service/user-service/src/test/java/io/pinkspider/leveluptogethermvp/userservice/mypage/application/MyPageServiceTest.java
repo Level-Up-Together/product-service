@@ -28,7 +28,6 @@ import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entit
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
 import io.pinkspider.leveluptogethermvp.userservice.friend.infrastructure.FriendshipRepository;
-import io.pinkspider.leveluptogethermvp.userservice.moderation.application.ImageModerationService;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.MyPageResponse.ProfileInfo;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.ProfileUpdateRequest;
@@ -72,9 +71,6 @@ class MyPageServiceTest {
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
-
-    @Mock
-    private ImageModerationService imageModerationService;
 
     @Mock
     private GuildQueryFacade guildQueryFacadeService;

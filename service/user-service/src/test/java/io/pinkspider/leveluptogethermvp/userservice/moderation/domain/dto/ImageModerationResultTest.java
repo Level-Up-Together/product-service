@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
+import io.pinkspider.global.moderation.domain.dto.ModerationLabel;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;

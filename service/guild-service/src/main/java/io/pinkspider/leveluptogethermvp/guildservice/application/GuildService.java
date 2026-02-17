@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
@@ -172,6 +173,7 @@ public class GuildService {
     /**
      * 길드 이미지 업로드
      */
+    @ModerateImage
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildResponse uploadGuildImage(Long guildId, String userId, MultipartFile imageFile) {
         Guild guild = guildHelper.findActiveGuildById(guildId);

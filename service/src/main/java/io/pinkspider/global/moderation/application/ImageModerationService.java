@@ -1,6 +1,6 @@
-package io.pinkspider.leveluptogethermvp.userservice.moderation.application;
+package io.pinkspider.global.moderation.application;
 
-import io.pinkspider.leveluptogethermvp.userservice.moderation.domain.dto.ImageModerationResult;
+import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
  * 구현체:
  * - NoOpImageModerationService: 검증 비활성화 (개발/테스트용)
  * - AwsRekognitionModerationService: AWS Rekognition 기반 검증 (운영용)
+ * - OnnxNsfwModerationService: ONNX NSFW 모델 기반 검증 (비용 절감)
  */
 public interface ImageModerationService {
 
@@ -38,7 +39,7 @@ public interface ImageModerationService {
     /**
      * 사용 중인 검증 제공자 이름
      *
-     * @return 제공자 이름 (none, aws-rekognition 등)
+     * @return 제공자 이름 (none, onnx-nsfw, aws-rekognition 등)
      */
     String getProviderName();
 }
