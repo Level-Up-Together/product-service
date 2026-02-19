@@ -11,12 +11,14 @@ permissions:
 
 env:
   S3_BUCKET: lut-deploy-prod
-  APP_NAME: product-be
+  APP_NAME: product-service
 
 jobs:
   build:
     name: Build & Upload
     runs-on: ubuntu-latest
+    outputs:
+      jar_filename: ${{ steps.upload.outputs.jar_filename }}
 
     steps:
       # 1. SSH 호스트 키 추가
@@ -81,10 +83,15 @@ jobs:
 
       # 9. JAR → S3 업로드
       - name: Upload JAR to S3
+        id: upload
         run: |
           JAR_FILE=$(ls app/build/libs/*-exec.jar | head -1)
+          JAR_FILENAME=$(basename "$JAR_FILE")
           COMMIT_SHA=${GITHUB_SHA::8}
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          # JAR 파일명을 deploy job에 전달
+          echo "jar_filename=$JAR_FILENAME" >> "$GITHUB_OUTPUT"
 
           # 커밋별 아카이브
           aws s3 cp "$JAR_FILE" "s3://$S3_BUCKET/$APP_NAME/${TIMESTAMP}-${COMMIT_SHA}.jar"
@@ -92,7 +99,7 @@ jobs:
           # latest.jar (배포용)
           aws s3 cp "$JAR_FILE" "s3://$S3_BUCKET/$APP_NAME/latest.jar"
 
-          echo "Uploaded: $JAR_FILE -> s3://$S3_BUCKET/$APP_NAME/latest.jar"
+          echo "Uploaded: $JAR_FILENAME -> s3://$S3_BUCKET/$APP_NAME/latest.jar"
 
   deploy:
     name: Deploy to EC2
@@ -113,7 +120,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_1_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar\"]" \
+            --parameters "commands=[\"sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar $JAR_FILENAME\"]" \
             --timeout-seconds 300 \
             --query "Command.CommandId" --output text)
           echo "Command ID: $COMMAND_ID"
@@ -138,6 +145,7 @@ jobs:
           fi
         env:
           EC2_1_ID: ${{ secrets.PROD_EC2_1_ID }}
+          JAR_FILENAME: ${{ needs.build.outputs.jar_filename }}
 
       # EC2 #2 배포
       - name: Deploy to EC2 #2
@@ -145,7 +153,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_2_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar\"]" \
+            --parameters "commands=[\"sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar $JAR_FILENAME\"]" \
             --timeout-seconds 300 \
             --query "Command.CommandId" --output text)
           echo "Command ID: $COMMAND_ID"
@@ -170,6 +178,7 @@ jobs:
           fi
         env:
           EC2_2_ID: ${{ secrets.PROD_EC2_2_ID }}
+          JAR_FILENAME: ${{ needs.build.outputs.jar_filename }}
 
   notify:
     name: Slack Notification
