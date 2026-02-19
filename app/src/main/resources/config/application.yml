@@ -1,6 +1,6 @@
 spring:
   application:
-    name: level-up-together-mvp
+    name: product-service
   servlet:
     multipart:
       enabled: true

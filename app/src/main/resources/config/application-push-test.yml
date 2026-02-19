@@ -18,7 +18,7 @@ crypto:
 
 spring:
   application:
-    name: level-up-together-mvp-push-test
+    name: product-service-push-test
   cloud:
     config:
       enabled: false

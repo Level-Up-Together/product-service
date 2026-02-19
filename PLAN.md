@@ -16,7 +16,7 @@
 ## 다음 작업
 
 > 현재 작업은 Admin Backend PLAN.md Phase 8로 이동.
-> Admin Backend: `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin/PLAN.md`
+> Admin Backend: `/Users/pink-spider/Code/github/Level-Up-Together/admin-service/PLAN.md`
 
 ### 기타 개선 사항
 

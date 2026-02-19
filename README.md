@@ -4,19 +4,19 @@
 
 ## 기술 스택
 
-| 카테고리 | 기술 |
-|---------|------|
-| **Framework** | Spring Boot 3.4.5, Spring Cloud 2024.0.0 |
-| **Language** | Java 21 (JDK 25 빌드 호환) |
-| **Build** | Gradle 8.14.3 |
-| **Database** | PostgreSQL (Production), H2 (Test) |
-| **Cache** | Redis (Lettuce) |
-| **Messaging** | Apache Kafka |
-| **API** | REST + GraphQL (Netflix DGS) |
-| **Documentation** | Spring REST Docs + OpenAPI 3.0 |
-| **Query** | QueryDSL (타입 안전 쿼리) |
-| **Resilience** | Resilience4j (Circuit Breaker) |
-| **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델) |
+| 카테고리                 | 기술                                       |
+|----------------------|------------------------------------------|
+| **Framework**        | Spring Boot 3.4.5, Spring Cloud 2024.0.0 |
+| **Language**         | Java 21 (JDK 25 빌드 호환)                   |
+| **Build**            | Gradle 8.14.3                            |
+| **Database**         | PostgreSQL (Production), H2 (Test)       |
+| **Cache**            | Redis (Lettuce)                          |
+| **Messaging**        | Apache Kafka                             |
+| **API**              | REST + GraphQL (Netflix DGS)             |
+| **Documentation**    | Spring REST Docs + OpenAPI 3.0           |
+| **Query**            | QueryDSL (타입 안전 쿼리)                      |
+| **Resilience**       | Resilience4j (Circuit Breaker)           |
+| **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델)       |
 
 ## 아키텍처
 
@@ -40,9 +40,11 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 └── saga/      ← Saga 프레임워크
 ```
 
-> **서비스 모듈이 하나인 이유**: user↔guild, user↔gamification 등 4쌍의 순환 의존이 있어 독립 Gradle 모듈로 분리 불가. 디렉토리로 논리적 경계를 유지하되 단일 컴파일 단위로 구성.
+> **서비스 모듈이 하나인 이유**: user↔guild, user↔gamification 등 4쌍의 순환 의존이 있어 독립 Gradle 모듈로 분리 불가. 디렉토리로 논리적 경계를 유지하되 단일 컴파일 단위로
+> 구성.
 
 **주요 아키텍처 특징:**
+
 - **Facade Pattern**: 서비스 간 통신은 Facade 인터페이스 (`UserQueryFacade`, `GuildQueryFacade`, `GamificationQueryFacade`)를 통해 수행
 - **Event-Driven**: Spring Events를 활용한 서비스 간 느슨한 결합 + 프로필 스냅샷 동기화
 - **Redis Caching**: 자주 조회되는 데이터의 캐싱으로 성능 최적화
@@ -425,6 +427,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 ## 주요 기능
 
 ### 사용자 (User Service)
+
 - OAuth2 소셜 로그인 (Google, Kakao, Apple)
 - JWT 기반 토큰 인증 (멀티 디바이스 지원)
 - 약관 동의 관리
@@ -433,6 +436,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 마이페이지 (프로필, 통계)
 
 ### 게이미피케이션 (Gamification Service)
+
 - 경험치/레벨 시스템
 - 업적/칭호 시스템 (LEFT+RIGHT 조합 방식)
   - Strategy 패턴 기반 동적 업적 체크
@@ -442,6 +446,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 시즌 관리 (시즌별 랭킹, 보상)
 
 ### 미션 (Mission Service)
+
 - 미션 생성 및 관리 (일일/주간/월간 인터벌)
 - 미션 카테고리 (시스템 카테고리 + 사용자 정의)
 - 미션 참가자 진행 상태 추적
@@ -454,6 +459,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
   - 미션 정보 스냅샷 저장
 
 ### 길드 (Guild Service)
+
 - 길드 생성 및 관리
 - 멤버 가입/탈퇴/추방 관리
 - **길드 초대 시스템** (비공개 길드용)
@@ -465,6 +471,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 길드 거점 시스템 (지도 기반)
 
 ### 활동 피드 (Feed Service)
+
 - 활동 피드 생성 및 조회
 - 피드 좋아요/댓글
 - 피드 공개 범위 설정 (전체/친구/길드/비공개)
@@ -472,17 +479,20 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 피드 검색 기능
 
 ### 알림 (Notification Service)
+
 - 인앱 알림 관리
 - 푸시 알림 (FCM)
 - 알림 설정 (타입별 on/off)
 - 알림 읽음 처리
 
 ### BFF (Backend-for-Frontend)
+
 - 홈 화면 데이터 집계
 - 통합 검색 (피드, 미션, 사용자, 길드)
 - 다중 서비스 데이터 조합
 
 ### Image Moderation (이미지 검증)
+
 - ONNX Runtime 기반 NSFW 이미지 자동 검증 ($0 비용)
 - `@ModerateImage` AOP 어노테이션으로 자동 적용
 - Strategy Pattern: NoOp / ONNX NSFW / AWS Rekognition (설정 전환 가능)
@@ -492,12 +502,12 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 
 Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능을 최적화합니다.
 
-| 캐시 서비스 | 캐시 키 | TTL | 설명 |
-|------------|--------|-----|------|
-| `UserProfileCacheService` | `userProfile:{userId}` | 5분 | 유저 프로필 정보 |
-| `FriendCacheService` | `friendIds:{userId}` | 10분 | 친구 ID 목록 |
-| `TitleService` | `userTitleInfo:{userId}` | 5분 | 장착된 칭호 정보 |
-| `MissionCategoryService` | `missionCategories:{categoryId}` | 1시간 | 미션 카테고리 정보 |
+| 캐시 서비스                    | 캐시 키                             | TTL | 설명         |
+|---------------------------|----------------------------------|-----|------------|
+| `UserProfileCacheService` | `userProfile:{userId}`           | 5분  | 유저 프로필 정보  |
+| `FriendCacheService`      | `friendIds:{userId}`             | 10분 | 친구 ID 목록   |
+| `TitleService`            | `userTitleInfo:{userId}`         | 5분  | 장착된 칭호 정보  |
+| `MissionCategoryService`  | `missionCategories:{categoryId}` | 1시간 | 미션 카테고리 정보 |
 
 ## API 응답 형식
 
@@ -507,7 +517,9 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 {
   "code": "000000",
   "message": "success",
-  "value": { ... }
+  "value": {
+    ...
+  }
 }
 ```
 
@@ -517,25 +529,25 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 
 `http/` 폴더에 IntelliJ HTTP Client 형식의 API 테스트 파일이 있습니다:
 
-| 파일 | 설명 |
-|------|------|
-| `oauth-jwt.http` | OAuth2 로그인, JWT 토큰 관리 |
-| `mission.http` | 미션 CRUD, 참가자, 실행 추적 |
-| `guild.http` | 길드 관리, 채팅, 게시판, 거점 |
-| `activity-feed.http` | 피드, 좋아요, 댓글 |
-| `friend.http` | 친구 요청/수락/거절 |
-| `achievement.http` | 업적, 칭호, 레벨 랭킹 |
-| `notification.http` | 알림 관리 |
-| `bff.http` | BFF 홈, 통합 검색 |
+| 파일                   | 설명                    |
+|----------------------|-----------------------|
+| `oauth-jwt.http`     | OAuth2 로그인, JWT 토큰 관리 |
+| `mission.http`       | 미션 CRUD, 참가자, 실행 추적   |
+| `guild.http`         | 길드 관리, 채팅, 게시판, 거점    |
+| `activity-feed.http` | 피드, 좋아요, 댓글           |
+| `friend.http`        | 친구 요청/수락/거절           |
+| `achievement.http`   | 업적, 칭호, 레벨 랭킹         |
+| `notification.http`  | 알림 관리                 |
+| `bff.http`           | BFF 홈, 통합 검색          |
 
 ## 환경 설정
 
-| 프로필 | 설명 |
-|--------|------|
-| `test` | H2 인메모리 DB, 테스트용 Kafka (포트: 18080) |
-| `local` | Config Server 연동 |
-| `dev` | 개발 서버 환경 |
-| `prod` | 운영 서버 환경 |
+| 프로필     | 설명                                 |
+|---------|------------------------------------|
+| `test`  | H2 인메모리 DB, 테스트용 Kafka (포트: 18080) |
+| `local` | Config Server 연동                   |
+| `dev`   | 개발 서버 환경                           |
+| `prod`  | 운영 서버 환경                           |
 
 ## 모니터링
 
@@ -552,27 +564,29 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 
 ## 관련 프로젝트
 
-| 프로젝트 | 설명 |
-|---------|------|
-| `level-up-together-frontend` | 사용자 앱 프론트엔드 (Next.js) |
-| `LevelUpTogetherReactNative` | 모바일 하이브리드 앱 (React Native) |
-| `level-up-together-mvp-admin` | 어드민 백엔드 (Spring Boot) |
-| `level-up-together-admin-frontend` | 어드민 프론트엔드 (Next.js) |
-| `level-up-together-sql` | SQL 스크립트 (DDL/DML) |
-| `config-repository` | Spring Cloud Config 저장소 |
+| 프로젝트                               | 설명                         |
+|------------------------------------|----------------------------|
+| `level-up-together-frontend`       | 사용자 앱 프론트엔드 (Next.js)      |
+| `LevelUpTogetherReactNative`       | 모바일 하이브리드 앱 (React Native) |
+| `admin-service`                    | 어드민 백엔드 (Spring Boot)      |
+| `level-up-together-admin-frontend` | 어드민 프론트엔드 (Next.js)        |
+| `level-up-together-sql`            | SQL 스크립트 (DDL/DML)         |
+| `config-repository`                | Spring Cloud Config 저장소    |
 
 ## 문제 해결
 
 ### QueryDSL 빌드 오류
 
 `Attempt to recreate a file for type Q*` 오류 발생 시:
+
 ```bash
 ./gradlew clean compileJava
 ```
 
 ### Spring Cloud Config 오류 (service 모듈 테스트)
 
-`ConfigDataMissingEnvironmentPostProcessor$ImportException` 발생 시, `service/shared-test/src/test/resources/application.yml`에 `spring.cloud.config.enabled: false` 설정이 있는지 확인.
+`ConfigDataMissingEnvironmentPostProcessor$ImportException` 발생 시,
+`service/shared-test/src/test/resources/application.yml`에 `spring.cloud.config.enabled: false` 설정이 있는지 확인.
 
 ### 트랜잭션 매니저 미지정 오류
 
@@ -581,11 +595,11 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 ```java
 // 올바른 예시
 @Transactional(transactionManager = "guildTransactionManager")
-public void updateGuild(...) { ... }
+public void updateGuild(...) { ...}
 
 // 잘못된 예시 - 기본값(userTransactionManager)이 사용됨
 @Transactional
-public void updateGuild(...) { ... }
+public void updateGuild(...) { ...}
 ```
 
 ### Integration Tests 실패
@@ -613,6 +627,7 @@ private Entity getOrCreateEntity(String key) {
 ```
 
 **적용 사례:**
+
 - `AchievementService.getOrCreateUserAchievement()` - 업적 중복 방지
 - `AttendanceService.checkIn()` - 출석 체크 중복 방지
 - `NotificationService.createNotificationWithDeduplication()` - 알림 중복 방지

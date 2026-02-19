@@ -1,5 +1,5 @@
 #!/bin/bash
-LOG_DIR="/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp/prompt_log"
+LOG_DIR="/Users/pink-spider/Code/github/Level-Up-Together/product-service/prompt_log"
 DATE=$(date +%F)
 TIME=$(date +%T)
 

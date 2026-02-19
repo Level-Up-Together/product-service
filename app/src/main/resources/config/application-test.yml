@@ -16,7 +16,7 @@ crypto:
 
 spring:
   application:
-    name: level-up-together-mvp
+    name: product-service
   cloud:
     config:
       enabled: false
