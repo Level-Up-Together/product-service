@@ -83,7 +83,7 @@ one unit via `sourceSets.main.java.srcDirs`.
 | `missionservice`      | mission_db      | Mission definition, progress tracking, Saga orchestration, mission book, daily mission instances (pinned missions) |
 | `guildservice`        | guild_db        | Guild creation/management, members, experience/levels, bulletin board, territory, invitations                      |
 | `chatservice`         | chat_db         | Guild chat messaging, chat participants, read status, direct messages                                              |
-| `metaservice`         | meta_db         | Common codes, calendar holidays, Redis-cached metadata, level configuration                                        |
+| `metaservice`         | meta_db         | Common codes, calendar holidays, Redis-cached metadata, level configuration, attendance reward configuration        |
 | `feedservice`         | feed_db         | Activity feed (CQRS Read Model), likes, comments, feed visibility, FeedProjectionEventListener                     |
 | `notificationservice` | notification_db | Push notifications, notification preferences, notification management                                              |
 | `adminservice`        | admin_db        | Home banners, featured content (players, guilds, feeds)                                                            |
@@ -101,6 +101,7 @@ MVP 전용 인프라 코드 (platform 공유 라이브러리와 별도):
 - **Config**: HibernateConfig, RateLimiterConfig, WebMvcConfig, WebSocketConfig, FirebaseConfig
 - **Translation**: Google Translation API integration (`global.translation`)
 - **Profanity**: Profanity detection and validation (`leveluptogethermvp/profanity/`)
+- **Image Moderation**: ONNX-based NSFW 이미지 검증 + AOP (`global.moderation`)
 - **Messaging**: AppPushMessageProducer (Redis Streams)
 - **Rate Limiting**: PerUserRateLimit + PerUserRateLimitAspect
 - **GraphQL**: DGS context, scalars, fetchers
@@ -110,7 +111,7 @@ MVP 전용 인프라 코드 (platform 공유 라이브러리와 별도):
 
 `includeBuild`로 IDE에서 소스 편집 가능. 공통 인프라:
 
-- **kernel**: ApiResult, ApiStatus, CustomException, Base Entity, Domain Events, Enums, Utils
+- **kernel**: ApiResult, ApiStatus, CustomException, Base Entity, Domain Events, Enums, Utils, **Facade 인터페이스** (UserQueryFacade, GuildQueryFacade, GamificationQueryFacade)
 - **infra**: RedisConfig, AsyncConfig, JpaAuditingConfig, QueryDslConfig, JwtAuthenticationFilter, RestExceptionHandler,
   CryptoConverter
 - **saga**: SagaOrchestrator, AbstractSagaStep, SagaDataSourceConfig
@@ -159,43 +160,37 @@ Note: Some services vary slightly (e.g., `noticeservice`/`supportservice` use `c
 
 ### Cross-Service Boundary Rules (MSA 준비)
 
-**다른 서비스의 DB에 직접 접근(Repository import) 금지** — 반드시 해당 서비스의 Service 계층을 통해 접근:
+**다른 서비스의 DB에 직접 접근(Repository import) 금지** — 반드시 Facade 인터페이스를 통해 접근:
 
 ```java
-// BAD — 다른 서비스의 Repository 직접 사용
+// BAD — 다른 서비스의 Repository 또는 Service 직접 사용
 @Service
 public class MyPageService {
-
     private final UserTitleRepository userTitleRepository; // gamification_db 직접 접근
+    private final TitleService titleService;               // 구체 서비스 직접 의존
 }
 
-// GOOD — 해당 서비스의 Service를 통해 접근
+// GOOD — Facade 인터페이스를 통해 접근
 @Service
 public class MyPageService {
-
-    private final TitleService titleService; // gamificationservice Service 계층
+    private final GamificationQueryFacade gamificationQueryFacade;
 }
 ```
 
+**Facade 인터페이스** (`lut-platform-kernel`에 정의, 각 서비스에서 구현):
+
+| Facade                      | 구현체                              | 주요 용도                         |
+|-----------------------------|-----------------------------------|-------------------------------|
+| `UserQueryFacade`           | `UserQueryFacadeService`          | 프로필, 닉네임, 친구 관계, 존재 확인       |
+| `GuildQueryFacade`          | `GuildQueryFacadeService`         | 길드 정보, 멤버십, 권한 체크, 경험치       |
+| `GamificationQueryFacade`   | `GamificationQueryFacadeService`  | 레벨, 칭호, 업적, 통계, 경험치, 시즌     |
+
+**Facade DTO**: `io.pinkspider.global.facade.dto` 패키지에 서비스 간 전달용 DTO 정의
+(예: `UserProfileInfo`, `GuildBasicInfo`, `TitleInfoDto`, `SeasonDto` 등 22개)
+
 **현재 적용 완료:**
-
-- userservice → gamification_db: Service 계층 전환 완료 (P5)
+- 전체 서비스 간 직접 의존 → Facade 전환 완료 (Phase 3~5)
 - Entity/Enum import는 현행 유지 (MSA 전환 시 DTO/common 라이브러리로 교체 예정)
-
-**gamificationservice 주요 크로스-서비스 조회 API:**
-
-| Service                 | Method                                       | 용도                |
-|-------------------------|----------------------------------------------|-------------------|
-| `UserExperienceService` | `getUserLevel(userId)`                       | 단건 레벨 조회          |
-| `UserExperienceService` | `getUserLevelMap(userIds)`                   | 배치 레벨 조회 (N+1 방지) |
-| `UserExperienceService` | `getOrCreateUserExperience(userId)`          | 경험치 엔티티 조회        |
-| `UserExperienceService` | `findTopExpGainersByPeriod(...)`             | MVP 랭킹 조회         |
-| `TitleService`          | `getEquippedLeftTitleNameMap(userIds)`       | 배치 칭호명 조회         |
-| `TitleService`          | `getEquippedTitleEntitiesByUserIds(userIds)` | 배치 칭호 엔티티 조회      |
-| `TitleService`          | `getEquippedTitleEntitiesByUserId(userId)`   | 단건 칭호 엔티티 조회      |
-| `TitleService`          | `changeTitles(userId, leftId, rightId)`      | 칭호 변경 (WRITE)     |
-| `UserStatsService`      | `getOrCreateUserStats(userId)`               | 통계 조회             |
-| `UserStatsService`      | `calculateRankingPercentile(points)`         | 랭킹 퍼센타일 계산        |
 
 ### API Response Format
 
@@ -364,26 +359,33 @@ public class YourEventListener {
 
 ### 주요 이벤트 흐름
 
-| 발행 서비스                 | 이벤트                                | 수신 리스너                             | 처리 내용            |
-|------------------------|------------------------------------|------------------------------------|------------------|
-| GuildService           | `GuildJoinedEvent`                 | `AchievementEventListener`         | 길드 가입 업적 체크      |
-| GuildService           | `GuildJoinedEvent`                 | `FeedProjectionEventListener`      | 길드 가입 피드 생성      |
-| GuildService           | `GuildCreatedEvent`                | `FeedProjectionEventListener`      | 길드 창설 피드 생성      |
-| GuildService           | `GuildInvitationEvent`             | `NotificationEventListener`        | 초대 알림 발송         |
-| GuildExperienceService | `GuildLevelUpEvent`                | `FeedProjectionEventListener`      | 길드 레벨업 피드 생성     |
-| FriendService          | `FriendRequestAcceptedEvent`       | `NotificationEventListener`        | 친구 수락 알림         |
-| FriendService          | `FriendRequestAcceptedEvent`       | `FeedProjectionEventListener`      | 친구 추가 피드 생성 (양쪽) |
-| GamificationService    | `TitleAcquiredEvent`               | `NotificationEventListener`        | 칭호 획득 알림         |
-| GamificationService    | `TitleAcquiredEvent`               | `FeedProjectionEventListener`      | 칭호 획득 피드 생성      |
-| GamificationService    | `AchievementCompletedEvent`        | `NotificationEventListener`        | 업적 달성 알림         |
-| GamificationService    | `AchievementCompletedEvent`        | `FeedProjectionEventListener`      | 업적 달성 피드 생성      |
-| GamificationService    | `TitleEquippedEvent`               | `FeedProjectionEventListener`      | 칭호 변경 피드 업데이트    |
-| UserExperienceService  | `UserLevelUpEvent`                 | `FeedProjectionEventListener`      | 레벨업 피드 생성        |
-| AttendanceService      | `AttendanceStreakEvent`            | `FeedProjectionEventListener`      | 연속 출석 피드 생성      |
-| MissionService         | `MissionStateChangedEvent`         | `MissionStateHistoryEventListener` | 미션 상태 이력 저장      |
-| GuildMemberService     | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener`                | 채팅방 입장 알림        |
-| GuildMemberService     | `GuildMemberLeftChatNotifyEvent`   | `ChatEventListener`                | 채팅방 퇴장 알림        |
-| GuildMemberService     | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener`                | 채팅방 추방 알림        |
+| 발행 서비스                 | 이벤트                                | 수신 리스너                               | 처리 내용                  |
+|------------------------|------------------------------------|--------------------------------------|------------------------|
+| GuildService           | `GuildJoinedEvent`                 | `AchievementEventListener`           | 길드 가입 업적 체크            |
+| GuildService           | `GuildJoinedEvent`                 | `FeedProjectionEventListener`        | 길드 가입 피드 생성            |
+| GuildService           | `GuildCreatedEvent`                | `FeedProjectionEventListener`        | 길드 창설 피드 생성            |
+| GuildService           | `GuildInvitationEvent`             | `NotificationEventListener`          | 초대 알림 발송               |
+| GuildExperienceService | `GuildLevelUpEvent`                | `FeedProjectionEventListener`        | 길드 레벨업 피드 생성           |
+| FriendService          | `FriendRequestAcceptedEvent`       | `NotificationEventListener`          | 친구 수락 알림               |
+| FriendService          | `FriendRequestAcceptedEvent`       | `FeedProjectionEventListener`        | 친구 추가 피드 생성 (양쪽)       |
+| FriendService          | `FriendRequestAcceptedEvent`       | `UserStatsCounterEventListener`      | friendCount 증가 + 업적 체크  |
+| FriendService          | `FriendRemovedEvent`               | `UserStatsCounterEventListener`      | friendCount 감소 (양쪽)     |
+| GamificationService    | `TitleAcquiredEvent`               | `NotificationEventListener`          | 칭호 획득 알림               |
+| GamificationService    | `TitleAcquiredEvent`               | `FeedProjectionEventListener`        | 칭호 획득 피드 생성            |
+| GamificationService    | `AchievementCompletedEvent`        | `NotificationEventListener`          | 업적 달성 알림               |
+| GamificationService    | `AchievementCompletedEvent`        | `FeedProjectionEventListener`        | 업적 달성 피드 생성            |
+| GamificationService    | `TitleEquippedEvent`               | `FeedProjectionEventListener`        | 칭호 변경 피드 업데이트          |
+| UserExperienceService  | `UserLevelUpEvent`                 | `FeedProjectionEventListener`        | 레벨업 피드 생성              |
+| UserExperienceService  | `UserLevelUpEvent`                 | `UserLevelUpProfileSyncListener`     | 유저 프로필 레벨 동기화          |
+| AttendanceService      | `AttendanceStreakEvent`            | `FeedProjectionEventListener`        | 연속 출석 피드 생성            |
+| MissionService         | `MissionStateChangedEvent`         | `MissionStateHistoryEventListener`   | 미션 상태 이력 저장            |
+| GuildMemberService     | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 입장 알림              |
+| GuildMemberService     | `GuildMemberLeftChatNotifyEvent`   | `ChatEventListener`                  | 채팅방 퇴장 알림              |
+| GuildMemberService     | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 추방 알림              |
+| UserService            | `UserSignedUpEvent`                | `UserSignedUpEventListener`          | 기본 칭호 부여               |
+| UserService            | `UserProfileChangedEvent`          | `*ProfileSnapshotEventListener` (x4) | 비정규화 닉네임 동기화 (chat/feed/guild/mission) |
+| FeedCommandService     | `FeedLikedEvent`                   | `UserStatsCounterEventListener`      | likesReceived 증가 + 업적 체크 |
+| FeedCommandService     | `FeedUnlikedEvent`                 | `UserStatsCounterEventListener`      | likesReceived 감소        |
 
 ## Redis Caching
 
@@ -545,6 +547,46 @@ private Entity getOrCreateEntity(String key) {
 
 적용 사례: `AchievementService.getOrCreateUserAchievement()`, `AttendanceService.checkIn()`,
 `NotificationService.createNotificationWithDeduplication()`
+
+## Image Moderation (이미지 검증)
+
+ONNX Runtime 기반 NSFW 이미지 자동 검증 시스템 (`global.moderation`):
+
+### 아키텍처: Strategy Pattern + AOP
+
+- `@ModerateImage` 어노테이션을 메서드에 적용하면 `MultipartFile` 파라미터를 자동 탐색하여 검증
+- `ImageModerationAspect`가 `@Around` 어드바이스로 검증 실행
+- `ModerationConfig`가 `moderation.image.provider` 설정에 따라 구현체 선택
+
+### Provider 구현체
+
+| Provider         | 클래스                         | 설명                              |
+|------------------|-----------------------------|---------------------------------|
+| `none` (기본값)    | `NoOpImageModerationService`  | 비활성화 (dev/test 환경)              |
+| `onnx-nsfw`      | `OnnxNsfwModerationService`   | ONNX Runtime + OpenNSFW2 모델 ($0) |
+| `aws-rekognition` | `AwsRekognitionModerationService` | AWS Rekognition (스켈레톤)          |
+
+### 설정
+
+```yaml
+moderation:
+  image:
+    provider: onnx-nsfw   # none | onnx-nsfw | aws-rekognition
+    onnx:
+      model-path: classpath:models/nsfw.onnx
+      nsfw-threshold: 0.8
+```
+
+### 적용된 서비스
+
+- `GuildService` — 길드 이미지 업로드
+- `MyPageService` — 프로필 이미지 업로드
+- `EventController` — 이벤트 이미지 업로드
+- `PinnedMissionExecutionStrategy` / `RegularMissionExecutionStrategy` — 미션 이미지
+
+### 에러 코드
+
+부적절 이미지 감지 시: `CustomException("000010", "부적절한 이미지가 감지되었습니다.")`
 
 ## Feature-Specific Implementation Notes
 

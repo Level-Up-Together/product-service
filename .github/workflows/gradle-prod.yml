@@ -1,12 +1,21 @@
-name: Build and Deploy
+name: Build and Deploy (Prod)
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  id-token: write   # GitHub OIDC → AWS
+  contents: read
+
+env:
+  S3_BUCKET: lut-deploy-prod
+  APP_NAME: product-be
+
 jobs:
-  build-and-deploy:
+  build:
+    name: Build & Upload
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +27,7 @@ jobs:
 
       # 2. 리포지토리 체크아웃 (서브모듈 포함)
       - name: Checkout repository with submodules
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           ssh-key: ${{ secrets.PRIVATE_KEY_FOR_SUBMODULE }}
@@ -30,13 +39,13 @@ jobs:
           git submodule update --init --recursive
           git submodule foreach git pull origin $(git rev-parse --abbrev-ref HEAD)
 
-      # 4. Keystore 파일 복원 (GitHub Secrets에서)
+      # 4. Keystore 파일 복원
       - name: Restore keystore from secrets
-        env:
-          KEYSTORE_BASE64: ${{ secrets.PROD_KEYSTORE_BASE64 }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > app/src/main/resources/keystore-prod.p12
-          echo "✅ Keystore (prod) restored successfully"
+          echo "Keystore (prod) restored successfully"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PROD_KEYSTORE_BASE64 }}
 
       # 5. JDK 설정
       - name: Set up JDK 21
@@ -59,57 +68,80 @@ jobs:
 
       # 7. Gradle 빌드
       - name: Build with Gradle
+        run: ./gradlew clean build --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
-        run: ./gradlew clean build --no-daemon
 
-      # 8. 서버로 파일 전송
-      - name: Deploy to Server
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
-          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
-          DEPLOY_SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
+      # 8. AWS OIDC 인증
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      # 9. JAR → S3 업로드
+      - name: Upload JAR to S3
         run: |
-          echo "DEPLOY_SERVER_IP: $DEPLOY_SERVER_IP"
+          JAR_FILE=$(ls app/build/libs/*-exec.jar | head -1)
+          COMMIT_SHA=${GITHUB_SHA::8}
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          # 커밋별 아카이브
+          aws s3 cp "$JAR_FILE" "s3://$S3_BUCKET/$APP_NAME/${TIMESTAMP}-${COMMIT_SHA}.jar"
+
+          # latest.jar (배포용)
+          aws s3 cp "$JAR_FILE" "s3://$S3_BUCKET/$APP_NAME/latest.jar"
+
+          echo "Uploaded: $JAR_FILE -> s3://$S3_BUCKET/$APP_NAME/latest.jar"
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH key
+        run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github_action
-          chmod 600 ~/.ssh/github_action
-          ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts
-          
-          # 빌드 파일 전송
-          scp -i ~/.ssh/github_action app/build/libs/*.jar $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/backend/
-
-          # swagger rest doc json
-          scp -i ~/.ssh/github_action app/build/resources/main/restdocs/*.json $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/swagger-docs/
-
-      # 9. 서버에서 애플리케이션 실행
-      - name: Start Application
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_1_IP" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$EC2_2_IP" >> ~/.ssh/known_hosts
         env:
-          DEPLOY_SERVER_IP: ${{ secrets.DEV_SERVER_IP }}
-          SERVER_USER: ${{ secrets.DEV_SERVER_USER }}
-          REPOSITORY_NAME: ${{ github.repository }}
-        run: |
-          PROJECT_NAME=$(echo $REPOSITORY_NAME | cut -d'/' -f2)
-          ssh -T -i ~/.ssh/github_action $SERVER_USER@$DEPLOY_SERVER_IP << EOF
-          cd /home/$SERVER_USER/levelUpTogether/backend
-          chmod 700 /home/$SERVER_USER/levelUpTogether/backend/${PROJECT_NAME}*-exec.jar
-          sh /home/$SERVER_USER/levelUpTogether/bin/deploy_prod.sh $PROJECT_NAME prod /home/$SERVER_USER 4096m
-          #          sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart ${PROJECT_NAME}-api.json
-          EOF
+          SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          EC2_1_IP: ${{ secrets.PROD_EC2_1_IP }}
+          EC2_2_IP: ${{ secrets.PROD_EC2_2_IP }}
 
+      # EC2 #1 배포 (순차: 롤링 배포)
+      - name: Deploy to EC2 #1
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "ec2-user@$EC2_1_IP" \
+            "sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar"
+        env:
+          EC2_1_IP: ${{ secrets.PROD_EC2_1_IP }}
+
+      # EC2 #2 배포
+      - name: Deploy to EC2 #2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "ec2-user@$EC2_2_IP" \
+            "sudo /opt/apps/deploy.sh $APP_NAME $S3_BUCKET $APP_NAME/latest.jar"
+        env:
+          EC2_2_IP: ${{ secrets.PROD_EC2_2_IP }}
+
+  notify:
+    name: Slack Notification
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
       - name: action-slack
         uses: 8398a7/action-slack@v3
         with:
-          status: ${{ job.status }}
+          status: ${{ needs.deploy.result }}
           author_name: Level Up Together Backend - prod
-          fields: repo,commit,message,author # action,eventName,ref,workflow,job,took 추가할 수 있음
+          fields: repo,commit,message,author
           mention: here
           if_mention: failure,cancelled
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.DEV_SLACK_WEBHOOK_URL }} # required
-        if: always() # Pick up events even if the job fails or is canceled.
-
-
-
-
-
+          SLACK_WEBHOOK_URL: ${{ secrets.DEV_SLACK_WEBHOOK_URL }}

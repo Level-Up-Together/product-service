@@ -1,6 +1,7 @@
 # PLAN.md
 
-> Source of Truth: [Notion - Platform 분리 + Admin 멀티모듈 + BFF 구성 플랜](https://www.notion.so/linkpark/Platform-Admin-BFF-3068c64c554381558c91ea67edf37a1d)
+> Source of
+> Truth: [AWS 최소비용 배포 구성 (스타트업용)](https://www.notion.so/linkpark/AWS-3098c64c55438192bc75f3bdb417be37?source=copy_link)
 
 ## 완료된 작업
 
