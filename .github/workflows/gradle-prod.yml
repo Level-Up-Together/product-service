@@ -130,7 +130,7 @@ jobs:
 
   notify:
     name: Slack Notification
-    needs: [build, deploy]
+    needs: [ build, deploy ]
     runs-on: ubuntu-latest
     if: always()
 
@@ -144,4 +144,4 @@ jobs:
           mention: here
           if_mention: failure,cancelled
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.DEV_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.PROD_SLACK_WEBHOOK_URL }}
