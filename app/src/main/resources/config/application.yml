@@ -18,9 +18,9 @@ app:
   dev-discovery-server-ip: 121.136.108.44
   dev-db-server-ip: 121.136.108.44
 
-  prod-config-server-ip: 121.136.108.44
-  prod-discovery-server-ip: 121.136.108.44
-  prod-db-server-ip: 121.136.108.44
+  prod-config-server-ip: 10.0.1.124
+  prod-discovery-server-ip: 10.0.1.124
+  prod-db-server-ip: lut-postgres.c1wegq0a4s9l.ap-northeast-2.rds.amazonaws.com
 
   upload:
     profile-image:
