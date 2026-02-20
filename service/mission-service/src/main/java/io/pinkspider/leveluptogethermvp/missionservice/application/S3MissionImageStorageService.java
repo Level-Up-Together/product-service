@@ -1,30 +1,31 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.config.s3.S3ImageProperties;
 import io.pinkspider.global.exception.CustomException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-/**
- * 로컬 파일 시스템에 미션 이미지를 저장하는 구현체
- * 추후 S3 등으로 교체 시 S3MissionImageStorageService를 만들어 교체
- */
 @Service
-@Profile("!prod")
+@Profile("prod")
+@Primary
 @Slf4j
 @RequiredArgsConstructor
-public class LocalMissionImageStorageService implements MissionImageStorageService {
+public class S3MissionImageStorageService implements MissionImageStorageService {
 
+    private final S3Client s3Client;
+    private final S3ImageProperties s3Properties;
     private final MissionImageProperties properties;
 
     @Override
@@ -38,26 +39,25 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
         }
 
         try {
-            // 저장 디렉토리 생성 (missions/{userId}/{missionId})
-            Path uploadDir = Paths.get(properties.getPath(), userId, String.valueOf(missionId));
-            Files.createDirectories(uploadDir);
-
-            // 파일 이름 생성 (executionDate_UUID.확장자)
             String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
             String extension = getExtension(originalFilename);
             String newFilename = executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
+            String key = "missions/" + userId + "/" + missionId + "/" + newFilename;
 
-            // 파일 저장
-            Path targetPath = uploadDir.resolve(newFilename);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(s3Properties.getBucket())
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
 
-            log.info("미션 이미지 저장: userId={}, missionId={}, path={}", userId, missionId, targetPath);
+            s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            // URL 반환 (서버 상대 경로)
-            return properties.getUrlPrefix() + "/" + userId + "/" + missionId + "/" + newFilename;
+            String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
+            log.info("미션 이미지 S3 저장: userId={}, missionId={}, key={}", userId, missionId, key);
+            return cdnUrl;
 
         } catch (IOException e) {
-            log.error("미션 이미지 저장 실패: userId={}, missionId={}", userId, missionId, e);
+            log.error("미션 이미지 S3 저장 실패: userId={}, missionId={}", userId, missionId, e);
             throw new CustomException("MISSION_IMAGE_003", "이미지 저장에 실패했습니다.");
         }
     }
@@ -68,25 +68,21 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             return;
         }
 
-        // 외부 URL은 삭제하지 않음
-        if (!imageUrl.startsWith(properties.getUrlPrefix())) {
-            log.debug("외부 이미지 URL은 삭제하지 않음: {}", imageUrl);
+        if (imageUrl.startsWith(s3Properties.getCdnBaseUrl())) {
+            String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
+            try {
+                s3Client.deleteObject(DeleteObjectRequest.builder()
+                        .bucket(s3Properties.getBucket())
+                        .key(key)
+                        .build());
+                log.info("미션 이미지 S3 삭제: key={}", key);
+            } catch (Exception e) {
+                log.warn("미션 이미지 S3 삭제 실패: key={}", key, e);
+            }
             return;
         }
 
-        try {
-            // URL에서 파일 경로 추출
-            String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
-            Path filePath = Paths.get(properties.getPath(), relativePath);
-
-            if (Files.exists(filePath)) {
-                Files.delete(filePath);
-                log.info("미션 이미지 삭제: path={}", filePath);
-            }
-        } catch (IOException e) {
-            log.warn("미션 이미지 삭제 실패: url={}", imageUrl, e);
-            // 삭제 실패는 치명적이지 않으므로 예외를 던지지 않음
-        }
+        log.debug("S3 삭제 대상 아님 (로컬/외부 URL): {}", imageUrl);
     }
 
     @Override
@@ -95,13 +91,11 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             return false;
         }
 
-        // 파일 크기 검사
         if (file.getSize() > properties.getMaxSize()) {
             log.warn("파일 크기 초과: size={}, maxSize={}", file.getSize(), properties.getMaxSize());
             return false;
         }
 
-        // 확장자 검사
         String filename = file.getOriginalFilename();
         if (filename == null || filename.isEmpty()) {
             return false;
@@ -114,7 +108,6 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             return false;
         }
 
-        // MIME 타입 검사
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             log.warn("유효하지 않은 MIME 타입: contentType={}", contentType);
@@ -124,9 +117,6 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
         return true;
     }
 
-    /**
-     * 파일 이름에서 확장자 추출
-     */
     private String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "";

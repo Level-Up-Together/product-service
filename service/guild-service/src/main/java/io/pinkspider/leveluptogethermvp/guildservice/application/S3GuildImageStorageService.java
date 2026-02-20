@@ -1,29 +1,31 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.config.s3.S3ImageProperties;
 import io.pinkspider.global.exception.CustomException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-/**
- * 로컬 파일 시스템에 길드 이미지를 저장하는 구현체
- */
 @Service
-@Profile("!prod")
+@Profile("prod")
+@Primary
 @Slf4j
 @RequiredArgsConstructor
-public class LocalGuildImageStorageService implements GuildImageStorageService {
+public class S3GuildImageStorageService implements GuildImageStorageService {
 
+    private final S3Client s3Client;
+    private final S3ImageProperties s3Properties;
     private final GuildImageProperties properties;
 
     @Override
@@ -37,26 +39,25 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
         }
 
         try {
-            // 저장 디렉토리 생성
-            Path uploadDir = Paths.get(properties.getPath(), guildId.toString());
-            Files.createDirectories(uploadDir);
-
-            // 파일 이름 생성 (UUID + 확장자)
             String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
             String extension = getExtension(originalFilename);
             String newFilename = UUID.randomUUID().toString() + "." + extension;
+            String key = "guild/" + guildId + "/" + newFilename;
 
-            // 파일 저장
-            Path targetPath = uploadDir.resolve(newFilename);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(s3Properties.getBucket())
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
 
-            log.info("길드 이미지 저장: guildId={}, path={}", guildId, targetPath);
+            s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            // URL 반환 (서버 상대 경로)
-            return properties.getUrlPrefix() + "/" + guildId + "/" + newFilename;
+            String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
+            log.info("길드 이미지 S3 저장: guildId={}, key={}", guildId, key);
+            return cdnUrl;
 
         } catch (IOException e) {
-            log.error("길드 이미지 저장 실패: guildId={}", guildId, e);
+            log.error("길드 이미지 S3 저장 실패: guildId={}", guildId, e);
             throw new CustomException("GUILD_IMAGE_003", "이미지 저장에 실패했습니다.");
         }
     }
@@ -67,24 +68,21 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
             return;
         }
 
-        // 외부 URL은 삭제하지 않음
-        if (!imageUrl.startsWith(properties.getUrlPrefix())) {
-            log.debug("외부 이미지 URL은 삭제하지 않음: {}", imageUrl);
+        if (imageUrl.startsWith(s3Properties.getCdnBaseUrl())) {
+            String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
+            try {
+                s3Client.deleteObject(DeleteObjectRequest.builder()
+                        .bucket(s3Properties.getBucket())
+                        .key(key)
+                        .build());
+                log.info("길드 이미지 S3 삭제: key={}", key);
+            } catch (Exception e) {
+                log.warn("길드 이미지 S3 삭제 실패: key={}", key, e);
+            }
             return;
         }
 
-        try {
-            // URL에서 파일 경로 추출
-            String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
-            Path filePath = Paths.get(properties.getPath(), relativePath);
-
-            if (Files.exists(filePath)) {
-                Files.delete(filePath);
-                log.info("길드 이미지 삭제: path={}", filePath);
-            }
-        } catch (IOException e) {
-            log.warn("길드 이미지 삭제 실패: url={}", imageUrl, e);
-        }
+        log.debug("S3 삭제 대상 아님 (로컬/외부 URL): {}", imageUrl);
     }
 
     @Override
@@ -93,13 +91,11 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
             return false;
         }
 
-        // 파일 크기 검사
         if (file.getSize() > properties.getMaxSize()) {
             log.warn("파일 크기 초과: size={}, maxSize={}", file.getSize(), properties.getMaxSize());
             return false;
         }
 
-        // 확장자 검사
         String filename = file.getOriginalFilename();
         if (filename == null || filename.isEmpty()) {
             return false;
@@ -112,7 +108,6 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
             return false;
         }
 
-        // MIME 타입 검사
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             log.warn("유효하지 않은 MIME 타입: contentType={}", contentType);

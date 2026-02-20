@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
  * 로컬 파일 시스템에 이벤트 이미지를 저장하는 구현체
  */
 @Service
+@Profile("!prod")
 @Slf4j
 @RequiredArgsConstructor
 public class LocalEventImageStorageService implements EventImageStorageService {

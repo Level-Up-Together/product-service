@@ -33,6 +33,9 @@ app:
       max-size: 5242880
       allowed-extensions: jpg,jpeg,png,gif,webp
       url-prefix: /uploads/missions
+    s3:
+      bucket: ""
+      cdn-base-url: ""
 
 # 이미지 검증 설정
 # provider: none (기본값, 검증 비활성화), onnx-nsfw (비용 절감), aws-rekognition (운영용)
