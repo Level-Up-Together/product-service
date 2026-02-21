@@ -53,9 +53,9 @@ sourceSets {
 
 dependencies {
     // Platform shared (external artifacts)
-    api 'io.pinkspider:lut-platform-kernel:1.0.0-SNAPSHOT'
-    api 'io.pinkspider:lut-platform-infra:1.0.0-SNAPSHOT'
-    implementation 'io.pinkspider:lut-platform-saga:1.0.0-SNAPSHOT'
+    api "io.pinkspider:lut-platform-kernel:${rootProject.ext.lutPlatformVersion}"
+    api "io.pinkspider:lut-platform-infra:${rootProject.ext.lutPlatformVersion}"
+    implementation "io.pinkspider:lut-platform-saga:${rootProject.ext.lutPlatformVersion}"
 
     // Spring starters (MVP-specific)
     api 'org.springframework.boot:spring-boot-starter-oauth2-client'
@@ -89,8 +89,8 @@ dependencies {
     annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
     annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
     // kernel/infra의 MappedSuperclass Q-class 생성을 위해 필요
-    annotationProcessor 'io.pinkspider:lut-platform-kernel:1.0.0-SNAPSHOT'
-    annotationProcessor 'io.pinkspider:lut-platform-infra:1.0.0-SNAPSHOT'
+    annotationProcessor "io.pinkspider:lut-platform-kernel:${rootProject.ext.lutPlatformVersion}"
+    annotationProcessor "io.pinkspider:lut-platform-infra:${rootProject.ext.lutPlatformVersion}"
 
     // AWS S3 SDK v2 (이미지 스토리지)
     implementation platform('software.amazon.awssdk:bom:2.25.0')
@@ -111,7 +111,7 @@ dependencies {
     testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
     testImplementation "com.epages:restdocs-api-spec-mockmvc:${restdocsApiSpecVersion}"
     testImplementation 'com.fasterxml.jackson.module:jackson-module-mrbean:2.17.1'
-    testImplementation testFixtures('io.pinkspider:lut-platform-kernel:1.0.0-SNAPSHOT')
+    testImplementation testFixtures("io.pinkspider:lut-platform-kernel:${rootProject.ext.lutPlatformVersion}")
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'com.h2database:h2'
 }

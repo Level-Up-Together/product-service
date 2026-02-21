@@ -77,7 +77,9 @@ jobs:
 
       # 7. Gradle 빌드
       - name: Build with Gradle
-        run: ./gradlew clean build --no-daemon
+        run: |
+          RELEASE_VERSION=$(grep lutPlatformReleaseVersion gradle.properties | cut -d= -f2)
+          ./gradlew clean build --no-daemon -PlutPlatformVersion="$RELEASE_VERSION"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
 
