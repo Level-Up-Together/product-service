@@ -155,8 +155,9 @@ public class MissionCategoryService {
     /**
      * 활성화된 카테고리만 조회 (사용자용)
      * 1시간 TTL로 캐싱됨 (홈 화면 로딩 속도 최적화)
+     * unless 조건: 빈 결과는 캐시하지 않음 (DB 연결 실패 등으로 빈 결과가 영구 캐시되는 것 방지)
      */
-    @Cacheable(value = "activeMissionCategories", key = "'all'")
+    @Cacheable(value = "activeMissionCategories", key = "'all'", unless = "#result.isEmpty()")
     @Transactional(readOnly = true, transactionManager = "metaTransactionManager")
     public List<MissionCategoryResponse> getActiveCategories() {
         return missionCategoryRepository.findAllActiveCategories().stream()
