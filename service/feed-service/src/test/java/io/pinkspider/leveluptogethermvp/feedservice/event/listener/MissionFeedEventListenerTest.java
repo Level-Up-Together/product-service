@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.feedservice.event.listener;
 
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
@@ -78,24 +80,15 @@ class MissionFeedEventListenerTest {
     }
 
     @Nested
-    @DisplayName("미션 삭제 이벤트")
+    @DisplayName("미션 소프트 삭제 이벤트")
     class HandleMissionDeletedTest {
 
         @Test
-        @DisplayName("미션 관련 피드를 모두 삭제한다")
-        void shouldDeleteFeedsByMissionId() {
+        @DisplayName("소프트 삭제 시 피드를 삭제하지 않는다 (히스토리 보존)")
+        void shouldNotDeleteFeedsOnSoftDelete() {
             var event = new MissionDeletedEvent("user-123", 1L);
             eventListener.handleMissionDeleted(event);
-            verify(feedCommandService).deleteFeedsByMissionId(1L);
-        }
-
-        @Test
-        @DisplayName("예외 발생 시 전파하지 않는다")
-        void shouldNotPropagateException() {
-            var event = new MissionDeletedEvent("user-123", 1L);
-            doThrow(new RuntimeException("DB error"))
-                .when(feedCommandService).deleteFeedsByMissionId(1L);
-            eventListener.handleMissionDeleted(event);
+            verify(feedCommandService, never()).deleteFeedsByMissionId(anyLong());
         }
     }
 }

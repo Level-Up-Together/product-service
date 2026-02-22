@@ -47,13 +47,12 @@ public class MissionFeedEventListener {
     }
 
     /**
-     * 미션 삭제 시 관련 피드 cascade 삭제
+     * 미션 소프트 삭제 시 피드 유지 (수행 기록 및 히스토리 보존)
      */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMissionDeleted(MissionDeletedEvent event) {
-        safeHandle("MissionDeleted", () ->
-            feedCommandService.deleteFeedsByMissionId(event.missionId()));
+        log.info("미션 소프트 삭제 이벤트 수신 (피드 유지): missionId={}", event.missionId());
     }
 
     private void safeHandle(String eventName, Runnable action) {

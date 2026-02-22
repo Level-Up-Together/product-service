@@ -119,7 +119,7 @@ class MissionCommentServiceTest {
                 .build();
             UserProfileInfo userProfile = createTestUserProfile();
 
-            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
@@ -149,7 +149,7 @@ class MissionCommentServiceTest {
                 .build();
             UserProfileInfo userProfile = createTestUserProfile();
 
-            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
@@ -180,7 +180,7 @@ class MissionCommentServiceTest {
                 CREATOR_USER_ID, "미션생성자", "https://example.com/creator.jpg", 10, null, null, null
             );
 
-            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.of(mission));
             when(userQueryFacadeService.getUserProfile(CREATOR_USER_ID)).thenReturn(userProfile);
             when(missionCommentRepository.save(any(MissionComment.class))).thenAnswer(invocation -> {
                 MissionComment saved = invocation.getArgument(0);
@@ -203,7 +203,7 @@ class MissionCommentServiceTest {
                 .content("댓글입니다")
                 .build();
 
-            when(missionRepository.findById(MISSION_ID)).thenReturn(Optional.empty());
+            when(missionRepository.findByIdAndIsDeletedFalse(MISSION_ID)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request))

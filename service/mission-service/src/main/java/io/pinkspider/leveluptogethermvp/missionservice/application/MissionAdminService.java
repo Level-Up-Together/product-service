@@ -178,11 +178,11 @@ public class MissionAdminService {
     }
 
     public void deleteMission(Long id) {
-        if (!missionRepository.existsById(id)) {
-            throw new CustomException("050101", "미션을 찾을 수 없습니다: " + id);
-        }
-        missionRepository.deleteById(id);
-        log.info("미션 삭제 (Admin): ID={}", id);
+        Mission mission = missionRepository.findById(id)
+            .orElseThrow(() -> new CustomException("050101", "미션을 찾을 수 없습니다: " + id));
+        mission.delete();
+        missionRepository.save(mission);
+        log.info("미션 소프트 삭제 (Admin): ID={}", id);
     }
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")

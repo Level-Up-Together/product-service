@@ -77,7 +77,7 @@ class MissionParticipantServiceTest {
             Long missionId = 1L;
             Mission mission = createOpenPublicMission(missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(Optional.empty());
             when(participantRepository.save(any(MissionParticipant.class)))
@@ -102,7 +102,7 @@ class MissionParticipantServiceTest {
             Long missionId = 1L;
             Mission mission = createOpenPublicMission(missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(true);
 
             // when & then
@@ -131,7 +131,7 @@ class MissionParticipantServiceTest {
             setId(withdrawnParticipant, 1L);
 
             // existsActiveParticipation은 WITHDRAWN 상태를 제외하므로 false 반환
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
                 .thenReturn(Optional.of(withdrawnParticipant));
@@ -169,7 +169,7 @@ class MissionParticipantServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionParticipantService.joinMission(missionId, TEST_USER_ID))
@@ -194,7 +194,7 @@ class MissionParticipantServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
             when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(Optional.empty());
             when(participantRepository.save(any(MissionParticipant.class)))
@@ -229,7 +229,7 @@ class MissionParticipantServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(10L);  // 이미 10명 참여
 
@@ -318,7 +318,7 @@ class MissionParticipantServiceTest {
                 .build();
             setId(participant, participantId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.findById(participantId)).thenReturn(Optional.of(participant));
 
             // when
@@ -346,7 +346,7 @@ class MissionParticipantServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionParticipantService.acceptParticipant(missionId, participantId, TEST_USER_ID))

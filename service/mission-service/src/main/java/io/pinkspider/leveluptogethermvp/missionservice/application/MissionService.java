@@ -404,10 +404,10 @@ public class MissionService {
             if (!mission.getStatus().isDeletable()) {
                 throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
             }
-            missionRepository.delete(mission);
-            log.info("미션 삭제: id={}, deletedBy={}", missionId, userId);
+            mission.delete();
+            missionRepository.save(mission);
+            log.info("미션 소프트 삭제: id={}, deletedBy={}", missionId, userId);
 
-            // 관련 피드 삭제 (이벤트 기반, AFTER_COMMIT)
             eventPublisher.publishEvent(new MissionDeletedEvent(userId, missionId));
             return;
         }
@@ -417,7 +417,7 @@ public class MissionService {
     }
 
     private Mission findMissionById(Long missionId) {
-        return missionRepository.findById(missionId)
+        return missionRepository.findByIdAndIsDeletedFalse(missionId)
             .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
     }
 

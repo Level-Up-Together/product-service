@@ -105,13 +105,15 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, TEST_USER_ID);
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
             verify(missionParticipantService, never()).withdrawFromMission(anyLong(), anyString());
         }
 
@@ -131,13 +133,15 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, TEST_USER_ID);
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
         }
 
         @Test
@@ -156,14 +160,14 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("진행중인 미션은 삭제할 수 없습니다.");
 
-            verify(missionRepository, never()).delete(any());
+            verify(missionRepository, never()).save(any());
         }
 
         @Test
@@ -182,13 +186,13 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);  // 시스템 미션
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, TEST_USER_ID);  // 일반 사용자가 삭제 요청
 
             // then
-            verify(missionRepository, never()).delete(any());
+            verify(missionRepository, never()).save(any());
             verify(missionParticipantService).withdrawFromMission(missionId, TEST_USER_ID);
         }
 
@@ -208,13 +212,15 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, ADMIN_USER_ID);  // 어드민(생성자)이 삭제 요청
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
             verify(missionParticipantService, never()).withdrawFromMission(anyLong(), anyString());
         }
 
@@ -235,14 +241,14 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);  // 일반 사용자 미션
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
 
-            verify(missionRepository, never()).delete(any());
+            verify(missionRepository, never()).save(any());
             verify(missionParticipantService, never()).withdrawFromMission(anyLong(), anyString());
         }
 
@@ -252,7 +258,7 @@ class MissionServiceTest {
             // given
             Long missionId = 999L;
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.empty());
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
@@ -276,13 +282,15 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, TEST_USER_ID);
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
         }
 
         @Test
@@ -301,13 +309,15 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             missionService.deleteMission(missionId, TEST_USER_ID);
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
         }
     }
 
@@ -338,7 +348,7 @@ class MissionServiceTest {
 
             List<String> memberUserIds = List.of(TEST_USER_ID, member1Id, member2Id);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(guildQueryFacadeService.getActiveMemberUserIds(guildId)).thenReturn(memberUserIds);
 
             // when
@@ -376,7 +386,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.openMission(missionId, TEST_USER_ID);
@@ -407,7 +417,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.openMission(missionId, TEST_USER_ID))
@@ -431,7 +441,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.openMission(missionId, TEST_USER_ID);
@@ -617,7 +627,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
 
             // when
@@ -634,7 +644,7 @@ class MissionServiceTest {
         void getMission_notFound_throwsException() {
             // given
             Long missionId = 999L;
-            when(missionRepository.findById(missionId)).thenReturn(Optional.empty());
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> missionService.getMission(missionId))
@@ -663,7 +673,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.startMission(missionId, TEST_USER_ID);
@@ -690,7 +700,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.startMission(missionId, TEST_USER_ID))
@@ -718,7 +728,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.cancelMission(missionId, TEST_USER_ID);
@@ -745,7 +755,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.cancelMission(missionId, TEST_USER_ID))
@@ -960,7 +970,7 @@ class MissionServiceTest {
                     .description("수정된 설명")
                     .build();
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.updateMission(missionId, TEST_USER_ID, request);
@@ -992,7 +1002,7 @@ class MissionServiceTest {
                     .title("수정된 제목")
                     .build();
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.updateMission(missionId, TEST_USER_ID, request))
@@ -1022,7 +1032,7 @@ class MissionServiceTest {
                     .title("수정된 제목")
                     .build();
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.updateMission(missionId, TEST_USER_ID, request))
@@ -1057,7 +1067,7 @@ class MissionServiceTest {
                     .categoryId(categoryId)
                     .build();
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(missionCategoryService.getCategory(categoryId)).thenReturn(categoryResponse);
 
             // when
@@ -1092,7 +1102,7 @@ class MissionServiceTest {
                     .clearCategory(true)
                     .build();
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.updateMission(missionId, TEST_USER_ID, request);
@@ -1124,7 +1134,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when
             MissionResponse response = missionService.completeMission(missionId, TEST_USER_ID);
@@ -1151,7 +1161,7 @@ class MissionServiceTest {
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
             // when & then
             assertThatThrownBy(() -> missionService.completeMission(missionId, TEST_USER_ID))
@@ -1187,7 +1197,7 @@ class MissionServiceTest {
                     true, true, false
                 );
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(guildQueryFacadeService.checkPermissions(guildId, guildMasterId))
                 .thenReturn(permissionCheck);
 
@@ -1195,7 +1205,9 @@ class MissionServiceTest {
             missionService.deleteMission(missionId, guildMasterId);
 
             // then
-            verify(missionRepository).delete(mission);
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            assertThat(mission.getDeletedAt()).isNotNull();
         }
     }
 
@@ -1218,7 +1230,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
             when(reportService.isUnderReview(ReportTargetType.MISSION, "1")).thenReturn(true);
 
@@ -1246,7 +1258,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
 
-            when(missionRepository.findById(missionId)).thenReturn(Optional.of(mission));
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
             when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
             when(reportService.isUnderReview(ReportTargetType.MISSION, "1")).thenReturn(false);
 

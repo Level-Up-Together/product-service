@@ -59,17 +59,19 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
            "JOIN FETCH mp.mission m " +
            "WHERE mp.userId = :userId " +
            "AND mp.status = 'ACCEPTED' " +
-           "AND m.isPinned = true")
+           "AND m.isPinned = true " +
+           "AND m.isDeleted = false")
     List<MissionParticipant> findPinnedMissionParticipants(@Param("userId") String userId);
 
     /**
      * 모든 활성 고정 미션 참여자 조회 (배치 스케줄러용)
-     * ACCEPTED 상태이고, 미션이 활성(isPinned=true)인 참여자만 조회
+     * ACCEPTED 상태이고, 미션이 활성(isPinned=true)이며, 삭제되지 않은 참여자만 조회
      */
     @Query("SELECT mp FROM MissionParticipant mp " +
            "JOIN FETCH mp.mission m " +
            "WHERE mp.status = 'ACCEPTED' " +
-           "AND m.isPinned = true")
+           "AND m.isPinned = true " +
+           "AND m.isDeleted = false")
     List<MissionParticipant> findAllActivePinnedMissionParticipants();
 
     /**
@@ -78,6 +80,7 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
     @Query("SELECT mp.id FROM MissionParticipant mp " +
            "JOIN mp.mission m " +
            "WHERE mp.status = 'ACCEPTED' " +
-           "AND m.isPinned = true")
+           "AND m.isPinned = true " +
+           "AND m.isDeleted = false")
     List<Long> findAllActivePinnedMissionParticipantIds();
 }

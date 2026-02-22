@@ -194,7 +194,7 @@ public class MissionParticipantService {
     }
 
     private Mission findMissionById(Long missionId) {
-        return missionRepository.findById(missionId)
+        return missionRepository.findByIdAndIsDeletedFalse(missionId)
             .orElseThrow(() -> new IllegalArgumentException("미션을 찾을 수 없습니다: " + missionId));
     }
 

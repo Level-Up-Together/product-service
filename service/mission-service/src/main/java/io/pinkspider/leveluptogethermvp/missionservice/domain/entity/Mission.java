@@ -119,6 +119,15 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isPinned = false;
 
+    @Column(name = "is_deleted", nullable = false)
+    @Comment("삭제 여부")
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    @Comment("삭제 시간")
+    private LocalDateTime deletedAt;
+
     @Column(name = "target_duration_minutes")
     @Comment("목표 수행 시간 (분) - 달성 시 보너스 XP")
     private Integer targetDurationMinutes;
@@ -258,6 +267,16 @@ public class Mission extends LocalDateTimeBaseEntity {
 
     public boolean isPublic() {
         return this.visibility == MissionVisibility.PUBLIC;
+    }
+
+    public void delete() {
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void restore() {
+        this.isDeleted = false;
+        this.deletedAt = null;
     }
 
     /**

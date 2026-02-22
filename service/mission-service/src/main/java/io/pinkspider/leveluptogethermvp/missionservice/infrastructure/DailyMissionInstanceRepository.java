@@ -204,6 +204,7 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     @Query("SELECT p.id FROM MissionParticipant p " +
            "JOIN p.mission m " +
            "WHERE m.isPinned = true " +
+           "AND m.isDeleted = false " +
            "AND p.status = 'ACTIVE' " +
            "AND NOT EXISTS (" +
            "  SELECT 1 FROM DailyMissionInstance dmi " +

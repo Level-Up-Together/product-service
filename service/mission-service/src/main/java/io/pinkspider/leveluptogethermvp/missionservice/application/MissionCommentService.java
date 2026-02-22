@@ -36,7 +36,7 @@ public class MissionCommentService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionCommentResponse addComment(Long missionId, String userId, MissionCommentRequest request) {
-        Mission mission = missionRepository.findById(missionId)
+        Mission mission = missionRepository.findByIdAndIsDeletedFalse(missionId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "미션을 찾을 수 없습니다"));
 
         // 사용자 프로필 조회 (캐시)
