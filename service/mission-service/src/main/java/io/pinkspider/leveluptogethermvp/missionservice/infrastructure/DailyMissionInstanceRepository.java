@@ -19,11 +19,6 @@ import org.springframework.stereotype.Repository;
 public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissionInstance, Long> {
 
     /**
-     * 참여자의 특정 날짜 인스턴스 조회
-     */
-    Optional<DailyMissionInstance> findByParticipantIdAndInstanceDate(Long participantId, LocalDate instanceDate);
-
-    /**
      * 참여자의 모든 인스턴스 조회
      */
     List<DailyMissionInstance> findByParticipantId(Long participantId);
@@ -194,6 +189,22 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
            "AND dmi.instanceDate = :date " +
            "AND dmi.status = 'IN_PROGRESS'")
     Optional<DailyMissionInstance> findInProgressByParticipantIdAndDate(
+        @Param("participantId") Long participantId,
+        @Param("date") LocalDate date
+    );
+
+    /**
+     * 참여자의 특정 날짜 인스턴스 조회 (시퀀스 역순 정렬)
+     * 같은 날짜에 여러 인스턴스가 존재할 수 있으므로 List 반환
+     * (완료 후 CreateNextPinnedInstanceStep이 다음 시퀀스 인스턴스를 생성하기 때문)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE dmi.participant.id = :participantId " +
+           "AND dmi.instanceDate = :date " +
+           "ORDER BY dmi.sequenceNumber DESC")
+    List<DailyMissionInstance> findByParticipantIdAndInstanceDateOrderBySequenceDesc(
         @Param("participantId") Long participantId,
         @Param("date") LocalDate date
     );

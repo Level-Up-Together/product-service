@@ -791,8 +791,10 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, targetDate))
-                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, targetDate))
+                .thenReturn(Optional.empty());
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, targetDate))
+                .thenReturn(List.of(instance));
 
             // when
             DailyMissionInstanceResponse response = service.getInstanceByMission(MISSION_ID, TEST_USER_ID, targetDate);
@@ -822,8 +824,10 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, targetDate))
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, targetDate))
                 .thenReturn(Optional.empty());
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, targetDate))
+                .thenReturn(List.of());
 
             // when & then
             assertThatThrownBy(() -> service.getInstanceByMission(MISSION_ID, TEST_USER_ID, targetDate))
@@ -853,7 +857,7 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
                 .thenReturn(Optional.of(instance));
             when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", false))
                 .thenReturn(sagaResult);
@@ -882,7 +886,7 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
                 .thenReturn(Optional.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
@@ -921,8 +925,10 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
-                .thenReturn(Optional.of(instance));
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(Optional.empty());
+            when(instanceRepository.findByParticipantIdAndInstanceDateOrderBySequenceDesc(PARTICIPANT_ID, today))
+                .thenReturn(List.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
@@ -957,7 +963,7 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
                 .thenReturn(Optional.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
@@ -989,7 +995,7 @@ class DailyMissionInstanceServiceTest {
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
-            when(instanceRepository.findByParticipantIdAndInstanceDate(PARTICIPANT_ID, today))
+            when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
                 .thenReturn(Optional.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));

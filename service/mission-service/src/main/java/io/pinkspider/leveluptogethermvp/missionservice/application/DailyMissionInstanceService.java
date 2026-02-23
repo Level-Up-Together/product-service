@@ -97,8 +97,7 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
 
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -227,8 +226,8 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date)
+            .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
         return completeInstance(instance.getId(), userId, note, shareToFeed);
     }
@@ -257,8 +256,8 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date)
+            .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
         return skipInstance(instance.getId(), userId);
     }
@@ -298,8 +297,7 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
 
         return shareToFeed(instance.getId(), userId);
     }
@@ -374,8 +372,7 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
 
         return uploadImage(instance.getId(), userId, image);
     }
@@ -413,13 +410,29 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        DailyMissionInstance instance = instanceRepository.findByParticipantIdAndInstanceDate(participant.getId(), date)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date));
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
 
         return deleteImage(instance.getId(), userId);
     }
 
     // ============ 헬퍼 메서드 ============
+
+    /**
+     * 참여자의 특정 날짜 활성 인스턴스 조회
+     * IN_PROGRESS 우선, 없으면 최신 시퀀스 인스턴스 반환
+     * (같은 날짜에 여러 인스턴스가 존재할 수 있으므로 findByParticipantIdAndInstanceDate 대신 사용)
+     */
+    private DailyMissionInstance findActiveInstanceByParticipant(Long participantId, LocalDate date) {
+        return instanceRepository.findInProgressByParticipantIdAndDate(participantId, date)
+            .orElseGet(() -> {
+                List<DailyMissionInstance> instances = instanceRepository
+                    .findByParticipantIdAndInstanceDateOrderBySequenceDesc(participantId, date);
+                if (instances.isEmpty()) {
+                    throw new IllegalArgumentException("해당 날짜의 인스턴스를 찾을 수 없습니다: " + date);
+                }
+                return instances.get(0);
+            });
+    }
 
     private DailyMissionInstance findInstanceById(Long instanceId) {
         return instanceRepository.findByIdWithParticipantAndMission(instanceId)
