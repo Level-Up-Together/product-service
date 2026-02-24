@@ -216,7 +216,14 @@ public class GuildQueryService {
             .map(GuildMember::getUserId)
             .toList();
 
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
+        // 탈퇴한 회원 필터링
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
+        members = members.stream()
+            .filter(member -> activeUserIds.contains(member.getUserId()))
+            .toList();
+
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(
+            members.stream().map(GuildMember::getUserId).toList());
 
         // 멤버 정보에 사용자 정보 추가
         return members.stream()

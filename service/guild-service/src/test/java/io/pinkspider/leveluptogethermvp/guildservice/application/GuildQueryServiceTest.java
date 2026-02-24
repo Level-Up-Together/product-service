@@ -427,6 +427,8 @@ class GuildQueryServiceTest {
             lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
             when(guildMemberRepository.findActiveMembers(1L))
                 .thenReturn(List.of(testMasterMember, member));
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of(testMasterId, testUserId));
             when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
 
             // when
