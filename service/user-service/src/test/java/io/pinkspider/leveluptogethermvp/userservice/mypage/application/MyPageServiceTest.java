@@ -36,10 +36,13 @@ import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChang
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.TitleChangeResponse;
 import io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.UserTitleListResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -53,6 +56,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class MyPageServiceTest {
@@ -83,6 +87,12 @@ class MyPageServiceTest {
 
     @Mock
     private UserProfileCacheService userProfileCacheService;
+
+    @Mock
+    private UserExistsCacheService userExistsCacheService;
+
+    @Mock
+    private MultiDeviceTokenService multiDeviceTokenService;
 
     @InjectMocks
     private MyPageService myPageService;
@@ -744,6 +754,173 @@ class MyPageServiceTest {
             assertThatThrownBy(() -> myPageService.changeTitles(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("code", "TITLE_003");
+        }
+    }
+
+    @Nested
+    @DisplayName("uploadProfileImage 테스트")
+    class UploadProfileImageTest {
+
+        @Test
+        @DisplayName("유효하지 않은 이미지 파일이면 예외가 발생한다")
+        void uploadProfileImage_invalidFile_throwsException() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            MockMultipartFile invalidFile = new MockMultipartFile(
+                "file", "test.txt", "text/plain", "content".getBytes()
+            );
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(profileImageStorageService.isValidImage(invalidFile)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.uploadProfileImage(TEST_USER_ID, invalidFile))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "PROFILE_002");
+        }
+
+        @Test
+        @DisplayName("유효한 이미지를 업로드하면 프로필이 업데이트된다")
+        void uploadProfileImage_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            MockMultipartFile validFile = new MockMultipartFile(
+                "file", "test.jpg", "image/jpeg", "image content".getBytes()
+            );
+            String newImageUrl = "/uploads/profile/test-user-123/new-image.jpg";
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(profileImageStorageService.isValidImage(validFile)).thenReturn(true);
+            when(profileImageStorageService.store(validFile, TEST_USER_ID)).thenReturn(newImageUrl);
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(2);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+
+            // when
+            ProfileInfo result = myPageService.uploadProfileImage(TEST_USER_ID, validFile);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(profileImageStorageService).store(validFile, TEST_USER_ID);
+            verify(userRepository).save(any(Users.class));
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+            verify(eventPublisher).publishEvent((Object) any());
+        }
+
+        @Test
+        @DisplayName("기존 이미지가 있으면 삭제 후 새 이미지를 저장한다")
+        void uploadProfileImage_deleteOldImage() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            String oldImageUrl = "/uploads/profile/test-user-123/old-image.jpg";
+            TestReflectionUtils.setField(user, "picture", oldImageUrl);
+
+            MockMultipartFile validFile = new MockMultipartFile(
+                "file", "new.jpg", "image/jpeg", "image content".getBytes()
+            );
+            String newImageUrl = "/uploads/profile/test-user-123/new-image.jpg";
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(profileImageStorageService.isValidImage(validFile)).thenReturn(true);
+            when(profileImageStorageService.store(validFile, TEST_USER_ID)).thenReturn(newImageUrl);
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+
+            // when
+            myPageService.uploadProfileImage(TEST_USER_ID, validFile);
+
+            // then
+            verify(profileImageStorageService).delete(oldImageUrl);
+            verify(profileImageStorageService).store(validFile, TEST_USER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("withdrawUser 테스트")
+    class WithdrawUserTest {
+
+        @Test
+        @DisplayName("회원 탈퇴를 처리한다")
+        void withdrawUser_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUser(TEST_USER_ID);
+
+            // then
+            verify(userRepository).save(any(Users.class));
+            verify(multiDeviceTokenService).logoutAllDevices(TEST_USER_ID);
+            verify(userExistsCacheService).evictUserExistsCache(TEST_USER_ID);
+            verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 사용자면 예외가 발생한다")
+        void withdrawUser_alreadyWithdrawn_throwsException() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            TestReflectionUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.withdrawUser(TEST_USER_ID))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "USER_002");
+        }
+
+        @Test
+        @DisplayName("탈퇴 시 프로필 이미지가 있으면 삭제한다")
+        void withdrawUser_deletesProfileImage() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            String pictureUrl = "/uploads/profile/test-user-123/image.jpg";
+            TestReflectionUtils.setField(user, "picture", pictureUrl);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUser(TEST_USER_ID);
+
+            // then
+            verify(profileImageStorageService).delete(pictureUrl);
+        }
+
+        @Test
+        @DisplayName("탈퇴 시 프로필 이미지가 없으면 삭제를 호출하지 않는다")
+        void withdrawUser_noProfileImage_doesNotDelete() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            // picture는 null
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUser(TEST_USER_ID);
+
+            // then
+            verify(profileImageStorageService, never()).delete(anyString());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자 탈퇴 시 예외가 발생한다")
+        void withdrawUser_userNotFound_throwsException() {
+            // given
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.withdrawUser(TEST_USER_ID))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "USER_001");
         }
     }
 

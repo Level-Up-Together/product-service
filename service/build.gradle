@@ -1,4 +1,5 @@
 apply plugin: 'java-library'
+apply plugin: 'jacoco'
 
 jar { enabled = true }
 
@@ -120,5 +121,39 @@ tasks.named('test') {
     systemProperty 'file.encoding', 'UTF-8'
     useJUnitPlatform {
         excludeTags 'excluded'
+    }
+    finalizedBy jacocoTestReport
+}
+
+// JaCoCo
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/html')
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    '**/Q*.class',
+                    '**/config/**',
+                    '**/constants/**',
+                    '**/dto/**',
+                    '**/entity/**',
+                    '**/enums/**',
+                    '**/exception/**',
+                    '**/generated/**',
+                    '**/properties/**',
+                    '**/pagenation/**',
+                    '**/types/**',
+                    '**/DgsConstants*.class',
+                    '**/*Application.class'
+            ])
+        }))
     }
 }
