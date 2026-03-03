@@ -3,24 +3,35 @@ package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.test.TestReflectionUtils;
+import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,7 +51,16 @@ class DailyMissionInstanceSchedulerTest {
     private DailyMissionInstanceRepository instanceRepository;
 
     @Mock
+    private MissionExecutionRepository executionRepository;
+
+    @Mock
     private MissionParticipantRepository participantRepository;
+
+    @Mock
+    private DailyMissionInstanceService dailyMissionInstanceService;
+
+    @Mock
+    private MissionExecutionService missionExecutionService;
 
     @InjectMocks
     private DailyMissionInstanceScheduler scheduler;
@@ -94,7 +114,10 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("활성 참여자에 대해 오늘 인스턴스를 생성한다")
         void generateDailyInstances_success() {
             // given
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
             when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
             when(participantRepository.findAllActivePinnedMissionParticipants())
                 .thenReturn(List.of(participant1, participant2));
             when(instanceRepository.existsByParticipantIdAndInstanceDate(eq(1L), any(LocalDate.class)))
@@ -119,7 +142,10 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("활성 참여자가 없으면 인스턴스를 생성하지 않는다")
         void generateDailyInstances_noParticipants() {
             // given
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
             when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
             when(participantRepository.findAllActivePinnedMissionParticipants())
                 .thenReturn(List.of());
 
@@ -134,7 +160,10 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("이미 오늘 인스턴스가 있으면 생성을 건너뛴다")
         void generateDailyInstances_skipsExisting() {
             // given
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
             when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
             when(participantRepository.findAllActivePinnedMissionParticipants())
                 .thenReturn(List.of(participant1, participant2));
             when(instanceRepository.existsByParticipantIdAndInstanceDate(eq(1L), any(LocalDate.class)))
@@ -157,7 +186,10 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("미시작(PENDING) 인스턴스를 MISSED 처리한다")
         void generateDailyInstances_marksMissed() {
             // given
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
             when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(5);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
             when(participantRepository.findAllActivePinnedMissionParticipants())
                 .thenReturn(List.of());
 
@@ -166,6 +198,106 @@ class DailyMissionInstanceSchedulerTest {
 
             // then
             verify(instanceRepository).markMissedInstances(any(LocalDate.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("자정 자동 완료 테스트")
+    class MidnightAutoCompleteTest {
+
+        @Test
+        @DisplayName("지난 날짜 IN_PROGRESS 고정 미션을 Saga로 자동 완료한다")
+        void autoCompletePastDayInstances_viaSaga() {
+            // given
+            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
+            setId(inProgressInstance, 100L);
+            inProgressInstance.start();
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusMinutes(35));
+
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class)))
+                .thenReturn(List.of(inProgressInstance));
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(dailyMissionInstanceService).completeInstance(eq(100L), eq(USER_ID_1), isNull(), eq(false));
+        }
+
+        @Test
+        @DisplayName("지난 날짜 IN_PROGRESS 일반 미션을 Saga로 자동 완료한다")
+        void autoCompletePastDayExecutions_viaSaga() {
+            // given
+            MissionExecution inProgressExecution = MissionExecution.builder()
+                .participant(participant1)
+                .executionDate(LocalDate.now().minusDays(1))
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(45))
+                .build();
+            setId(inProgressExecution, 200L);
+
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class)))
+                .thenReturn(List.of(inProgressExecution));
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(missionExecutionService).completeExecution(eq(200L), eq(USER_ID_1), isNull(), eq(false));
+        }
+
+        @Test
+        @DisplayName("Saga 실패 시 엔티티 레벨 직접 완료로 폴백한다")
+        void autoCompletePastDayInstances_fallbackOnSagaFailure() {
+            // given
+            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
+            setId(inProgressInstance, 100L);
+            inProgressInstance.start();
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusMinutes(35));
+
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class)))
+                .thenReturn(List.of(inProgressInstance));
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+            doThrow(new RuntimeException("Saga 실패")).when(dailyMissionInstanceService)
+                .completeInstance(any(), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then - 폴백으로 엔티티 직접 완료
+            assertThat(inProgressInstance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(inProgressInstance.getExpEarned()).isGreaterThanOrEqualTo(35);
+            assertThat(inProgressInstance.getIsAutoCompleted()).isTrue();
+            verify(instanceRepository).save(inProgressInstance);
+        }
+
+        @Test
+        @DisplayName("IN_PROGRESS가 없으면 자동 완료를 건너뛴다")
+        void autoCompletePastDay_noInProgress() {
+            // given
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            verify(dailyMissionInstanceService, never()).completeInstance(any(), anyString(), isNull(), anyBoolean());
+            verify(missionExecutionService, never()).completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
         }
     }
 

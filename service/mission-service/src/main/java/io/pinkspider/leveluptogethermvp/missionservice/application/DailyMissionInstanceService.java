@@ -15,7 +15,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissi
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
-import io.pinkspider.leveluptogethermvp.missionservice.scheduler.DailyMissionInstanceScheduler;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +44,6 @@ public class DailyMissionInstanceService {
 
     private final DailyMissionInstanceRepository instanceRepository;
     private final MissionParticipantRepository participantRepository;
-    private final DailyMissionInstanceScheduler instanceScheduler;
     private final FeedCommandService feedCommandService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserQueryFacade userQueryFacadeService;
@@ -113,11 +111,11 @@ public class DailyMissionInstanceService {
 
         // 이미 진행 중인 인스턴스가 있는지 확인
         instanceRepository.findInProgressByUserId(userId).ifPresent(inProgress -> {
-            // 지난 날짜의 IN_PROGRESS 인스턴스는 자동으로 MISSED 처리
+            // 지난 날짜의 IN_PROGRESS 인스턴스는 자동 완료 처리 (경험치 보존)
             if (inProgress.getInstanceDate().isBefore(today)) {
-                log.info("지난 날짜 IN_PROGRESS 인스턴스 자동 MISSED 처리: instanceId={}, date={}, title={}",
+                log.info("지난 날짜 IN_PROGRESS 인스턴스 자동 완료 처리: instanceId={}, date={}, title={}",
                     inProgress.getId(), inProgress.getInstanceDate(), inProgress.getMissionTitle());
-                inProgress.markAsMissed();
+                inProgress.autoCompleteForDateChange();
                 instanceRepository.save(inProgress);
             } else {
                 // 오늘 날짜의 진행 중인 인스턴스가 있으면 에러

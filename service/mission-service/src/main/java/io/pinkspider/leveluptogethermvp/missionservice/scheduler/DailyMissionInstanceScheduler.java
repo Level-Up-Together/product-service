@@ -1,8 +1,12 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
+import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +31,10 @@ import java.util.List;
 public class DailyMissionInstanceScheduler {
 
     private final DailyMissionInstanceRepository instanceRepository;
+    private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final DailyMissionInstanceService dailyMissionInstanceService;
+    private final MissionExecutionService missionExecutionService;
 
     private static final int BATCH_SIZE = 100;
 
@@ -44,11 +51,23 @@ public class DailyMissionInstanceScheduler {
         LocalDate today = LocalDate.now();
 
         try {
-            // 1. 지난 날짜의 미완료 인스턴스 MISSED 처리
+            // 1. 지난 날짜의 IN_PROGRESS 미션 자동 완료 (Saga 경유 → 경험치 정상 지급)
+            int autoCompletedInstances = autoCompletePastDayInProgressInstances(today);
+            int autoCompletedExecutions = autoCompletePastDayInProgressExecutions(today);
+            if (autoCompletedInstances > 0 || autoCompletedExecutions > 0) {
+                log.info("자정 자동 완료 처리: pinnedInstances={}, regularExecutions={}",
+                    autoCompletedInstances, autoCompletedExecutions);
+            }
+
+            // 2. 지난 날짜의 미완료 인스턴스 MISSED 처리
             int missedCount = markMissedInstances(today);
             log.info("미완료 인스턴스 MISSED 처리 완료: count={}", missedCount);
 
-            // 2. 오늘 인스턴스 생성
+            // 3. 지난 날짜의 미완료 일반 미션 MISSED 처리
+            int missedExecutionCount = missionExecutionService.markMissedExecutions();
+            log.info("미완료 일반 미션 MISSED 처리 완료: count={}", missedExecutionCount);
+
+            // 4. 오늘 인스턴스 생성
             int createdCount = createTodayInstances(today);
             log.info("오늘 인스턴스 생성 완료: date={}, count={}", today, createdCount);
 
@@ -134,6 +153,74 @@ public class DailyMissionInstanceScheduler {
                 DailyMissionInstance instance = DailyMissionInstance.createFrom(participant, today, nextSequence);
                 return instanceRepository.save(instance);
             });
+    }
+
+    /**
+     * 지난 날짜의 IN_PROGRESS 고정 미션 인스턴스 자동 완료
+     *
+     * 날짜가 바뀌었는데 완료되지 않은 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다.
+     * Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
+     */
+    private int autoCompletePastDayInProgressInstances(LocalDate today) {
+        List<DailyMissionInstance> inProgressInstances = instanceRepository.findInProgressBeforeDate(today);
+
+        int count = 0;
+        for (DailyMissionInstance instance : inProgressInstances) {
+            String userId = instance.getParticipant().getUserId();
+            try {
+                dailyMissionInstanceService.completeInstance(instance.getId(), userId, null, false);
+                count++;
+                log.info("자정 자동 완료 (고정 미션): instanceId={}, userId={}, date={}, title={}",
+                    instance.getId(), userId, instance.getInstanceDate(), instance.getMissionTitle());
+            } catch (Exception e) {
+                // Saga 실패 시 엔티티 레벨 직접 완료 (캘린더에는 표시되지만 gamification XP 미지급)
+                log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: instanceId={}, error={}",
+                    instance.getId(), e.getMessage());
+                try {
+                    if (instance.autoCompleteForDateChange()) {
+                        instanceRepository.save(instance);
+                        count++;
+                    }
+                } catch (Exception fallbackError) {
+                    log.error("자정 자동 완료 폴백 실패: instanceId={}", instance.getId(), fallbackError);
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 지난 날짜의 IN_PROGRESS 일반 미션 실행 자동 완료
+     *
+     * 날짜가 바뀌었는데 완료되지 않은 일반 미션을 Saga로 자동 완료하여 경험치를 정상 지급합니다.
+     * Saga 실패 시 엔티티 레벨 직접 완료로 폴백합니다.
+     */
+    private int autoCompletePastDayInProgressExecutions(LocalDate today) {
+        List<MissionExecution> inProgressExecutions = executionRepository.findInProgressBeforeDate(today);
+
+        int count = 0;
+        for (MissionExecution execution : inProgressExecutions) {
+            String userId = execution.getParticipant().getUserId();
+            try {
+                missionExecutionService.completeExecution(execution.getId(), userId, null, false);
+                count++;
+                log.info("자정 자동 완료 (일반 미션): executionId={}, userId={}, date={}",
+                    execution.getId(), userId, execution.getExecutionDate());
+            } catch (Exception e) {
+                // Saga 실패 시 엔티티 레벨 직접 완료
+                log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: executionId={}, error={}",
+                    execution.getId(), e.getMessage());
+                try {
+                    if (execution.autoCompleteForDateChange()) {
+                        executionRepository.save(execution);
+                        count++;
+                    }
+                } catch (Exception fallbackError) {
+                    log.error("자정 자동 완료 폴백 실패: executionId={}", execution.getId(), fallbackError);
+                }
+            }
+        }
+        return count;
     }
 
     /**

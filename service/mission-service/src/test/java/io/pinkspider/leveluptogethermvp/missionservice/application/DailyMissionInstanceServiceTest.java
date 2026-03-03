@@ -197,8 +197,8 @@ class DailyMissionInstanceServiceTest {
         }
 
         @Test
-        @DisplayName("지난 날짜의 진행 중인 미션은 자동으로 MISSED 처리하고 새 인스턴스를 시작한다")
-        void startInstance_pastDateInProgress_autoMissed() {
+        @DisplayName("지난 날짜의 진행 중인 미션은 자동 완료 처리하고 새 인스턴스를 시작한다")
+        void startInstance_pastDateInProgress_autoComplete() {
             // given: 어제 날짜의 IN_PROGRESS 인스턴스
             LocalDate yesterday = LocalDate.now().minusDays(1);
             DailyMissionInstance pastInProgressInstance = DailyMissionInstance.createFrom(participant, yesterday);
@@ -220,7 +220,9 @@ class DailyMissionInstanceServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            assertThat(pastInProgressInstance.getStatus()).isEqualTo(ExecutionStatus.MISSED);
+            assertThat(pastInProgressInstance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(pastInProgressInstance.getIsAutoCompleted()).isTrue();
+            assertThat(pastInProgressInstance.getExpEarned()).isGreaterThan(0);
             verify(instanceRepository, times(2)).save(any(DailyMissionInstance.class));
         }
 

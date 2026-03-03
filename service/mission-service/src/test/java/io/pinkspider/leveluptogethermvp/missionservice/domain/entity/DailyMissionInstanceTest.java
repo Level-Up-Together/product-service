@@ -535,6 +535,118 @@ class DailyMissionInstanceTest {
     }
 
     @Nested
+    @DisplayName("autoCompleteForDateChange 메서드 테스트")
+    class AutoCompleteForDateChangeTest {
+
+        @Test
+        @DisplayName("IN_PROGRESS 인스턴스를 날짜 변경으로 자동 완료한다")
+        void autoCompleteForDateChange_success() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now().minusDays(1));
+            instance.start();
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(35));
+
+            // when
+            boolean result = instance.autoCompleteForDateChange();
+
+            // then
+            assertThat(result).isTrue();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getCompletedAt()).isNotNull();
+            assertThat(instance.getExpEarned()).isGreaterThanOrEqualTo(35);
+            assertThat(instance.getIsAutoCompleted()).isTrue();
+            assertThat(instance.getCompletionCount()).isEqualTo(1);
+            assertThat(instance.getTotalExpEarned()).isGreaterThanOrEqualTo(35);
+        }
+
+        @Test
+        @DisplayName("2시간 미만이어도 자동 완료된다 (autoCompleteIfExpired와 차이)")
+        void autoCompleteForDateChange_lessThanTwoHours() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now().minusDays(1));
+            instance.start();
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(10));
+
+            // when
+            boolean result = instance.autoCompleteForDateChange();
+
+            // then
+            assertThat(result).isTrue();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getExpEarned()).isGreaterThanOrEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("PENDING 상태에서는 false를 반환한다")
+        void autoCompleteForDateChange_pendingStatus_returnsFalse() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+
+            // when
+            boolean result = instance.autoCompleteForDateChange();
+
+            // then
+            assertThat(result).isFalse();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.PENDING);
+        }
+
+        @Test
+        @DisplayName("startedAt이 null이면 false를 반환한다")
+        void autoCompleteForDateChange_noStartedAt_returnsFalse() {
+            // given
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
+
+            // when
+            boolean result = instance.autoCompleteForDateChange();
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("목표시간 설정 미션도 실제 경과 시간으로 경험치를 계산한다")
+        void autoCompleteForDateChange_withTargetDuration() {
+            // given
+            mission = Mission.builder()
+                .title("운동 30분")
+                .description("30분 운동하기")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .categoryId(1L)
+                .categoryName("운동")
+                .expPerCompletion(50)
+                .targetDurationMinutes(30)
+                .isPinned(true)
+                .build();
+            setId(mission, 2L);
+
+            MissionParticipant p = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(p, 2L);
+
+            DailyMissionInstance instance = DailyMissionInstance.createFrom(p, LocalDate.now().minusDays(1));
+            instance.start();
+            // 목표시간(30분) 이상 수행
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(40));
+
+            // when
+            boolean result = instance.autoCompleteForDateChange();
+
+            // then
+            assertThat(result).isTrue();
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            // 목표시간 달성: targetDurationMinutes(30) + expPerCompletion(50) = 80
+            assertThat(instance.getExpEarned()).isEqualTo(80);
+        }
+    }
+
+    @Nested
     @DisplayName("getDurationMinutes 메서드 테스트")
     class GetDurationMinutesTest {
 

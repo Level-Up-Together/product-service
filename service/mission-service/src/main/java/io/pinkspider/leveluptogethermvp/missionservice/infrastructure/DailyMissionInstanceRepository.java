@@ -245,6 +245,16 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findInProgressWithTargetDuration();
 
     /**
+     * 지난 날짜의 IN_PROGRESS 인스턴스 조회 (자정 자동 완료용)
+     * 날짜가 바뀌었는데 완료되지 않은 미션을 자동 완료 처리하기 위함
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE dmi.status = 'IN_PROGRESS' AND dmi.instanceDate < :date")
+    List<DailyMissionInstance> findInProgressBeforeDate(@Param("date") LocalDate date);
+
+    /**
      * 당일 완료 횟수 조회 (일일 수행 제한용)
      */
     @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +

@@ -350,6 +350,31 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
     }
 
     /**
+     * 날짜 변경 시 자동 완료 (자정 스케줄러 safety net)
+     *
+     * 날짜가 바뀌었는데 완료되지 않은 IN_PROGRESS 미션을 자동 완료합니다.
+     * autoCompleteIfExpired()와 달리 2시간 임계값 없이 실제 경과 시간으로 경험치를 계산합니다.
+     *
+     * @return 자동 완료 처리 여부
+     */
+    public boolean autoCompleteForDateChange() {
+        if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
+            return false;
+        }
+
+        this.status = ExecutionStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+        this.expEarned = calculateExpByDuration();
+        this.isAutoCompleted = true;
+
+        // 완료 횟수 및 총 경험치 누적
+        this.completionCount = (this.completionCount == null ? 0 : this.completionCount) + 1;
+        this.totalExpEarned = (this.totalExpEarned == null ? 0 : this.totalExpEarned) + this.expEarned;
+
+        return true;
+    }
+
+    /**
      * 수행 시작 후 경과 시간이 최대 수행 시간을 초과했는지 확인
      */
     public boolean isExpired() {
