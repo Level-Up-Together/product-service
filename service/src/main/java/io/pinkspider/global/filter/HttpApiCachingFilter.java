@@ -145,6 +145,7 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
     }
 
     private boolean isMultipartRequest(HttpServletRequest request) {
-        return request.getMethod().equalsIgnoreCase("POST") && request.getContentType().startsWith("multipart/form-data");
+        String contentType = request.getContentType();
+        return request.getMethod().equalsIgnoreCase("POST") && contentType != null && contentType.startsWith("multipart/form-data");
     }
 }
