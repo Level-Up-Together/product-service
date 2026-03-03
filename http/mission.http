@@ -59,6 +59,13 @@ GET {{baseUrl}}/api/v1/missions/system/category/1?page=0&size=20
 Accept: application/json
 
 ### ----------------------------------------------------------
+### 미션 템플릿으로 미션 추가 (미션북)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/missions/templates/1/add
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
 ### 미션 수정
 ### ----------------------------------------------------------
 PUT {{baseUrl}}/api/v1/missions/1

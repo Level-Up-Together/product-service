@@ -143,4 +143,6 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
 
     @Query("SELECT COUNT(m) FROM Mission m WHERE m.source = :source AND m.creatorId = :creatorId")
     long countBySourceAndCreatorId(@Param("source") MissionSource source, @Param("creatorId") String creatorId);
+
+    boolean existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(Long baseMissionId, String creatorId);
 }

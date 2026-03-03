@@ -1397,4 +1397,90 @@ class MissionServiceTest {
             verify(reportService, never()).isUnderReviewBatch(any(), any());
         }
     }
+
+    @Nested
+    @DisplayName("템플릿으로 미션 생성 테스트")
+    class CreateMissionFromTemplateTest {
+
+        private MissionTemplate createTemplate(Long id) {
+            MissionTemplate template = MissionTemplate.builder()
+                .title("30분 독서")
+                .titleEn("30min Reading")
+                .description("매일 30분 독서하기")
+                .descriptionEn("Read for 30 minutes daily")
+                .visibility(MissionVisibility.PUBLIC)
+                .source(MissionSource.SYSTEM)
+                .missionInterval(MissionInterval.DAILY)
+                .durationMinutes(30)
+                .bonusExpOnFullCompletion(50)
+                .isPinned(false)
+                .targetDurationMinutes(30)
+                .dailyExecutionLimit(1)
+                .categoryId(1L)
+                .categoryName("독서")
+                .build();
+            TestReflectionUtils.setField(template, "id", id);
+            return template;
+        }
+
+        @Test
+        @DisplayName("템플릿으로 미션을 정상 생성한다")
+        void createMissionFromTemplate_success() {
+            // given
+            Long templateId = 1L;
+            MissionTemplate template = createTemplate(templateId);
+
+            when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
+            when(missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, TEST_USER_ID))
+                .thenReturn(false);
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> {
+                Mission m = invocation.getArgument(0);
+                setId(m, 10L);
+                return m;
+            });
+
+            // when
+            MissionResponse result = missionService.createMissionFromTemplate(templateId, TEST_USER_ID);
+
+            // then
+            assertThat(result.getTitle()).isEqualTo("30분 독서");
+            assertThat(result.getStatus()).isEqualTo(MissionStatus.DRAFT);
+            assertThat(result.getSource()).isEqualTo(MissionSource.SYSTEM);
+            assertThat(result.getType()).isEqualTo(MissionType.PERSONAL);
+
+            verify(missionRepository).save(any(Mission.class));
+            verify(missionParticipantService).addCreatorAsParticipant(any(Mission.class), eq(TEST_USER_ID));
+            verify(eventPublisher).publishEvent(any(MissionStateChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 템플릿으로 생성 시 예외가 발생한다")
+        void createMissionFromTemplate_templateNotFound() {
+            // given
+            Long templateId = 999L;
+            when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> missionService.createMissionFromTemplate(templateId, TEST_USER_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("미션 템플릿을 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("이미 추가한 템플릿으로 생성 시 예외가 발생한다")
+        void createMissionFromTemplate_duplicate() {
+            // given
+            Long templateId = 1L;
+            MissionTemplate template = createTemplate(templateId);
+
+            when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
+            when(missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, TEST_USER_ID))
+                .thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.createMissionFromTemplate(templateId, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 추가한 미션입니다");
+        }
+    }
 }

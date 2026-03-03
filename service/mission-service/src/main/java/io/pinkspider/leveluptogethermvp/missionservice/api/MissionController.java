@@ -87,6 +87,18 @@ public class MissionController {
     }
 
     /**
+     * 미션 템플릿으로부터 개인 미션 추가 (미션북)
+     */
+    @PostMapping("/templates/{templateId}/add")
+    public ResponseEntity<ApiResult<MissionResponse>> addMissionFromTemplate(
+        @PathVariable Long templateId,
+        @CurrentUser String userId) {
+
+        MissionResponse response = missionService.createMissionFromTemplate(templateId, userId);
+        return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
+    }
+
+    /**
      * 카테고리별 시스템 미션 템플릿 목록 조회
      */
     @GetMapping("/system/category/{categoryId}")

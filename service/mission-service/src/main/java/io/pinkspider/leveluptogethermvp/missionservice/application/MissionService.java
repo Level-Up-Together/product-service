@@ -121,6 +121,52 @@ public class MissionService {
         return MissionResponse.from(saved);
     }
 
+    /**
+     * 미션 템플릿으로부터 개인 미션 생성 (미션북에서 추가)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionResponse createMissionFromTemplate(Long templateId, String userId) {
+        MissionTemplate template = missionTemplateRepository.findById(templateId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 템플릿을 찾을 수 없습니다: " + templateId));
+
+        if (missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, userId)) {
+            throw new IllegalStateException("이미 추가한 미션입니다.");
+        }
+
+        Mission mission = Mission.builder()
+            .title(template.getTitle())
+            .titleEn(template.getTitleEn())
+            .titleAr(template.getTitleAr())
+            .description(template.getDescription())
+            .descriptionEn(template.getDescriptionEn())
+            .descriptionAr(template.getDescriptionAr())
+            .status(MissionStatus.DRAFT)
+            .visibility(MissionVisibility.PRIVATE)
+            .type(MissionType.PERSONAL)
+            .source(MissionSource.SYSTEM)
+            .participationType(template.getParticipationType())
+            .baseMissionId(templateId)
+            .creatorId(userId)
+            .missionInterval(template.getMissionInterval())
+            .durationMinutes(template.getDurationMinutes())
+            .bonusExpOnFullCompletion(template.getBonusExpOnFullCompletion())
+            .isPinned(Boolean.TRUE.equals(template.getIsPinned()))
+            .targetDurationMinutes(template.getTargetDurationMinutes())
+            .dailyExecutionLimit(template.getDailyExecutionLimit())
+            .categoryId(template.getCategoryId())
+            .categoryName(template.getCategoryName())
+            .customCategory(template.getCustomCategory())
+            .build();
+
+        Mission saved = missionRepository.save(mission);
+        log.info("템플릿으로 미션 생성: missionId={}, templateId={}, userId={}", saved.getId(), templateId, userId);
+
+        eventPublisher.publishEvent(MissionStateChangedEvent.ofCreation(userId, saved.getId(), saved.getStatus()));
+        missionParticipantService.addCreatorAsParticipant(saved, userId);
+
+        return MissionResponse.from(saved);
+    }
+
     public MissionResponse getMission(Long missionId) {
         Mission mission = findMissionById(missionId);
         int participantCount = (int) participantRepository.countActiveParticipants(missionId);
