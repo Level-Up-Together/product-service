@@ -167,7 +167,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -189,7 +189,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 1, null, null, 100L, "새 챔피언", TitleRarity.MYTHIC, TitlePosition.LEFT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -210,7 +210,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 1, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
@@ -241,7 +241,7 @@ class SeasonRankRewardAdminServiceTest {
             setId(savedTitle, 200L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 3, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 0L)).thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -272,7 +272,7 @@ class SeasonRankRewardAdminServiceTest {
             setId(savedTitle, 201L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, 1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 1, 0L)).thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(testReward);
 
@@ -326,7 +326,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createRankReward(1L, request))
@@ -371,8 +371,8 @@ class SeasonRankRewardAdminServiceTest {
             setId(savedReward2, 11L);
 
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 1, 0L)).thenReturn(false);
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 2, 5, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 2, 5, 0L)).thenReturn(false);
             when(titleRepository.save(any(Title.class))).thenReturn(savedTitle1).thenReturn(savedTitle2);
             when(rankRewardRepository.save(any(SeasonRankReward.class))).thenReturn(savedReward1).thenReturn(savedReward2);
 
@@ -424,7 +424,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 5, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(1L, List.of(request)))
@@ -440,7 +440,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 5, 1L, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, 1L, 1, 5, 0L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 5, 0L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.createBulkRankRewards(1L, List.of(request)))
@@ -461,7 +461,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 3, null, null, 100L, "업데이트 챔피언", TitleRarity.MYTHIC, TitlePosition.RIGHT, 2
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
 
             // when
@@ -511,7 +511,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 5, 1L)).thenReturn(true);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 1L)).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> seasonRankRewardAdminService.updateRankReward(1L, request))
@@ -527,7 +527,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 3, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
             when(titleRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
@@ -544,7 +544,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 3, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 3, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
 
             // when
@@ -571,7 +571,7 @@ class SeasonRankRewardAdminServiceTest {
                 1, 1, null, null, 150L, "희귀도없는칭호", null, TitlePosition.RIGHT, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
-            when(rankRewardRepository.existsOverlappingRangeWithCategory(1L, null, 1, 1, 1L)).thenReturn(false);
+            when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 1L)).thenReturn(false);
             when(titleRepository.findById(150L)).thenReturn(Optional.of(titleWithoutRarity));
 
             // when

@@ -50,21 +50,41 @@ public interface SeasonRankRewardRepository extends JpaRepository<SeasonRankRewa
     );
 
     /**
-     * 시즌의 순위 구간 중복 검사 (카테고리 포함)
+     * 시즌의 순위 구간 중복 검사 (카테고리 지정)
      */
     @Query("""
         SELECT COUNT(srr) > 0 FROM SeasonRankReward srr
         WHERE srr.season.id = :seasonId
         AND srr.isActive = true
         AND srr.id != :excludeId
-        AND ((:categoryId IS NULL AND srr.categoryId IS NULL) OR srr.categoryId = :categoryId)
+        AND srr.categoryId = :categoryId
         AND ((srr.rankStart <= :rankStart AND srr.rankEnd >= :rankStart)
             OR (srr.rankStart <= :rankEnd AND srr.rankEnd >= :rankEnd)
             OR (srr.rankStart >= :rankStart AND srr.rankEnd <= :rankEnd))
         """)
-    boolean existsOverlappingRangeWithCategory(
+    boolean existsOverlappingRangeWithCategoryId(
         @Param("seasonId") Long seasonId,
         @Param("categoryId") Long categoryId,
+        @Param("rankStart") int rankStart,
+        @Param("rankEnd") int rankEnd,
+        @Param("excludeId") Long excludeId
+    );
+
+    /**
+     * 시즌의 순위 구간 중복 검사 (전체 랭킹, categoryId IS NULL)
+     */
+    @Query("""
+        SELECT COUNT(srr) > 0 FROM SeasonRankReward srr
+        WHERE srr.season.id = :seasonId
+        AND srr.isActive = true
+        AND srr.id != :excludeId
+        AND srr.categoryId IS NULL
+        AND ((srr.rankStart <= :rankStart AND srr.rankEnd >= :rankStart)
+            OR (srr.rankStart <= :rankEnd AND srr.rankEnd >= :rankEnd)
+            OR (srr.rankStart >= :rankStart AND srr.rankEnd <= :rankEnd))
+        """)
+    boolean existsOverlappingRangeWithNullCategory(
+        @Param("seasonId") Long seasonId,
         @Param("rankStart") int rankStart,
         @Param("rankEnd") int rankEnd,
         @Param("excludeId") Long excludeId

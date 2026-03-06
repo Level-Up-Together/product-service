@@ -57,8 +57,7 @@ public class SeasonRankRewardAdminService {
             throw new CustomException("120004", "시작 순위가 종료 순위보다 클 수 없습니다.");
         }
 
-        if (rankRewardRepository.existsOverlappingRangeWithCategory(
-            seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
+        if (existsOverlappingRange(seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
             throw new CustomException("120005", "순위 구간이 기존 보상과 중복됩니다.");
         }
 
@@ -115,8 +114,7 @@ public class SeasonRankRewardAdminService {
                     String.format("시작 순위가 종료 순위보다 클 수 없습니다: %d-%d", request.rankStart(), request.rankEnd()));
             }
 
-            if (rankRewardRepository.existsOverlappingRangeWithCategory(
-                seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
+            if (existsOverlappingRange(seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
                 throw new CustomException("120005",
                     String.format("순위 구간이 기존 보상과 중복됩니다: %s %d-%d위",
                         request.categoryName() != null ? request.categoryName() : "전체",
@@ -162,8 +160,7 @@ public class SeasonRankRewardAdminService {
             throw new CustomException("120004", "시작 순위가 종료 순위보다 클 수 없습니다.");
         }
 
-        if (rankRewardRepository.existsOverlappingRangeWithCategory(
-            reward.getSeason().getId(), request.categoryId(), request.rankStart(), request.rankEnd(), rewardId)) {
+        if (existsOverlappingRange(reward.getSeason().getId(), request.categoryId(), request.rankStart(), request.rankEnd(), rewardId)) {
             throw new CustomException("120005", "순위 구간이 기존 보상과 중복됩니다.");
         }
 
@@ -233,6 +230,13 @@ public class SeasonRankRewardAdminService {
             totalCount,
             totalCount > 0
         );
+    }
+
+    private boolean existsOverlappingRange(Long seasonId, Long categoryId, int rankStart, int rankEnd, Long excludeId) {
+        if (categoryId == null) {
+            return rankRewardRepository.existsOverlappingRangeWithNullCategory(seasonId, rankStart, rankEnd, excludeId);
+        }
+        return rankRewardRepository.existsOverlappingRangeWithCategoryId(seasonId, categoryId, rankStart, rankEnd, excludeId);
     }
 
     private String buildAcquisitionCondition(Season season, Integer rankStart, Integer rankEnd, Long categoryId, String categoryName) {
