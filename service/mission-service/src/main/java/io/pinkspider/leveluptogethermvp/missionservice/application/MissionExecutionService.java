@@ -11,14 +11,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
-import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
 
 @Service
 @Slf4j
@@ -29,7 +28,6 @@ public class MissionExecutionService {
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionCompletionSaga missionCompletionSaga;
-    private final ApplicationEventPublisher eventPublisher;
     private final MissionExecutionStrategyResolver strategyResolver;
 
     /**
@@ -196,21 +194,7 @@ public class MissionExecutionService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse updateExecutionNote(Long missionId, String userId, LocalDate executionDate, String note) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
-
-        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
-
-        if (execution.getStatus() != ExecutionStatus.COMPLETED) {
-            throw new IllegalStateException("완료된 미션만 기록을 추가할 수 있습니다.");
-        }
-
-        execution.setNote(note);
-        executionRepository.save(execution);
-
-        log.info("미션 기록 업데이트: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
-        return MissionExecutionResponse.from(execution);
+        return strategyResolver.resolve(missionId, userId).updateExecutionNote(missionId, userId, executionDate, note);
     }
 
     /**
@@ -219,26 +203,6 @@ public class MissionExecutionService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate) {
-        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
-
-        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
-            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
-
-        if (!Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-            throw new IllegalStateException("공유된 피드가 없습니다.");
-        }
-
-        // 공유 상태 초기화
-        execution.unshareFromFeed();
-        executionRepository.save(execution);
-
-        // 이벤트 기반으로 피드 삭제 (AFTER_COMMIT)
-        eventPublisher.publishEvent(new MissionFeedUnsharedEvent(userId, execution.getId()));
-
-        log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, executionId={}",
-            userId, missionId, executionDate, execution.getId());
-
-        return MissionExecutionResponse.from(execution);
+        return strategyResolver.resolve(missionId, userId).unshareExecutionFromFeed(missionId, userId, executionDate);
     }
 }

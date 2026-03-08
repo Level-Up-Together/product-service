@@ -27,8 +27,6 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSag
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.global.saga.SagaResult;
-import io.pinkspider.global.event.MissionFeedUnsharedEvent;
-import org.springframework.context.ApplicationEventPublisher;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,9 +51,6 @@ class MissionExecutionServiceTest {
 
     @Mock
     private MissionCompletionSaga missionCompletionSaga;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
@@ -422,51 +417,30 @@ class MissionExecutionServiceTest {
     @DisplayName("기록 업데이트 테스트")
     class UpdateExecutionNoteTest {
 
+        @Mock
+        private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy mockStrategy;
+
         @Test
-        @DisplayName("완료된 미션의 기록을 업데이트한다")
-        void updateExecutionNote_success() {
+        @DisplayName("updateExecutionNote는 Strategy로 위임한다")
+        void updateExecutionNote_delegatesToStrategy() {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
             String newNote = "오늘 운동 완료!";
 
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.updateExecutionNote(testMission.getId(), testUserId, executionDate, newNote))
+                .thenReturn(expectedResponse);
 
             // when
             MissionExecutionResponse response = executionService.updateExecutionNote(
                 testMission.getId(), testUserId, executionDate, newNote);
 
             // then
-            assertThat(response).isNotNull();
-            verify(executionRepository).save(any(MissionExecution.class));
-        }
-
-        @Test
-        @DisplayName("완료되지 않은 미션의 기록 업데이트 시 예외가 발생한다")
-        void updateExecutionNote_notCompleted_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setId(execution, 1L);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.updateExecutionNote(testMission.getId(), testUserId, executionDate, "새 노트");
-            });
+            assertThat(response).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).updateExecutionNote(testMission.getId(), testUserId, executionDate, newNote);
         }
     }
 
@@ -638,46 +612,29 @@ class MissionExecutionServiceTest {
     @DisplayName("피드 공유 취소 테스트")
     class UnshareExecutionFromFeedTest {
 
+        @Mock
+        private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategy mockStrategy;
+
         @Test
-        @DisplayName("공유된 피드를 취소한다")
-        void unshareExecutionFromFeed_success() {
+        @DisplayName("unshareExecutionFromFeed는 Strategy로 위임한다")
+        void unshareExecutionFromFeed_delegatesToStrategy() {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            TestReflectionUtils.setField(execution, "isSharedToFeed", true);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.unshareExecutionFromFeed(testMission.getId(), testUserId, executionDate))
+                .thenReturn(expectedResponse);
 
             // when
             MissionExecutionResponse response = executionService.unshareExecutionFromFeed(
                 testMission.getId(), testUserId, executionDate);
 
             // then
-            assertThat(response).isNotNull();
-            verify(eventPublisher).publishEvent(any(MissionFeedUnsharedEvent.class));
-        }
-
-        @Test
-        @DisplayName("공유되지 않은 피드 취소 시 예외가 발생한다")
-        void unshareExecutionFromFeed_notShared_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
-                executionService.unshareExecutionFromFeed(testMission.getId(), testUserId, executionDate);
-            });
+            assertThat(response).isEqualTo(expectedResponse);
+            verify(strategyResolver).resolve(testMission.getId(), testUserId);
+            verify(mockStrategy).unshareExecutionFromFeed(testMission.getId(), testUserId, executionDate);
         }
     }
 

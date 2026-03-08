@@ -62,6 +62,20 @@ public class PinnedMissionExecutionStrategy implements MissionExecutionStrategy 
     }
 
     @Override
+    public MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate) {
+        log.info("고정 미션 피드 공유 취소 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
+        var response = dailyMissionInstanceService.unshareFromFeedByMission(missionId, userId, executionDate);
+        return MissionExecutionResponse.fromDailyInstance(response);
+    }
+
+    @Override
+    public MissionExecutionResponse updateExecutionNote(Long missionId, String userId, LocalDate executionDate, String note) {
+        log.info("고정 미션 기록 업데이트 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
+        var response = dailyMissionInstanceService.updateNoteByMission(missionId, userId, executionDate, note);
+        return MissionExecutionResponse.fromDailyInstance(response);
+    }
+
+    @Override
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date) {
         log.info("고정 미션 조회 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
         var response = dailyMissionInstanceService.getInstanceByMission(missionId, userId, date);

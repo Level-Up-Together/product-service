@@ -324,6 +324,41 @@ public class DailyMissionInstanceService {
         return DailyMissionInstanceResponse.from(instance);
     }
 
+    /**
+     * 고정 미션 피드 공유 취소 (missionId + date로 조회)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse unshareFromFeedByMission(Long missionId, String userId, LocalDate date) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
+
+        return unshareFromFeed(instance.getId(), userId);
+    }
+
+    /**
+     * 고정 미션 노트 업데이트 (missionId + date로 조회)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse updateNoteByMission(Long missionId, String userId, LocalDate date, String note) {
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        DailyMissionInstance instance = findActiveInstanceByParticipant(participant.getId(), date);
+        validateInstanceOwner(instance, userId);
+
+        if (instance.getStatus() != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 미션만 기록을 추가할 수 있습니다.");
+        }
+
+        instance.setNote(note);
+        instanceRepository.save(instance);
+
+        log.info("고정 미션 기록 업데이트: missionId={}, userId={}, date={}", missionId, userId, date);
+        return DailyMissionInstanceResponse.from(instance);
+    }
+
     // ============ 이미지 업로드 ============
 
     /**

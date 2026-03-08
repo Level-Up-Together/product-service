@@ -20,5 +20,9 @@ public interface MissionExecutionStrategy {
 
     MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate);
 
+    MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate);
+
+    MissionExecutionResponse updateExecutionNote(Long missionId, String userId, LocalDate executionDate, String note);
+
     MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date);
 }
