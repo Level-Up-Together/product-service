@@ -159,6 +159,20 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     List<MissionExecution> findInProgressBeforeDate(@Param("date") LocalDate date);
 
     /**
+     * 자동종료 임박 경고 대상 조회 (warningStart~warningEnd 사이에 시작된 IN_PROGRESS 미션)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "LEFT JOIN FETCH p.mission m " +
+           "WHERE me.status = 'IN_PROGRESS' " +
+           "AND me.startedAt > :warningStart " +
+           "AND me.startedAt <= :warningEnd")
+    List<MissionExecution> findInProgressWarningExecutions(
+        @Param("warningStart") LocalDateTime warningStart,
+        @Param("warningEnd") LocalDateTime warningEnd
+    );
+
+    /**
      * 일반 미션 완료 시 미래 PENDING execution 삭제
      * 일반 미션은 한 번 완료하면 미래 날짜의 수행 일정이 필요 없음
      */

@@ -2,10 +2,12 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import java.time.Duration;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionContext> {
 
     private final DailyMissionInstanceRepository instanceRepository;
+    private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
     public String getName() {
@@ -49,6 +52,18 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
             instance.complete();
             if (context.getNote() != null) {
                 instance.setNote(context.getNote());
+            }
+
+            // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
+            if ((instance.getTargetDurationMinutes() == null || instance.getTargetDurationMinutes() <= 0)
+                && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
+                long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+                if (elapsed > 120) {
+                    instance.setExpEarned(missionExecutionProperties.getBaseExp());
+                    instance.setIsAutoCompleted(true);
+                    log.info("2시간 초과 수동 종료 - 기본 경험치 적용: instanceId={}, elapsed={}분, baseExp={}",
+                        instance.getId(), elapsed, missionExecutionProperties.getBaseExp());
+                }
             }
 
             // 계산된 경험치를 context에 반영

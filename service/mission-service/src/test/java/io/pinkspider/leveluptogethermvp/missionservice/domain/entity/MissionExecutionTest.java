@@ -70,7 +70,7 @@ class MissionExecutionTest {
             TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(35));
 
             // when
-            boolean result = execution.autoCompleteForDateChange();
+            boolean result = execution.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();
@@ -89,7 +89,7 @@ class MissionExecutionTest {
             TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(10));
 
             // when
-            boolean result = execution.autoCompleteForDateChange();
+            boolean result = execution.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();
@@ -104,7 +104,7 @@ class MissionExecutionTest {
             MissionExecution execution = createExecution(LocalDate.now());
 
             // when
-            boolean result = execution.autoCompleteForDateChange();
+            boolean result = execution.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isFalse();
@@ -119,34 +119,48 @@ class MissionExecutionTest {
             TestReflectionUtils.setField(execution, "status", ExecutionStatus.IN_PROGRESS);
 
             // when
-            boolean result = execution.autoCompleteForDateChange();
+            boolean result = execution.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isFalse();
         }
 
         @Test
-        @DisplayName("23:30 시작 → 00:05 자동 완료 시나리오")
-        void autoCompleteForDateChange_midnightScenario() {
-            // given - 어제 23:30 시작
+        @DisplayName("2시간 이내 시작 → 자동 완료 시 분당 경험치 적용")
+        void autoCompleteForDateChange_withinTwoHours() {
+            // given - 30분 전 시작
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            // 어제 23:30에 시작한 것으로 설정 (약 35분 전)
-            LocalDateTime startTime = LocalDate.now().atStartOfDay().minusMinutes(30);
-            TestReflectionUtils.setField(execution, "startedAt", startTime);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(30));
 
-            // when - 자정 스케줄러 실행 (00:05)
-            boolean result = execution.autoCompleteForDateChange();
+            // when
+            boolean result = execution.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getCompletedAt()).isNotNull();
-            // 23:30 ~ now (약 30+분) → 최소 30 EXP
             assertThat(execution.getExpEarned()).isGreaterThanOrEqualTo(30);
             assertThat(execution.getIsAutoCompleted()).isTrue();
-            // executionDate는 어제 날짜 유지 (캘린더에 어제로 표시)
             assertThat(execution.getExecutionDate()).isEqualTo(LocalDate.now().minusDays(1));
+        }
+
+        @Test
+        @DisplayName("2시간 초과 시작 → 자동 완료 시 기본 경험치 적용")
+        void autoCompleteForDateChange_overTwoHours_appliesBaseExp() {
+            // given - 3시간 전 시작
+            MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
+            execution.start();
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(180));
+
+            // when
+            boolean result = execution.autoCompleteForDateChange(10);
+
+            // then
+            assertThat(result).isTrue();
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
+            assertThat(execution.getIsAutoCompleted()).isTrue();
         }
     }
 }

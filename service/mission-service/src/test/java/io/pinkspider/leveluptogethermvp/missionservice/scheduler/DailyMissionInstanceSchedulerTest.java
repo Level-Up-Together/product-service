@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -42,8 +43,11 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DailyMissionInstanceScheduler 테스트")
 class DailyMissionInstanceSchedulerTest {
 
@@ -62,6 +66,9 @@ class DailyMissionInstanceSchedulerTest {
     @Mock
     private MissionExecutionService missionExecutionService;
 
+    @Mock
+    private MissionExecutionProperties missionExecutionProperties;
+
     @InjectMocks
     private DailyMissionInstanceScheduler scheduler;
 
@@ -77,6 +84,8 @@ class DailyMissionInstanceSchedulerTest {
 
     @BeforeEach
     void setUp() {
+        when(missionExecutionProperties.getBaseExp()).thenReturn(10);
+
         mission = Mission.builder()
             .title("매일 30분 운동")
             .description("매일 30분씩 운동하기")

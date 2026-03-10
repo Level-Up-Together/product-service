@@ -219,6 +219,12 @@ moderation:
 firebase:
   enabled: false
 
+# 미션 수행 설정
+mission:
+  execution:
+    base-exp: 10
+    warning-minutes-before-auto-end: 10
+
 app:
   admin:
     api-url: http://localhost:8080

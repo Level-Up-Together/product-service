@@ -255,6 +255,20 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findInProgressBeforeDate(@Param("date") LocalDate date);
 
     /**
+     * 자동종료 임박 경고 대상 조회 (warningStart~warningEnd 사이에 시작된 IN_PROGRESS 인스턴스)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE dmi.status = 'IN_PROGRESS' " +
+           "AND dmi.startedAt > :warningStart " +
+           "AND dmi.startedAt <= :warningEnd")
+    List<DailyMissionInstance> findInProgressWarningInstances(
+        @Param("warningStart") LocalDateTime warningStart,
+        @Param("warningEnd") LocalDateTime warningEnd
+    );
+
+    /**
      * 당일 완료 횟수 조회 (일일 수행 제한용)
      */
     @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +

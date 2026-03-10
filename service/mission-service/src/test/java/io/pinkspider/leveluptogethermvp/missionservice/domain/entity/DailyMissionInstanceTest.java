@@ -547,7 +547,7 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(35));
 
             // when
-            boolean result = instance.autoCompleteForDateChange();
+            boolean result = instance.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();
@@ -568,7 +568,7 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(10));
 
             // when
-            boolean result = instance.autoCompleteForDateChange();
+            boolean result = instance.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();
@@ -583,7 +583,7 @@ class DailyMissionInstanceTest {
             DailyMissionInstance instance = createInstance(LocalDate.now());
 
             // when
-            boolean result = instance.autoCompleteForDateChange();
+            boolean result = instance.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isFalse();
@@ -598,7 +598,7 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "status", ExecutionStatus.IN_PROGRESS);
 
             // when
-            boolean result = instance.autoCompleteForDateChange();
+            boolean result = instance.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isFalse();
@@ -636,7 +636,7 @@ class DailyMissionInstanceTest {
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(40));
 
             // when
-            boolean result = instance.autoCompleteForDateChange();
+            boolean result = instance.autoCompleteForDateChange(10);
 
             // then
             assertThat(result).isTrue();

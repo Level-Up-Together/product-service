@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -35,6 +36,7 @@ public class DailyMissionInstanceScheduler {
     private final MissionParticipantRepository participantRepository;
     private final DailyMissionInstanceService dailyMissionInstanceService;
     private final MissionExecutionService missionExecutionService;
+    private final MissionExecutionProperties missionExecutionProperties;
 
     private static final int BATCH_SIZE = 100;
 
@@ -177,7 +179,7 @@ public class DailyMissionInstanceScheduler {
                 log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: instanceId={}, error={}",
                     instance.getId(), e.getMessage());
                 try {
-                    if (instance.autoCompleteForDateChange()) {
+                    if (instance.autoCompleteForDateChange(missionExecutionProperties.getBaseExp())) {
                         instanceRepository.save(instance);
                         count++;
                     }
@@ -211,7 +213,7 @@ public class DailyMissionInstanceScheduler {
                 log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: executionId={}, error={}",
                     execution.getId(), e.getMessage());
                 try {
-                    if (execution.autoCompleteForDateChange()) {
+                    if (execution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp())) {
                         executionRepository.save(execution);
                         count++;
                     }

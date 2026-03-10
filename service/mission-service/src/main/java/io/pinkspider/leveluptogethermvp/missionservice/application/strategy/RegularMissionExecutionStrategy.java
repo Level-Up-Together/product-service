@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageStorageService;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -37,6 +38,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     private final FeedCommandService feedCommandService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserQueryFacade userQueryFacadeService;
+    private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
     @Transactional(transactionManager = "missionTransactionManager")
@@ -49,7 +51,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
             if (inProgressExecution.getExecutionDate().isBefore(today)) {
                 log.info("지난 날짜 IN_PROGRESS 일반 미션 자동 완료 처리: executionId={}, date={}",
                     inProgressExecution.getId(), inProgressExecution.getExecutionDate());
-                inProgressExecution.autoCompleteForDateChange();
+                inProgressExecution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
                 executionRepository.save(inProgressExecution);
             } else {
                 String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();

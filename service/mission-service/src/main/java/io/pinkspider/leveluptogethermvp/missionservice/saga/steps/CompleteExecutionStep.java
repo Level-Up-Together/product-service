@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompleteExecutionStep implements SagaStep<MissionCompletionContext> {
 
     private final MissionExecutionRepository executionRepository;
+    private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
     public String getName() {
@@ -63,16 +65,24 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setNote(context.getNote());
             }
 
-            // 목표시간 기반 XP 오버라이드 (일반 미션용)
+            // 경험치 오버라이드
             Mission mission = context.getMission();
+            long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+
             if (mission != null && mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
-                long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+                // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
                 if (elapsed >= mission.getTargetDurationMinutes()) {
                     int bonus = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 0;
                     execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
                 } else {
                     execution.setExpEarned((int) Math.max(1, elapsed));
                 }
+            } else if (elapsed > 120) {
+                // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
+                execution.setExpEarned(missionExecutionProperties.getBaseExp());
+                execution.setIsAutoCompleted(true);
+                log.info("2시간 초과 수동 종료 - 기본 경험치 적용: executionId={}, elapsed={}분, baseExp={}",
+                    execution.getId(), elapsed, missionExecutionProperties.getBaseExp());
             }
 
             // complete()에서 계산된 시간 기반 경험치를 context에 반영

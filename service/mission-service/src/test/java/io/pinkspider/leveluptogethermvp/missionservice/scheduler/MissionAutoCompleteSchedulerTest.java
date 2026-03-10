@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -18,6 +19,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionI
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,8 +31,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("MissionAutoCompleteScheduler 테스트")
 class MissionAutoCompleteSchedulerTest {
 
@@ -46,6 +51,12 @@ class MissionAutoCompleteSchedulerTest {
     @Mock
     private MissionExecutionService missionExecutionService;
 
+    @Mock
+    private MissionExecutionProperties missionExecutionProperties;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private MissionAutoCompleteScheduler scheduler;
 
@@ -56,6 +67,9 @@ class MissionAutoCompleteSchedulerTest {
 
     @BeforeEach
     void setUp() {
+        when(missionExecutionProperties.getBaseExp()).thenReturn(10);
+        when(missionExecutionProperties.getWarningMinutesBeforeAutoEnd()).thenReturn(10);
+
         mission = Mission.builder()
             .title("매일 30분 운동")
             .description("매일 30분씩 운동하기")
@@ -94,6 +108,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(execution, 1L);
 
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
             when(instanceRepository.findInProgressWithTargetDuration())
                 .thenReturn(List.of());
             when(executionRepository.findInProgressWithTargetDuration())
@@ -109,7 +127,7 @@ class MissionAutoCompleteSchedulerTest {
             // then
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getIsAutoCompleted()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(120); // 최대 2시간 = 120분
+            assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
         }
 
         @Test
@@ -125,6 +143,10 @@ class MissionAutoCompleteSchedulerTest {
             setId(execution, 1L);
 
             // 2시간 초과된 것만 조회되므로 빈 리스트 반환
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
             when(instanceRepository.findInProgressWithTargetDuration())
                 .thenReturn(List.of());
             when(executionRepository.findInProgressWithTargetDuration())
@@ -170,6 +192,10 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(instance, 1L);
 
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
             when(instanceRepository.findInProgressWithTargetDuration())
                 .thenReturn(List.of());
             when(executionRepository.findInProgressWithTargetDuration())
@@ -185,9 +211,9 @@ class MissionAutoCompleteSchedulerTest {
             // then
             assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(instance.getIsAutoCompleted()).isTrue();
-            assertThat(instance.getExpEarned()).isEqualTo(120); // 최대 2시간 = 120분
+            assertThat(instance.getExpEarned()).isEqualTo(10); // 기본 경험치
             assertThat(instance.getCompletionCount()).isEqualTo(1);
-            assertThat(instance.getTotalExpEarned()).isEqualTo(120);
+            assertThat(instance.getTotalExpEarned()).isEqualTo(10);
         }
     }
 
@@ -207,13 +233,13 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
 
             // when
-            boolean result = execution.autoCompleteIfExpired();
+            boolean result = execution.autoCompleteIfExpired(10);
 
             // then
             assertThat(result).isTrue();
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getIsAutoCompleted()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(120);
+            assertThat(execution.getExpEarned()).isEqualTo(10);
         }
 
         @Test
@@ -228,7 +254,7 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
 
             // when
-            boolean result = execution.autoCompleteIfExpired();
+            boolean result = execution.autoCompleteIfExpired(10);
 
             // then
             assertThat(result).isFalse();
@@ -267,13 +293,13 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
 
             // when
-            boolean result = instance.autoCompleteIfExpired();
+            boolean result = instance.autoCompleteIfExpired(10);
 
             // then
             assertThat(result).isTrue();
             assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(instance.getIsAutoCompleted()).isTrue();
-            assertThat(instance.getExpEarned()).isEqualTo(120);
+            assertThat(instance.getExpEarned()).isEqualTo(10);
             assertThat(instance.getCompletionCount()).isEqualTo(1);
         }
     }

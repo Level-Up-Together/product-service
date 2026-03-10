@@ -14,6 +14,7 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -175,6 +176,14 @@ public class NotificationEventListener {
         safeHandle("피드 댓글", () -> notificationService.sendNotification(
             event.feedOwnerId(), NotificationType.COMMENT_ON_MY_FEED,
             event.feedId(), null, event.commenterNickname()));
+    }
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionAutoEndWarning(MissionAutoEndWarningEvent event) {
+        safeHandle("미션 자동종료 임박", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.MISSION_AUTO_END_WARNING,
+            event.missionId(), null, event.missionTitle()));
     }
 
     @Async(EVENT_EXECUTOR)

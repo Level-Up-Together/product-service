@@ -1,13 +1,16 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,8 @@ public class MissionAutoCompleteScheduler {
     private final DailyMissionInstanceRepository instanceRepository;
     private final DailyMissionInstanceService dailyMissionInstanceService;
     private final MissionExecutionService missionExecutionService;
+    private final MissionExecutionProperties missionExecutionProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 최대 미션 수행 시간 (분) - 2시간
@@ -48,6 +53,9 @@ public class MissionAutoCompleteScheduler {
         log.debug("=== 미션 자동 종료 스케줄러 시작 ===");
 
         try {
+            // 0. 자동종료 임박 경고 알림 발송 (2시간 - N분 전)
+            int warningCount = sendAutoEndWarnings();
+
             // 1. 목표시간 도달 인스턴스 자동 종료 (Saga 경유)
             int targetInstanceCount = autoCompleteTargetReachedInstances();
 
@@ -59,9 +67,9 @@ public class MissionAutoCompleteScheduler {
             int executionCount = autoCompleteExpiredExecutions(expireThreshold);
             int instanceCount = autoCompleteExpiredInstances(expireThreshold);
 
-            if (targetInstanceCount > 0 || targetExecutionCount > 0 || executionCount > 0 || instanceCount > 0) {
-                log.info("미션 자동 종료 완료: targetInstances={}, targetExecutions={}, executions={}, instances={}",
-                    targetInstanceCount, targetExecutionCount, executionCount, instanceCount);
+            if (warningCount > 0 || targetInstanceCount > 0 || targetExecutionCount > 0 || executionCount > 0 || instanceCount > 0) {
+                log.info("미션 자동 종료 스케줄러 완료: warnings={}, targetInstances={}, targetExecutions={}, executions={}, instances={}",
+                    warningCount, targetInstanceCount, targetExecutionCount, executionCount, instanceCount);
             }
         } catch (Exception e) {
             log.error("미션 자동 종료 스케줄러 실패", e);
@@ -139,7 +147,7 @@ public class MissionAutoCompleteScheduler {
                 continue;
             }
 
-            if (execution.autoCompleteIfExpired()) {
+            if (execution.autoCompleteIfExpired(missionExecutionProperties.getBaseExp())) {
                 count++;
                 log.info("일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
                     execution.getId(),
@@ -159,7 +167,7 @@ public class MissionAutoCompleteScheduler {
 
         int count = 0;
         for (DailyMissionInstance instance : expiredInstances) {
-            if (instance.autoCompleteIfExpired()) {
+            if (instance.autoCompleteIfExpired(missionExecutionProperties.getBaseExp())) {
                 count++;
                 log.info("고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
                     instance.getId(),
@@ -168,6 +176,64 @@ public class MissionAutoCompleteScheduler {
                     instance.getStartedAt());
             }
         }
+        return count;
+    }
+
+    /**
+     * 자동종료 임박 경고 알림 발송
+     *
+     * 110분~120분 경과 (자동종료 10분 전) 미션에 대해 푸시 알림 발송
+     * 목표시간 설정 미션은 자동종료 대상이 아니므로 제외
+     */
+    private int sendAutoEndWarnings() {
+        int warningMinutes = missionExecutionProperties.getWarningMinutesBeforeAutoEnd();
+        long warningThresholdMinutes = MAXIMUM_EXECUTION_MINUTES - warningMinutes;
+
+        LocalDateTime warningStart = LocalDateTime.now().minusMinutes(MAXIMUM_EXECUTION_MINUTES);
+        LocalDateTime warningEnd = LocalDateTime.now().minusMinutes(warningThresholdMinutes);
+
+        int count = 0;
+
+        // 일반 미션 경고
+        List<MissionExecution> warningExecutions =
+            executionRepository.findInProgressWarningExecutions(warningStart, warningEnd);
+        for (MissionExecution execution : warningExecutions) {
+            // 목표시간 설정 미션 제외
+            if (execution.getParticipant() != null
+                && execution.getParticipant().getMission() != null
+                && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
+                continue;
+            }
+            try {
+                String userId = execution.getParticipant().getUserId();
+                String missionTitle = execution.getParticipant().getMission().getTitle();
+                Long missionId = execution.getParticipant().getMission().getId();
+                eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                count++;
+            } catch (Exception e) {
+                log.warn("자동종료 경고 알림 실패 (일반): executionId={}, error={}", execution.getId(), e.getMessage());
+            }
+        }
+
+        // 고정 미션 경고
+        List<DailyMissionInstance> warningInstances =
+            instanceRepository.findInProgressWarningInstances(warningStart, warningEnd);
+        for (DailyMissionInstance instance : warningInstances) {
+            // 목표시간 설정 미션 제외
+            if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0) {
+                continue;
+            }
+            try {
+                String userId = instance.getParticipant().getUserId();
+                String missionTitle = instance.getMissionTitle();
+                Long missionId = instance.getParticipant().getMission().getId();
+                eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                count++;
+            } catch (Exception e) {
+                log.warn("자동종료 경고 알림 실패 (고정): instanceId={}, error={}", instance.getId(), e.getMessage());
+            }
+        }
+
         return count;
     }
 }

@@ -317,9 +317,10 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
      *
      * 목표시간 설정 미션은 스케줄러가 Saga를 통해 별도 처리하므로 여기서는 스킵
      *
+     * @param baseExp 기본 경험치 (2시간 초과 시 부여, 설정 파일에서 주입)
      * @return 자동 완료 처리 여부
      */
-    public boolean autoCompleteIfExpired() {
+    public boolean autoCompleteIfExpired(int baseExp) {
         if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
             return false;
         }
@@ -336,10 +337,10 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
             return false;
         }
 
-        // 2시간(120분) 기준으로 완료 처리
+        // 2시간(120분) 초과: 기본 경험치만 부여
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = this.startedAt.plusMinutes(MAXIMUM_EXECUTION_MINUTES);
-        this.expEarned = (int) MAXIMUM_EXECUTION_MINUTES; // 최대 120 EXP
+        this.expEarned = baseExp;
         this.isAutoCompleted = true;
 
         // 완료 횟수 및 총 경험치 누적
@@ -353,18 +354,20 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity {
      * 날짜 변경 시 자동 완료 (자정 스케줄러 safety net)
      *
      * 날짜가 바뀌었는데 완료되지 않은 IN_PROGRESS 미션을 자동 완료합니다.
-     * autoCompleteIfExpired()와 달리 2시간 임계값 없이 실제 경과 시간으로 경험치를 계산합니다.
+     * 2시간 초과 시 기본 경험치만 부여합니다.
      *
+     * @param baseExp 기본 경험치 (2시간 초과 시 부여)
      * @return 자동 완료 처리 여부
      */
-    public boolean autoCompleteForDateChange() {
+    public boolean autoCompleteForDateChange(int baseExp) {
         if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
             return false;
         }
 
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
-        this.expEarned = calculateExpByDuration();
+        long elapsedMinutes = Duration.between(this.startedAt, this.completedAt).toMinutes();
+        this.expEarned = elapsedMinutes > MAXIMUM_EXECUTION_MINUTES ? baseExp : calculateExpByDuration();
         this.isAutoCompleted = true;
 
         // 완료 횟수 및 총 경험치 누적

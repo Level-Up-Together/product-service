@@ -212,9 +212,10 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
      * 2시간 초과 미션 자동 완료 (어뷰징 방지)
      * 스케줄러에서 호출하여 시작 후 2시간이 경과한 미션을 자동 종료
      *
+     * @param baseExp 기본 경험치 (2시간 초과 시 부여, 설정 파일에서 주입)
      * @return 자동 완료 처리 여부
      */
-    public boolean autoCompleteIfExpired() {
+    public boolean autoCompleteIfExpired(int baseExp) {
         if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
             return false;
         }
@@ -226,10 +227,10 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
             return false;
         }
 
-        // 2시간(120분) 기준으로 완료 처리
+        // 2시간(120분) 초과: 기본 경험치만 부여
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = this.startedAt.plusMinutes(MAXIMUM_EXECUTION_MINUTES);
-        this.expEarned = (int) MAXIMUM_EXECUTION_MINUTES; // 최대 120 EXP
+        this.expEarned = baseExp;
         this.isAutoCompleted = true;
         return true;
     }
@@ -238,18 +239,20 @@ public class MissionExecution extends LocalDateTimeBaseEntity {
      * 날짜 변경 시 자동 완료 (자정 스케줄러 safety net)
      *
      * 날짜가 바뀌었는데 완료되지 않은 IN_PROGRESS 미션을 자동 완료합니다.
-     * autoCompleteIfExpired()와 달리 2시간 임계값 없이 실제 경과 시간으로 경험치를 계산합니다.
+     * 2시간 초과 시 기본 경험치만 부여합니다.
      *
+     * @param baseExp 기본 경험치 (2시간 초과 시 부여)
      * @return 자동 완료 처리 여부
      */
-    public boolean autoCompleteForDateChange() {
+    public boolean autoCompleteForDateChange(int baseExp) {
         if (this.status != ExecutionStatus.IN_PROGRESS || this.startedAt == null) {
             return false;
         }
 
         this.status = ExecutionStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
-        this.expEarned = calculateExpByDuration();
+        long elapsedMinutes = Duration.between(this.startedAt, this.completedAt).toMinutes();
+        this.expEarned = elapsedMinutes > MAXIMUM_EXECUTION_MINUTES ? baseExp : calculateExpByDuration();
         this.isAutoCompleted = true;
         return true;
     }

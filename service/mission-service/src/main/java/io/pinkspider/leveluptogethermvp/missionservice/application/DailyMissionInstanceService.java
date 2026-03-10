@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -49,6 +50,7 @@ public class DailyMissionInstanceService {
     private final UserQueryFacade userQueryFacadeService;
     private final MissionImageStorageService missionImageStorageService;
     private final MissionCompletionSaga missionCompletionSaga;
+    private final MissionExecutionProperties missionExecutionProperties;
 
     // ============ 조회 ============
 
@@ -115,7 +117,7 @@ public class DailyMissionInstanceService {
             if (inProgress.getInstanceDate().isBefore(today)) {
                 log.info("지난 날짜 IN_PROGRESS 인스턴스 자동 완료 처리: instanceId={}, date={}, title={}",
                     inProgress.getId(), inProgress.getInstanceDate(), inProgress.getMissionTitle());
-                inProgress.autoCompleteForDateChange();
+                inProgress.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
                 instanceRepository.save(inProgress);
             } else {
                 // 오늘 날짜의 진행 중인 인스턴스가 있으면 에러

@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.test.TestReflectionUtils;
 
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -51,9 +52,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DailyMissionInstanceService 테스트")
 class DailyMissionInstanceServiceTest {
 
@@ -81,6 +85,9 @@ class DailyMissionInstanceServiceTest {
     @Mock
     private MissionCompletionSaga missionCompletionSaga;
 
+    @Mock
+    private MissionExecutionProperties missionExecutionProperties;
+
     @InjectMocks
     private DailyMissionInstanceService service;
 
@@ -96,6 +103,8 @@ class DailyMissionInstanceServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(missionExecutionProperties.getBaseExp()).thenReturn(10);
+
         mission = Mission.builder()
             .title("매일 30분 운동")
             .description("매일 30분씩 운동하기")
