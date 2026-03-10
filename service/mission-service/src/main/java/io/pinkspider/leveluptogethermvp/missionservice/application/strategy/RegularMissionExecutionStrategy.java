@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -53,6 +54,16 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                     inProgressExecution.getId(), inProgressExecution.getExecutionDate());
                 inProgressExecution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
                 executionRepository.save(inProgressExecution);
+                // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
+                MissionParticipant inProgressParticipant = inProgressExecution.getParticipant();
+                if (inProgressParticipant != null
+                    && !Boolean.TRUE.equals(inProgressParticipant.getMission().getIsPinned())
+                    && inProgressParticipant.getStatus() != ParticipantStatus.COMPLETED) {
+                    inProgressParticipant.setStatus(ParticipantStatus.COMPLETED);
+                    inProgressParticipant.setProgress(100);
+                    inProgressParticipant.setCompletedAt(java.time.LocalDateTime.now());
+                    participantRepository.save(inProgressParticipant);
+                }
             } else {
                 String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
                 throw new IllegalStateException(

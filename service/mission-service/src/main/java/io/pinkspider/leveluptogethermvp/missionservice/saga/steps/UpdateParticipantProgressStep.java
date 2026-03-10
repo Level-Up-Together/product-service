@@ -66,10 +66,19 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
                 : 0;
 
             participant.updateProgress(progress);
+
+            // 일반 미션: 진행도 100% 도달 시 참여 상태를 COMPLETED로 변경
+            // → getMyMissions() 조회에서 제외되어 완료된 미션이 다시 나타나지 않음
+            if (progress >= 100 && participant.getStatus() == ParticipantStatus.IN_PROGRESS) {
+                participant.complete();
+                log.info("Participant completed: participantId={}, missionId={}",
+                    participant.getId(), participant.getMission().getId());
+            }
+
             participantRepository.save(participant);
 
-            log.info("Participant progress updated: participantId={}, progress={}%",
-                participant.getId(), progress);
+            log.info("Participant progress updated: participantId={}, progress={}%, status={}",
+                participant.getId(), progress, participant.getStatus());
 
             return SagaStepResult.success("참가자 진행도 업데이트 완료", progress);
 
