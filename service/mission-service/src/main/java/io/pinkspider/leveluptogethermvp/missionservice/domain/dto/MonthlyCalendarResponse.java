@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -46,5 +47,6 @@ public class MonthlyCalendarResponse {
         private String missionTitle;
         private Integer expEarned;
         private Integer durationMinutes;
+        private LocalDateTime completedAt;
     }
 }

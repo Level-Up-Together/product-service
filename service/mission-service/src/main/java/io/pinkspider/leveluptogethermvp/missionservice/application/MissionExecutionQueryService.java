@@ -190,6 +190,7 @@ public class MissionExecutionQueryService {
                 .missionTitle(execution.getParticipant().getMission().getTitle())
                 .expEarned(execution.getExpEarned())
                 .durationMinutes(durationMinutes)
+                .completedAt(execution.getCompletedAt())
                 .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
@@ -210,10 +211,19 @@ public class MissionExecutionQueryService {
                 .missionTitle(instance.getMissionTitle())
                 .expEarned(instance.getExpEarned())
                 .durationMinutes(durationMinutes)
+                .completedAt(instance.getCompletedAt())
                 .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
         }
+
+        // 4-3. 날짜별 completedAt 오름차순 정렬 (가장 최근 완료가 맨 아래)
+        dailyMissions.values().forEach(list ->
+            list.sort(java.util.Comparator.comparing(
+                DailyMission::getCompletedAt,
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
+            ))
+        );
 
         // 5. 완료된 미션이 있는 날짜 목록
         List<String> completedDates = new ArrayList<>(dailyMissions.keySet());

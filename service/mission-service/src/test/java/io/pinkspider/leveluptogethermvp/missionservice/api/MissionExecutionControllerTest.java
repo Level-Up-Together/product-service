@@ -390,12 +390,14 @@ class MissionExecutionControllerTest {
                         .missionTitle("30일 운동 챌린지")
                         .expEarned(50)
                         .durationMinutes(60)
+                        .completedAt(today.atTime(9, 0))
                         .build(),
                     DailyMission.builder()
                         .missionId(2L)
                         .missionTitle("매일 독서하기")
                         .expEarned(30)
                         .durationMinutes(45)
+                        .completedAt(today.atTime(14, 30))
                         .build()
                 ),
                 yesterdayStr, List.of(
@@ -404,6 +406,7 @@ class MissionExecutionControllerTest {
                         .missionTitle("30일 운동 챌린지")
                         .expEarned(50)
                         .durationMinutes(55)
+                        .completedAt(today.minusDays(1).atTime(20, 0))
                         .build()
                 )
             ))
@@ -445,6 +448,7 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.daily_missions.*[].mission_title").type(JsonFieldType.STRING).description("미션 제목"),
                             fieldWithPath("value.daily_missions.*[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.daily_missions.*[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.daily_missions.*[].completed_at").type(JsonFieldType.STRING).description("완료 시간 (yyyy-MM-dd HH:mm:ss)").optional(),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (캘린더 하이라이트용)")
                         )
                         .build()
