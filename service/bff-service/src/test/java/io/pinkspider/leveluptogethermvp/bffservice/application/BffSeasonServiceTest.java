@@ -166,7 +166,7 @@ class BffSeasonServiceTest {
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getSeasonDetail(999L, testUserId, null, "ko"))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -330,7 +330,7 @@ class BffSeasonServiceTest {
             // when & then
             assertThatThrownBy(() -> bffSeasonService.getCurrentSeasonDetail(testUserId, null, "ko"))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("현재 활성화된 시즌이 없습니다");
+                .hasMessageContaining("error.season.no_active");
         }
     }
 

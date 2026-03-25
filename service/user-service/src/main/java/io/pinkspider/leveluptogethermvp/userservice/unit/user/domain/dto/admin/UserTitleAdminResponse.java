@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDateTime;
@@ -15,7 +14,7 @@ public record UserTitleAdminResponse(
     String titleRarity,
     String titlePositionType,
     String titleColorCode,
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime acquiredAt,
+    LocalDateTime acquiredAt,
     Boolean isEquipped,
     String equippedPosition
 ) {

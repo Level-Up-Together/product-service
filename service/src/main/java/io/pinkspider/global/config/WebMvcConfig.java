@@ -1,5 +1,6 @@
 package io.pinkspider.global.config;
 
+import io.pinkspider.global.i18n.LocaleInterceptor;
 import io.pinkspider.global.interceptor.JwtInterceptor;
 import io.pinkspider.global.interceptor.MultipartInterceptor;
 import io.pinkspider.global.resolver.CurrentUserArgumentResolver;
@@ -23,6 +24,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         "/favicon.ico",
         "/error"
     };
+    private final LocaleInterceptor localeInterceptor;
     private final JwtInterceptor jwtInterceptor;
     private final MultipartInterceptor multipartInterceptor;
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
@@ -37,6 +39,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(localeInterceptor)
+                .addPathPatterns("/**");
+
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns(JWT_EXCLUDE_PATTERNS);

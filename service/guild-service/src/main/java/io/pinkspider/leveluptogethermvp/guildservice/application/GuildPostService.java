@@ -19,6 +19,10 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRep
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.enums.ReportTargetType;
+import io.pinkspider.global.translation.TranslationService;
+import io.pinkspider.global.translation.dto.TranslationInfo;
+import io.pinkspider.global.translation.enums.ContentType;
+import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,7 @@ public class GuildPostService {
     private final GuildPostCommentRepository guildPostCommentRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ReportService reportService;
+    private final TranslationService translationService;
 
     /**
      * 게시글 작성
@@ -87,10 +92,11 @@ public class GuildPostService {
     /**
      * 게시글 목록 조회 (상단 고정 우선, 최신순)
      */
-    public Page<GuildPostListResponse> getPosts(Long guildId, String userId, Pageable pageable) {
+    public Page<GuildPostListResponse> getPosts(Long guildId, String userId, Pageable pageable, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(guildId, pageable);
 
         // 배치로 신고 상태 조회
@@ -100,7 +106,8 @@ public class GuildPostService {
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
 
         return posts.map(post -> {
-            GuildPostListResponse response = GuildPostListResponse.from(post);
+            TranslationInfo translation = translatePost(post, targetLocale);
+            GuildPostListResponse response = GuildPostListResponse.from(post, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
             return response;
         });
@@ -109,10 +116,11 @@ public class GuildPostService {
     /**
      * 게시글 유형별 조회
      */
-    public Page<GuildPostListResponse> getPostsByType(Long guildId, String userId, GuildPostType postType, Pageable pageable) {
+    public Page<GuildPostListResponse> getPostsByType(Long guildId, String userId, GuildPostType postType, Pageable pageable, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.findByGuildIdAndPostType(guildId, postType, pageable);
 
         // 배치로 신고 상태 조회
@@ -122,7 +130,8 @@ public class GuildPostService {
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
 
         return posts.map(post -> {
-            GuildPostListResponse response = GuildPostListResponse.from(post);
+            TranslationInfo translation = translatePost(post, targetLocale);
+            GuildPostListResponse response = GuildPostListResponse.from(post, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
             return response;
         });
@@ -131,13 +140,14 @@ public class GuildPostService {
     /**
      * 공지글 목록 조회
      */
-    public List<GuildPostListResponse> getNotices(Long guildId, String userId) {
+    public List<GuildPostListResponse> getNotices(Long guildId, String userId, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         List<GuildPost> posts = guildPostRepository.findNotices(guildId);
         List<GuildPostListResponse> result = posts.stream()
-            .map(GuildPostListResponse::from)
+            .map(post -> GuildPostListResponse.from(post, translatePost(post, targetLocale)))
             .collect(Collectors.toList());
 
         // 배치로 신고 상태 조회
@@ -155,10 +165,11 @@ public class GuildPostService {
     /**
      * 게시글 검색
      */
-    public Page<GuildPostListResponse> searchPosts(Long guildId, String userId, String keyword, Pageable pageable) {
+    public Page<GuildPostListResponse> searchPosts(Long guildId, String userId, String keyword, Pageable pageable, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.searchPosts(guildId, keyword, pageable);
 
         // 배치로 신고 상태 조회
@@ -168,7 +179,8 @@ public class GuildPostService {
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD_NOTICE, postIds);
 
         return posts.map(post -> {
-            GuildPostListResponse response = GuildPostListResponse.from(post);
+            TranslationInfo translation = translatePost(post, targetLocale);
+            GuildPostListResponse response = GuildPostListResponse.from(post, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(post.getId()), false));
             return response;
         });
@@ -178,7 +190,7 @@ public class GuildPostService {
      * 게시글 상세 조회 (조회수 증가)
      */
     @Transactional(transactionManager = "guildTransactionManager")
-    public GuildPostResponse getPost(Long guildId, Long postId, String userId) {
+    public GuildPostResponse getPost(Long guildId, Long postId, String userId, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
@@ -187,8 +199,9 @@ public class GuildPostService {
 
         post.incrementViewCount();
 
-        GuildPostResponse response = GuildPostResponse.from(post);
-        // 신고 처리중 여부 확인
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+        TranslationInfo translation = translatePost(post, targetLocale);
+        GuildPostResponse response = GuildPostResponse.from(post, translation);
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD_NOTICE, String.valueOf(postId)));
 
         return response;
@@ -307,13 +320,14 @@ public class GuildPostService {
     /**
      * 댓글 목록 조회 (대댓글 포함)
      */
-    public List<GuildPostCommentResponse> getComments(Long guildId, Long postId, String userId) {
+    public List<GuildPostCommentResponse> getComments(Long guildId, Long postId, String userId, String acceptLanguage) {
         findActiveGuild(guildId);
         validateMembership(guildId, userId);
 
         GuildPost post = findActivePost(postId);
         validatePostBelongsToGuild(post, guildId);
 
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         List<GuildPostComment> rootComments = guildPostCommentRepository.findAllByPostId(postId).stream()
             .filter(c -> c.getParent() == null)
             .toList();
@@ -322,9 +336,10 @@ public class GuildPostService {
             .map(comment -> {
                 List<GuildPostCommentResponse> replies = guildPostCommentRepository.findRepliesByParentId(comment.getId())
                     .stream()
-                    .map(GuildPostCommentResponse::from)
+                    .map(reply -> GuildPostCommentResponse.from(reply, translateComment(reply, targetLocale)))
                     .collect(Collectors.toList());
-                return GuildPostCommentResponse.fromWithReplies(comment, replies);
+                TranslationInfo translation = translateComment(comment, targetLocale);
+                return GuildPostCommentResponse.fromWithReplies(comment, replies, translation);
             })
             .collect(Collectors.toList());
     }
@@ -390,6 +405,21 @@ public class GuildPostService {
     // =====================================================
     // Helper 메서드
     // =====================================================
+
+    private TranslationInfo translatePost(GuildPost post, String targetLocale) {
+        return translationService.translateContent(
+            ContentType.GUILD_POST, post.getId(),
+            post.getTitle(), post.getContent(), targetLocale);
+    }
+
+    private TranslationInfo translateComment(GuildPostComment comment, String targetLocale) {
+        if (comment.getIsDeleted()) {
+            return TranslationInfo.notTranslated("ko");
+        }
+        return translationService.translateContent(
+            ContentType.GUILD_COMMENT, comment.getId(),
+            comment.getContent(), targetLocale);
+    }
 
     private Guild findActiveGuild(Long guildId) {
         return guildRepository.findByIdAndIsActiveTrue(guildId)

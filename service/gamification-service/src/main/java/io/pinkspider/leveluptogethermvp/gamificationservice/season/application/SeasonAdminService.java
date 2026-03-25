@@ -50,7 +50,7 @@ public class SeasonAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public SeasonAdminResponse getSeason(Long id) {
         Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
         return SeasonAdminResponse.from(season);
     }
 
@@ -98,7 +98,7 @@ public class SeasonAdminService {
 
     public SeasonAdminResponse updateSeason(Long id, SeasonAdminRequest request) {
         Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         validateSeasonDates(request.startAt(), request.endAt());
 
@@ -128,7 +128,7 @@ public class SeasonAdminService {
 
     public void deleteSeason(Long id) {
         Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         log.info("시즌 삭제: {} (ID: {})", season.getTitle(), id);
         seasonRepository.delete(season);
@@ -138,7 +138,7 @@ public class SeasonAdminService {
 
     public SeasonAdminResponse toggleActive(Long id) {
         Season season = seasonRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         if (!season.getIsActive()) {
             validateNoOverlappingActiveSeason(season.getStartAt(), season.getEndAt(), id);
@@ -154,7 +154,7 @@ public class SeasonAdminService {
 
     private void validateSeasonDates(LocalDateTime startAt, LocalDateTime endAt) {
         if (endAt.isBefore(startAt) || endAt.isEqual(startAt)) {
-            throw new CustomException("120002", "종료 일시는 시작 일시 이후여야 합니다.");
+            throw new CustomException("120002", "error.season.end_before_start");
         }
     }
 
@@ -167,7 +167,7 @@ public class SeasonAdminService {
         }
 
         if (hasOverlap) {
-            throw new CustomException("120003", "해당 기간에 이미 활성화된 시즌이 존재합니다.");
+            throw new CustomException("120003", "error.season.overlap");
         }
     }
 

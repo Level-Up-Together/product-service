@@ -41,14 +41,14 @@ public class AchievementCategoryAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementCategoryAdminResponse getCategory(Long id) {
         AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
         return AchievementCategoryAdminResponse.from(category);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementCategoryAdminResponse getCategoryByCode(String code) {
         AchievementCategory category = achievementCategoryRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
         return AchievementCategoryAdminResponse.from(category);
     }
 
@@ -57,7 +57,7 @@ public class AchievementCategoryAdminService {
     })
     public AchievementCategoryAdminResponse createCategory(AchievementCategoryAdminRequest request) {
         if (achievementCategoryRepository.existsByCode(request.getCode())) {
-            throw new CustomException("400", "이미 존재하는 카테고리 코드입니다.");
+            throw new CustomException("400", "error.achievement.category.duplicate_code");
         }
 
         AchievementCategory category = AchievementCategory.builder()
@@ -79,11 +79,11 @@ public class AchievementCategoryAdminService {
     })
     public AchievementCategoryAdminResponse updateCategory(Long id, AchievementCategoryAdminRequest request) {
         AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
 
         if (!category.getCode().equals(request.getCode())
             && achievementCategoryRepository.existsByCodeAndIdNot(request.getCode(), id)) {
-            throw new CustomException("400", "이미 존재하는 카테고리 코드입니다.");
+            throw new CustomException("400", "error.achievement.category.duplicate_code");
         }
 
         String oldCode = category.getCode();
@@ -110,7 +110,7 @@ public class AchievementCategoryAdminService {
     })
     public AchievementCategoryAdminResponse toggleActiveStatus(Long id) {
         AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
 
         category.setIsActive(!category.getIsActive());
         AchievementCategory saved = achievementCategoryRepository.save(category);
@@ -123,10 +123,10 @@ public class AchievementCategoryAdminService {
     })
     public void deleteCategory(Long id) {
         AchievementCategory category = achievementCategoryRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
 
         if (!achievementRepository.findByCategoryCode(category.getCode()).isEmpty()) {
-            throw new CustomException("400", "해당 카테고리를 사용하는 업적이 존재합니다. 먼저 업적을 삭제하거나 다른 카테고리로 변경해주세요.");
+            throw new CustomException("400", "error.achievement.category.has_achievements");
         }
 
         achievementCategoryRepository.deleteById(id);

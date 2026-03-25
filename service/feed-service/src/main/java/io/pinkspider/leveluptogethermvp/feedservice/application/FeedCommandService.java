@@ -95,7 +95,7 @@ public class FeedCommandService {
     public ActivityFeedResponse createFeed(String userId, CreateFeedRequest request) {
         // 사용자 존재 확인
         if (!userQueryFacadeService.userExistsById(userId)) {
-            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "사용자를 찾을 수 없습니다");
+            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.user.not_found");
         }
 
         // 사용자 프로필 조회 (캐시)
@@ -140,11 +140,11 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedLikeResponse toggleLike(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
         // 작성자는 자신의 피드에 좋아요를 할 수 없음
         if (feed.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "자신의 피드에는 좋아요를 할 수 없습니다");
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.self_like");
         }
 
         boolean isLiked = feedLikeRepository.findByFeedIdAndUserId(feedId, userId)
@@ -180,7 +180,7 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
         // 사용자 프로필 정보 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);
@@ -220,14 +220,14 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteComment(Long feedId, Long commentId, String userId) {
         FeedComment comment = feedCommentRepository.findById(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "댓글을 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.comment.not_found"));
 
         if (!comment.getFeed().getId().equals(feedId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "해당 피드의 댓글이 아닙니다");
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
         }
 
         if (!comment.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "본인의 댓글만 삭제할 수 있습니다");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
         }
 
         comment.delete();
@@ -246,10 +246,10 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeed(Long feedId, String userId) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
         if (!feed.getUserId().equals(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "본인의 피드만 삭제할 수 있습니다");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
         }
 
         activityFeedRepository.delete(feed);
@@ -406,7 +406,7 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedByAdmin(Long id, String reason, String adminInfo) {
         ActivityFeed feed = activityFeedRepository.findById(id)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
         log.info("Admin 피드 삭제: feedId={}, adminInfo={}, reason={}", id, adminInfo, reason);
         activityFeedRepository.delete(feed);

@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserBlacklist;
@@ -19,10 +18,10 @@ public record BlacklistListItemAdminResponse(
     String blacklistType,
     String reason,
     Long adminId,
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startedAt,
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endedAt,
+    LocalDateTime startedAt,
+    LocalDateTime endedAt,
     Boolean isActive,
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime createdAt
+    LocalDateTime createdAt
 ) {
     public static BlacklistListItemAdminResponse from(UserBlacklist b, Users user) {
         return BlacklistListItemAdminResponse.builder()

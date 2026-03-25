@@ -39,12 +39,23 @@ public class ProfanityValidationService {
     }
 
     /**
-     * 활성화된 금칙어 목록 조회 (캐싱)
+     * 전체 언어의 활성화된 금칙어 목록 조회 (캐싱)
      * 캐시명: profanityWords
      */
     @Cacheable(value = "profanityWords", unless = "#result == null || #result.isEmpty()")
     public Set<String> getActiveProfanityWords() {
         List<ProfanityWord> words = profanityWordRepository.findAllByIsActiveTrue();
+        return words.stream()
+            .map(ProfanityWord::getWord)
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * 특정 언어의 활성화된 금칙어 목록 조회 (캐싱)
+     */
+    @Cacheable(value = "profanityWords", key = "#locale", unless = "#result == null || #result.isEmpty()")
+    public Set<String> getActiveProfanityWordsByLocale(String locale) {
+        List<ProfanityWord> words = profanityWordRepository.findAllByLocaleAndIsActiveTrue(locale);
         return words.stream()
             .map(ProfanityWord::getWord)
             .collect(Collectors.toSet());
@@ -67,8 +78,7 @@ public class ProfanityValidationService {
         for (String word : profanityWords) {
             if (content.contains(word)) {
                 log.warn("금칙어 감지 - 필드: {}, 감지된 단어: {}", fieldName, word);
-                throw new CustomException("PROFANITY_001",
-                    fieldName + "에 부적절한 표현이 포함되어 있습니다.");
+                throw new CustomException("PROFANITY_001", "error.profanity.detected");
             }
         }
     }

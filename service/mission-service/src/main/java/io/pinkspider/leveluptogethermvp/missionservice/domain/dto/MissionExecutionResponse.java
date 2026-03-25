@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
@@ -31,15 +30,12 @@ public class MissionExecutionResponse {
     private MissionType missionType;
     private String userId;
 
-    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate executionDate;
 
     private ExecutionStatus status;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startedAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime completedAt;
 
     // 수행 시간 (분)
@@ -53,7 +49,6 @@ public class MissionExecutionResponse {
     // 자동 종료 여부 (2시간 초과 시 true, 프론트엔드에서 알림 모달 표시용)
     private Boolean isAutoCompleted;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
     public static MissionExecutionResponse from(MissionExecution execution) {

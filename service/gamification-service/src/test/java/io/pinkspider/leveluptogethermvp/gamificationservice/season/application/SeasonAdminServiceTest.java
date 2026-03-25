@@ -181,7 +181,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.getSeason(99L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
     }
 
@@ -333,7 +333,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("종료 일시는 시작 일시 이후여야 합니다");
+                .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
@@ -348,7 +348,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("종료 일시는 시작 일시 이후여야 합니다");
+                .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
@@ -363,7 +363,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.createSeason(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 기간에 이미 활성화된 시즌이 존재합니다");
+                .hasMessageContaining("error.season.overlap");
         }
 
         @Test
@@ -424,7 +424,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(99L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -458,7 +458,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("종료 일시는 시작 일시 이후여야 합니다");
+                .hasMessageContaining("error.season.end_before_start");
         }
 
         @Test
@@ -474,7 +474,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.updateSeason(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 기간에 이미 활성화된 시즌이 존재합니다");
+                .hasMessageContaining("error.season.overlap");
         }
 
         @Test
@@ -523,7 +523,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.deleteSeason(99L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -607,7 +607,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.toggleActive(2L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 기간에 이미 활성화된 시즌이 존재합니다");
+                .hasMessageContaining("error.season.overlap");
         }
 
         @Test
@@ -619,7 +619,7 @@ class SeasonAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonAdminService.toggleActive(99L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
 
         @Test

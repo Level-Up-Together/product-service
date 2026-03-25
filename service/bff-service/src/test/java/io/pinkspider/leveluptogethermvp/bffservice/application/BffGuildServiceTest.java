@@ -131,7 +131,7 @@ class BffGuildServiceTest {
 
             when(guildQueryService.getGuild(1L, testUserId)).thenReturn(testGuildResponse);
             when(guildQueryService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
-            when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(postPage);
+            when(guildPostService.getPosts(anyLong(), anyString(), any(), any())).thenReturn(postPage);
 
             // when
             GuildDetailDataResponse response = bffGuildService.getGuildDetail(1L, testUserId, 0, 20);
@@ -157,7 +157,7 @@ class BffGuildServiceTest {
 
             when(guildQueryService.getGuild(1L, otherUserId)).thenReturn(testGuildResponse);
             when(guildQueryService.getGuildMembers(1L, otherUserId)).thenReturn(List.of(testMemberResponse));
-            when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(postPage);
+            when(guildPostService.getPosts(anyLong(), anyString(), any(), any())).thenReturn(postPage);
 
             // when
             GuildDetailDataResponse response = bffGuildService.getGuildDetail(1L, otherUserId, 0, 20);
@@ -174,7 +174,7 @@ class BffGuildServiceTest {
             // given
             when(guildQueryService.getGuild(1L, testUserId)).thenThrow(new RuntimeException("조회 실패"));
             when(guildQueryService.getGuildMembers(1L, testUserId)).thenReturn(List.of(testMemberResponse));
-            when(guildPostService.getPosts(anyLong(), anyString(), any())).thenReturn(Page.empty());
+            when(guildPostService.getPosts(anyLong(), anyString(), any(), any())).thenReturn(Page.empty());
 
             // when
             GuildDetailDataResponse response = bffGuildService.getGuildDetail(1L, testUserId, 0, 20);
@@ -211,7 +211,7 @@ class BffGuildServiceTest {
 
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(noticePost));
+            when(guildPostService.getNotices(1L, testUserId, null)).thenReturn(List.of(noticePost));
             when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
 
             // when
@@ -277,8 +277,8 @@ class BffGuildServiceTest {
 
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse, secondGuild));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(guildPostService.getNotices(1L, testUserId)).thenReturn(List.of(notice1));
-            when(guildPostService.getNotices(2L, testUserId)).thenReturn(List.of(notice2));
+            when(guildPostService.getNotices(1L, testUserId, null)).thenReturn(List.of(notice1));
+            when(guildPostService.getNotices(2L, testUserId, null)).thenReturn(List.of(notice2));
             when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
 
             // when

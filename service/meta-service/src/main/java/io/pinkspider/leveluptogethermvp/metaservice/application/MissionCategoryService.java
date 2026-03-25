@@ -32,7 +32,7 @@ public class MissionCategoryService {
     @CacheEvict(value = "activeMissionCategories", allEntries = true)
     public MissionCategoryResponse createCategory(MissionCategoryCreateRequest request) {
         if (missionCategoryRepository.existsByName(request.getName())) {
-            throw new CustomException("DUPLICATE_RESOURCE", "이미 존재하는 카테고리 이름입니다.");
+            throw new CustomException("DUPLICATE_RESOURCE", "error.category.duplicate");
         }
 
         MissionCategory category = MissionCategory.builder()
@@ -62,11 +62,11 @@ public class MissionCategoryService {
     })
     public MissionCategoryResponse updateCategory(Long categoryId, MissionCategoryUpdateRequest request) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
-            .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("NOT_FOUND", "error.category.not_found"));
 
         if (request.getName() != null && !request.getName().equals(category.getName())) {
             if (missionCategoryRepository.existsByName(request.getName())) {
-                throw new CustomException("DUPLICATE_RESOURCE", "이미 존재하는 카테고리 이름입니다.");
+                throw new CustomException("DUPLICATE_RESOURCE", "error.category.duplicate");
             }
             category.setName(request.getName());
         }
@@ -118,7 +118,7 @@ public class MissionCategoryService {
     })
     public void deleteCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
-            .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("NOT_FOUND", "error.category.not_found"));
 
         missionCategoryRepository.delete(category);
         log.info("Mission category deleted: id={}, name={}", categoryId, category.getName());
@@ -133,7 +133,7 @@ public class MissionCategoryService {
     })
     public MissionCategoryResponse deactivateCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
-            .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("NOT_FOUND", "error.category.not_found"));
 
         category.deactivate();
         MissionCategory saved = missionCategoryRepository.save(category);
@@ -172,7 +172,7 @@ public class MissionCategoryService {
     @Transactional(readOnly = true, transactionManager = "metaTransactionManager")
     public MissionCategoryResponse getCategory(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
-            .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("NOT_FOUND", "error.category.not_found"));
 
         return MissionCategoryResponse.from(category);
     }
@@ -202,7 +202,7 @@ public class MissionCategoryService {
     })
     public MissionCategoryResponse toggleActive(Long categoryId) {
         MissionCategory category = missionCategoryRepository.findById(categoryId)
-            .orElseThrow(() -> new CustomException("NOT_FOUND", "카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("NOT_FOUND", "error.category.not_found"));
 
         if (Boolean.TRUE.equals(category.getIsActive())) {
             category.deactivate();

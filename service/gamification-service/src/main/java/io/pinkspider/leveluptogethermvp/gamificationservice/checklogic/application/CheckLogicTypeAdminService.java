@@ -60,14 +60,14 @@ public class CheckLogicTypeAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminResponse getCheckLogicType(Long id) {
         CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "체크 로직 유형을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
         return CheckLogicTypeAdminResponse.from(entity);
     }
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminResponse getCheckLogicTypeByCode(String code) {
         CheckLogicType entity = checkLogicTypeRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("120201", "체크 로직 유형을 찾을 수 없습니다: " + code));
+            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
         return CheckLogicTypeAdminResponse.from(entity);
     }
 
@@ -87,7 +87,7 @@ public class CheckLogicTypeAdminService {
 
     public CheckLogicTypeAdminResponse createCheckLogicType(CheckLogicTypeAdminRequest request) {
         if (checkLogicTypeRepository.existsByCode(request.code())) {
-            throw new CustomException("120202", "이미 존재하는 코드입니다: " + request.code());
+            throw new CustomException("120202", "error.checklogic.duplicate_code");
         }
 
         CheckLogicDataSource dataSource = CheckLogicDataSource.fromCode(request.dataSource());
@@ -114,10 +114,10 @@ public class CheckLogicTypeAdminService {
 
     public CheckLogicTypeAdminResponse updateCheckLogicType(Long id, CheckLogicTypeAdminRequest request) {
         CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "체크 로직 유형을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
 
         if (checkLogicTypeRepository.existsByCodeAndIdNot(request.code(), id)) {
-            throw new CustomException("120202", "이미 존재하는 코드입니다: " + request.code());
+            throw new CustomException("120202", "error.checklogic.duplicate_code");
         }
 
         CheckLogicDataSource dataSource = CheckLogicDataSource.fromCode(request.dataSource());
@@ -146,7 +146,7 @@ public class CheckLogicTypeAdminService {
 
     public CheckLogicTypeAdminResponse toggleActiveStatus(Long id) {
         CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "체크 로직 유형을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
 
         entity.setIsActive(!entity.getIsActive());
         CheckLogicType updated = checkLogicTypeRepository.save(entity);
@@ -156,7 +156,7 @@ public class CheckLogicTypeAdminService {
 
     public void deleteCheckLogicType(Long id) {
         CheckLogicType entity = checkLogicTypeRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120201", "체크 로직 유형을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
         log.info("체크 로직 유형 삭제: {} (ID: {})", entity.getCode(), id);
         checkLogicTypeRepository.delete(entity);
     }

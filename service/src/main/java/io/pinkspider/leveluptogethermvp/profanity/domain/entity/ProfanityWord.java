@@ -33,8 +33,8 @@ import org.hibernate.annotations.Comment;
 @AllArgsConstructor
 @Table(name = "profanity_word",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_profanity_word_word",
-        columnNames = {"word"}
+        name = "uk_profanity_word_locale_word",
+        columnNames = {"locale", "word"}
     )
 )
 @Comment("금칙어 관리")
@@ -45,6 +45,12 @@ public class ProfanityWord extends LocalDateTimeBaseEntity {
     @Column(name = "id", nullable = false)
     @Comment("ID")
     private Long id;
+
+    @lombok.Builder.Default
+    @NotNull
+    @Column(name = "locale", nullable = false, length = 5)
+    @Comment("언어 코드 (ko, en, ar)")
+    private String locale = "ko";
 
     @NotNull
     @Column(name = "word", nullable = false, length = 100)

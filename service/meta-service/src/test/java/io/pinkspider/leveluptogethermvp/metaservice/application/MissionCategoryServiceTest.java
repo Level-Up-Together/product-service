@@ -88,7 +88,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.createCategory(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 카테고리 이름입니다");
+                .hasMessageContaining("error.category.duplicate");
         }
     }
 
@@ -135,7 +135,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.updateCategory(categoryId, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 카테고리 이름입니다");
+                .hasMessageContaining("error.category.duplicate");
         }
 
         @Test
@@ -150,7 +150,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.updateCategory(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("카테고리를 찾을 수 없습니다");
+                .hasMessageContaining("error.category.not_found");
         }
 
         @Test
@@ -210,7 +210,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.deleteCategory(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("카테고리를 찾을 수 없습니다");
+                .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -246,7 +246,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.deactivateCategory(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("카테고리를 찾을 수 없습니다");
+                .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -326,7 +326,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.getCategory(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("카테고리를 찾을 수 없습니다");
+                .hasMessageContaining("error.category.not_found");
         }
     }
 
@@ -450,7 +450,7 @@ class MissionCategoryServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCategoryService.toggleActive(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("카테고리를 찾을 수 없습니다");
+                .hasMessageContaining("error.category.not_found");
         }
     }
 

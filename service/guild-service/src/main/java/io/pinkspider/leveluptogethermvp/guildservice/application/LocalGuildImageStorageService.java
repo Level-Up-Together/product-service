@@ -29,11 +29,11 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
     @Override
     public String store(MultipartFile file, Long guildId) {
         if (file == null || file.isEmpty()) {
-            throw new CustomException("GUILD_IMAGE_001", "업로드할 이미지 파일이 없습니다.");
+            throw new CustomException("GUILD_IMAGE_001", "error.image.empty");
         }
 
         if (!isValidImage(file)) {
-            throw new CustomException("GUILD_IMAGE_002", "유효하지 않은 이미지 파일입니다.");
+            throw new CustomException("GUILD_IMAGE_002", "error.image.invalid");
         }
 
         try {
@@ -57,7 +57,7 @@ public class LocalGuildImageStorageService implements GuildImageStorageService {
 
         } catch (IOException e) {
             log.error("길드 이미지 저장 실패: guildId={}", guildId, e);
-            throw new CustomException("GUILD_IMAGE_003", "이미지 저장에 실패했습니다.");
+            throw new CustomException("GUILD_IMAGE_003", "error.image.save_failed");
         }
     }
 

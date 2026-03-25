@@ -143,7 +143,7 @@ class SeasonRankRewardServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonRankRewardService.createRankReward(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시즌을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.not_found");
         }
 
         @Test
@@ -156,7 +156,7 @@ class SeasonRankRewardServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonRankRewardService.createRankReward(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("시작 순위가 종료 순위보다 클 수 없습니다");
+                .hasMessageContaining("error.season.rank.invalid_range");
         }
 
         @Test
@@ -170,7 +170,7 @@ class SeasonRankRewardServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonRankRewardService.createRankReward(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("순위 구간이 기존 보상과 중복됩니다");
+                .hasMessageContaining("error.season.rank.overlap");
         }
     }
 
@@ -205,7 +205,7 @@ class SeasonRankRewardServiceTest {
             // when & then
             assertThatThrownBy(() -> seasonRankRewardService.updateRankReward(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("보상 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.season.reward.not_found");
         }
     }
 

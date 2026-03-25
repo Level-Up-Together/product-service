@@ -53,7 +53,7 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         // 필수인데 없으면 예외
         if (userId == null && required) {
             log.warn("인증된 사용자를 찾을 수 없습니다.");
-            throw new CustomException("AUTH_001", "인증이 필요합니다. 로그인 후 다시 시도해주세요.");
+            throw new CustomException("AUTH_001", "error.auth.required");
         }
 
         return userId;

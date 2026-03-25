@@ -330,7 +330,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.getConfigById(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("출석 보상 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -403,7 +403,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.createConfig(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 보상 타입입니다");
+                .hasMessageContaining("error.attendance_reward.duplicate_type");
 
             verify(rewardConfigRepository, never()).save(any());
         }
@@ -458,7 +458,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.updateConfig(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 보상 타입입니다");
+                .hasMessageContaining("error.attendance_reward.duplicate_type");
 
             verify(rewardConfigRepository, never()).save(any());
         }
@@ -499,7 +499,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.updateConfig(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("출석 보상 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -550,7 +550,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.toggleActiveStatus(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("출석 보상 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.attendance_reward.not_found");
         }
     }
 
@@ -580,7 +580,7 @@ class AttendanceRewardConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> attendanceRewardConfigCacheService.deleteConfig(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("출석 보상 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.attendance_reward.not_found");
 
             verify(rewardConfigRepository, never()).deleteById(any());
         }

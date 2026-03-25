@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDateTime;
@@ -14,7 +13,7 @@ public record UserGuildInfoAdminResponse(
     String guildImageUrl,
     Integer guildLevel,
     String role,
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime joinedAt,
+    LocalDateTime joinedAt,
     Integer memberCount,
     Integer maxMembers
 ) {

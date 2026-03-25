@@ -316,7 +316,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.getLevelConfigById(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("길드 레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -349,7 +349,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.getLevelConfigResponseByLevel(999))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 길드 레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -451,7 +451,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.createLevelConfig(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 길드 레벨입니다");
+                .hasMessageContaining("error.guild_level.duplicate");
 
             verify(guildLevelConfigRepository, never()).save(any());
         }
@@ -504,7 +504,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.updateLevelConfig(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 길드 레벨입니다");
+                .hasMessageContaining("error.guild_level.duplicate");
 
             verify(guildLevelConfigRepository, never()).save(any());
         }
@@ -523,7 +523,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.updateLevelConfig(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("길드 레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.guild_level.not_found");
         }
     }
 
@@ -553,7 +553,7 @@ class GuildLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> guildLevelConfigCacheService.deleteLevelConfig(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("길드 레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.guild_level.not_found");
 
             verify(guildLevelConfigRepository, never()).deleteById(any());
         }

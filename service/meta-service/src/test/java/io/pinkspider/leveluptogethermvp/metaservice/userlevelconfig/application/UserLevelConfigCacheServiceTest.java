@@ -361,7 +361,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.getLevelConfigById(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -394,7 +394,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.getLevelConfigResponseByLevel(999))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -441,7 +441,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.createLevelConfig(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 레벨입니다");
+                .hasMessageContaining("error.user_level.duplicate");
 
             verify(userLevelConfigRepository, never()).save(any());
         }
@@ -493,7 +493,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.updateLevelConfig(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 레벨입니다");
+                .hasMessageContaining("error.user_level.duplicate");
 
             verify(userLevelConfigRepository, never()).save(any());
         }
@@ -535,7 +535,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.updateLevelConfig(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.user_level.not_found");
         }
     }
 
@@ -565,7 +565,7 @@ class UserLevelConfigCacheServiceTest {
             // when & then
             assertThatThrownBy(() -> userLevelConfigCacheService.deleteLevelConfig(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("레벨 설정을 찾을 수 없습니다");
+                .hasMessageContaining("error.user_level.not_found");
 
             verify(userLevelConfigRepository, never()).deleteById(any());
         }

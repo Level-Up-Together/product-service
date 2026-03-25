@@ -50,7 +50,7 @@ public class MissionTemplateAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionTemplateAdminResponse getTemplate(Long id) {
         MissionTemplate template = templateRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050201", "미션 템플릿을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050201", "error.mission.template.not_found"));
         return MissionTemplateAdminResponse.from(template);
     }
 
@@ -85,7 +85,7 @@ public class MissionTemplateAdminService {
 
     public MissionTemplateAdminResponse updateTemplate(Long id, MissionTemplateAdminRequest request) {
         MissionTemplate template = templateRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050201", "미션 템플릿을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050201", "error.mission.template.not_found"));
 
         template.setTitle(request.title());
         template.setTitleEn(request.titleEn());
@@ -122,7 +122,7 @@ public class MissionTemplateAdminService {
 
     public void deleteTemplate(Long id) {
         if (!templateRepository.existsById(id)) {
-            throw new CustomException("050201", "미션 템플릿을 찾을 수 없습니다: " + id);
+            throw new CustomException("050201", "error.mission.template.not_found");
         }
         templateRepository.deleteById(id);
         log.info("미션 템플릿 삭제 (Admin): ID={}", id);

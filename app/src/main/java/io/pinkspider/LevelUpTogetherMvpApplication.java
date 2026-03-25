@@ -1,5 +1,7 @@
 package io.pinkspider;
 
+import jakarta.annotation.PostConstruct;
+import java.util.TimeZone;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,12 @@ public class LevelUpTogetherMvpApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(LevelUpTogetherMvpApplication.class, args);
+    }
+
+    @PostConstruct
+    void setTimezone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        log.info("JVM timezone set to UTC");
     }
 
     @Bean

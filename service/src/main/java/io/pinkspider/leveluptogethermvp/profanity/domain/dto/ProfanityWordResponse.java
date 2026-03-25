@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 public class ProfanityWordResponse {
 
     private Long id;
+    private String locale;
     private String word;
     private ProfanityCategory category;
     private String categoryName;
@@ -32,6 +33,7 @@ public class ProfanityWordResponse {
     public static ProfanityWordResponse from(ProfanityWord entity) {
         return ProfanityWordResponse.builder()
             .id(entity.getId())
+            .locale(entity.getLocale())
             .word(entity.getWord())
             .category(entity.getCategory())
             .categoryName(entity.getCategory().getName())

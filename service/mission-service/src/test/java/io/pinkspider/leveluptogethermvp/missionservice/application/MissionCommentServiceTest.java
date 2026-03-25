@@ -208,7 +208,7 @@ class MissionCommentServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCommentService.addComment(MISSION_ID, TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("미션을 찾을 수 없습니다");
+                .hasMessageContaining("error.mission.not_found");
         }
     }
 
@@ -278,7 +278,7 @@ class MissionCommentServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCommentService.getComments(MISSION_ID, TEST_USER_ID, 0, 20))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("미션을 찾을 수 없습니다");
+                .hasMessageContaining("error.mission.not_found");
         }
     }
 
@@ -319,7 +319,7 @@ class MissionCommentServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("본인의 댓글만 삭제할 수 있습니다");
+                .hasMessageContaining("error.mission.comment.not_owner");
         }
 
         @Test
@@ -332,7 +332,7 @@ class MissionCommentServiceTest {
             // when & then
             assertThatThrownBy(() -> missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("댓글을 찾을 수 없습니다");
+                .hasMessageContaining("error.mission.comment.not_found");
         }
 
         @Test
@@ -349,7 +349,7 @@ class MissionCommentServiceTest {
             Long wrongMissionId = 999L;
             assertThatThrownBy(() -> missionCommentService.deleteComment(wrongMissionId, COMMENT_ID, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 미션의 댓글이 아닙니다");
+                .hasMessageContaining("error.mission.comment.wrong_mission");
         }
     }
 

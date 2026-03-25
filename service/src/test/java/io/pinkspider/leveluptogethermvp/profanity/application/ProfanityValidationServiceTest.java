@@ -111,7 +111,7 @@ class ProfanityValidationServiceTest {
             // when & then
             assertThatThrownBy(() -> profanityValidationService.validateContent(content, "제목"))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("제목에 부적절한 표현이 포함되어 있습니다.");
+                .hasMessageContaining("error.profanity.detected");
         }
 
         @Test
@@ -169,7 +169,7 @@ class ProfanityValidationServiceTest {
             // when & then
             assertThatThrownBy(() -> profanityValidationService.validateContents(contents))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("설명에 부적절한 표현이 포함되어 있습니다.");
+                .hasMessageContaining("error.profanity.detected");
         }
 
         @Test

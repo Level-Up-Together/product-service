@@ -73,7 +73,7 @@ public class GuildAdminInternalService {
 
     public GuildAdminResponse getGuild(Long id) {
         Guild guild = guildRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "길드를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
 
         MissionCategoryResponse category = getCategoryById(guild.getCategoryId());
         int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
@@ -136,7 +136,7 @@ public class GuildAdminInternalService {
 
     public List<GuildMemberAdminResponse> getGuildMembers(Long guildId) {
         if (!guildRepository.existsById(guildId)) {
-            throw new CustomException("404", "길드를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.guild.not_found");
         }
 
         List<GuildMember> members = guildMemberRepository.findByGuildIdAndStatus(
@@ -159,7 +159,7 @@ public class GuildAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildAdminResponse toggleActive(Long id) {
         Guild guild = guildRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "길드를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
 
         guild.setIsActive(!guild.getIsActive());
         Guild saved = guildRepository.save(guild);

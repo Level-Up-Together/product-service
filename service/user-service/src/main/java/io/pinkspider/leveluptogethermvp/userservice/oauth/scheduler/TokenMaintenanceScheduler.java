@@ -20,8 +20,8 @@ public class TokenMaintenanceScheduler {
     private final MultiDeviceTokenService tokenService;
     private final JwtUtil jwtUtil;
 
-    // 매일 새벽 2시에 만료된 세션 정리
-    @Scheduled(cron = "0 0 2 * * *")
+    // 매일 새벽 2시(KST)에 만료된 세션 정리
+    @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
     public void cleanupExpiredSessions() {
         try {
             Set<String> sessionKeys = redisTemplate.keys("session:*");
@@ -56,7 +56,7 @@ public class TokenMaintenanceScheduler {
 
     // 블랙리스트는 TTL로 자동 만료되므로 별도 정리 불필요
     // 대신 고아 세션(user_sessions에만 남아있는 세션) 정리
-    @Scheduled(cron = "0 30 2 * * *") // 매일 새벽 2시 30분
+    @Scheduled(cron = "0 30 2 * * *", zone = "Asia/Seoul") // 매일 새벽 2시 30분(KST)
     public void cleanupOrphanedUserSessions() {
         try {
             Set<String> userSessionKeys = redisTemplate.keys("userSessions:*");

@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.guildservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildPost;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildPostType;
 import java.time.LocalDateTime;
@@ -31,10 +33,18 @@ public class GuildPostListResponse {
     private Integer commentCount;
     private LocalDateTime createdAt;
 
+    // 번역 정보 (다국어 지원)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private TranslationInfo translation;
+
     // 신고 처리중 여부
     private Boolean isUnderReview;
 
     public static GuildPostListResponse from(GuildPost post) {
+        return from(post, null);
+    }
+
+    public static GuildPostListResponse from(GuildPost post, TranslationInfo translation) {
         return GuildPostListResponse.builder()
             .id(post.getId())
             .guildId(post.getGuild().getId())
@@ -47,6 +57,7 @@ public class GuildPostListResponse {
             .viewCount(post.getViewCount())
             .commentCount(post.getCommentCount())
             .createdAt(post.getCreatedAt())
+            .translation(translation)
             .build();
     }
 }

@@ -107,7 +107,7 @@ public class GuildLevelConfigCacheService {
      */
     public GuildLevelConfigResponse getLevelConfigById(Long id) {
         GuildLevelConfig config = guildLevelConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "길드 레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild_level.not_found"));
         return GuildLevelConfigResponse.from(config);
     }
 
@@ -116,7 +116,7 @@ public class GuildLevelConfigCacheService {
      */
     public GuildLevelConfigResponse getLevelConfigResponseByLevel(Integer level) {
         GuildLevelConfig config = guildLevelConfigRepository.findByLevel(level)
-            .orElseThrow(() -> new CustomException("404", "해당 길드 레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild_level.not_found"));
         return GuildLevelConfigResponse.from(config);
     }
 
@@ -127,7 +127,7 @@ public class GuildLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public GuildLevelConfigResponse createLevelConfig(GuildLevelConfigRequest request) {
         if (guildLevelConfigRepository.existsByLevel(request.getLevel())) {
-            throw new CustomException("400", "이미 존재하는 길드 레벨입니다.");
+            throw new CustomException("400", "error.guild_level.duplicate");
         }
 
         int calculatedRequiredExp = calculateRequiredExp(request.getLevel(), request.getMaxMembers());
@@ -155,11 +155,11 @@ public class GuildLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public GuildLevelConfigResponse updateLevelConfig(Long id, GuildLevelConfigRequest request) {
         GuildLevelConfig config = guildLevelConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "길드 레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild_level.not_found"));
 
         if (!config.getLevel().equals(request.getLevel())
             && guildLevelConfigRepository.existsByLevel(request.getLevel())) {
-            throw new CustomException("400", "이미 존재하는 길드 레벨입니다.");
+            throw new CustomException("400", "error.guild_level.duplicate");
         }
 
         int calculatedRequiredExp = calculateRequiredExp(request.getLevel(), request.getMaxMembers());
@@ -184,7 +184,7 @@ public class GuildLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public void deleteLevelConfig(Long id) {
         if (!guildLevelConfigRepository.existsById(id)) {
-            throw new CustomException("404", "길드 레벨 설정을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.guild_level.not_found");
         }
         guildLevelConfigRepository.deleteById(id);
         log.info("길드 레벨 설정 삭제: id={}", id);

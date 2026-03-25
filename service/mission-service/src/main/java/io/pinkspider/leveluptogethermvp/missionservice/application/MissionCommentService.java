@@ -37,7 +37,7 @@ public class MissionCommentService {
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionCommentResponse addComment(Long missionId, String userId, MissionCommentRequest request) {
         Mission mission = missionRepository.findByIdAndIsDeletedFalse(missionId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "미션을 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.mission.not_found"));
 
         // 사용자 프로필 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);
@@ -77,7 +77,7 @@ public class MissionCommentService {
     public Page<MissionCommentResponse> getComments(Long missionId, String currentUserId, int page, int size) {
         // 미션 존재 확인
         if (!missionRepository.existsById(missionId)) {
-            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "미션을 찾을 수 없습니다");
+            throw new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.mission.not_found");
         }
 
         Pageable pageable = PageRequest.of(page, size);
@@ -92,16 +92,16 @@ public class MissionCommentService {
     @Transactional(transactionManager = "missionTransactionManager")
     public void deleteComment(Long missionId, Long commentId, String userId) {
         MissionComment comment = missionCommentRepository.findByIdAndIsDeletedFalse(commentId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "댓글을 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.mission.comment.not_found"));
 
         // 해당 미션의 댓글인지 확인
         if (!comment.getMission().getId().equals(missionId)) {
-            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "해당 미션의 댓글이 아닙니다");
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.comment.wrong_mission");
         }
 
         // 본인 댓글만 삭제 가능
         if (!comment.isAuthor(userId)) {
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "본인의 댓글만 삭제할 수 있습니다");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.mission.comment.not_owner");
         }
 
         // Soft delete

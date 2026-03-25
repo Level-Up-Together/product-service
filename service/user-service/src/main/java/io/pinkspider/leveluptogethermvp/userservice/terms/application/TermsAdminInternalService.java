@@ -50,13 +50,13 @@ public class TermsAdminInternalService {
 
     public TermsAdminResponse getTerms(Long id) {
         Term term = termsRepository.findByIdWithVersions(id)
-            .orElseThrow(() -> new CustomException("404", "약관을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
         return TermsAdminResponse.from(term);
     }
 
     public TermsAdminResponse getTermsByCode(String code) {
         Term term = termsRepository.findByCode(code)
-            .orElseThrow(() -> new CustomException("404", "약관을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
         return TermsAdminResponse.fromSimple(term);
     }
 
@@ -79,7 +79,7 @@ public class TermsAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public TermsAdminResponse createTerms(TermsAdminRequest request) {
         if (termsRepository.existsByCode(request.code())) {
-            throw new CustomException("400", "이미 존재하는 약관 코드입니다.");
+            throw new CustomException("400", "error.terms.duplicate_code");
         }
 
         Term term = Term.builder()
@@ -98,11 +98,11 @@ public class TermsAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public TermsAdminResponse updateTerms(Long id, TermsAdminRequest request) {
         Term term = termsRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "약관을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
 
         if (!term.getCode().equals(request.code())
             && termsRepository.existsByCode(request.code())) {
-            throw new CustomException("400", "이미 존재하는 약관 코드입니다.");
+            throw new CustomException("400", "error.terms.duplicate_code");
         }
 
         term.setCode(request.code());
@@ -119,7 +119,7 @@ public class TermsAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public void deleteTerms(Long id) {
         if (!termsRepository.existsById(id)) {
-            throw new CustomException("404", "약관을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.not_found");
         }
         termsRepository.deleteById(id);
         log.info("약관 삭제: id={}", id);
@@ -129,7 +129,7 @@ public class TermsAdminInternalService {
 
     public List<TermVersionAdminResponse> getTermVersions(Long termsId) {
         if (!termsRepository.existsById(termsId)) {
-            throw new CustomException("404", "약관을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.not_found");
         }
         return termVersionRepository.findByTermsIdOrderByIdDesc(termsId).stream()
             .map(TermVersionAdminResponse::from)
@@ -138,23 +138,23 @@ public class TermsAdminInternalService {
 
     public TermVersionAdminResponse getTermVersion(Long versionId) {
         TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
-            .orElseThrow(() -> new CustomException("404", "약관 버전을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
         return TermVersionAdminResponse.from(version);
     }
 
     public TermVersionAdminResponse getLatestTermVersion(Long termsId) {
         TermVersion version = termVersionRepository.findTopByTermsIdOrderByIdDesc(termsId)
-            .orElseThrow(() -> new CustomException("404", "약관 버전을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
         return TermVersionAdminResponse.from(version);
     }
 
     @Transactional(transactionManager = "userTransactionManager")
     public TermVersionAdminResponse createTermVersion(Long termsId, TermVersionAdminRequest request) {
         Term term = termsRepository.findById(termsId)
-            .orElseThrow(() -> new CustomException("404", "약관을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.not_found"));
 
         if (termVersionRepository.existsByTermsIdAndVersion(termsId, request.version())) {
-            throw new CustomException("400", "이미 존재하는 버전입니다.");
+            throw new CustomException("400", "error.terms.version.duplicate");
         }
 
         TermVersion version = TermVersion.builder()
@@ -171,11 +171,11 @@ public class TermsAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public TermVersionAdminResponse updateTermVersion(Long versionId, TermVersionAdminRequest request) {
         TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
-            .orElseThrow(() -> new CustomException("404", "약관 버전을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
 
         if (!version.getVersion().equals(request.version())
             && termVersionRepository.existsByTermsIdAndVersion(version.getTerms().getId(), request.version())) {
-            throw new CustomException("400", "이미 존재하는 버전입니다.");
+            throw new CustomException("400", "error.terms.version.duplicate");
         }
 
         version.setVersion(request.version());
@@ -189,7 +189,7 @@ public class TermsAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public void deleteTermVersion(Long versionId) {
         if (!termVersionRepository.existsById(versionId)) {
-            throw new CustomException("404", "약관 버전을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.version.not_found");
         }
         termVersionRepository.deleteById(versionId);
         log.info("약관 버전 삭제: versionId={}", versionId);
@@ -205,7 +205,7 @@ public class TermsAdminInternalService {
 
     public List<UserTermAgreementAdminResponse> getUserAgreementsByTerms(String userId, Long termsId) {
         if (!termsRepository.existsById(termsId)) {
-            throw new CustomException("404", "약관을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.not_found");
         }
         return userTermAgreementsRepository.findByUserIdAndTermsId(userId, termsId).stream()
             .map(UserTermAgreementAdminResponse::from)
@@ -214,14 +214,14 @@ public class TermsAdminInternalService {
 
     public Long getAgreementCountByTermVersion(Long termVersionId) {
         if (!termVersionRepository.existsById(termVersionId)) {
-            throw new CustomException("404", "약관 버전을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.version.not_found");
         }
         return userTermAgreementsRepository.countAgreedByTermVersionId(termVersionId);
     }
 
     public Long getAgreementCountByTerms(Long termsId) {
         if (!termsRepository.existsById(termsId)) {
-            throw new CustomException("404", "약관을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.terms.not_found");
         }
         return userTermAgreementsRepository.countDistinctUsersByTermsIdAndAgreed(termsId);
     }

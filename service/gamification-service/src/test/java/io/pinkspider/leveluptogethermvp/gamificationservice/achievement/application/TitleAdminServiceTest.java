@@ -238,7 +238,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.getTitle(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다.");
+                .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -385,7 +385,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.createTitle(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 칭호 이름입니다.");
+                .hasMessageContaining("error.title.duplicate_name");
 
             verify(titleRepository, never()).save(any(Title.class));
         }
@@ -444,7 +444,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.updateTitle(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 칭호 이름입니다.");
+                .hasMessageContaining("error.title.duplicate_name");
         }
 
         @Test
@@ -457,7 +457,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.updateTitle(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다.");
+                .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -509,7 +509,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.toggleActiveStatus(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다.");
+                .hasMessageContaining("error.title.not_found");
         }
     }
 
@@ -539,7 +539,7 @@ class TitleAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> titleAdminService.deleteTitle(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("칭호를 찾을 수 없습니다.");
+                .hasMessageContaining("error.title.not_found");
 
             verify(titleRepository, never()).deleteById(anyLong());
         }

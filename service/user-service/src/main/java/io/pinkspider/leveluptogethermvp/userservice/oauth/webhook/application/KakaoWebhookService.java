@@ -95,7 +95,7 @@ public class KakaoWebhookService {
     private void validateAdminKey(String authorization) {
         if (authorization == null || !authorization.startsWith("KakaoAK ")) {
             log.warn("잘못된 Authorization 헤더 형식: {}", authorization);
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "Invalid authorization header format");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_auth_header");
         }
 
         String providedKey = authorization.substring("KakaoAK ".length());
@@ -103,7 +103,7 @@ public class KakaoWebhookService {
 
         if (expectedKey == null || !expectedKey.equals(providedKey)) {
             log.warn("어드민 키 불일치");
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "Invalid admin key");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_admin_key");
         }
     }
 
@@ -112,7 +112,7 @@ public class KakaoWebhookService {
 
         if (expectedAppId != null && !expectedAppId.equals(appId)) {
             log.warn("앱 ID 불일치 - expected: {}, actual: {}", expectedAppId, appId);
-            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "Invalid app id");
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.kakao.invalid_app_id");
         }
     }
 

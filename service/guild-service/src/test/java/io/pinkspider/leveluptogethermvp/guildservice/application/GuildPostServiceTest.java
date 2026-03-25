@@ -33,6 +33,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostCom
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildPostRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.enums.ReportTargetType;
+import io.pinkspider.global.translation.TranslationService;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -74,6 +75,9 @@ class GuildPostServiceTest {
 
     @Mock
     private ReportService reportService;
+
+    @Mock
+    private TranslationService translationService;
 
     @InjectMocks
     private GuildPostService guildPostService;
@@ -311,7 +315,7 @@ class GuildPostServiceTest {
             when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList())).thenReturn(Collections.emptyMap());
 
             // when
-            Page<GuildPostListResponse> result = guildPostService.getPosts(1L, memberId, pageable);
+            Page<GuildPostListResponse> result = guildPostService.getPosts(1L, memberId, pageable, null);
 
             // then
             assertThat(result).isNotNull();
@@ -339,7 +343,7 @@ class GuildPostServiceTest {
             when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList())).thenReturn(Collections.emptyMap());
 
             // when
-            List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId);
+            List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId, null);
 
             // then
             assertThat(result).hasSize(1);
@@ -358,7 +362,7 @@ class GuildPostServiceTest {
             when(reportService.isUnderReview(any(ReportTargetType.class), anyString())).thenReturn(false);
 
             // when
-            GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId);
+            GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId, null);
 
             // then
             assertThat(response).isNotNull();
@@ -577,7 +581,7 @@ class GuildPostServiceTest {
             when(guildPostCommentRepository.findRepliesByParentId(1L)).thenReturn(List.of());
 
             // when
-            List<GuildPostCommentResponse> response = guildPostService.getComments(1L, 1L, memberId);
+            List<GuildPostCommentResponse> response = guildPostService.getComments(1L, 1L, memberId, null);
 
             // then
             assertThat(response).hasSize(1);
@@ -698,7 +702,7 @@ class GuildPostServiceTest {
                 .thenReturn(Collections.emptyMap());
 
             // when
-            Page<GuildPostListResponse> result = guildPostService.getPostsByType(1L, memberId, GuildPostType.NOTICE, pageable);
+            Page<GuildPostListResponse> result = guildPostService.getPostsByType(1L, memberId, GuildPostType.NOTICE, pageable, null);
 
             // then
             assertThat(result).isNotNull();
@@ -726,7 +730,7 @@ class GuildPostServiceTest {
                 .thenReturn(Collections.emptyMap());
 
             // when
-            Page<GuildPostListResponse> result = guildPostService.searchPosts(1L, memberId, keyword, pageable);
+            Page<GuildPostListResponse> result = guildPostService.searchPosts(1L, memberId, keyword, pageable, null);
 
             // then
             assertThat(result).isNotNull();
@@ -1003,7 +1007,7 @@ class GuildPostServiceTest {
             when(guildPostRepository.findByIdAndIsDeletedFalse(2L)).thenReturn(Optional.of(otherPost));
 
             // when & then
-            assertThatThrownBy(() -> guildPostService.getPost(1L, 2L, memberId))
+            assertThatThrownBy(() -> guildPostService.getPost(1L, 2L, memberId, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("게시글이 해당 길드에 속하지 않습니다");
         }
@@ -1017,7 +1021,7 @@ class GuildPostServiceTest {
             when(guildPostRepository.findByIdAndIsDeletedFalse(999L)).thenReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> guildPostService.getPost(1L, 999L, memberId))
+            assertThatThrownBy(() -> guildPostService.getPost(1L, 999L, memberId, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("게시글을 찾을 수 없습니다");
         }
@@ -1055,7 +1059,7 @@ class GuildPostServiceTest {
             when(reportService.isUnderReview(eq(ReportTargetType.GUILD_NOTICE), eq("1"))).thenReturn(true);
 
             // when
-            GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId);
+            GuildPostResponse response = guildPostService.getPost(1L, 1L, memberId, null);
 
             // then
             assertThat(response).isNotNull();
@@ -1077,7 +1081,7 @@ class GuildPostServiceTest {
                 .thenReturn(underReviewMap);
 
             // when
-            List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId);
+            List<GuildPostListResponse> result = guildPostService.getNotices(1L, memberId, null);
 
             // then
             assertThat(result).hasSize(1);

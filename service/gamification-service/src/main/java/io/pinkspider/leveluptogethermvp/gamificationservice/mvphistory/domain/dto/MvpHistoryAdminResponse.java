@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.mvphistory.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.DailyMvpHistory;
@@ -17,7 +16,6 @@ import lombok.NoArgsConstructor;
 @JsonNaming(SnakeCaseStrategy.class)
 public class MvpHistoryAdminResponse {
 
-    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate mvpDate;
     private Integer mvpRank;
     private String userId;

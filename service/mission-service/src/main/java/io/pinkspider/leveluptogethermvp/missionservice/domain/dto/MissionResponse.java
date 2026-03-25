@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -45,10 +44,8 @@ public class MissionResponse {
     private Integer maxParticipants;
     private Integer currentParticipants;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endAt;
 
     private MissionInterval missionInterval;
@@ -63,10 +60,8 @@ public class MissionResponse {
     private Long categoryId;
     private String categoryName;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime modifiedAt;
 
     // 신고 처리중 여부

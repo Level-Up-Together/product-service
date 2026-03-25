@@ -57,7 +57,7 @@ public class EventAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public EventAdminResponse getEvent(Long id) {
         Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "이벤트를 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
         return EventAdminResponse.from(event);
     }
 
@@ -88,7 +88,7 @@ public class EventAdminService {
 
     public EventAdminResponse updateEvent(Long id, EventAdminRequest request) {
         Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "이벤트를 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
 
         validateEventDates(request.startAt(), request.endAt());
 
@@ -116,14 +116,14 @@ public class EventAdminService {
 
     public void deleteEvent(Long id) {
         Event event = eventRepository.findById(id)
-            .orElseThrow(() -> new CustomException("120101", "이벤트를 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("120101", "error.event.not_found"));
         log.info("이벤트 삭제: {} (ID: {})", event.getName(), id);
         eventRepository.delete(event);
     }
 
     private void validateEventDates(LocalDateTime startAt, LocalDateTime endAt) {
         if (endAt.isBefore(startAt) || endAt.isEqual(startAt)) {
-            throw new CustomException("120102", "종료 일시는 시작 일시 이후여야 합니다.");
+            throw new CustomException("120102", "error.event.end_before_start");
         }
     }
 

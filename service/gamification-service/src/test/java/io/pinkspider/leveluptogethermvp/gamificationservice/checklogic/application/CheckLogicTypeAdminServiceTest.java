@@ -198,7 +198,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.getCheckLogicType(999L))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -229,7 +230,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.getCheckLogicTypeByCode("NONEXISTENT"))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -297,7 +299,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.createCheckLogicType(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.duplicate_code");
         }
 
         @Test
@@ -354,7 +357,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.updateCheckLogicType(999L, request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.not_found");
         }
 
         @Test
@@ -369,7 +373,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.updateCheckLogicType(1L, request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.duplicate_code");
         }
     }
 
@@ -417,7 +422,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.toggleActiveStatus(999L))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -447,7 +453,8 @@ class CheckLogicTypeAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> checkLogicTypeAdminService.deleteCheckLogicType(999L))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.not_found");
         }
     }
 }

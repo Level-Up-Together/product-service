@@ -31,11 +31,11 @@ public class S3EventImageStorageService implements EventImageStorageService {
     @Override
     public String store(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new CustomException("EVENT_IMAGE_001", "업로드할 이미지 파일이 없습니다.");
+            throw new CustomException("EVENT_IMAGE_001", "error.image.empty");
         }
 
         if (!isValidImage(file)) {
-            throw new CustomException("EVENT_IMAGE_002", "유효하지 않은 이미지 파일입니다.");
+            throw new CustomException("EVENT_IMAGE_002", "error.image.invalid");
         }
 
         try {
@@ -58,7 +58,7 @@ public class S3EventImageStorageService implements EventImageStorageService {
 
         } catch (IOException e) {
             log.error("이벤트 이미지 S3 저장 실패", e);
-            throw new CustomException("EVENT_IMAGE_003", "이미지 저장에 실패했습니다.");
+            throw new CustomException("EVENT_IMAGE_003", "error.image.save_failed");
         }
     }
 

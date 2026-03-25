@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -28,13 +27,10 @@ public class MissionParticipantResponse {
     private Integer progress;
     private String note;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime joinedAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime completedAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
     public static MissionParticipantResponse from(MissionParticipant participant) {

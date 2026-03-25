@@ -30,7 +30,7 @@ public class CustomerInquiryService {
     public InquiryResponse createInquiry(String userId, InquiryCreateRequest request) {
         try {
             if (!userQueryFacadeService.userExistsById(userId)) {
-                throw new CustomException("404", "사용자를 찾을 수 없습니다.");
+                throw new CustomException("404", "error.user.not_found");
             }
 
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
@@ -48,12 +48,12 @@ public class CustomerInquiryService {
                 return response.getValue();
             }
 
-            throw new CustomException("500", "문의 등록에 실패했습니다.");
+            throw new CustomException("500", "error.inquiry.create_failed");
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
             log.error("문의 등록 실패: userId={}", userId, e);
-            throw new CustomException("500", "문의 등록에 실패했습니다.");
+            throw new CustomException("500", "error.inquiry.create_failed");
         }
     }
 
@@ -72,7 +72,7 @@ public class CustomerInquiryService {
             return null;
         } catch (Exception e) {
             log.error("내 문의 목록 조회 실패: userId={}", userId, e);
-            throw new CustomException("500", "문의 목록 조회에 실패했습니다.");
+            throw new CustomException("500", "error.inquiry.list_failed");
         }
     }
 
@@ -91,7 +91,7 @@ public class CustomerInquiryService {
             return null;
         } catch (Exception e) {
             log.error("문의 상세 조회 실패: id={}, userId={}", id, userId, e);
-            throw new CustomException("500", "문의 조회에 실패했습니다.");
+            throw new CustomException("500", "error.inquiry.read_failed");
         }
     }
 

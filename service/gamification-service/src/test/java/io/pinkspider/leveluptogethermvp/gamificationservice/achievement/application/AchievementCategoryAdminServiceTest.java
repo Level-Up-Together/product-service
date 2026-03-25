@@ -150,7 +150,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.getCategory(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -183,7 +183,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.getCategoryByCode("UNKNOWN"))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -245,7 +245,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.createCategory(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 카테고리 코드입니다.");
+                .hasMessageContaining("error.achievement.category.duplicate_code");
 
             verify(achievementCategoryRepository, never()).save(any(AchievementCategory.class));
         }
@@ -317,7 +317,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.updateCategory(1L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("이미 존재하는 카테고리 코드입니다.");
+                .hasMessageContaining("error.achievement.category.duplicate_code");
         }
 
         @Test
@@ -330,7 +330,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.updateCategory(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -380,7 +380,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.toggleActiveStatus(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 
@@ -425,7 +425,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.deleteCategory(1L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 카테고리를 사용하는 업적이 존재합니다.");
+                .hasMessageContaining("error.achievement.category.has_achievements");
 
             verify(achievementCategoryRepository, never()).deleteById(any());
         }
@@ -439,7 +439,7 @@ class AchievementCategoryAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementCategoryAdminService.deleteCategory(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
     }
 }

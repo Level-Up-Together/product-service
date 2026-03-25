@@ -47,18 +47,20 @@ public class ProfanityWordAdminService {
 
     public ProfanityWordResponse getProfanityWord(Long id) {
         ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "금칙어를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
         return ProfanityWordResponse.from(word);
     }
 
     @CacheEvict(value = "profanityWords", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
     public ProfanityWordResponse createProfanityWord(ProfanityWordRequest request) {
-        if (profanityWordRepository.existsByWord(request.getWord())) {
-            throw new CustomException("400", "이미 등록된 금칙어입니다.");
+        String locale = request.getLocale() != null ? request.getLocale() : "ko";
+        if (profanityWordRepository.existsByLocaleAndWord(locale, request.getWord())) {
+            throw new CustomException("400", "error.profanity.duplicate");
         }
 
         ProfanityWord word = ProfanityWord.builder()
+            .locale(locale)
             .word(request.getWord())
             .category(request.getCategory())
             .severity(request.getSeverity())
@@ -75,13 +77,15 @@ public class ProfanityWordAdminService {
     @Transactional(transactionManager = "metaTransactionManager")
     public ProfanityWordResponse updateProfanityWord(Long id, ProfanityWordRequest request) {
         ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "금칙어를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
 
-        if (!word.getWord().equals(request.getWord())
-            && profanityWordRepository.existsByWord(request.getWord())) {
-            throw new CustomException("400", "이미 등록된 금칙어입니다.");
+        String locale = request.getLocale() != null ? request.getLocale() : word.getLocale();
+        if ((!word.getWord().equals(request.getWord()) || !word.getLocale().equals(locale))
+            && profanityWordRepository.existsByLocaleAndWord(locale, request.getWord())) {
+            throw new CustomException("400", "error.profanity.duplicate");
         }
 
+        word.setLocale(locale);
         word.setWord(request.getWord());
         word.setCategory(request.getCategory());
         word.setSeverity(request.getSeverity());
@@ -97,7 +101,7 @@ public class ProfanityWordAdminService {
     @Transactional(transactionManager = "metaTransactionManager")
     public void deleteProfanityWord(Long id) {
         if (!profanityWordRepository.existsById(id)) {
-            throw new CustomException("404", "금칙어를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.profanity.not_found");
         }
         profanityWordRepository.deleteById(id);
         log.info("금칙어 삭제: id={}", id);
@@ -107,7 +111,7 @@ public class ProfanityWordAdminService {
     @Transactional(transactionManager = "metaTransactionManager")
     public ProfanityWordResponse toggleActive(Long id) {
         ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "금칙어를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
 
         word.setIsActive(!word.getIsActive());
         ProfanityWord saved = profanityWordRepository.save(word);

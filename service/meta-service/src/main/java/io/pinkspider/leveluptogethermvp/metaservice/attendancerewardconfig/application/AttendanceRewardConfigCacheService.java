@@ -114,7 +114,7 @@ public class AttendanceRewardConfigCacheService {
 
     public AttendanceRewardConfigResponse getConfigById(Long id) {
         AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "출석 보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
         return AttendanceRewardConfigResponse.from(config);
     }
 
@@ -122,7 +122,7 @@ public class AttendanceRewardConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public AttendanceRewardConfigResponse createConfig(AttendanceRewardConfigRequest request) {
         if (rewardConfigRepository.existsByRewardType(request.getRewardType())) {
-            throw new CustomException("400", "이미 존재하는 보상 타입입니다.");
+            throw new CustomException("400", "error.attendance_reward.duplicate_type");
         }
 
         AttendanceRewardConfig config = AttendanceRewardConfig.builder()
@@ -146,11 +146,11 @@ public class AttendanceRewardConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public AttendanceRewardConfigResponse updateConfig(Long id, AttendanceRewardConfigRequest request) {
         AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "출석 보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
 
         if (!config.getRewardType().equals(request.getRewardType())
             && rewardConfigRepository.existsByRewardType(request.getRewardType())) {
-            throw new CustomException("400", "이미 존재하는 보상 타입입니다.");
+            throw new CustomException("400", "error.attendance_reward.duplicate_type");
         }
 
         config.setRewardType(request.getRewardType());
@@ -172,7 +172,7 @@ public class AttendanceRewardConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public AttendanceRewardConfigResponse toggleActiveStatus(Long id) {
         AttendanceRewardConfig config = rewardConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "출석 보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.attendance_reward.not_found"));
 
         config.setIsActive(!config.getIsActive());
         AttendanceRewardConfig saved = rewardConfigRepository.save(config);
@@ -184,7 +184,7 @@ public class AttendanceRewardConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public void deleteConfig(Long id) {
         if (!rewardConfigRepository.existsById(id)) {
-            throw new CustomException("404", "출석 보상 설정을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.attendance_reward.not_found");
         }
         rewardConfigRepository.deleteById(id);
         log.info("출석 보상 설정 삭제: id={}", id);

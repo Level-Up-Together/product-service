@@ -167,7 +167,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.createFeed(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("사용자를 찾을 수 없습니다");
+                .hasMessageContaining("error.user.not_found");
         }
     }
 
@@ -234,7 +234,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.toggleLike(feedId, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("자신의 피드에는 좋아요를 할 수 없습니다");
+                .hasMessageContaining("error.feed.self_like");
         }
     }
 
@@ -289,7 +289,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.addComment(999L, TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("피드를 찾을 수 없습니다");
+                .hasMessageContaining("error.feed.not_found");
         }
     }
 
@@ -347,7 +347,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("본인의 댓글만 삭제할 수 있습니다");
+                .hasMessageContaining("error.feed.comment.not_owner");
         }
 
         @Test
@@ -372,7 +372,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteComment(wrongFeedId, commentId, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("해당 피드의 댓글이 아닙니다");
+                .hasMessageContaining("error.feed.comment.wrong_feed");
         }
     }
 
@@ -408,7 +408,7 @@ class FeedCommandServiceTest {
             // when & then
             assertThatThrownBy(() -> feedCommandService.deleteFeed(feedId, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("본인의 피드만 삭제할 수 있습니다");
+                .hasMessageContaining("error.feed.not_owner");
         }
     }
 

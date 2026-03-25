@@ -1,6 +1,8 @@
 spring:
   application:
     name: product-service
+  jackson:
+    time-zone: UTC
   servlet:
     multipart:
       enabled: true

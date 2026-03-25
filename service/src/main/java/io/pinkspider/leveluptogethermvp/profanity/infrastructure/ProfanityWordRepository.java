@@ -15,12 +15,22 @@ public interface ProfanityWordRepository extends JpaRepository<ProfanityWord, Lo
 
     List<ProfanityWord> findAllByIsActiveTrue();
 
+    List<ProfanityWord> findAllByLocaleAndIsActiveTrue(String locale);
+
     Optional<ProfanityWord> findByWord(String word);
 
     boolean existsByWord(String word);
+
+    boolean existsByLocaleAndWord(String locale, String word);
 
     @Query("SELECT pw FROM ProfanityWord pw WHERE " +
            "(:keyword IS NULL OR pw.word LIKE %:keyword% " +
            "OR pw.description LIKE %:keyword%)")
     Page<ProfanityWord> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT pw FROM ProfanityWord pw WHERE " +
+           "(:locale IS NULL OR pw.locale = :locale) AND " +
+           "(:keyword IS NULL OR pw.word LIKE %:keyword% " +
+           "OR pw.description LIKE %:keyword%)")
+    Page<ProfanityWord> searchByLocaleAndKeyword(@Param("locale") String locale, @Param("keyword") String keyword, Pageable pageable);
 }

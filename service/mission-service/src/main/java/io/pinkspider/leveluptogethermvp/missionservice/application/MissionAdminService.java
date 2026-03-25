@@ -79,7 +79,7 @@ public class MissionAdminService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionAdminResponse getMission(Long id) {
         Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "미션을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
         return MissionAdminResponse.from(mission);
     }
 
@@ -123,7 +123,7 @@ public class MissionAdminService {
 
     public MissionAdminResponse updateMission(Long id, MissionAdminRequest request) {
         Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "미션을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
 
         mission.setTitle(request.title());
         mission.setTitleEn(request.titleEn());
@@ -170,7 +170,7 @@ public class MissionAdminService {
 
     public MissionAdminResponse updateMissionStatus(Long id, String status) {
         Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "미션을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
         mission.updateStatus(MissionStatus.valueOf(status));
         Mission saved = missionRepository.save(mission);
         log.info("미션 상태 변경 (Admin): ID={}, status={}", id, status);
@@ -179,7 +179,7 @@ public class MissionAdminService {
 
     public void deleteMission(Long id) {
         Mission mission = missionRepository.findById(id)
-            .orElseThrow(() -> new CustomException("050101", "미션을 찾을 수 없습니다: " + id));
+            .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
         mission.delete();
         missionRepository.save(mission);
         log.info("미션 소프트 삭제 (Admin): ID={}", id);

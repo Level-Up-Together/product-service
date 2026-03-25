@@ -33,6 +33,10 @@ public class GuildPostCommentResponse {
     private TranslationInfo translation;
 
     public static GuildPostCommentResponse from(GuildPostComment comment) {
+        return from(comment, null);
+    }
+
+    public static GuildPostCommentResponse from(GuildPostComment comment, TranslationInfo translation) {
         return GuildPostCommentResponse.builder()
             .id(comment.getId())
             .postId(comment.getPost().getId())
@@ -43,10 +47,15 @@ public class GuildPostCommentResponse {
             .isDeleted(comment.getIsDeleted())
             .createdAt(comment.getCreatedAt())
             .modifiedAt(comment.getModifiedAt())
+            .translation(translation)
             .build();
     }
 
     public static GuildPostCommentResponse fromWithReplies(GuildPostComment comment, List<GuildPostCommentResponse> replies) {
+        return fromWithReplies(comment, replies, null);
+    }
+
+    public static GuildPostCommentResponse fromWithReplies(GuildPostComment comment, List<GuildPostCommentResponse> replies, TranslationInfo translation) {
         return GuildPostCommentResponse.builder()
             .id(comment.getId())
             .postId(comment.getPost().getId())
@@ -58,6 +67,7 @@ public class GuildPostCommentResponse {
             .isDeleted(comment.getIsDeleted())
             .createdAt(comment.getCreatedAt())
             .modifiedAt(comment.getModifiedAt())
+            .translation(translation)
             .build();
     }
 }

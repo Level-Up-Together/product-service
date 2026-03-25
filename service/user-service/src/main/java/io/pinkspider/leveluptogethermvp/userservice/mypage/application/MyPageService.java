@@ -196,12 +196,23 @@ public class MyPageService {
      * @return 업데이트된 프로필 정보
      */
     @Transactional
+    public void updatePreferredLocale(String userId, String locale) {
+        if (!io.pinkspider.global.translation.enums.SupportedLocale.isSupported(locale)) {
+            throw new CustomException("LOCALE_001", "error.locale.unsupported");
+        }
+        Users user = findUserOrThrow(userId);
+        user.updatePreferredLocale(locale);
+        userRepository.save(user);
+        log.info("언어 설정 변경: userId={}, locale={}", userId, locale);
+    }
+
+    @Transactional
     public ProfileInfo updateBio(String userId, String bio) {
         Users user = findUserOrThrow(userId);
 
         // 길이 검증
         if (bio != null && bio.length() > 200) {
-            throw new CustomException("BIO_001", "자기소개는 200자 이하여야 합니다.");
+            throw new CustomException("BIO_001", "error.bio.too_long");
         }
 
         user.updateBio(bio);
@@ -246,7 +257,7 @@ public class MyPageService {
 
         // 유효성 검증
         if (!profileImageStorageService.isValidImage(imageFile)) {
-            throw new CustomException("PROFILE_002", "유효하지 않은 이미지 파일입니다. (허용 확장자: jpg, jpeg, png, gif, webp / 최대 5MB)");
+            throw new CustomException("PROFILE_002", "error.profile.invalid_image");
         }
 
         // 기존 이미지 삭제 (로컬 저장 이미지만)
@@ -338,7 +349,7 @@ public class MyPageService {
 
         // 중복 확인
         if (!isNicknameAvailable(nickname, userId)) {
-            throw new CustomException("NICKNAME_001", "이미 사용 중인 닉네임입니다.");
+            throw new CustomException("NICKNAME_001", "error.nickname.already_in_use");
         }
 
         Users user = findUserOrThrow(userId);
@@ -371,17 +382,17 @@ public class MyPageService {
      */
     private void validateNickname(String nickname) {
         if (nickname == null || nickname.trim().isEmpty()) {
-            throw new CustomException("NICKNAME_002", "닉네임을 입력해주세요.");
+            throw new CustomException("NICKNAME_002", "error.nickname.empty");
         }
         if (nickname.length() < 2) {
-            throw new CustomException("NICKNAME_003", "닉네임은 2자 이상이어야 합니다.");
+            throw new CustomException("NICKNAME_003", "error.nickname.too_short");
         }
         if (nickname.length() > 10) {
-            throw new CustomException("NICKNAME_004", "닉네임은 10자 이하여야 합니다.");
+            throw new CustomException("NICKNAME_004", "error.nickname.too_long");
         }
         // 한글, 영문, 숫자, 아랍어 허용
         if (!nickname.matches("^[가-힣a-zA-Z0-9\u0600-\u06FF]+$")) {
-            throw new CustomException("NICKNAME_005", "닉네임은 한글, 영문, 숫자, 아랍어만 사용 가능합니다.");
+            throw new CustomException("NICKNAME_005", "error.nickname.invalid_chars");
         }
     }
 
@@ -410,7 +421,7 @@ public class MyPageService {
 
         // 이미 탈퇴한 사용자인지 확인
         if (user.getStatus() == io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus.WITHDRAWN) {
-            throw new CustomException("USER_002", "이미 탈퇴한 사용자입니다.");
+            throw new CustomException("USER_002", "error.user.withdrawn");
         }
 
         // 프로필 이미지 삭제
@@ -436,7 +447,7 @@ public class MyPageService {
 
     private Users findUserOrThrow(String userId) {
         return userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("USER_001", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("USER_001", "error.user.not_found"));
     }
 
     private ProfileInfo buildProfileInfo(Users user, String userId) {

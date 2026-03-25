@@ -59,7 +59,7 @@ public class TitleAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public TitleAdminResponse getTitle(Long id) {
         Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
         return toResponseWithLinkedAchievement(title);
     }
 
@@ -88,7 +88,7 @@ public class TitleAdminService {
 
     public TitleAdminResponse createTitle(TitleAdminRequest request) {
         if (titleRepository.existsByName(request.getName())) {
-            throw new CustomException("400", "이미 존재하는 칭호 이름입니다.");
+            throw new CustomException("400", "error.title.duplicate_name");
         }
 
         Title title = Title.builder()
@@ -112,11 +112,11 @@ public class TitleAdminService {
 
     public TitleAdminResponse updateTitle(Long id, TitleAdminRequest request) {
         Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
 
         if (!title.getName().equals(request.getName())
             && titleRepository.existsByName(request.getName())) {
-            throw new CustomException("400", "이미 존재하는 칭호 이름입니다.");
+            throw new CustomException("400", "error.title.duplicate_name");
         }
 
         title.setName(request.getName());
@@ -138,7 +138,7 @@ public class TitleAdminService {
 
     public TitleAdminResponse toggleActiveStatus(Long id) {
         Title title = titleRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.title.not_found"));
 
         title.setIsActive(!title.getIsActive());
         Title saved = titleRepository.save(title);
@@ -148,7 +148,7 @@ public class TitleAdminService {
 
     public void deleteTitle(Long id) {
         if (!titleRepository.existsById(id)) {
-            throw new CustomException("404", "칭호를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.title.not_found");
         }
         titleRepository.deleteById(id);
         log.info("칭호 삭제: id={}", id);

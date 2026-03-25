@@ -46,7 +46,7 @@ public class DailyMissionInstanceScheduler {
      * - 지난 날짜 미완료 인스턴스 MISSED 처리
      * - 오늘 인스턴스 생성
      */
-    @Scheduled(cron = "0 5 0 * * *")
+    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateDailyInstances() {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 시작 ===");

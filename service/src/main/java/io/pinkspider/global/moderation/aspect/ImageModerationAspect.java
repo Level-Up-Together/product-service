@@ -26,7 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ImageModerationAspect {
 
     private static final String MODERATION_ERROR_CODE = "000010";
-    private static final String MODERATION_ERROR_MESSAGE = "부적절한 이미지가 감지되었습니다. 다른 이미지를 사용해주세요.";
+    private static final String MODERATION_ERROR_MESSAGE = "error.moderation.inappropriate_image";
 
     private final ImageModerationService imageModerationService;
 

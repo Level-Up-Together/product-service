@@ -420,7 +420,7 @@ class BffSeasonControllerTest {
     void getCurrentSeasonDetail_noActiveSeason() throws Exception {
         // given
         when(bffSeasonService.getCurrentSeasonDetail(anyString(), any(), any()))
-            .thenThrow(new CustomException("NO_ACTIVE_SEASON", "현재 활성화된 시즌이 없습니다."));
+            .thenThrow(new CustomException("NO_ACTIVE_SEASON", "error.season.no_active"));
 
         // when & then
         mockMvc.perform(
@@ -435,7 +435,7 @@ class BffSeasonControllerTest {
     void getSeasonDetail_notFound() throws Exception {
         // given
         when(bffSeasonService.getSeasonDetail(anyLong(), anyString(), any(), any()))
-            .thenThrow(new CustomException("SEASON_NOT_FOUND", "시즌을 찾을 수 없습니다."));
+            .thenThrow(new CustomException("SEASON_NOT_FOUND", "error.season.not_found"));
 
         // when & then
         mockMvc.perform(

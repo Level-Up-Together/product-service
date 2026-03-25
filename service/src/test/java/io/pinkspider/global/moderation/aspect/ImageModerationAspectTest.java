@@ -110,7 +110,7 @@ class ImageModerationAspectTest {
             // when & then
             assertThatThrownBy(() -> aspect.moderateImage(joinPoint, annotation))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("부적절한 이미지가 감지되었습니다");
+                .hasMessageContaining("error.moderation.inappropriate_image");
 
             verify(joinPoint, never()).proceed();
         }

@@ -68,7 +68,7 @@ public class BffGuildService {
         CompletableFuture<PostPageData> postsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<GuildPostListResponse> postsPage = guildPostService.getPosts(
-                    guildId, userId, PageRequest.of(postPage, postSize));
+                    guildId, userId, PageRequest.of(postPage, postSize), null);
                 return PostPageData.builder()
                     .content(postsPage.getContent())
                     .page(postsPage.getNumber())
@@ -175,7 +175,7 @@ public class BffGuildService {
                 return myGuildIds.stream()
                     .flatMap(guildId -> {
                         try {
-                            return guildPostService.getNotices(guildId, userId).stream();
+                            return guildPostService.getNotices(guildId, userId, null).stream();
                         } catch (Exception e) {
                             log.warn("Failed to fetch notices for guild {}: {}", guildId, e.getMessage());
                             return java.util.stream.Stream.empty();

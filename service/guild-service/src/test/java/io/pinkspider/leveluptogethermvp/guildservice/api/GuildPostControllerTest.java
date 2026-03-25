@@ -176,7 +176,7 @@ class GuildPostControllerTest {
 
         Page<GuildPostListResponse> page = new PageImpl<>(posts, PageRequest.of(0, 20), 1);
 
-        when(guildPostService.getPosts(anyLong(), anyString(), any(Pageable.class)))
+        when(guildPostService.getPosts(anyLong(), anyString(), any(Pageable.class), any()))
             .thenReturn(page);
 
         // when
@@ -229,7 +229,7 @@ class GuildPostControllerTest {
             .modifiedAt(LocalDateTime.now())
             .build();
 
-        when(guildPostService.getPost(anyLong(), anyLong(), anyString()))
+        when(guildPostService.getPost(anyLong(), anyLong(), anyString(), any()))
             .thenReturn(response);
 
         // when
@@ -489,7 +489,7 @@ class GuildPostControllerTest {
                 .build()
         );
 
-        when(guildPostService.getComments(anyLong(), anyLong(), anyString()))
+        when(guildPostService.getComments(anyLong(), anyLong(), anyString(), any()))
             .thenReturn(responses);
 
         // when
@@ -670,7 +670,7 @@ class GuildPostControllerTest {
                 .build()
         );
 
-        when(guildPostService.getNotices(anyLong(), anyString()))
+        when(guildPostService.getNotices(anyLong(), anyString(), any()))
             .thenReturn(notices);
 
         // when

@@ -21,6 +21,9 @@ import lombok.Setter;
 @JsonNaming(SnakeCaseStrategy.class)
 public class ProfanityWordRequest {
 
+    @Size(max = 5, message = "언어 코드는 5자 이하여야 합니다.")
+    private String locale;
+
     @NotBlank(message = "금칙어는 필수입니다.")
     @Size(max = 100, message = "금칙어는 100자 이하여야 합니다.")
     private String word;

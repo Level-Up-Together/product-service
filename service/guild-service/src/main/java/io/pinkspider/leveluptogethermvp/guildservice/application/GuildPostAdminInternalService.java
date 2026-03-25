@@ -58,7 +58,7 @@ public class GuildPostAdminInternalService {
 
     public GuildPostAdminResponse getPost(Long guildId, Long postId) {
         GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "게시글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
         return GuildPostAdminResponse.from(post);
     }
 
@@ -81,7 +81,7 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public void softDeletePost(Long guildId, Long postId) {
         GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "게시글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
         post.delete();
         guildPostRepository.save(post);
         log.info("게시글 삭제: guildId={}, postId={}", guildId, postId);
@@ -90,7 +90,7 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public void hardDeletePost(Long guildId, Long postId) {
         GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "게시글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
         guildPostRepository.delete(post);
         log.info("게시글 영구 삭제: guildId={}, postId={}", guildId, postId);
     }
@@ -98,9 +98,9 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostAdminResponse restorePost(Long guildId, Long postId) {
         GuildPost post = guildPostRepository.findByIdAndGuildId(postId, guildId)
-            .orElseThrow(() -> new CustomException("404", "게시글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.post.not_found"));
         if (!post.getIsDeleted()) {
-            throw new CustomException("400", "삭제되지 않은 게시글입니다.");
+            throw new CustomException("400", "error.guild.post.not_deleted");
         }
         post.restore();
         GuildPost saved = guildPostRepository.save(post);
@@ -136,7 +136,7 @@ public class GuildPostAdminInternalService {
 
     public GuildPostCommentAdminResponse getComment(Long postId, Long commentId) {
         GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "댓글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
         return GuildPostCommentAdminResponse.from(comment);
     }
 
@@ -153,7 +153,7 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public void softDeleteComment(Long postId, Long commentId) {
         GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "댓글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
         comment.delete();
         guildPostCommentRepository.save(comment);
 
@@ -169,7 +169,7 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public void hardDeleteComment(Long postId, Long commentId) {
         GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "댓글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
         guildPostCommentRepository.delete(comment);
         log.info("댓글 영구 삭제: postId={}, commentId={}", postId, commentId);
     }
@@ -177,9 +177,9 @@ public class GuildPostAdminInternalService {
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostCommentAdminResponse restoreComment(Long postId, Long commentId) {
         GuildPostComment comment = guildPostCommentRepository.findByIdAndPostId(commentId, postId)
-            .orElseThrow(() -> new CustomException("404", "댓글을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.guild.comment.not_found"));
         if (!comment.getIsDeleted()) {
-            throw new CustomException("400", "삭제되지 않은 댓글입니다.");
+            throw new CustomException("400", "error.guild.comment.not_deleted");
         }
         comment.restore();
         GuildPostComment saved = guildPostCommentRepository.save(comment);

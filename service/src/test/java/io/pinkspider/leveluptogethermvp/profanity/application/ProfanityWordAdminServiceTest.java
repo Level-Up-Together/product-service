@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.profanity.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -245,7 +246,7 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("새 금칙어를 생성하고 반환한다")
         void createProfanityWord_success() {
             // given
-            when(profanityWordRepository.existsByWord("욕설단어")).thenReturn(false);
+            when(profanityWordRepository.existsByLocaleAndWord("ko","욕설단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(sampleWord);
 
             // when
@@ -262,7 +263,7 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("이미 등록된 금칙어면 CustomException을 던진다")
         void createProfanityWord_duplicateWord() {
             // given
-            when(profanityWordRepository.existsByWord("욕설단어")).thenReturn(true);
+            when(profanityWordRepository.existsByLocaleAndWord("ko","욕설단어")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.createProfanityWord(sampleRequest))
@@ -283,7 +284,7 @@ class ProfanityWordAdminServiceTest {
 
             ProfanityWord savedWord = buildWord(2L, "새단어", ProfanityCategory.VIOLENCE,
                 ProfanitySeverity.HIGH, true);
-            when(profanityWordRepository.existsByWord("새단어")).thenReturn(false);
+            when(profanityWordRepository.existsByLocaleAndWord("ko","새단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(savedWord);
 
             // when
@@ -314,7 +315,7 @@ class ProfanityWordAdminServiceTest {
                 ProfanitySeverity.HIGH, true);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
-            when(profanityWordRepository.existsByWord("수정된단어")).thenReturn(false);
+            when(profanityWordRepository.existsByLocaleAndWord("ko","수정된단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(updatedWord);
 
             // when
@@ -348,7 +349,7 @@ class ProfanityWordAdminServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(profanityWordRepository, never()).existsByWord(any());
+            verify(profanityWordRepository, never()).existsByLocaleAndWord(anyString(), anyString());
         }
 
         @Test
@@ -374,7 +375,7 @@ class ProfanityWordAdminServiceTest {
                 .build();
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
-            when(profanityWordRepository.existsByWord("이미존재하는단어")).thenReturn(true);
+            when(profanityWordRepository.existsByLocaleAndWord("ko","이미존재하는단어")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.updateProfanityWord(1L, updateRequest))

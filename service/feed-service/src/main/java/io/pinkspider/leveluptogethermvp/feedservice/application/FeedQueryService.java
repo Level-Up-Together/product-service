@@ -443,7 +443,7 @@ public class FeedQueryService {
      */
     public ActivityFeedResponse getFeed(Long feedId, String currentUserId, String acceptLanguage) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         boolean likedByMe = currentUserId != null && feedLikeRepository.existsByFeedIdAndUserId(feedId, currentUserId);
@@ -582,7 +582,7 @@ public class FeedQueryService {
      */
     public FeedAdminResponse getFeedForAdmin(Long id) {
         ActivityFeed feed = activityFeedRepository.findById(id)
-            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "피드를 찾을 수 없습니다"));
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
         return FeedAdminResponse.from(feed);
     }
 

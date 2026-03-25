@@ -74,6 +74,10 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @lombok.Builder.Default
+    @Column(name = "preferred_locale", length = 5, nullable = false)
+    private String preferredLocale = "ko";
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -96,6 +100,10 @@ public class Users extends LocalDateTimeBaseEntity {
 
     public void updateBio(String bio) {
         this.bio = bio;
+    }
+
+    public void updatePreferredLocale(String preferredLocale) {
+        this.preferredLocale = preferredLocale;
     }
 
     public void updateLastLoginInfo(String ip, String country, String countryCode) {

@@ -48,7 +48,7 @@ public class BffSeasonService {
 
         // 1. 시즌 조회
         SeasonDto season = gamificationQueryFacade.getSeasonById(seasonId)
-            .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "시즌을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "error.season.not_found"));
 
         // 2. 병렬로 데이터 조회
         CompletableFuture<List<SeasonRankRewardDto>> rewardsFuture = CompletableFuture.supplyAsync(() -> {
@@ -114,7 +114,7 @@ public class BffSeasonService {
      */
     public SeasonDetailResponse getCurrentSeasonDetail(String userId, String categoryName, String locale) {
         SeasonDto currentSeason = gamificationQueryFacade.getCurrentSeason()
-            .orElseThrow(() -> new CustomException("NO_ACTIVE_SEASON", "현재 활성화된 시즌이 없습니다."));
+            .orElseThrow(() -> new CustomException("NO_ACTIVE_SEASON", "error.season.no_active"));
 
         return getSeasonDetail(currentSeason.id(), userId, categoryName, locale);
     }

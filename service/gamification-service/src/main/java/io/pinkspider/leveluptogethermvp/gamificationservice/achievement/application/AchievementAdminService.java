@@ -78,7 +78,7 @@ public class AchievementAdminService {
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementAdminResponse getAchievement(Long id) {
         Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
         return toResponseWithEnrichment(achievement);
     }
 
@@ -94,15 +94,15 @@ public class AchievementAdminService {
     })
     public AchievementAdminResponse createAchievement(AchievementAdminRequest request) {
         AchievementCategory category = achievementCategoryRepository.findById(request.getCategoryId())
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
 
         CheckLogicType checkLogicType = checkLogicTypeRepository.findById(request.getCheckLogicTypeId())
-            .orElseThrow(() -> new CustomException("404", "체크 로직 유형을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.checklogic.not_found"));
 
         String eventName = null;
         if (request.getEventId() != null) {
             Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new CustomException("404", "이벤트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
             eventName = event.getName();
         }
 
@@ -141,18 +141,18 @@ public class AchievementAdminService {
     })
     public AchievementAdminResponse updateAchievement(Long id, AchievementAdminRequest request) {
         Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
 
         AchievementCategory category = achievementCategoryRepository.findById(request.getCategoryId())
-            .orElseThrow(() -> new CustomException("404", "업적 카테고리를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.category.not_found"));
 
         CheckLogicType checkLogicType = checkLogicTypeRepository.findById(request.getCheckLogicTypeId())
-            .orElseThrow(() -> new CustomException("404", "체크 로직 유형을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.checklogic.not_found"));
 
         String eventName = null;
         if (request.getEventId() != null) {
             Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new CustomException("404", "이벤트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException("404", "error.event.not_found"));
             eventName = event.getName();
         }
 
@@ -197,7 +197,7 @@ public class AchievementAdminService {
     })
     public AchievementAdminResponse toggleActiveStatus(Long id) {
         Achievement achievement = achievementRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "업적을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.achievement.not_found"));
 
         achievement.setIsActive(!achievement.getIsActive());
         Achievement saved = achievementRepository.save(achievement);
@@ -210,7 +210,7 @@ public class AchievementAdminService {
     })
     public void deleteAchievement(Long id) {
         if (!achievementRepository.existsById(id)) {
-            throw new CustomException("404", "업적을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.achievement.not_found");
         }
         achievementRepository.deleteById(id);
         log.info("업적 삭제 및 캐시 갱신: id={}", id);

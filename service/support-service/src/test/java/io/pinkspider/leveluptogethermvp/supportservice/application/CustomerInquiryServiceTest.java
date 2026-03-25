@@ -108,7 +108,7 @@ class CustomerInquiryServiceTest {
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("사용자를 찾을 수 없습니다");
+                .hasMessageContaining("error.user.not_found");
         }
 
         @Test
@@ -127,7 +127,7 @@ class CustomerInquiryServiceTest {
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("문의 등록에 실패했습니다");
+                .hasMessageContaining("error.inquiry.create_failed");
         }
 
         @Test
@@ -146,7 +146,7 @@ class CustomerInquiryServiceTest {
             // when & then
             assertThatThrownBy(() -> customerInquiryService.createInquiry(TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("문의 등록에 실패했습니다");
+                .hasMessageContaining("error.inquiry.create_failed");
         }
     }
 
@@ -198,7 +198,7 @@ class CustomerInquiryServiceTest {
             // when & then
             assertThatThrownBy(() -> customerInquiryService.getMyInquiries(TEST_USER_ID, 0, 10))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("문의 목록 조회에 실패했습니다");
+                .hasMessageContaining("error.inquiry.list_failed");
         }
     }
 
@@ -247,7 +247,7 @@ class CustomerInquiryServiceTest {
             // when & then
             assertThatThrownBy(() -> customerInquiryService.getInquiry(1L, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("문의 조회에 실패했습니다");
+                .hasMessageContaining("error.inquiry.read_failed");
         }
     }
 

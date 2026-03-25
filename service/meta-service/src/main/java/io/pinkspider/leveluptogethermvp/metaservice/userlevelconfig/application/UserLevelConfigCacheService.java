@@ -113,7 +113,7 @@ public class UserLevelConfigCacheService {
      */
     public UserLevelConfigResponse getLevelConfigById(Long id) {
         UserLevelConfig config = userLevelConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user_level.not_found"));
         return UserLevelConfigResponse.from(config);
     }
 
@@ -122,7 +122,7 @@ public class UserLevelConfigCacheService {
      */
     public UserLevelConfigResponse getLevelConfigResponseByLevel(Integer level) {
         UserLevelConfig config = userLevelConfigRepository.findByLevel(level)
-            .orElseThrow(() -> new CustomException("404", "해당 레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user_level.not_found"));
         return UserLevelConfigResponse.from(config);
     }
 
@@ -133,7 +133,7 @@ public class UserLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public UserLevelConfigResponse createLevelConfig(UserLevelConfigRequest request) {
         if (userLevelConfigRepository.existsByLevel(request.getLevel())) {
-            throw new CustomException("400", "이미 존재하는 레벨입니다.");
+            throw new CustomException("400", "error.user_level.duplicate");
         }
 
         UserLevelConfig config = UserLevelConfig.builder()
@@ -154,11 +154,11 @@ public class UserLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public UserLevelConfigResponse updateLevelConfig(Long id, UserLevelConfigRequest request) {
         UserLevelConfig config = userLevelConfigRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "레벨 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user_level.not_found"));
 
         if (!config.getLevel().equals(request.getLevel())
             && userLevelConfigRepository.existsByLevel(request.getLevel())) {
-            throw new CustomException("400", "이미 존재하는 레벨입니다.");
+            throw new CustomException("400", "error.user_level.duplicate");
         }
 
         config.setLevel(request.getLevel());
@@ -177,7 +177,7 @@ public class UserLevelConfigCacheService {
     @Transactional(transactionManager = "metaTransactionManager")
     public void deleteLevelConfig(Long id) {
         if (!userLevelConfigRepository.existsById(id)) {
-            throw new CustomException("404", "레벨 설정을 찾을 수 없습니다.");
+            throw new CustomException("404", "error.user_level.not_found");
         }
         userLevelConfigRepository.deleteById(id);
         log.info("사용자 레벨 설정 삭제: id={}", id);

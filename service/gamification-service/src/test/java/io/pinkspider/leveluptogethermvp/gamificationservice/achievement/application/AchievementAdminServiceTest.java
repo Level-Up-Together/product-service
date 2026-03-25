@@ -288,7 +288,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.getAchievement(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적을 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -394,7 +394,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.createAchievement(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적 카테고리를 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.category.not_found");
         }
 
         @Test
@@ -410,7 +410,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.createAchievement(request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("체크 로직 유형을 찾을 수 없습니다.");
+                .hasMessageContaining("error.checklogic.not_found");
         }
     }
 
@@ -491,7 +491,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.updateAchievement(999L, request))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적을 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -545,7 +545,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.toggleActiveStatus(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적을 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.not_found");
         }
     }
 
@@ -575,7 +575,7 @@ class AchievementAdminServiceTest {
             // when & then
             assertThatThrownBy(() -> achievementAdminService.deleteAchievement(999L))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("업적을 찾을 수 없습니다.");
+                .hasMessageContaining("error.achievement.not_found");
 
             verify(achievementRepository, never()).deleteById(anyLong());
         }

@@ -51,20 +51,20 @@ public class SeasonRankRewardAdminService {
 
     public SeasonRankRewardAdminResponse createRankReward(Long seasonId, CreateSeasonRankRewardAdminRequest request) {
         Season season = seasonRepository.findById(seasonId)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         if (request.rankStart() > request.rankEnd()) {
-            throw new CustomException("120004", "시작 순위가 종료 순위보다 클 수 없습니다.");
+            throw new CustomException("120004", "error.season.rank.invalid_range");
         }
 
         if (existsOverlappingRange(seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
-            throw new CustomException("120005", "순위 구간이 기존 보상과 중복됩니다.");
+            throw new CustomException("120005", "error.season.rank.overlap");
         }
 
         Title title;
         if (request.titleId() != null) {
             title = titleRepository.findById(request.titleId())
-                .orElseThrow(() -> new CustomException("120006", "칭호를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException("120006", "error.title.not_found"));
             title.setName(request.titleName());
             title.setRarity(request.titleRarity());
             title.setPositionType(request.titlePositionType());
@@ -104,21 +104,17 @@ public class SeasonRankRewardAdminService {
 
     public List<SeasonRankRewardAdminResponse> createBulkRankRewards(Long seasonId, List<CreateSeasonRankRewardAdminRequest> requests) {
         Season season = seasonRepository.findById(seasonId)
-            .orElseThrow(() -> new CustomException("120001", "시즌을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("120001", "error.season.not_found"));
 
         List<SeasonRankRewardAdminResponse> results = new ArrayList<>();
 
         for (CreateSeasonRankRewardAdminRequest request : requests) {
             if (request.rankStart() > request.rankEnd()) {
-                throw new CustomException("120004",
-                    String.format("시작 순위가 종료 순위보다 클 수 없습니다: %d-%d", request.rankStart(), request.rankEnd()));
+                throw new CustomException("120004", "error.season.rank.invalid_range");
             }
 
             if (existsOverlappingRange(seasonId, request.categoryId(), request.rankStart(), request.rankEnd(), 0L)) {
-                throw new CustomException("120005",
-                    String.format("순위 구간이 기존 보상과 중복됩니다: %s %d-%d위",
-                        request.categoryName() != null ? request.categoryName() : "전체",
-                        request.rankStart(), request.rankEnd()));
+                throw new CustomException("120005", "error.season.rank.overlap");
             }
 
             Title title = Title.builder()
@@ -154,18 +150,18 @@ public class SeasonRankRewardAdminService {
 
     public SeasonRankRewardAdminResponse updateRankReward(Long rewardId, UpdateSeasonRankRewardAdminRequest request) {
         SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("120007", "보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("120007", "error.season.reward.not_found"));
 
         if (request.rankStart() > request.rankEnd()) {
-            throw new CustomException("120004", "시작 순위가 종료 순위보다 클 수 없습니다.");
+            throw new CustomException("120004", "error.season.rank.invalid_range");
         }
 
         if (existsOverlappingRange(reward.getSeason().getId(), request.categoryId(), request.rankStart(), request.rankEnd(), rewardId)) {
-            throw new CustomException("120005", "순위 구간이 기존 보상과 중복됩니다.");
+            throw new CustomException("120005", "error.season.rank.overlap");
         }
 
         Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("120006", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("120006", "error.title.not_found"));
 
         title.setName(request.titleName());
         title.setRarity(request.titleRarity());
@@ -190,7 +186,7 @@ public class SeasonRankRewardAdminService {
 
     public void deleteRankReward(Long rewardId) {
         SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("120007", "보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("120007", "error.season.reward.not_found"));
 
         reward.setIsActive(false);
         log.info("시즌 순위 보상 삭제: rewardId={}", rewardId);

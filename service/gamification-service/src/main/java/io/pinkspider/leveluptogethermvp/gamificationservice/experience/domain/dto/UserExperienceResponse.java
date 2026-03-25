@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -28,10 +27,8 @@ public class UserExperienceResponse {
     private Integer expToNextLevel;
     private Double progressToNextLevel;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime modifiedAt;
 
     public static UserExperienceResponse from(UserExperience userExp, Integer nextLevelRequiredExp) {

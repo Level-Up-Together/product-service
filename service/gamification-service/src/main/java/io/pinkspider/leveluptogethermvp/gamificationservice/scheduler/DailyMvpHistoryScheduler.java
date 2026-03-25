@@ -19,7 +19,7 @@ public class DailyMvpHistoryScheduler {
      * 매일 새벽 00:05에 전일 MVP 데이터 저장
      * 자정 직후 실행하여 전일(어제) 데이터를 완전히 캡처
      */
-    @Scheduled(cron = "0 5 0 * * *")
+    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
     public void saveDailyMvpHistory() {
         log.info("일간 MVP 히스토리 저장 스케줄러 시작");
 

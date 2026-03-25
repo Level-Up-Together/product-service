@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,9 +64,10 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPosts(
         @PathVariable Long guildId,
         @CurrentUser String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.getPosts(guildId, userId, pageable);
+        Page<GuildPostListResponse> responses = guildPostService.getPosts(guildId, userId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
@@ -77,9 +79,10 @@ public class GuildPostController {
         @PathVariable Long guildId,
         @PathVariable GuildPostType postType,
         @CurrentUser String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.getPostsByType(guildId, userId, postType, pageable);
+        Page<GuildPostListResponse> responses = guildPostService.getPostsByType(guildId, userId, postType, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
@@ -89,9 +92,10 @@ public class GuildPostController {
     @GetMapping("/notices")
     public ResponseEntity<ApiResult<List<GuildPostListResponse>>> getNotices(
         @PathVariable Long guildId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<GuildPostListResponse> responses = guildPostService.getNotices(guildId, userId);
+        List<GuildPostListResponse> responses = guildPostService.getNotices(guildId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<GuildPostListResponse>>builder().value(responses).build());
     }
 
@@ -103,9 +107,10 @@ public class GuildPostController {
         @PathVariable Long guildId,
         @RequestParam String keyword,
         @CurrentUser String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<GuildPostListResponse> responses = guildPostService.searchPosts(guildId, userId, keyword, pageable);
+        Page<GuildPostListResponse> responses = guildPostService.searchPosts(guildId, userId, keyword, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildPostListResponse>>builder().value(responses).build());
     }
 
@@ -116,9 +121,10 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostResponse>> getPost(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        GuildPostResponse response = guildPostService.getPost(guildId, postId, userId);
+        GuildPostResponse response = guildPostService.getPost(guildId, postId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildPostResponse>builder().value(response).build());
     }
 
@@ -188,9 +194,10 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<List<GuildPostCommentResponse>>> getComments(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<GuildPostCommentResponse> responses = guildPostService.getComments(guildId, postId, userId);
+        List<GuildPostCommentResponse> responses = guildPostService.getComments(guildId, postId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<GuildPostCommentResponse>>builder().value(responses).build());
     }
 

@@ -242,7 +242,7 @@ class FeedQueryServiceTest {
             // when & then
             assertThatThrownBy(() -> feedQueryService.getFeed(999L, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
-                .hasMessageContaining("피드를 찾을 수 없습니다");
+                .hasMessageContaining("error.feed.not_found");
         }
     }
 

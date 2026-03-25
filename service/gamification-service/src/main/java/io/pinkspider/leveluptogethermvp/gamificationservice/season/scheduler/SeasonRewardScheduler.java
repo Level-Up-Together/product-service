@@ -23,7 +23,7 @@ public class SeasonRewardScheduler {
      * 매일 새벽 3시에 종료된 시즌 보상 자동 부여
      * 시즌 종료 후 다음 날 새벽에 처리되도록 설정
      */
-    @Scheduled(cron = "0 0 3 * * *")
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void processEndedSeasonRewards() {
         log.info("시즌 종료 보상 처리 스케줄러 시작");
 

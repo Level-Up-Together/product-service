@@ -45,21 +45,21 @@ public class SeasonRankRewardService {
      */
     public SeasonRankRewardResponse createRankReward(Long seasonId, CreateSeasonRankRewardRequest request) {
         Season season = seasonRepository.findById(seasonId)
-            .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "시즌을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("SEASON_NOT_FOUND", "error.season.not_found"));
 
         // 순위 유효성 검증
         if (request.rankStart() > request.rankEnd()) {
-            throw new CustomException("INVALID_RANK_RANGE", "시작 순위가 종료 순위보다 클 수 없습니다.");
+            throw new CustomException("INVALID_RANK_RANGE", "error.season.rank.invalid_range");
         }
 
         // 순위 구간 중복 검사
         if (rankRewardRepository.existsOverlappingRangeWithNullCategory(seasonId, request.rankStart(), request.rankEnd(), 0L)) {
-            throw new CustomException("RANK_RANGE_OVERLAP", "순위 구간이 기존 보상과 중복됩니다.");
+            throw new CustomException("RANK_RANGE_OVERLAP", "error.season.rank.overlap");
         }
 
         // 칭호 존재 확인
         Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "error.title.not_found"));
 
         SeasonRankReward reward = SeasonRankReward.builder()
             .season(season)
@@ -84,22 +84,22 @@ public class SeasonRankRewardService {
      */
     public SeasonRankRewardResponse updateRankReward(Long rewardId, UpdateSeasonRankRewardRequest request) {
         SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "error.season.reward.not_found"));
 
         // 순위 유효성 검증
         if (request.rankStart() > request.rankEnd()) {
-            throw new CustomException("INVALID_RANK_RANGE", "시작 순위가 종료 순위보다 클 수 없습니다.");
+            throw new CustomException("INVALID_RANK_RANGE", "error.season.rank.invalid_range");
         }
 
         // 순위 구간 중복 검사 (자신 제외)
         if (rankRewardRepository.existsOverlappingRangeWithNullCategory(
                 reward.getSeason().getId(), request.rankStart(), request.rankEnd(), rewardId)) {
-            throw new CustomException("RANK_RANGE_OVERLAP", "순위 구간이 기존 보상과 중복됩니다.");
+            throw new CustomException("RANK_RANGE_OVERLAP", "error.season.rank.overlap");
         }
 
         // 칭호 존재 확인
         Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "칭호를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("TITLE_NOT_FOUND", "error.title.not_found"));
 
         reward.setRankStart(request.rankStart());
         reward.setRankEnd(request.rankEnd());
@@ -121,7 +121,7 @@ public class SeasonRankRewardService {
      */
     public void deleteRankReward(Long rewardId) {
         SeasonRankReward reward = rankRewardRepository.findById(rewardId)
-            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "보상 설정을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("REWARD_NOT_FOUND", "error.season.reward.not_found"));
 
         reward.setIsActive(false);
         log.info("시즌 순위 보상 삭제: rewardId={}", rewardId);

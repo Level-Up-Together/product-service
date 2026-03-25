@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
@@ -40,10 +39,8 @@ public class MissionTemplateResponse {
     private Long categoryId;
     private String categoryName;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime modifiedAt;
 
     public static MissionTemplateResponse from(MissionTemplate template) {

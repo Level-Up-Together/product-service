@@ -72,7 +72,7 @@ public class UserAdminInternalService {
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserAdminResponse getUser(String userId) {
         Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
         return UserAdminResponse.from(user);
     }
 
@@ -80,7 +80,7 @@ public class UserAdminInternalService {
     public UserAdminResponse getUserByEmail(String email) {
         String encryptedEmail = CryptoUtils.encryptAes(email);
         Users user = userRepository.findByEncryptedEmail(encryptedEmail)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
         return UserAdminResponse.from(user);
     }
 
@@ -89,7 +89,7 @@ public class UserAdminInternalService {
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public UserDetailAdminResponse getUserDetail(String userId) {
         Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         List<UserTitleAdminResponse> titles = buildTitleResponses(userId);
         List<UserAchievementAdminResponse> achievements = buildAchievementResponses(userId);
@@ -127,14 +127,14 @@ public class UserAdminInternalService {
 
     public List<UserTitleAdminResponse> getUserTitles(String userId) {
         if (!userRepository.existsById(userId)) {
-            throw new CustomException("404", "사용자를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.user.not_found");
         }
         return buildTitleResponses(userId);
     }
 
     public List<UserAchievementAdminResponse> getUserAchievements(String userId) {
         if (!userRepository.existsById(userId)) {
-            throw new CustomException("404", "사용자를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.user.not_found");
         }
         return buildAchievementResponses(userId);
     }
@@ -198,7 +198,7 @@ public class UserAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public UserAdminResponse resetProfileImage(String userId, String reason) {
         Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         String previousPicture = user.getPicture();
         user.updatePicture(null);
@@ -214,7 +214,7 @@ public class UserAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public UserBlacklistAdminResponse addToBlacklist(String userId, UserBlacklistAdminRequest request) {
         Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         BlacklistType type = BlacklistType.valueOf(request.blacklistType());
 
@@ -252,7 +252,7 @@ public class UserAdminInternalService {
     @Transactional(transactionManager = "userTransactionManager")
     public void removeFromBlacklist(String userId, Long adminId, String reason) {
         Users user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException("404", "사용자를 찾을 수 없습니다."));
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
         int deactivated = userBlacklistRepository.deactivateAllByUserId(userId);
         if (deactivated == 0) {
@@ -268,7 +268,7 @@ public class UserAdminInternalService {
     @Transactional(readOnly = true, transactionManager = "userTransactionManager")
     public List<UserBlacklistAdminResponse> getBlacklistHistory(String userId) {
         if (!userRepository.existsById(userId)) {
-            throw new CustomException("404", "사용자를 찾을 수 없습니다.");
+            throw new CustomException("404", "error.user.not_found");
         }
         return userBlacklistRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
             .map(UserBlacklistAdminResponse::from)

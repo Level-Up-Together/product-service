@@ -74,6 +74,15 @@ public class MyPageController {
      * @param request 자기소개 수정 요청
      * @return 업데이트된 프로필 정보
      */
+    @PutMapping("/preferred-locale")
+    public ResponseEntity<ApiResult<Void>> updatePreferredLocale(
+        @CurrentUser String userId,
+        @RequestBody java.util.Map<String, String> request) {
+
+        myPageService.updatePreferredLocale(userId, request.get("preferred_locale"));
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
     @PutMapping("/bio")
     public ResponseEntity<ApiResult<ProfileInfo>> updateBio(
         @CurrentUser String userId,

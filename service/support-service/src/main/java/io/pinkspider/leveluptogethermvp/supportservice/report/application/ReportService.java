@@ -42,12 +42,12 @@ public class ReportService implements ContentReviewChecker {
         try {
             reporterNickname = userQueryFacadeService.findUserNickname(userId);
             if (reporterNickname == null) {
-                throw new CustomException("USER_001", "사용자를 찾을 수 없습니다.");
+                throw new CustomException("USER_001", "error.user.not_found");
             }
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
-            throw new CustomException("USER_001", "사용자를 찾을 수 없습니다.");
+            throw new CustomException("USER_001", "error.user.not_found");
         }
 
         // 대상 사용자 닉네임 조회 (있는 경우)
@@ -102,11 +102,11 @@ public class ReportService implements ContentReviewChecker {
         } catch (feign.FeignException e) {
             log.error("Admin 서버 연결 실패 - status: {}, message: {}, url: {}",
                 e.status(), e.getMessage(), e.request() != null ? e.request().url() : "unknown", e);
-            throw new CustomException("REPORT_001", "신고 접수 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            throw new CustomException("REPORT_001", "error.report.failed");
         } catch (Exception e) {
             log.error("신고 생성 중 오류 발생 - type: {}, message: {}",
                 e.getClass().getSimpleName(), e.getMessage(), e);
-            throw new CustomException("REPORT_001", "신고 접수 중 오류가 발생했습니다.");
+            throw new CustomException("REPORT_001", "error.report.failed");
         }
     }
 
