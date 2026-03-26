@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -35,6 +36,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
 
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionImageStorageService missionImageStorageService;
     private final FeedCommandService feedCommandService;
@@ -47,7 +49,21 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
-        // 이미 진행 중인 미션이 있는지 확인
+        // 이미 진행 중인 고정 미션이 있는지 확인
+        dailyMissionInstanceRepository.findInProgressByUserId(userId).ifPresent(inProgressInstance -> {
+            if (inProgressInstance.getInstanceDate().isBefore(today)) {
+                log.info("지난 날짜 IN_PROGRESS 고정 미션 자동 완료 처리: instanceId={}, date={}",
+                    inProgressInstance.getId(), inProgressInstance.getInstanceDate());
+                inProgressInstance.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
+                dailyMissionInstanceRepository.save(inProgressInstance);
+            } else {
+                throw new IllegalStateException(
+                    String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                        inProgressInstance.getMissionTitle()));
+            }
+        });
+
+        // 이미 진행 중인 일반 미션이 있는지 확인
         executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {
             // 지난 날짜의 IN_PROGRESS 실행은 자동 완료 처리 (경험치 보존)
             if (inProgressExecution.getExecutionDate().isBefore(today)) {

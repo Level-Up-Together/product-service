@@ -34,6 +34,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.scheduler.DailyMissionInstanceScheduler;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
@@ -66,6 +67,9 @@ class DailyMissionInstanceServiceTest {
 
     @Mock
     private MissionParticipantRepository participantRepository;
+
+    @Mock
+    private MissionExecutionRepository executionRepository;
 
     @Mock
     private DailyMissionInstanceScheduler instanceScheduler;
@@ -104,6 +108,7 @@ class DailyMissionInstanceServiceTest {
     @BeforeEach
     void setUp() {
         when(missionExecutionProperties.getBaseExp()).thenReturn(10);
+        when(executionRepository.findInProgressByUserId(anyString())).thenReturn(Optional.empty());
 
         mission = Mission.builder()
             .title("매일 30분 운동")

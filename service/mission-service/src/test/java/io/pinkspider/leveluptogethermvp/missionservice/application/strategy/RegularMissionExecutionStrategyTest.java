@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,6 +24,7 @@ import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -69,6 +72,9 @@ class RegularMissionExecutionStrategyTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties missionExecutionProperties;
 
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
+
     @InjectMocks
     private RegularMissionExecutionStrategy strategy;
 
@@ -79,6 +85,7 @@ class RegularMissionExecutionStrategyTest {
     @BeforeEach
     void setUp() {
         testUserId = "test-user-123";
+        lenient().when(dailyMissionInstanceRepository.findInProgressByUserId(anyString())).thenReturn(Optional.empty());
 
         testMission = Mission.builder()
             .title("30일 운동 챌린지")
