@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (2324 tests across 5 modules)
+# Run ALL tests (2470 tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -99,8 +99,9 @@ MVP 전용 인프라 코드 (platform 공유 라이브러리와 별도):
 - **Multi-datasource**: All 9 DataSourceProperties + DataSourceConfigs (`global.config.datasource`)
 - **Security**: SecurityConfig, OAuth2Properties, CurrentUserArgumentResolver
 - **Config**: HibernateConfig, RateLimiterConfig, WebMvcConfig, WebSocketConfig, FirebaseConfig
+- **i18n**: MessageConfig, LocaleInterceptor, i18n properties (errors/notifications ko/en)
 - **Translation**: Google Translation API integration (`global.translation`)
-- **Profanity**: Profanity detection and validation (`leveluptogethermvp/profanity/`)
+- **Profanity**: Profanity detection and validation with locale support (`leveluptogethermvp/profanity/`)
 - **Image Moderation**: ONNX-based NSFW 이미지 검증 + AOP (`global.moderation`)
 - **Image Storage**: S3 + CloudFront CDN (`global.config.s3`) — prod에서 S3 업로드, dev/test에서 로컬 파일시스템
 - **Messaging**: AppPushMessageProducer (Redis Streams)
@@ -211,18 +212,18 @@ All REST endpoints return `ApiResult<T>` from `io.pinkspider.global.api`:
 }
 ```
 
-### Exception Handling
+### Exception Handling (i18n)
 
-Custom exceptions should extend `CustomException`:
+Custom exceptions use message keys resolved via `MessageSource` at response time:
 
 ```java
-public class YourServiceException extends CustomException {
-
-    public YourServiceException() {
-        super("XXXXXX", "Error message");
-    }
-}
+// 메시지 키 사용 (i18n properties에서 locale별 메시지 조회)
+throw new CustomException("USER_001", "error.user.not_found");
+// Accept-Language: en → "User not found."
+// Accept-Language: ko → "사용자를 찾을 수 없습니다."
 ```
+
+`RestExceptionHandler.resolveMessage()`가 `CustomException.message`를 키로 시도, 없으면 원문 반환.
 
 **ApiStatus 코드 규칙** (6자리: 서비스 2자리 + 카테고리 2자리 + 일련번호 2자리):
 | 서비스 | 코드 접두사 |
@@ -245,14 +246,14 @@ public class YourServiceException extends CustomException {
 
 ## Testing
 
-### Test Distribution (2324 tests across 5 modules)
+### Test Distribution (2470 tests across 5 modules)
 
 | Module            | Tests | Content                                              |
 |-------------------|-------|------------------------------------------------------|
 | `platform:kernel` | 39    | util tests                                           |
 | `platform:infra`  | 168   | resolver, validation, profanity, crypto, translation |
 | `platform:saga`   | 29    | saga framework tests                                 |
-| `service`         | 2076  | all service unit + controller tests (multi-srcDirs)  |
+| `service`         | 2222  | all service unit + controller tests (multi-srcDirs)  |
 | `app`             | 12    | ApplicationTests, benchmark, TestDataSourceConfig    |
 
 ### Shared Test Utilities
@@ -326,6 +327,60 @@ class YourIntegrationTest {
 - **DTO**: record 사용 권장
 - **레이어 구조**: Controller → Service → Repository
 - **테스트**: JUnit 5 + Mockito
+- **날짜/시간**: ISO 8601 (`2026-03-24T14:30:45`), UTC 기준 저장
+- **에러 메시지**: i18n 메시지 키 사용 (`error.xxx.yyy`), 한국어 하드코딩 금지
+- **기본 언어**: 영어 (Default)
+
+## Internationalization (i18n)
+
+### 타임존
+
+- JVM: `TimeZone.setDefault(UTC)` (`@PostConstruct`)
+- Hibernate: `hibernate.jdbc.time_zone: UTC`
+- Jackson: `LmObjectMapper.setTimeZone(UTC)` + `spring.jackson.time-zone: UTC`
+- JDBC URL: `TimeZone=UTC`
+- 스케줄러: `@Scheduled(cron = "...", zone = "Asia/Seoul")` — 비즈니스 시간대 명시
+
+### 메시지 번역 (MessageSource)
+
+i18n properties 파일: `app/src/main/resources/i18n/`
+
+```
+i18n/
+├── errors_ko.properties        # 에러 메시지 (한국어)
+├── errors_en.properties        # 에러 메시지 (영어)
+├── notifications_ko.properties # 알림 메시지 (한국어)
+├── notifications_en.properties # 알림 메시지 (영어)
+├── messages_ko.properties      # 일반 메시지 (한국어)
+└── messages_en.properties      # 일반 메시지 (영어)
+```
+
+- `MessageConfig.java`: `ReloadableResourceBundleMessageSource` Bean (UTF-8, `useCodeAsDefaultMessage=true`)
+- `LocaleInterceptor`: `Accept-Language` 헤더 → `LocaleContextHolder` 설정
+- `RestExceptionHandler.resolveMessage()`: `CustomException.message`를 키로 MessageSource 조회
+
+### 콘텐츠 번역 (Google Translation API)
+
+- `TranslationService`: 3-tier 캐시 (Redis 7일 → DB → Google API)
+- Feed, Guild 게시판/댓글 조회 시 `Accept-Language` 헤더로 on-demand 번역
+- `ContentType` enum: `FEED`, `FEED_COMMENT`, `GUILD_POST`, `GUILD_COMMENT`
+- 설정: `google.translation.enabled: true/false`
+
+### 유저 언어 설정
+
+- `Users.preferredLocale`: `VARCHAR(5) DEFAULT 'en'`
+- API: `PUT /api/v1/mypage/preferred-locale`
+- 푸시 알림 발송 시 유저 locale 조회 → MessageSource로 해당 언어 메시지 생성
+
+### 금칙어 (Profanity)
+
+- `ProfanityWord.locale`: 언어별 금칙어 관리 (`ko`, `en`, `ar`)
+- Unique constraint: `(locale, word)`
+- 전체 언어 통합 검사 + locale별 검사 모두 지원
+
+### 글로벌 서비스 로드맵
+
+전체 마이그레이션 계획: `docs/GLOBAL_SERVICE_ROADMAP.md`
 
 ## Event-Driven 패턴
 
@@ -599,7 +654,7 @@ moderation:
 
 ### 에러 코드
 
-부적절 이미지 감지 시: `CustomException("000010", "부적절한 이미지가 감지되었습니다.")`
+부적절 이미지 감지 시: `CustomException("000010", "error.moderation.inappropriate_image")`
 
 ## Image Storage (이미지 저장)
 

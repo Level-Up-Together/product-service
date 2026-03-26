@@ -96,4 +96,5 @@ public class UserQueryFacadeService implements UserQueryFacade {
     public boolean areFriends(String userId1, String userId2) {
         return friendService.areFriends(userId1, userId2);
     }
+
 }

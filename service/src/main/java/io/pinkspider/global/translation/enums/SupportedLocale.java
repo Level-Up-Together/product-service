@@ -19,9 +19,9 @@ public enum SupportedLocale {
     private final String displayName;
 
     /**
-     * 기본 언어 (한국어)
+     * 기본 언어 (영어)
      */
-    public static final SupportedLocale DEFAULT = KOREAN;
+    public static final SupportedLocale DEFAULT = ENGLISH;
 
     /**
      * 언어 코드로 SupportedLocale 조회

@@ -11,11 +11,16 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notifi
 import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
+import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +37,8 @@ public class NotificationService {
     private final NotificationPreferenceRepository preferenceRepository;
     private final AppPushMessageProducer appPushMessageProducer;
     private final DeviceTokenService deviceTokenService;
+    private final MessageSource messageSource;
+    private final UserRepository userRepository;
 
     // 알림 생성
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -66,8 +73,9 @@ public class NotificationService {
     @Transactional(transactionManager = "notificationTransactionManager")
     public void sendNotification(String userId, NotificationType type,
                                   Long referenceId, String iconUrl, Object... messageArgs) {
-        String title = type.formatTitle(messageArgs);
-        String message = type.formatMessage(messageArgs);
+        Locale userLocale = resolveUserLocale(userId);
+        String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale, messageArgs);
+        String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale, messageArgs);
         String referenceType = type.getReferenceType();
         String actionUrl = type.resolveActionUrl(referenceId, messageArgs);
 
@@ -276,18 +284,49 @@ public class NotificationService {
     // 콘텐츠 신고 알림 (신고 당한 유저에게)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyContentReported(String userId, String targetTypeDescription) {
+        Locale userLocale = resolveUserLocale(userId);
+        String title = resolveNotificationMessage("notification.content_reported.title", userLocale);
+        String message = resolveNotificationMessage("notification.content_reported.message", userLocale, targetTypeDescription);
         createNotification(userId, NotificationType.CONTENT_REPORTED,
-            "콘텐츠 신고 알림",
-            "회원님의 " + targetTypeDescription + "이(가) 다른 사용자로부터 신고되었습니다.",
-            null, null, "/mypage");
+            title, message, null, null, "/mypage");
     }
 
     // 길드 콘텐츠 신고 알림 (길드 마스터에게)
     @Transactional(transactionManager = "notificationTransactionManager")
     public void notifyGuildContentReported(String guildMasterId, String targetTypeDescription, Long guildId) {
+        Locale userLocale = resolveUserLocale(guildMasterId);
+        String title = resolveNotificationMessage("notification.content_reported.guild_title", userLocale);
+        String message = resolveNotificationMessage("notification.content_reported.guild_message", userLocale, targetTypeDescription);
         createNotification(guildMasterId, NotificationType.CONTENT_REPORTED,
-            "길드 콘텐츠 신고 알림",
-            "길드 내 " + targetTypeDescription + "이(가) 신고되었습니다. 길드 관리에 참고해주세요.",
-            "GUILD", guildId, "/guild/" + guildId);
+            title, message, "GUILD", guildId, "/guild/" + guildId);
+    }
+
+    // ==================== i18n 헬퍼 ====================
+
+    private Locale resolveUserLocale(String userId) {
+        try {
+            String locale = userRepository.findById(userId)
+                .map(Users::getPreferredLocale)
+                .orElse("en");
+            return Locale.forLanguageTag(locale);
+        } catch (Exception e) {
+            return Locale.ENGLISH;
+        }
+    }
+
+    private String resolveNotificationMessage(String key, Locale locale, Object... args) {
+        if (key == null) return null;
+        // 메시지 키가 아닌 경우 (GUILD_CHAT의 "{0}", "{1}: {2}" 등) 그대로 포맷
+        if (!key.startsWith("notification.")) {
+            if (key.contains("{")) {
+                return MessageFormat.format(key, args);
+            }
+            return key;
+        }
+        String template = messageSource.getMessage(key, null, key, locale);
+        if (template != null && template.contains("{") && args.length > 0) {
+            return MessageFormat.format(template, args);
+        }
+        return template != null ? template : key;
     }
 }

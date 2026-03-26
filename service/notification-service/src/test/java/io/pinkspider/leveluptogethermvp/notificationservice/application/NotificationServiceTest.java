@@ -51,6 +51,12 @@ class NotificationServiceTest {
     @Mock
     private DeviceTokenService deviceTokenService;
 
+    @Mock
+    private org.springframework.context.MessageSource messageSource;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository userRepository;
+
     @InjectMocks
     private NotificationService notificationService;
 

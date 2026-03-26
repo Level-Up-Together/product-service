@@ -4,19 +4,19 @@
 
 ## 기술 스택
 
-| 카테고리                 | 기술                                       |
-|----------------------|------------------------------------------|
-| **Framework**        | Spring Boot 3.4.5, Spring Cloud 2024.0.0 |
-| **Language**         | Java 21 (JDK 25 빌드 호환)                   |
-| **Build**            | Gradle 8.14.3                            |
-| **Database**         | PostgreSQL (Production), H2 (Test)       |
-| **Cache**            | Redis (Lettuce)                          |
-| **Messaging**        | Apache Kafka                             |
-| **API**              | REST + GraphQL (Netflix DGS)             |
-| **Documentation**    | Spring REST Docs + OpenAPI 3.0           |
-| **Query**            | QueryDSL (타입 안전 쿼리)                      |
-| **Resilience**       | Resilience4j (Circuit Breaker)           |
-| **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델)       |
+| 카테고리                 | 기술                                             |
+|----------------------|------------------------------------------------|
+| **Framework**        | Spring Boot 3.4.5, Spring Cloud 2024.0.0       |
+| **Language**         | Java 21 (JDK 25 빌드 호환)                         |
+| **Build**            | Gradle 8.14.3                                  |
+| **Database**         | PostgreSQL (Production), H2 (Test)             |
+| **Cache**            | Redis (Lettuce)                                |
+| **Messaging**        | Apache Kafka                                   |
+| **API**              | REST + GraphQL (Netflix DGS)                   |
+| **Documentation**    | Spring REST Docs + OpenAPI 3.0                 |
+| **Query**            | QueryDSL (타입 안전 쿼리)                            |
+| **Resilience**       | Resilience4j (Circuit Breaker)                 |
+| **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델)             |
 | **Image Storage**    | AWS S3 + CloudFront CDN (prod), Local FS (dev) |
 
 ## 아키텍처
@@ -52,6 +52,8 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 - **Saga Pattern**: 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Image Moderation**: ONNX 기반 NSFW 이미지 자동 검증 (AOP)
 - **Image Storage**: prod에서 S3 + CloudFront CDN, dev에서 로컬 파일시스템 (`@Profile` 분기)
+- **i18n**: MessageSource 기반 다국어 지원 (en/ko/ar), Accept-Language 헤더 기반 locale 결정
+- **Content Translation**: Google Translation API 연동, 3-tier 캐시 (Redis → DB → API)
 
 ### 시스템 아키텍처
 
@@ -377,14 +379,14 @@ erDiagram
 # 빌드
 ./gradlew clean build
 
-# 전체 테스트 실행 (2324 tests)
+# 전체 테스트 실행 (2470 tests)
 ./gradlew test
 
 # 모듈별 테스트 실행
 ./gradlew :platform:kernel:test     # 39 tests
 ./gradlew :platform:infra:test      # 168 tests
 ./gradlew :platform:saga:test       # 29 tests
-./gradlew :service:test             # 2076 tests
+./gradlew :service:test             # 2222 tests
 ./gradlew :app:test                 # 12 tests
 
 # 단일 테스트 클래스 실행 (모듈 지정)
@@ -488,9 +490,19 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 ### 알림 (Notification Service)
 
 - 인앱 알림 관리
-- 푸시 알림 (FCM)
+- 푸시 알림 (FCM) — 유저 preferredLocale 기반 다국어 발송
 - 알림 설정 (타입별 on/off)
 - 알림 읽음 처리
+
+### 국제화 (Internationalization)
+
+- 기본 언어: English, 지원 언어: Korean, Arabic
+- 유저 언어 설정: `PUT /api/v1/mypage/preferred-locale`
+- 에러 메시지: i18n 메시지 키 (`error.xxx.yyy`) → MessageSource 자동 번역
+- 푸시 알림: 유저 locale 기반 다국어 발송
+- 콘텐츠 번역: Google Translation API (Feed, Guild 게시판/댓글)
+- 금칙어: locale별 관리 (ko, en, ar)
+- 타임존: UTC 기반 저장, ISO 8601 포맷
 
 ### BFF (Backend-for-Frontend)
 
@@ -515,13 +527,13 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 
 ## 스케줄러
 
-| 스케줄러                            | 주기                     | 설명                                  |
-|----------------------------------|------------------------|-------------------------------------|
-| `DailyMissionInstanceScheduler`  | `0 5 0 * * *` (매일 0:05) | 고정 미션 일일 인스턴스 자동 생성                 |
-| `MissionAutoCompleteScheduler`   | 5분 간격 (fixedRate)       | 만료 미션 자동 종료 + 종료 10분 전 경고 알림 발송     |
-| `TokenMaintenanceScheduler`      | `0 0 2 * * *` (매일 2:00) | 만료된 OAuth 토큰 정리                     |
-| `DailyMvpHistoryScheduler`       | `0 5 0 * * *` (매일 0:05) | MVP 히스토리 기록                         |
-| `SeasonRewardScheduler`          | `0 0 3 * * *` (매일 3:00) | 시즌 보상 배포                            |
+| 스케줄러                            | 주기                      | 설명                              |
+|---------------------------------|-------------------------|---------------------------------|
+| `DailyMissionInstanceScheduler` | `0 5 0 * * *` (매일 0:05) | 고정 미션 일일 인스턴스 자동 생성             |
+| `MissionAutoCompleteScheduler`  | 5분 간격 (fixedRate)       | 만료 미션 자동 종료 + 종료 10분 전 경고 알림 발송 |
+| `TokenMaintenanceScheduler`     | `0 0 2 * * *` (매일 2:00) | 만료된 OAuth 토큰 정리                 |
+| `DailyMvpHistoryScheduler`      | `0 5 0 * * *` (매일 0:05) | MVP 히스토리 기록                     |
+| `SeasonRewardScheduler`         | `0 0 3 * * *` (매일 3:00) | 시즌 보상 배포                        |
 
 ## 캐싱 전략
 
@@ -658,7 +670,17 @@ private Entity getOrCreateEntity(String key) {
 - `AttendanceService.checkIn()` - 출석 체크 중복 방지
 - `NotificationService.createNotificationWithDeduplication()` - 알림 중복 방지
 
-## 개발 서버
+## 서버 환경
 
-- API 서버: https://dev-api.level-up-together.com
-- 프론트엔드: https://dev.level-up-together.com:3000
+| 환경                   | URL                                                                              | 비고                       |
+|----------------------|----------------------------------------------------------------------------------|--------------------------|
+| **Production API**   | `https://api.level-up-together.com`                                              | ALB + EC2 x2 롤링 배포       |
+| **Production Web**   | `https://level-up-together.com`                                                  |                          |
+| **Production Admin** | `https://admin.level-up-together.com`                                            |                          |
+| **Dev API**          | `https://dev.level-up-together.com:8443`                                         |                          |
+| **Dev Admin API**    | `https://dev.level-up-together.com:8444`                                         |                          |
+| **Dev Web**          | `https://dev.level-up-together.com:3000`                                         |                          |
+| **Admin API**        | `https://admin-api.level-up-together.com`                                        |                          |
+| **Local API**        | `https://local.level-up-together.com:8443`                                       |                          |
+| **Swagger UI**       | `{https://dev.level-up-together.com:29999/?urls.primaryName=product-service-api` | REST Docs 기반 OpenAPI 3.0 |
+| **CDN (Images)**     | `https://images.level-up-together.com`                                           | S3 + CloudFront          |

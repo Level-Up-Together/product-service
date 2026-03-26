@@ -76,7 +76,7 @@ public class Users extends LocalDateTimeBaseEntity {
 
     @lombok.Builder.Default
     @Column(name = "preferred_locale", length = 5, nullable = false)
-    private String preferredLocale = "ko";
+    private String preferredLocale = "en";
 
     @Setter
     @OneToMany(mappedBy = "users")
