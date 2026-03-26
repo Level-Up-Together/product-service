@@ -94,7 +94,7 @@ jobs:
           cd /home/$SERVER_USER/levelUpTogether/backend
           chmod 700 /home/$SERVER_USER/levelUpTogether/backend/${PROJECT_NAME}*-exec.jar
           sh /home/$SERVER_USER/levelUpTogether/bin/deploy_dev.sh $PROJECT_NAME dev /home/$SERVER_USER 4096m
-          sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart ${PROJECT_NAME}-api.json
+          sh /home/$SERVER_USER/infra/swagger/swagger_script.sh restart
           EOF
 
       - name: action-slack

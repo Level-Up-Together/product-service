@@ -132,7 +132,7 @@ Level Up Together 서비스의 글로벌 대응을 위한 단계별 마이그레
 - [x] Admin Frontend: RootLayout `NextIntlClientProvider` 설정
 - [x] Admin Frontend: 로그인/레이아웃(네비게이션) `useTranslations` 전환
 - [x] Admin Frontend: 전체 40개 페이지 `useTranslations` 전환 (진행 중)
-- [ ] 시스템 콘텐츠 다국어 입력 UI (미션, 이벤트 ko/en/ar 입력 폼)
+- [x] 시스템 콘텐츠 다국어 입력 UI — 이미 구현됨 (Mission, MissionTemplate, Event, Achievement, Title, MissionCategory에 en/ar 필드 + Admin 폼 존재)
 
 ---
 
