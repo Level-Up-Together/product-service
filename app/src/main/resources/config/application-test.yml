@@ -145,7 +145,6 @@ spring:
       database: logger_service
 
 logging:
-  config: classpath:slf4j/logback-local.xml
   level:
     org.apache: OFF
 
