@@ -13,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -97,7 +98,7 @@ public class MissionExecutionQueryService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         // 고정 미션의 오늘 execution 자동 생성 (일반 MissionExecution용)
         ensurePinnedMissionExecutionsForToday(userId, today);
@@ -135,7 +136,7 @@ public class MissionExecutionQueryService {
      * @return 완료된 고정 미션 인스턴스 목록
      */
     public List<MissionExecutionResponse> getCompletedPinnedInstancesForToday(String userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
             .findCompletedByUserIdAndInstanceDate(userId, today);

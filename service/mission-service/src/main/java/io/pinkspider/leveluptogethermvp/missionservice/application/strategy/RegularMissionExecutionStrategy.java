@@ -20,6 +20,7 @@ import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,7 +45,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     @Override
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         // 이미 진행 중인 미션이 있는지 확인
         executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {

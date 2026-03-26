@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionPar
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -62,7 +63,7 @@ public class DailyMissionInstanceService {
      */
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<DailyMissionInstanceResponse> getTodayInstances(String userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         List<DailyMissionInstance> instances = instanceRepository.findByUserIdAndInstanceDateWithMission(userId, today);
 
         return instances.stream()
@@ -108,7 +109,7 @@ public class DailyMissionInstanceService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse startInstance(Long instanceId, String userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         // 이미 진행 중인 인스턴스가 있는지 확인
         instanceRepository.findInProgressByUserId(userId).ifPresent(inProgress -> {

@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionPar
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ public class MissionExecutionService {
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateExecutionsForParticipant(MissionParticipant participant) {
         Mission mission = participant.getMission();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         if (Boolean.TRUE.equals(mission.getIsPinned())) {
             log.info("고정 미션은 DailyMissionInstance를 사용하므로 MissionExecution 생성 건너뜀: missionId={}",
@@ -124,19 +125,19 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse skipExecutionToday(Long missionId, String userId) {
-        return skipExecution(missionId, userId, LocalDate.now());
+        return skipExecution(missionId, userId, LocalDate.now(ZoneId.of("Asia/Seoul")));
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecutionToday(Long missionId, String userId) {
-        return startExecution(missionId, userId, LocalDate.now());
+        return startExecution(missionId, userId, LocalDate.now(ZoneId.of("Asia/Seoul")));
     }
 
     // ============ executionId 기반 메서드 (Saga, 일반 미션 전용) ============
 
     @Transactional(transactionManager = "missionTransactionManager")
     public int markMissedExecutions() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         int count = executionRepository.markMissedExecutions(today);
         log.info("미실행 처리된 수행 기록: {}개", count);
         return count;

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +52,7 @@ public class DailyMissionInstanceScheduler {
     public void generateDailyInstances() {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 시작 ===");
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         try {
             // 1. 지난 날짜의 IN_PROGRESS 미션 자동 완료 (Saga 경유 → 경험치 정상 지급)
@@ -145,7 +146,7 @@ public class DailyMissionInstanceScheduler {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstance createOrGetTodayInstance(MissionParticipant participant) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 
         // PENDING 상태 인스턴스가 있으면 반환, 없으면 새로 생성
         return instanceRepository.findPendingByParticipantIdAndDate(participant.getId(), today)
