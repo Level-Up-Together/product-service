@@ -101,6 +101,12 @@ public interface MissionExecutionLifecycle {
         if (getStatus() == ExecutionStatus.MISSED) {
             throw new IllegalStateException("미실행 처리된 수행 기록은 취소할 수 없습니다.");
         }
+        if (getStatus() == ExecutionStatus.IN_PROGRESS && getStartedAt() != null) {
+            long elapsedSeconds = Duration.between(getStartedAt(), LocalDateTime.now()).getSeconds();
+            if (elapsedSeconds >= MINIMUM_EXECUTION_MINUTES * 60) {
+                throw new IllegalStateException("1분 이상 수행한 미션은 취소할 수 없습니다.");
+            }
+        }
         setStatus(ExecutionStatus.PENDING);
         setStartedAt(null);
     }
