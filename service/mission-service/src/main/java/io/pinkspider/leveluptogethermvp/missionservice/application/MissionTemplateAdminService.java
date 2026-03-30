@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminResponse;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionTemplateAdminService {
 
     private final MissionTemplateRepository templateRepository;
+    private final MissionCategoryService missionCategoryService;
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionTemplateAdminPageResponse searchTemplates(String keyword, Pageable pageable) {
@@ -55,6 +58,22 @@ public class MissionTemplateAdminService {
     }
 
     public MissionTemplateAdminResponse createTemplate(MissionTemplateAdminRequest request) {
+        // 카테고리 처리: categoryId가 있으면 카테고리 이름 조회 (스냅샷 패턴)
+        Long categoryId = null;
+        String categoryName = null;
+        String customCategory = null;
+
+        if (request.categoryId() != null) {
+            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.categoryId());
+            if (!categoryResponse.getIsActive()) {
+                throw new IllegalArgumentException("비활성화된 카테고리입니다.");
+            }
+            categoryId = categoryResponse.getId();
+            categoryName = categoryResponse.getName();
+        } else if (request.customCategory() != null && !request.customCategory().isBlank()) {
+            customCategory = request.customCategory().trim();
+        }
+
         MissionTemplate template = MissionTemplate.builder()
             .title(request.title())
             .titleEn(request.titleEn())
@@ -73,8 +92,9 @@ public class MissionTemplateAdminService {
             .isPinned(Boolean.TRUE.equals(request.isPinned()))
             .targetDurationMinutes(request.targetDurationMinutes())
             .dailyExecutionLimit(request.dailyExecutionLimit())
-            .categoryId(request.categoryId())
-            .customCategory(request.customCategory())
+            .categoryId(categoryId)
+            .categoryName(categoryName)
+            .customCategory(customCategory)
             .creatorId("ADMIN")
             .build();
 
@@ -112,8 +132,25 @@ public class MissionTemplateAdminService {
         }
         template.setTargetDurationMinutes(request.targetDurationMinutes());
         template.setDailyExecutionLimit(request.dailyExecutionLimit());
-        template.setCategoryId(request.categoryId());
-        template.setCustomCategory(request.customCategory());
+
+        // 카테고리 처리: categoryId가 있으면 카테고리 이름 조회 (스냅샷 패턴)
+        if (request.categoryId() != null) {
+            MissionCategoryResponse categoryResponse = missionCategoryService.getCategory(request.categoryId());
+            if (!categoryResponse.getIsActive()) {
+                throw new IllegalArgumentException("비활성화된 카테고리입니다.");
+            }
+            template.setCategoryId(categoryResponse.getId());
+            template.setCategoryName(categoryResponse.getName());
+            template.setCustomCategory(null);
+        } else if (request.customCategory() != null && !request.customCategory().isBlank()) {
+            template.setCategoryId(null);
+            template.setCategoryName(null);
+            template.setCustomCategory(request.customCategory().trim());
+        } else {
+            template.setCategoryId(null);
+            template.setCategoryName(null);
+            template.setCustomCategory(null);
+        }
 
         MissionTemplate saved = templateRepository.save(template);
         log.info("미션 템플릿 수정 (Admin): {} (ID: {})", request.title(), id);

@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateAdminResponse;
@@ -26,15 +28,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MissionTemplateAdminServiceTest {
 
     @Mock
     private MissionTemplateRepository templateRepository;
+
+    @Mock
+    private MissionCategoryService missionCategoryService;
 
     @InjectMocks
     private MissionTemplateAdminService service;
@@ -145,13 +153,63 @@ class MissionTemplateAdminServiceTest {
         }
     }
 
+    private MissionCategoryResponse createTestCategoryResponse() {
+        return MissionCategoryResponse.builder()
+            .id(1L)
+            .name("운동")
+            .nameEn("Exercise")
+            .nameAr(null)
+            .isActive(true)
+            .build();
+    }
+
     @Nested
     @DisplayName("createTemplate 테스트")
     class CreateTemplateTest {
 
         @Test
-        @DisplayName("템플릿을 생성한다")
-        void createTemplate() {
+        @DisplayName("카테고리 ID로 템플릿을 생성하면 categoryName이 설정된다")
+        void createWithCategoryId() {
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "운동 미션", null, null, "설명", null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                30, 50, false, null, null, 1L, null
+            );
+            MissionCategoryResponse categoryResponse = createTestCategoryResponse();
+            when(missionCategoryService.getCategory(1L)).thenReturn(categoryResponse);
+
+            MissionTemplate saved = createTestTemplate(1L);
+            saved.setCategoryId(1L);
+            saved.setCategoryName("운동");
+            when(templateRepository.save(any(MissionTemplate.class))).thenReturn(saved);
+
+            MissionTemplateAdminResponse result = service.createTemplate(request);
+
+            assertThat(result).isNotNull();
+            assertThat(result.categoryName()).isEqualTo("운동");
+            verify(missionCategoryService).getCategory(1L);
+        }
+
+        @Test
+        @DisplayName("비활성 카테고리로 생성 시 예외가 발생한다")
+        void throwsWhenInactiveCategory() {
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "운동 미션", null, null, "설명", null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                30, 50, false, null, null, 1L, null
+            );
+            MissionCategoryResponse inactiveCategory = MissionCategoryResponse.builder()
+                .id(1L).name("운동").isActive(false).build();
+            when(missionCategoryService.getCategory(1L)).thenReturn(inactiveCategory);
+
+            assertThatThrownBy(() -> service.createTemplate(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("비활성화된 카테고리");
+        }
+
+        @Test
+        @DisplayName("카테고리 없이 템플릿을 생성한다")
+        void createWithoutCategory() {
             MissionTemplateAdminRequest request = createTestRequest();
             MissionTemplate saved = createTestTemplate(1L);
             when(templateRepository.save(any(MissionTemplate.class))).thenReturn(saved);
@@ -177,6 +235,23 @@ class MissionTemplateAdminServiceTest {
 
             assertThat(result).isNotNull();
         }
+
+        @Test
+        @DisplayName("customCategory로 템플릿을 생성한다")
+        void createWithCustomCategory() {
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "커스텀 미션", null, null, "설명", null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                30, 50, false, null, null, null, "나만의 카테고리"
+            );
+            MissionTemplate saved = createTestTemplate(1L);
+            saved.setCustomCategory("나만의 카테고리");
+            when(templateRepository.save(any(MissionTemplate.class))).thenReturn(saved);
+
+            MissionTemplateAdminResponse result = service.createTemplate(request);
+
+            assertThat(result).isNotNull();
+        }
     }
 
     @Nested
@@ -195,6 +270,46 @@ class MissionTemplateAdminServiceTest {
 
             assertThat(result).isNotNull();
             verify(templateRepository).save(any(MissionTemplate.class));
+        }
+
+        @Test
+        @DisplayName("카테고리 ID로 수정하면 categoryName이 설정된다")
+        void updateWithCategoryId() {
+            MissionTemplate existing = createTestTemplate(1L);
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "수정 미션", null, null, "설명", null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                30, 50, false, null, null, 1L, null
+            );
+            MissionCategoryResponse categoryResponse = createTestCategoryResponse();
+            when(missionCategoryService.getCategory(1L)).thenReturn(categoryResponse);
+            when(templateRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(templateRepository.save(any(MissionTemplate.class))).thenReturn(existing);
+
+            service.updateTemplate(1L, request);
+
+            assertThat(existing.getCategoryId()).isEqualTo(1L);
+            assertThat(existing.getCategoryName()).isEqualTo("운동");
+            assertThat(existing.getCustomCategory()).isNull();
+        }
+
+        @Test
+        @DisplayName("비활성 카테고리로 수정 시 예외가 발생한다")
+        void throwsWhenInactiveCategoryOnUpdate() {
+            MissionTemplate existing = createTestTemplate(1L);
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "수정 미션", null, null, "설명", null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                30, 50, false, null, null, 1L, null
+            );
+            MissionCategoryResponse inactiveCategory = MissionCategoryResponse.builder()
+                .id(1L).name("운동").isActive(false).build();
+            when(missionCategoryService.getCategory(1L)).thenReturn(inactiveCategory);
+            when(templateRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> service.updateTemplate(1L, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("비활성화된 카테고리");
         }
 
         @Test
