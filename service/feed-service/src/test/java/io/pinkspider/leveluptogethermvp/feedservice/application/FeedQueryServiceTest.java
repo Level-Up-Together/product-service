@@ -101,7 +101,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -353,7 +353,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "en-US,en;q=0.9";
 
-            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -561,7 +561,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -586,7 +586,7 @@ class FeedQueryServiceTest {
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(featuredFeed));
-            when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(normalFeed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -610,7 +610,7 @@ class FeedQueryServiceTest {
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(feed));
-            when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(feed))); // 동일한 피드
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -633,7 +633,7 @@ class FeedQueryServiceTest {
             String acceptLanguage = "en";
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(eq(categoryId), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -793,7 +793,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -921,7 +921,7 @@ class FeedQueryServiceTest {
             // given
             Page<ActivityFeed> emptyPage = new PageImpl<>(Collections.emptyList());
 
-            when(activityFeedRepository.findPublicFeedsInTimeRange(any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class)))
                 .thenReturn(emptyPage);
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList()))
                 .thenReturn(Collections.emptyMap());

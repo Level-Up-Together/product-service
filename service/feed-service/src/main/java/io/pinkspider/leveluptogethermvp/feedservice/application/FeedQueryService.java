@@ -25,7 +25,6 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -71,12 +70,7 @@ public class FeedQueryService {
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        // 시간 범위 계산 (매일 04:00 기준)
-        LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
-        LocalDateTime startTime = timeRange[0];
-        LocalDateTime endTime = timeRange[1];
-
-        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsInTimeRange(startTime, endTime, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeeds(pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
@@ -98,35 +92,6 @@ public class FeedQueryService {
     }
 
     /**
-     * 피드 시간 범위 계산 (매일 04:00 기준)
-     * - 현재 시간이 04:00 이후: 당일 04:00 ~ 다음날 04:00
-     * - 현재 시간이 04:00 이전: 전일 04:00 ~ 당일 04:00
-     */
-    private LocalDateTime[] calculateDailyFeedTimeRange() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalTime resetTime = LocalTime.of(4, 0); // 04:00
-
-        LocalDate today = now.toLocalDate();
-        LocalDateTime todayReset = LocalDateTime.of(today, resetTime);
-
-        LocalDateTime startTime;
-        LocalDateTime endTime;
-
-        if (now.toLocalTime().isBefore(resetTime)) {
-            // 현재 시간이 04:00 이전 → 전일 04:00 ~ 당일 04:00
-            startTime = todayReset.minusDays(1);
-            endTime = todayReset;
-        } else {
-            // 현재 시간이 04:00 이후 → 당일 04:00 ~ 다음날 04:00
-            startTime = todayReset;
-            endTime = todayReset.plusDays(1);
-        }
-
-        log.debug("Feed time range: {} ~ {}", startTime, endTime);
-        return new LocalDateTime[]{startTime, endTime};
-    }
-
-    /**
      * 카테고리별 공개 피드 조회 (하이브리드 선정)
      * 1. Admin이 설정한 Featured Feed 먼저 표시
      * 2. 자동 선정 (해당 카테고리의 최신 공개 피드) - 시간 필터 적용
@@ -141,13 +106,7 @@ public class FeedQueryService {
      */
     public Page<ActivityFeedResponse> getPublicFeedsByCategory(Long categoryId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        LocalDateTime now = LocalDateTime.now();
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
-
-        // 시간 범위 계산 (매일 04:00 기준)
-        LocalDateTime[] timeRange = calculateDailyFeedTimeRange();
-        LocalDateTime startTime = timeRange[0];
-        LocalDateTime endTime = timeRange[1];
 
         // 1. Admin Featured Feeds 먼저 조회
         List<Long> featuredFeedIds = adminInternalFeignClient.getFeaturedFeedIds(categoryId);
@@ -167,9 +126,9 @@ public class FeedQueryService {
             }
         }
 
-        // 2. 카테고리별 일반 피드 조회 (시간 필터 적용)
-        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryIdInTimeRange(
-            categoryId, startTime, endTime, pageable);
+        // 2. 카테고리별 일반 피드 조회
+        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryId(
+            categoryId, pageable);
 
         // 3. Featured 피드와 합치기 (첫 페이지에만 Featured 추가)
         List<ActivityFeed> combinedFeeds = new ArrayList<>();
