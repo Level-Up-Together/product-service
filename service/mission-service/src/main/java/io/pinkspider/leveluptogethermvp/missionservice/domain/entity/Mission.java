@@ -63,6 +63,11 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("미션 제목 (아랍어)")
     private String titleAr;
 
+    @Size(max = 200)
+    @Column(name = "title_ja", length = 200)
+    @Comment("미션 제목 (일본어)")
+    private String titleJa;
+
     @Column(name = "description", columnDefinition = "TEXT")
     @Comment("미션 설명")
     private String description;
@@ -74,6 +79,10 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Column(name = "description_ar", columnDefinition = "TEXT")
     @Comment("미션 설명 (아랍어)")
     private String descriptionAr;
+
+    @Column(name = "description_ja", columnDefinition = "TEXT")
+    @Comment("미션 설명 (일본어)")
+    private String descriptionJa;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -283,13 +292,13 @@ public class Mission extends LocalDateTimeBaseEntity {
      * locale에 따라 미션 제목을 반환합니다.
      */
     public String getLocalizedTitle(String locale) {
-        return LocaleUtils.getLocalizedText(title, titleEn, titleAr, locale);
+        return LocaleUtils.getLocalizedText(title, titleEn, titleAr, titleJa, locale);
     }
 
     /**
      * locale에 따라 미션 설명을 반환합니다.
      */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

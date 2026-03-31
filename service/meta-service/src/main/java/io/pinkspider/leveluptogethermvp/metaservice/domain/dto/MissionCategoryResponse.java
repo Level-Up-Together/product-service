@@ -22,9 +22,11 @@ public class MissionCategoryResponse {
     private String name;
     private String nameEn;
     private String nameAr;
+    private String nameJa;
     private String description;
     private String descriptionEn;
     private String descriptionAr;
+    private String descriptionJa;
     private String icon;
     private Integer displayOrder;
     private Boolean isActive;
@@ -37,9 +39,11 @@ public class MissionCategoryResponse {
             .name(category.getName())
             .nameEn(category.getNameEn())
             .nameAr(category.getNameAr())
+            .nameJa(category.getNameJa())
             .description(category.getDescription())
             .descriptionEn(category.getDescriptionEn())
             .descriptionAr(category.getDescriptionAr())
+            .descriptionJa(category.getDescriptionJa())
             .icon(category.getIcon())
             .displayOrder(category.getDisplayOrder())
             .isActive(category.getIsActive())

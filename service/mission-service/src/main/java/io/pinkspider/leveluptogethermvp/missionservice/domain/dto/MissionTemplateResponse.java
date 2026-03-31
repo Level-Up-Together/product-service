@@ -24,9 +24,11 @@ public class MissionTemplateResponse {
     private String title;
     private String titleEn;
     private String titleAr;
+    private String titleJa;
     private String description;
     private String descriptionEn;
     private String descriptionAr;
+    private String descriptionJa;
     private MissionVisibility visibility;
     private MissionSource source;
     private MissionParticipationType participationType;
@@ -49,9 +51,11 @@ public class MissionTemplateResponse {
             .title(template.getTitle())
             .titleEn(template.getTitleEn())
             .titleAr(template.getTitleAr())
+            .titleJa(template.getTitleJa())
             .description(template.getDescription())
             .descriptionEn(template.getDescriptionEn())
             .descriptionAr(template.getDescriptionAr())
+            .descriptionJa(template.getDescriptionJa())
             .visibility(template.getVisibility())
             .source(template.getSource())
             .participationType(template.getParticipationType())

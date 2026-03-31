@@ -35,10 +35,12 @@ public class UserTitleListResponse {
         private String name;
         private String nameEn;
         private String nameAr;
+        private String nameJa;
         private String displayName;
         private String description;
         private String descriptionEn;
         private String descriptionAr;
+        private String descriptionJa;
         private String rarity;
         private String positionType;  // 칭호 위치 타입 (LEFT: 형용사, RIGHT: 명사)
         private String colorCode;

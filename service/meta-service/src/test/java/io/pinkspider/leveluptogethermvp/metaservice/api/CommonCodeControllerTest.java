@@ -67,6 +67,7 @@ class CommonCodeControllerTest extends BaseTestController {
                             fieldWithPath("value[].code_title").type(JsonFieldType.STRING).description("공통코드 타이틀 (한국어)"),
                             fieldWithPath("value[].code_title_en").type(JsonFieldType.STRING).description("공통코드 타이틀 (영어)").optional(),
                             fieldWithPath("value[].code_title_ar").type(JsonFieldType.STRING).description("공통코드 타이틀 (아랍어)").optional(),
+                            fieldWithPath("value[].code_title_ja").type(JsonFieldType.STRING).description("공통코드 타이틀 (일본어)").optional(),
                             fieldWithPath("value[].description").type(JsonFieldType.STRING).description("공통코드 설명"),
                             fieldWithPath("value[].parent_id").type(JsonFieldType.STRING).description("부모 ID")
                         )
@@ -114,6 +115,7 @@ class CommonCodeControllerTest extends BaseTestController {
                             fieldWithPath("value.code_title").type(JsonFieldType.STRING).description("공통코드 타이틀 (한국어)"),
                             fieldWithPath("value.code_title_en").type(JsonFieldType.STRING).description("공통코드 타이틀 (영어)").optional(),
                             fieldWithPath("value.code_title_ar").type(JsonFieldType.STRING).description("공통코드 타이틀 (아랍어)").optional(),
+                            fieldWithPath("value.code_title_ja").type(JsonFieldType.STRING).description("공통코드 타이틀 (일본어)").optional(),
                             fieldWithPath("value.description").type(JsonFieldType.STRING).description("공통코드 설명"),
                             fieldWithPath("value.parent_id").type(JsonFieldType.STRING).description("부모 ID")
                         )

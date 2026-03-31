@@ -55,6 +55,11 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
     @Comment("카테고리 이름 (아랍어)")
     private String nameAr;
 
+    @Size(max = 50)
+    @Column(name = "name_ja", length = 50)
+    @Comment("카테고리 이름 (일본어)")
+    private String nameJa;
+
     @Size(max = 200)
     @Column(name = "description", length = 200)
     @Comment("카테고리 설명")
@@ -69,6 +74,11 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
     @Column(name = "description_ar", length = 200)
     @Comment("카테고리 설명 (아랍어)")
     private String descriptionAr;
+
+    @Size(max = 200)
+    @Column(name = "description_ja", length = 200)
+    @Comment("카테고리 설명 (일본어)")
+    private String descriptionJa;
 
     @Size(max = 50)
     @Column(name = "icon", length = 50)
@@ -96,13 +106,13 @@ public class MissionCategory extends LocalDateTimeBaseEntity {
      * locale에 따라 카테고리 이름을 반환합니다.
      */
     public String getLocalizedName(String locale) {
-        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
     /**
      * locale에 따라 카테고리 설명을 반환합니다.
      */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }

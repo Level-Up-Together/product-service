@@ -19,11 +19,16 @@ public record EventAdminRequest(
     @Size(max = 100)
     String nameAr,
 
+    @Size(max = 100)
+    String nameJa,
+
     String description,
 
     String descriptionEn,
 
     String descriptionAr,
+
+    String descriptionJa,
 
     @Size(max = 500)
     String imageUrl,

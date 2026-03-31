@@ -24,6 +24,7 @@ public class UserTitleResponse {
     private String name;
     private String nameEn;
     private String nameAr;
+    private String nameJa;
     private String displayName;
     private String description;
     private TitleRarity rarity;
@@ -44,6 +45,7 @@ public class UserTitleResponse {
             .name(title.getName())
             .nameEn(title.getNameEn())
             .nameAr(title.getNameAr())
+            .nameJa(title.getNameJa())
             .displayName(title.getDisplayName())
             .description(title.getDescription())
             .rarity(title.getRarity())

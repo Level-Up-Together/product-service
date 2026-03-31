@@ -21,9 +21,11 @@ public class EventAdminResponse {
     private String name;
     private String nameEn;
     private String nameAr;
+    private String nameJa;
     private String description;
     private String descriptionEn;
     private String descriptionAr;
+    private String descriptionJa;
     private String imageUrl;
     private LocalDateTime startAt;
     private LocalDateTime endAt;
@@ -42,9 +44,11 @@ public class EventAdminResponse {
             .name(event.getName())
             .nameEn(event.getNameEn())
             .nameAr(event.getNameAr())
+            .nameJa(event.getNameJa())
             .description(event.getDescription())
             .descriptionEn(event.getDescriptionEn())
             .descriptionAr(event.getDescriptionAr())
+            .descriptionJa(event.getDescriptionJa())
             .imageUrl(event.getImageUrl())
             .startAt(event.getStartAt())
             .endAt(event.getEndAt())

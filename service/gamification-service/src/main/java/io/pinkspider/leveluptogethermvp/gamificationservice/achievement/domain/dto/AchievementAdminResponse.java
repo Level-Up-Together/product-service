@@ -20,9 +20,11 @@ public class AchievementAdminResponse {
     private String name;
     private String nameEn;
     private String nameAr;
+    private String nameJa;
     private String description;
     private String descriptionEn;
     private String descriptionAr;
+    private String descriptionJa;
     private Long categoryId;
     private String categoryCode;
     private String categoryName;
@@ -55,9 +57,11 @@ public class AchievementAdminResponse {
             .name(entity.getName())
             .nameEn(entity.getNameEn())
             .nameAr(entity.getNameAr())
+            .nameJa(entity.getNameJa())
             .description(entity.getDescription())
             .descriptionEn(entity.getDescriptionEn())
             .descriptionAr(entity.getDescriptionAr())
+            .descriptionJa(entity.getDescriptionJa())
             .categoryId(entity.getCategory() != null ? entity.getCategory().getId() : null)
             .categoryCode(entity.getCategoryCode())
             .categoryName(entity.getCategory() != null ? entity.getCategory().getName() : null)

@@ -32,6 +32,9 @@ public class TitleAdminRequest {
     @Size(max = 50, message = "칭호 이름(아랍어)은 50자 이하이어야 합니다.")
     private String nameAr;
 
+    @Size(max = 50, message = "칭호 이름(일본어)은 50자 이하이어야 합니다.")
+    private String nameJa;
+
     @Size(max = 200, message = "칭호 설명은 200자 이하이어야 합니다.")
     private String description;
 

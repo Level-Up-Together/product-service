@@ -52,6 +52,10 @@ public class Title extends LocalDateTimeBaseEntity {
     @Comment("칭호 이름 (아랍어)")
     private String nameAr;
 
+    @Column(name = "name_ja", length = 50)
+    @Comment("칭호 이름 (일본어)")
+    private String nameJa;
+
     @Column(name = "description", length = 200)
     @Comment("칭호 설명")
     private String description;
@@ -63,6 +67,10 @@ public class Title extends LocalDateTimeBaseEntity {
     @Column(name = "description_ar", length = 200)
     @Comment("칭호 설명 (아랍어)")
     private String descriptionAr;
+
+    @Column(name = "description_ja", length = 200)
+    @Comment("칭호 설명 (일본어)")
+    private String descriptionJa;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -116,7 +124,7 @@ public class Title extends LocalDateTimeBaseEntity {
      * @return 해당 locale의 칭호명 (없으면 기본값)
      */
     public String getLocalizedName(String locale) {
-        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
     /**

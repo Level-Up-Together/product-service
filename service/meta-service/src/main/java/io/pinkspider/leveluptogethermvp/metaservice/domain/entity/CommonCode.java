@@ -46,6 +46,11 @@ public class CommonCode {
     @Column(name = "code_title_ar", length = 50)
     private String codeTitleAr;
 
+    @Size(max = 50)
+    @Comment("일본어 제목")
+    @Column(name = "code_title_ja", length = 50)
+    private String codeTitleJa;
+
     @Size(max = 64)
     @Column(name = "description", length = 64)
     private String description;

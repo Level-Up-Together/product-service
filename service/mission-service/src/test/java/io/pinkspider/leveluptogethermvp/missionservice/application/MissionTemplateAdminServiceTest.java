@@ -65,8 +65,8 @@ class MissionTemplateAdminServiceTest {
 
     private MissionTemplateAdminRequest createTestRequest() {
         return new MissionTemplateAdminRequest(
-            "새 템플릿", "New Template", null,
-            "설명", "Description", null,
+            "새 템플릿", "New Template", null, null,
+            "설명", "Description", null, null,
             "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
             30, 50, false, null, null, null, null
         );
@@ -171,7 +171,7 @@ class MissionTemplateAdminServiceTest {
         @DisplayName("카테고리 ID로 템플릿을 생성하면 categoryName이 설정된다")
         void createWithCategoryId() {
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "운동 미션", null, null, "설명", null, null,
+                "운동 미션", null, null, null, "설명", null, null, null,
                 "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
                 30, 50, false, null, null, 1L, null
             );
@@ -194,7 +194,7 @@ class MissionTemplateAdminServiceTest {
         @DisplayName("비활성 카테고리로 생성 시 예외가 발생한다")
         void throwsWhenInactiveCategory() {
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "운동 미션", null, null, "설명", null, null,
+                "운동 미션", null, null, null, "설명", null, null, null,
                 "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
                 30, 50, false, null, null, 1L, null
             );
@@ -224,7 +224,7 @@ class MissionTemplateAdminServiceTest {
         @DisplayName("null 필드는 기본값으로 설정된다")
         void createWithDefaults() {
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "템플릿", null, null, null, null, null,
+                "템플릿", null, null, null, null, null, null, null,
                 null, null, null, null,
                 null, null, null, null, null, null, null
             );
@@ -240,7 +240,7 @@ class MissionTemplateAdminServiceTest {
         @DisplayName("customCategory로 템플릿을 생성한다")
         void createWithCustomCategory() {
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "커스텀 미션", null, null, "설명", null, null,
+                "커스텀 미션", null, null, null, "설명", null, null, null,
                 "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
                 30, 50, false, null, null, null, "나만의 카테고리"
             );
@@ -277,7 +277,7 @@ class MissionTemplateAdminServiceTest {
         void updateWithCategoryId() {
             MissionTemplate existing = createTestTemplate(1L);
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "수정 미션", null, null, "설명", null, null,
+                "수정 미션", null, null, null, "설명", null, null, null,
                 "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
                 30, 50, false, null, null, 1L, null
             );
@@ -298,7 +298,7 @@ class MissionTemplateAdminServiceTest {
         void throwsWhenInactiveCategoryOnUpdate() {
             MissionTemplate existing = createTestTemplate(1L);
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "수정 미션", null, null, "설명", null, null,
+                "수정 미션", null, null, null, "설명", null, null, null,
                 "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
                 30, 50, false, null, null, 1L, null
             );
@@ -326,7 +326,7 @@ class MissionTemplateAdminServiceTest {
         void updateWithNullFields() {
             MissionTemplate existing = createTestTemplate(1L);
             MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
-                "수정", null, null, null, null, null,
+                "수정", null, null, null, null, null, null, null,
                 null, null, null, null,
                 null, null, null, null, null, null, null
             );

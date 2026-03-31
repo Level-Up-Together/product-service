@@ -13,17 +13,11 @@ public class LocaleUtils {
     }
 
     /**
-     * locale에 따라 적절한 텍스트 반환
+     * locale에 따라 적절한 텍스트 반환 (4개 언어)
      * - 해당 locale 값이 있으면 반환
      * - 없으면 기본값(한국어) 반환
-     *
-     * @param defaultValue 기본값 (한국어)
-     * @param enValue 영어 값
-     * @param arValue 아랍어 값
-     * @param locale 대상 locale (Accept-Language 헤더에서 추출)
-     * @return 적절한 locale의 텍스트
      */
-    public static String getLocalizedText(String defaultValue, String enValue, String arValue, String locale) {
+    public static String getLocalizedText(String defaultValue, String enValue, String arValue, String jaValue, String locale) {
         if (locale == null || locale.isBlank()) {
             return defaultValue;
         }
@@ -33,14 +27,22 @@ public class LocaleUtils {
         return switch (langCode) {
             case "en" -> enValue != null && !enValue.isBlank() ? enValue : defaultValue;
             case "ar" -> arValue != null && !arValue.isBlank() ? arValue : defaultValue;
+            case "ja" -> jaValue != null && !jaValue.isBlank() ? jaValue : defaultValue;
             default -> defaultValue;
         };
+    }
+
+    /**
+     * locale에 따라 적절한 텍스트 반환 (3개 언어 — 기존 호환)
+     */
+    public static String getLocalizedText(String defaultValue, String enValue, String arValue, String locale) {
+        return getLocalizedText(defaultValue, enValue, arValue, null, locale);
     }
 
     /**
      * 단순 2개 언어 버전 (기본값 + 영어만)
      */
     public static String getLocalizedText(String defaultValue, String enValue, String locale) {
-        return getLocalizedText(defaultValue, enValue, null, locale);
+        return getLocalizedText(defaultValue, enValue, null, null, locale);
     }
 }

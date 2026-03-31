@@ -18,9 +18,13 @@ public record MissionTemplateAdminRequest(
     @Size(max = 200)
     String titleAr,
 
+    @Size(max = 200)
+    String titleJa,
+
     String description,
     String descriptionEn,
     String descriptionAr,
+    String descriptionJa,
 
     String visibility,
     String source,

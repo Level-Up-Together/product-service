@@ -57,6 +57,10 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Comment("업적 이름 (아랍어)")
     private String nameAr;
 
+    @Column(name = "name_ja", length = 100)
+    @Comment("업적 이름 (일본어)")
+    private String nameJa;
+
     @Column(name = "description", length = 500)
     @Comment("업적 설명")
     private String description;
@@ -68,6 +72,10 @@ public class Achievement extends LocalDateTimeBaseEntity {
     @Column(name = "description_ar", length = 500)
     @Comment("업적 설명 (아랍어)")
     private String descriptionAr;
+
+    @Column(name = "description_ja", length = 500)
+    @Comment("업적 설명 (일본어)")
+    private String descriptionJa;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -146,14 +154,14 @@ public class Achievement extends LocalDateTimeBaseEntity {
      * locale에 따라 업적명을 반환합니다.
      */
     public String getLocalizedName(String locale) {
-        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
     /**
      * locale에 따라 업적 설명을 반환합니다.
      */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 
     /**

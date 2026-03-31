@@ -208,7 +208,7 @@ class TranslationServiceTest {
             assertThat(SupportedLocale.isSupported("ko")).isTrue();
             assertThat(SupportedLocale.isSupported("en")).isTrue();
             assertThat(SupportedLocale.isSupported("ar")).isTrue();
-            assertThat(SupportedLocale.isSupported("ja")).isFalse();
+            assertThat(SupportedLocale.isSupported("ja")).isTrue();
             assertThat(SupportedLocale.isSupported("zh")).isFalse();
         }
 
@@ -218,7 +218,7 @@ class TranslationServiceTest {
             assertThat(SupportedLocale.extractLanguageCode("ko-KR,ko;q=0.9,en;q=0.8")).isEqualTo("ko");
             assertThat(SupportedLocale.extractLanguageCode("en-US,en;q=0.9")).isEqualTo("en");
             assertThat(SupportedLocale.extractLanguageCode("ar-SA,ar;q=0.9")).isEqualTo("ar");
-            assertThat(SupportedLocale.extractLanguageCode("ja-JP,ja;q=0.9")).isEqualTo("en");  // 지원하지 않으면 기본값 (영어)
+            assertThat(SupportedLocale.extractLanguageCode("ja-JP,ja;q=0.9")).isEqualTo("ja");
             assertThat(SupportedLocale.extractLanguageCode(null)).isEqualTo("en");
             assertThat(SupportedLocale.extractLanguageCode("")).isEqualTo("en");
         }

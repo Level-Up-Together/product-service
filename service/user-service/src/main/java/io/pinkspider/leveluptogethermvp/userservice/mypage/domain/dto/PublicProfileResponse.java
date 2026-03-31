@@ -63,6 +63,7 @@ public class PublicProfileResponse {
         private String name;
         private String nameEn;
         private String nameAr;
+        private String nameJa;
         private String displayName;
         private String rarity;
         private String colorCode;

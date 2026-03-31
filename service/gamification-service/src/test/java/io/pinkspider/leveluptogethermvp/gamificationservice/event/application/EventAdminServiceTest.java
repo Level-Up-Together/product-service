@@ -67,8 +67,8 @@ class EventAdminServiceTest {
             String name, LocalDateTime startAt, LocalDateTime endAt,
             Long rewardTitleId, Boolean isActive) {
         return new EventAdminRequest(
-            name, name + " EN", name + " AR",
-            "이벤트 설명", "Event description", "وصف الحدث",
+            name, name + " EN", name + " AR", null,
+            "이벤트 설명", "Event description", "وصف الحدث", null,
             "https://cdn.example.com/events/test.png",
             startAt, endAt, rewardTitleId, isActive
         );

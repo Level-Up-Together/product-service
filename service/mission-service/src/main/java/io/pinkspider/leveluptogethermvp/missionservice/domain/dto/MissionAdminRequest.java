@@ -20,9 +20,13 @@ public record MissionAdminRequest(
     @Size(max = 200)
     String titleAr,
 
+    @Size(max = 200)
+    String titleJa,
+
     String description,
     String descriptionEn,
     String descriptionAr,
+    String descriptionJa,
 
     @NotNull(message = "미션 상태는 필수입니다.")
     String status,

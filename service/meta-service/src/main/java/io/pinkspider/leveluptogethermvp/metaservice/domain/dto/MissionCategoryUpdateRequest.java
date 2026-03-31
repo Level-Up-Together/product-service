@@ -26,6 +26,9 @@ public class MissionCategoryUpdateRequest {
     @Size(max = 50, message = "카테고리 이름(아랍어)은 50자 이하여야 합니다.")
     private String nameAr;
 
+    @Size(max = 50, message = "카테고리 이름(일본어)은 50자 이하여야 합니다.")
+    private String nameJa;
+
     @Size(max = 200, message = "카테고리 설명은 200자 이하여야 합니다.")
     private String description;
 
@@ -34,6 +37,9 @@ public class MissionCategoryUpdateRequest {
 
     @Size(max = 200, message = "카테고리 설명(아랍어)은 200자 이하여야 합니다.")
     private String descriptionAr;
+
+    @Size(max = 200, message = "카테고리 설명(일본어)은 200자 이하여야 합니다.")
+    private String descriptionJa;
 
     @Size(max = 50, message = "아이콘은 50자 이하여야 합니다.")
     private String icon;

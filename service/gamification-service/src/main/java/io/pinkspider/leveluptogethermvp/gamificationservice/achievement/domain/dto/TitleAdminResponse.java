@@ -23,6 +23,7 @@ public class TitleAdminResponse {
     private String name;
     private String nameEn;
     private String nameAr;
+    private String nameJa;
     private String description;
     private TitleRarity rarity;
     private TitlePosition positionType;
@@ -47,6 +48,7 @@ public class TitleAdminResponse {
             .name(entity.getName())
             .nameEn(entity.getNameEn())
             .nameAr(entity.getNameAr())
+            .nameJa(entity.getNameJa())
             .description(entity.getDescription())
             .rarity(entity.getRarity())
             .positionType(entity.getPositionType())

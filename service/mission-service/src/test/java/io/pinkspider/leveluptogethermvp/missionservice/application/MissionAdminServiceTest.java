@@ -64,8 +64,8 @@ class MissionAdminServiceTest {
 
     private MissionAdminRequest createTestRequest() {
         return new MissionAdminRequest(
-            "새 미션", "New Mission", null,
-            "설명", "Description", null,
+            "새 미션", "New Mission", null, null,
+            "설명", "Description", null, null,
             "OPEN", "PUBLIC", "PERSONAL",
             "SYSTEM", "DIRECT", true,
             "admin-1", null, 10,
@@ -139,7 +139,7 @@ class MissionAdminServiceTest {
         void defaultSource() {
             // given
             MissionAdminRequest request = new MissionAdminRequest(
-                "미션", null, null, null, null, null,
+                "미션", null, null, null, null, null, null, null,
                 "OPEN", "PUBLIC", "PERSONAL",
                 null, null, null, "admin-1", null, null,
                 null, null, null, null, null, null, null,

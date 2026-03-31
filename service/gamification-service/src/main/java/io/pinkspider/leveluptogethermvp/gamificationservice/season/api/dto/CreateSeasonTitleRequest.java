@@ -12,6 +12,7 @@ public record CreateSeasonTitleRequest(
     @NotBlank String name,
     String nameEn,
     String nameAr,
+    String nameJa,
     String description,
     @NotNull TitleRarity rarity,
     @NotNull TitlePosition positionType,

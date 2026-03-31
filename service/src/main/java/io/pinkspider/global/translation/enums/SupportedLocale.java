@@ -13,7 +13,8 @@ import lombok.RequiredArgsConstructor;
 public enum SupportedLocale {
     KOREAN("ko", "한국어"),
     ENGLISH("en", "English"),
-    ARABIC("ar", "العربية");
+    ARABIC("ar", "العربية"),
+    JAPANESE("ja", "日本語");
 
     private final String code;
     private final String displayName;

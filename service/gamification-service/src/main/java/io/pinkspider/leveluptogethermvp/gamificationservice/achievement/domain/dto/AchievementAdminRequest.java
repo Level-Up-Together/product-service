@@ -30,6 +30,9 @@ public class AchievementAdminRequest {
     @Size(max = 100, message = "업적 이름(아랍어)은 100자 이하이어야 합니다.")
     private String nameAr;
 
+    @Size(max = 100, message = "업적 이름(일본어)은 100자 이하이어야 합니다.")
+    private String nameJa;
+
     @Size(max = 500, message = "업적 설명은 500자 이하이어야 합니다.")
     private String description;
 
@@ -38,6 +41,9 @@ public class AchievementAdminRequest {
 
     @Size(max = 500, message = "업적 설명(아랍어)은 500자 이하이어야 합니다.")
     private String descriptionAr;
+
+    @Size(max = 500, message = "업적 설명(일본어)은 500자 이하이어야 합니다.")
+    private String descriptionJa;
 
     @NotNull(message = "업적 카테고리 ID는 필수입니다.")
     private Long categoryId;

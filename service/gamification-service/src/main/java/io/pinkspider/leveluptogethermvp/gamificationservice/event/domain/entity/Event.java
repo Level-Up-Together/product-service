@@ -44,6 +44,10 @@ public class Event extends LocalDateTimeBaseEntity {
     @Comment("이벤트명 (아랍어)")
     private String nameAr;
 
+    @Column(name = "name_ja", length = 100)
+    @Comment("이벤트명 (일본어)")
+    private String nameJa;
+
     @Column(name = "description", columnDefinition = "TEXT")
     @Comment("설명")
     private String description;
@@ -55,6 +59,10 @@ public class Event extends LocalDateTimeBaseEntity {
     @Column(name = "description_ar", columnDefinition = "TEXT")
     @Comment("설명 (아랍어)")
     private String descriptionAr;
+
+    @Column(name = "description_ja", columnDefinition = "TEXT")
+    @Comment("설명 (일본어)")
+    private String descriptionJa;
 
     @Column(name = "image_url", length = 500)
     @Comment("이벤트 이미지 URL")
@@ -110,13 +118,13 @@ public class Event extends LocalDateTimeBaseEntity {
      * locale에 따라 이벤트명을 반환합니다.
      */
     public String getLocalizedName(String locale) {
-        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, locale);
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
     }
 
     /**
      * locale에 따라 설명을 반환합니다.
      */
     public String getLocalizedDescription(String locale) {
-        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, locale);
+        return LocaleUtils.getLocalizedText(description, descriptionEn, descriptionAr, descriptionJa, locale);
     }
 }
