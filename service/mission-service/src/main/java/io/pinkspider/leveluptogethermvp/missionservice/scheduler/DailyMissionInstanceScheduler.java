@@ -43,11 +43,11 @@ public class DailyMissionInstanceScheduler {
     private static final int BATCH_SIZE = 100;
 
     /**
-     * 매일 새벽 00:05에 실행
+     * 매일 자정 00:00에 실행
      * - 지난 날짜 미완료 인스턴스 MISSED 처리
      * - 오늘 인스턴스 생성
      */
-    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateDailyInstances() {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 시작 ===");
