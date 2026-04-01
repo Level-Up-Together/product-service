@@ -140,6 +140,7 @@ public class SeasonRankRewardService {
             .name(request.name())
             .nameEn(request.nameEn())
             .nameAr(request.nameAr())
+            .nameJa(request.nameJa())
             .description(request.description())
             .rarity(request.rarity())
             .positionType(request.positionType())

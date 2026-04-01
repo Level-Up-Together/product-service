@@ -88,9 +88,11 @@ public class MissionAdminService {
             .title(request.title())
             .titleEn(request.titleEn())
             .titleAr(request.titleAr())
+            .titleJa(request.titleJa())
             .description(request.description())
             .descriptionEn(request.descriptionEn())
             .descriptionAr(request.descriptionAr())
+            .descriptionJa(request.descriptionJa())
             .status(MissionStatus.valueOf(request.status()))
             .visibility(MissionVisibility.valueOf(request.visibility()))
             .type(MissionType.valueOf(request.type()))
@@ -128,9 +130,11 @@ public class MissionAdminService {
         mission.setTitle(request.title());
         mission.setTitleEn(request.titleEn());
         mission.setTitleAr(request.titleAr());
+        mission.setTitleJa(request.titleJa());
         mission.setDescription(request.description());
         mission.setDescriptionEn(request.descriptionEn());
         mission.setDescriptionAr(request.descriptionAr());
+        mission.setDescriptionJa(request.descriptionJa());
         mission.setStatus(MissionStatus.valueOf(request.status()));
         mission.setVisibility(MissionVisibility.valueOf(request.visibility()));
         mission.setType(MissionType.valueOf(request.type()));

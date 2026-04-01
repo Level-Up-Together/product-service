@@ -70,9 +70,11 @@ public class EventAdminService {
             .name(request.name())
             .nameEn(request.nameEn())
             .nameAr(request.nameAr())
+            .nameJa(request.nameJa())
             .description(request.description())
             .descriptionEn(request.descriptionEn())
             .descriptionAr(request.descriptionAr())
+            .descriptionJa(request.descriptionJa())
             .imageUrl(request.imageUrl())
             .startAt(request.startAt())
             .endAt(request.endAt())
@@ -97,9 +99,11 @@ public class EventAdminService {
         event.setName(request.name());
         event.setNameEn(request.nameEn());
         event.setNameAr(request.nameAr());
+        event.setNameJa(request.nameJa());
         event.setDescription(request.description());
         event.setDescriptionEn(request.descriptionEn());
         event.setDescriptionAr(request.descriptionAr());
+        event.setDescriptionJa(request.descriptionJa());
         event.setImageUrl(request.imageUrl());
         event.setStartAt(request.startAt());
         event.setEndAt(request.endAt());

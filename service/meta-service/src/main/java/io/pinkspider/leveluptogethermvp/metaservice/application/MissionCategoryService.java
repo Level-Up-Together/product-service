@@ -39,9 +39,11 @@ public class MissionCategoryService {
             .name(request.getName())
             .nameEn(request.getNameEn())
             .nameAr(request.getNameAr())
+            .nameJa(request.getNameJa())
             .description(request.getDescription())
             .descriptionEn(request.getDescriptionEn())
             .descriptionAr(request.getDescriptionAr())
+            .descriptionJa(request.getDescriptionJa())
             .icon(request.getIcon())
             .displayOrder(request.getDisplayOrder())
             .isActive(true)
@@ -79,6 +81,10 @@ public class MissionCategoryService {
             category.setNameAr(request.getNameAr());
         }
 
+        if (request.getNameJa() != null) {
+            category.setNameJa(request.getNameJa());
+        }
+
         if (request.getDescription() != null) {
             category.setDescription(request.getDescription());
         }
@@ -89,6 +95,10 @@ public class MissionCategoryService {
 
         if (request.getDescriptionAr() != null) {
             category.setDescriptionAr(request.getDescriptionAr());
+        }
+
+        if (request.getDescriptionJa() != null) {
+            category.setDescriptionJa(request.getDescriptionJa());
         }
 
         if (request.getIcon() != null) {

@@ -95,6 +95,7 @@ public class TitleAdminService {
             .name(request.getName())
             .nameEn(request.getNameEn())
             .nameAr(request.getNameAr())
+            .nameJa(request.getNameJa())
             .description(request.getDescription())
             .rarity(request.getRarity())
             .positionType(request.getPositionType())
@@ -122,6 +123,7 @@ public class TitleAdminService {
         title.setName(request.getName());
         title.setNameEn(request.getNameEn());
         title.setNameAr(request.getNameAr());
+        title.setNameJa(request.getNameJa());
         title.setDescription(request.getDescription());
         title.setRarity(request.getRarity());
         title.setPositionType(request.getPositionType());

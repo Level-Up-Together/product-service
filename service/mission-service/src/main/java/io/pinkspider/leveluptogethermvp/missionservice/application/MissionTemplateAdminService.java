@@ -78,9 +78,11 @@ public class MissionTemplateAdminService {
             .title(request.title())
             .titleEn(request.titleEn())
             .titleAr(request.titleAr())
+            .titleJa(request.titleJa())
             .description(request.description())
             .descriptionEn(request.descriptionEn())
             .descriptionAr(request.descriptionAr())
+            .descriptionJa(request.descriptionJa())
             .visibility(request.visibility() != null ? MissionVisibility.valueOf(request.visibility()) : MissionVisibility.PUBLIC)
             .source(request.source() != null ? MissionSource.valueOf(request.source()) : MissionSource.SYSTEM)
             .participationType(request.participationType() != null
@@ -110,9 +112,11 @@ public class MissionTemplateAdminService {
         template.setTitle(request.title());
         template.setTitleEn(request.titleEn());
         template.setTitleAr(request.titleAr());
+        template.setTitleJa(request.titleJa());
         template.setDescription(request.description());
         template.setDescriptionEn(request.descriptionEn());
         template.setDescriptionAr(request.descriptionAr());
+        template.setDescriptionJa(request.descriptionJa());
         if (request.visibility() != null) {
             template.setVisibility(MissionVisibility.valueOf(request.visibility()));
         }

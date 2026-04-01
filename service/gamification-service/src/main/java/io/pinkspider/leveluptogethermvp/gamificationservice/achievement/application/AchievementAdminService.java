@@ -110,9 +110,11 @@ public class AchievementAdminService {
             .name(request.getName())
             .nameEn(request.getNameEn())
             .nameAr(request.getNameAr())
+            .nameJa(request.getNameJa())
             .description(request.getDescription())
             .descriptionEn(request.getDescriptionEn())
             .descriptionAr(request.getDescriptionAr())
+            .descriptionJa(request.getDescriptionJa())
             .iconUrl(request.getIconUrl())
             .requiredCount(request.getRequiredCount())
             .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
@@ -163,9 +165,11 @@ public class AchievementAdminService {
         achievement.setName(request.getName());
         achievement.setNameEn(request.getNameEn());
         achievement.setNameAr(request.getNameAr());
+        achievement.setNameJa(request.getNameJa());
         achievement.setDescription(request.getDescription());
         achievement.setDescriptionEn(request.getDescriptionEn());
         achievement.setDescriptionAr(request.getDescriptionAr());
+        achievement.setDescriptionJa(request.getDescriptionJa());
         achievement.setCategory(category);
         achievement.setIconUrl(request.getIconUrl());
         achievement.setRequiredCount(request.getRequiredCount());
