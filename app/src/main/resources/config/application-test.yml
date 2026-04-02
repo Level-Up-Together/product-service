@@ -223,8 +223,8 @@ firebase:
 # 미션 수행 설정
 mission:
   execution:
-    base-exp: 10
-    warning-minutes-before-auto-end: 10
+    base-exp: 20
+    warning-minutes-after-start: 60,110
 
 app:
   admin:

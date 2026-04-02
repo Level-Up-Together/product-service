@@ -190,57 +190,65 @@ public class MissionAutoCompleteScheduler {
     }
 
     /**
-     * 자동종료 임박 경고 알림 발송
+     * 경고 알림 발송 (다중 시점 지원)
      *
-     * 110분~120분 경과 (자동종료 10분 전) 미션에 대해 푸시 알림 발송
+     * warningMinutesAfterStart 설정에 따라 여러 시점에서 경고 알림 발송
+     * 예: [60, 110] → 1시간 경과 시 + 1시간50분 경과 시
      * 목표시간 설정 미션은 자동종료 대상이 아니므로 제외
+     * 스케줄러가 5분마다 실행되므로 각 시점 ±5분 범위로 탐색
      */
     private int sendAutoEndWarnings() {
-        int warningMinutes = missionExecutionProperties.getWarningMinutesBeforeAutoEnd();
-        long warningThresholdMinutes = MAXIMUM_EXECUTION_MINUTES - warningMinutes;
-
-        LocalDateTime warningStart = LocalDateTime.now().minusMinutes(MAXIMUM_EXECUTION_MINUTES);
-        LocalDateTime warningEnd = LocalDateTime.now().minusMinutes(warningThresholdMinutes);
-
-        int count = 0;
-
-        // 일반 미션 경고
-        List<MissionExecution> warningExecutions =
-            executionRepository.findInProgressWarningExecutions(warningStart, warningEnd);
-        for (MissionExecution execution : warningExecutions) {
-            // 목표시간 설정 미션 제외
-            if (execution.getParticipant() != null
-                && execution.getParticipant().getMission() != null
-                && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
-                continue;
-            }
-            try {
-                String userId = execution.getParticipant().getUserId();
-                String missionTitle = execution.getParticipant().getMission().getTitle();
-                Long missionId = execution.getParticipant().getMission().getId();
-                eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
-                count++;
-            } catch (Exception e) {
-                log.warn("자동종료 경고 알림 실패 (일반): executionId={}, error={}", execution.getId(), e.getMessage());
-            }
+        List<Integer> warningPoints = missionExecutionProperties.getWarningMinutesAfterStart();
+        if (warningPoints == null || warningPoints.isEmpty()) {
+            return 0;
         }
 
-        // 고정 미션 경고
-        List<DailyMissionInstance> warningInstances =
-            instanceRepository.findInProgressWarningInstances(warningStart, warningEnd);
-        for (DailyMissionInstance instance : warningInstances) {
-            // 목표시간 설정 미션 제외
-            if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0) {
-                continue;
+        int count = 0;
+        LocalDateTime now = LocalDateTime.now();
+
+        for (int warningMinute : warningPoints) {
+            // 해당 시점 ± 스케줄러 주기(5분) 범위의 미션 탐색
+            LocalDateTime rangeStart = now.minusMinutes(warningMinute + 5);
+            LocalDateTime rangeEnd = now.minusMinutes(warningMinute);
+
+            // 일반 미션 경고
+            List<MissionExecution> warningExecutions =
+                executionRepository.findInProgressWarningExecutions(rangeStart, rangeEnd);
+            for (MissionExecution execution : warningExecutions) {
+                if (execution.getParticipant() != null
+                    && execution.getParticipant().getMission() != null
+                    && execution.getParticipant().getMission().getTargetDurationMinutes() != null) {
+                    continue;
+                }
+                try {
+                    String userId = execution.getParticipant().getUserId();
+                    String missionTitle = execution.getParticipant().getMission().getTitle();
+                    Long missionId = execution.getParticipant().getMission().getId();
+                    eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                    count++;
+                } catch (Exception e) {
+                    log.warn("경고 알림 실패 (일반, {}분): executionId={}, error={}",
+                        warningMinute, execution.getId(), e.getMessage());
+                }
             }
-            try {
-                String userId = instance.getParticipant().getUserId();
-                String missionTitle = instance.getMissionTitle();
-                Long missionId = instance.getParticipant().getMission().getId();
-                eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
-                count++;
-            } catch (Exception e) {
-                log.warn("자동종료 경고 알림 실패 (고정): instanceId={}, error={}", instance.getId(), e.getMessage());
+
+            // 고정 미션 경고
+            List<DailyMissionInstance> warningInstances =
+                instanceRepository.findInProgressWarningInstances(rangeStart, rangeEnd);
+            for (DailyMissionInstance instance : warningInstances) {
+                if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0) {
+                    continue;
+                }
+                try {
+                    String userId = instance.getParticipant().getUserId();
+                    String missionTitle = instance.getMissionTitle();
+                    Long missionId = instance.getParticipant().getMission().getId();
+                    eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                    count++;
+                } catch (Exception e) {
+                    log.warn("경고 알림 실패 (고정, {}분): instanceId={}, error={}",
+                        warningMinute, instance.getId(), e.getMessage());
+                }
             }
         }
 
