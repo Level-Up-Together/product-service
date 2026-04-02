@@ -448,6 +448,7 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.daily_missions.*[].mission_title").type(JsonFieldType.STRING).description("미션 제목"),
                             fieldWithPath("value.daily_missions.*[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
                             fieldWithPath("value.daily_missions.*[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.daily_missions.*[].started_at").type(JsonFieldType.STRING).description("시작 시간").optional(),
                             fieldWithPath("value.daily_missions.*[].completed_at").type(JsonFieldType.STRING).description("완료 시간 (yyyy-MM-dd HH:mm:ss)").optional(),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (캘린더 하이라이트용)")
                         )

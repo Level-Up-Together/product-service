@@ -5,8 +5,10 @@ import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.ExecutionTimeUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -175,6 +178,20 @@ public class MissionExecutionController {
 
         MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
+    }
+
+    /**
+     * 완료된 미션 수행 기록의 시작/종료 시간 수정 (경험치 유지)
+     */
+    @PatchMapping("/{missionId}/executions/{executionDate}/time")
+    public ResponseEntity<ApiResult<Void>> updateExecutionTime(
+        @PathVariable Long missionId,
+        @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
+        @Valid @RequestBody ExecutionTimeUpdateRequest request,
+        @CurrentUser String userId) {
+
+        executionService.updateExecutionTime(missionId, userId, executionDate, request.startedAt(), request.completedAt());
+        return ResponseEntity.ok(ApiResult.<Void>builder().build());
     }
 
     /**

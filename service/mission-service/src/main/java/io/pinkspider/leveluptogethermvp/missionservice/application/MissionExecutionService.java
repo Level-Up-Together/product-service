@@ -28,6 +28,7 @@ public class MissionExecutionService {
 
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
 
@@ -182,5 +183,63 @@ public class MissionExecutionService {
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + date));
 
         return completeExecution(execution.getId(), userId, note);
+    }
+
+    /**
+     * 완료된 미션 수행 기록의 시작/종료 시간 수정
+     * 경험치는 변경하지 않음
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void updateExecutionTime(Long missionId, String userId, LocalDate executionDate,
+                                    java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+        if (!startedAt.isBefore(completedAt)) {
+            throw new IllegalArgumentException("시작 시간은 종료 시간보다 이전이어야 합니다.");
+        }
+
+        MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+
+        Mission mission = participant.getMission();
+
+        if (Boolean.TRUE.equals(mission.getIsPinned())) {
+            // 고정 미션: DailyMissionInstance에서 해당 날짜의 완료된 인스턴스 조회
+            updatePinnedExecutionTime(participant, executionDate, startedAt, completedAt);
+        } else {
+            // 일반 미션: MissionExecution에서 조회
+            updateRegularExecutionTime(participant, executionDate, startedAt, completedAt);
+        }
+
+        log.info("미션 수행 시간 수정: missionId={}, userId={}, date={}, startedAt={}, completedAt={}",
+            missionId, userId, executionDate, startedAt, completedAt);
+    }
+
+    private void updateRegularExecutionTime(MissionParticipant participant, LocalDate executionDate,
+                                            java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+        MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
+
+        if (execution.getStatus() != ExecutionStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 미션만 시간을 수정할 수 있습니다.");
+        }
+
+        execution.setStartedAt(startedAt);
+        execution.setCompletedAt(completedAt);
+        executionRepository.save(execution);
+    }
+
+    private void updatePinnedExecutionTime(MissionParticipant participant, LocalDate executionDate,
+                                           java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+        var instances = dailyMissionInstanceRepository
+            .findCompletedByParticipantIdAndDate(participant.getId(), executionDate);
+
+        if (instances.isEmpty()) {
+            throw new IllegalArgumentException("해당 날짜의 고정 미션 수행 기록을 찾을 수 없습니다: " + executionDate);
+        }
+
+        // 해당 날짜의 가장 최근 완료 인스턴스 시간 수정
+        var instance = instances.get(instances.size() - 1);
+        instance.setStartedAt(startedAt);
+        instance.setCompletedAt(completedAt);
+        dailyMissionInstanceRepository.save(instance);
     }
 }

@@ -210,6 +210,19 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
+     * 특정 참여자의 특정 날짜 완료된 인스턴스 조회 (시간 수정용)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "WHERE dmi.participant.id = :participantId " +
+           "AND dmi.instanceDate = :date " +
+           "AND dmi.status = 'COMPLETED' " +
+           "ORDER BY dmi.sequenceNumber ASC")
+    List<DailyMissionInstance> findCompletedByParticipantIdAndDate(
+        @Param("participantId") Long participantId,
+        @Param("date") LocalDate date
+    );
+
+    /**
      * 배치용: 특정 날짜에 인스턴스가 없는 활성 참여자 ID 목록 조회
      */
     @Query("SELECT p.id FROM MissionParticipant p " +

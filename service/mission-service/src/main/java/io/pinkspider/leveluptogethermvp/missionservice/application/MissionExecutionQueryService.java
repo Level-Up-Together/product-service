@@ -191,6 +191,7 @@ public class MissionExecutionQueryService {
                 .missionTitle(execution.getParticipant().getMission().getTitle())
                 .expEarned(execution.getExpEarned())
                 .durationMinutes(durationMinutes)
+                .startedAt(execution.getStartedAt())
                 .completedAt(execution.getCompletedAt())
                 .build();
 
@@ -212,6 +213,7 @@ public class MissionExecutionQueryService {
                 .missionTitle(instance.getMissionTitle())
                 .expEarned(instance.getExpEarned())
                 .durationMinutes(durationMinutes)
+                .startedAt(instance.getStartedAt())
                 .completedAt(instance.getCompletedAt())
                 .build();
 
