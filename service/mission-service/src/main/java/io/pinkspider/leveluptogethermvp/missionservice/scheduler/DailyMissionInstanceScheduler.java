@@ -170,6 +170,16 @@ public class DailyMissionInstanceScheduler {
 
         int count = 0;
         for (DailyMissionInstance instance : inProgressInstances) {
+            // 시작 후 2시간 미경과 미션은 사용자가 직접 종료하도록 유지
+            if (instance.getStartedAt() != null) {
+                long elapsedMinutes = java.time.Duration.between(instance.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
+                if (elapsedMinutes < 120) {
+                    log.info("자정 자동 완료 스킵 (2시간 미경과, 고정 미션): instanceId={}, elapsed={}분",
+                        instance.getId(), elapsedMinutes);
+                    continue;
+                }
+            }
+
             String userId = instance.getParticipant().getUserId();
             try {
                 dailyMissionInstanceService.completeInstance(instance.getId(), userId, null, false);
@@ -204,6 +214,16 @@ public class DailyMissionInstanceScheduler {
 
         int count = 0;
         for (MissionExecution execution : inProgressExecutions) {
+            // 시작 후 2시간 미경과 미션은 사용자가 직접 종료하도록 유지
+            if (execution.getStartedAt() != null) {
+                long elapsedMinutes = java.time.Duration.between(execution.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
+                if (elapsedMinutes < 120) {
+                    log.info("자정 자동 완료 스킵 (2시간 미경과, 일반 미션): executionId={}, elapsed={}분",
+                        execution.getId(), elapsedMinutes);
+                    continue;
+                }
+            }
+
             String userId = execution.getParticipant().getUserId();
             try {
                 missionExecutionService.completeExecution(execution.getId(), userId, null, false);

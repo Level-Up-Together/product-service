@@ -58,6 +58,22 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
+     * 오늘 + 전날 IN_PROGRESS 인스턴스 조회 (자정 전환 대응)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND (dmi.instanceDate = :today " +
+           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'IN_PROGRESS')) " +
+           "ORDER BY dmi.id DESC")
+    List<DailyMissionInstance> findByUserIdAndTodayOrYesterdayInProgress(
+        @Param("userId") String userId,
+        @Param("today") LocalDate today,
+        @Param("yesterday") LocalDate yesterday
+    );
+
+    /**
      * 사용자의 오늘 완료된 인스턴스 조회 (오늘 수행 기록용)
      *
      * 고정 미션의 완료된 인스턴스만 반환합니다.

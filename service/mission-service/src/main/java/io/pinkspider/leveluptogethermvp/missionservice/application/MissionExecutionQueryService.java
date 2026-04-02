@@ -99,22 +99,23 @@ public class MissionExecutionQueryService {
     @Transactional(transactionManager = "missionTransactionManager")
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate yesterday = today.minusDays(1);
 
         // 고정 미션의 오늘 execution 자동 생성 (일반 MissionExecution용)
         ensurePinnedMissionExecutionsForToday(userId, today);
 
         List<MissionExecutionResponse> responses = new ArrayList<>();
 
-        // 일반 미션 Execution 조회
+        // 일반 미션 Execution 조회 (오늘 + 전날 IN_PROGRESS)
         List<MissionExecutionResponse> regularExecutions = executionRepository
-            .findByUserIdAndExecutionDate(userId, today).stream()
+            .findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday).stream()
             .map(MissionExecutionResponse::from)
             .toList();
         responses.addAll(regularExecutions);
 
-        // 고정 미션 DailyMissionInstance 조회
+        // 고정 미션 DailyMissionInstance 조회 (오늘 + 전날 IN_PROGRESS)
         List<DailyMissionInstance> dailyInstances = dailyMissionInstanceRepository
-            .findByUserIdAndInstanceDateWithMission(userId, today);
+            .findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday);
         List<MissionExecutionResponse> instanceResponses = dailyInstances.stream()
             .map(MissionExecutionResponse::fromDailyMissionInstance)
             .toList();

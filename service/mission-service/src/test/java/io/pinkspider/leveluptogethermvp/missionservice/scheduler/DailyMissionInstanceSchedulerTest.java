@@ -221,7 +221,7 @@ class DailyMissionInstanceSchedulerTest {
             DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
             setId(inProgressInstance, 100L);
             inProgressInstance.start();
-            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusMinutes(35));
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusHours(3));
 
             when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class)))
                 .thenReturn(List.of(inProgressInstance));
@@ -245,7 +245,7 @@ class DailyMissionInstanceSchedulerTest {
                 .participant(participant1)
                 .executionDate(LocalDate.now().minusDays(1))
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusMinutes(45))
+                .startedAt(LocalDateTime.now().minusHours(3))
                 .build();
             setId(inProgressExecution, 200L);
 
@@ -270,7 +270,7 @@ class DailyMissionInstanceSchedulerTest {
             DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
             setId(inProgressInstance, 100L);
             inProgressInstance.start();
-            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusMinutes(35));
+            TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusHours(3));
 
             when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class)))
                 .thenReturn(List.of(inProgressInstance));
@@ -284,9 +284,9 @@ class DailyMissionInstanceSchedulerTest {
             // when
             scheduler.generateDailyInstances();
 
-            // then - 폴백으로 엔티티 직접 완료
+            // then - 폴백으로 엔티티 직접 완료 (3시간 경과 > 2시간 상한 → baseExp 지급)
             assertThat(inProgressInstance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
-            assertThat(inProgressInstance.getExpEarned()).isGreaterThanOrEqualTo(35);
+            assertThat(inProgressInstance.getExpEarned()).isEqualTo(10);
             assertThat(inProgressInstance.getIsAutoCompleted()).isTrue();
             verify(instanceRepository).save(inProgressInstance);
         }

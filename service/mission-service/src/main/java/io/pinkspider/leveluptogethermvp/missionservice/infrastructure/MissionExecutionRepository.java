@@ -64,6 +64,22 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     );
 
     /**
+     * 오늘 + 전날 IN_PROGRESS 미션 실행 조회 (자정 전환 대응)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND (m.isPinned = false OR m.isPinned IS NULL) " +
+           "AND (me.executionDate = :today " +
+           "  OR (me.executionDate = :yesterday AND me.status = 'IN_PROGRESS'))")
+    List<MissionExecution> findByUserIdAndTodayOrYesterdayInProgress(
+        @Param("userId") String userId,
+        @Param("today") LocalDate today,
+        @Param("yesterday") LocalDate yesterday
+    );
+
+    /**
      * 사용자의 진행 중인 미션 조회
      */
     @Query("SELECT me FROM MissionExecution me " +

@@ -405,11 +405,11 @@ class MissionExecutionQueryServiceTest {
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(execution1, execution2));
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
             // when
@@ -427,11 +427,11 @@ class MissionExecutionQueryServiceTest {
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
             // when
@@ -485,14 +485,14 @@ class MissionExecutionQueryServiceTest {
                 });
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
             // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
             DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(newInstance, 200L);
 
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(newInstance));
 
             // when
@@ -542,11 +542,11 @@ class MissionExecutionQueryServiceTest {
                 .thenReturn(true);
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndExecutionDate(eq(testUserId), eq(today)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
             // DailyMissionInstance 조회 (기존 것 반환)
-            when(dailyMissionInstanceRepository.findByUserIdAndInstanceDateWithMission(eq(testUserId), eq(today)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(existingInstance));
 
             // when
