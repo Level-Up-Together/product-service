@@ -52,7 +52,7 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 - **Saga Pattern**: 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Image Moderation**: ONNX 기반 NSFW 이미지 자동 검증 (AOP)
 - **Image Storage**: prod에서 S3 + CloudFront CDN, dev에서 로컬 파일시스템 (`@Profile` 분기)
-- **i18n**: MessageSource 기반 다국어 지원 (en/ko/ar), Accept-Language 헤더 기반 locale 결정
+- **i18n**: MessageSource 기반 다국어 지원 (en/ko/ar/ja), Accept-Language 헤더 기반 locale 결정
 - **Content Translation**: Google Translation API 연동, 3-tier 캐시 (Redis → DB → API)
 
 ### 시스템 아키텍처
@@ -496,12 +496,13 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 
 ### 국제화 (Internationalization)
 
-- 기본 언어: English, 지원 언어: Korean, Arabic
+- 기본 언어: English, 지원 언어: Korean, Arabic, Japanese
 - 유저 언어 설정: `PUT /api/v1/mypage/preferred-locale`
 - 에러 메시지: i18n 메시지 키 (`error.xxx.yyy`) → MessageSource 자동 번역
 - 푸시 알림: 유저 locale 기반 다국어 발송
 - 콘텐츠 번역: Google Translation API (Feed, Guild 게시판/댓글)
-- 금칙어: locale별 관리 (ko, en, ar)
+- 금칙어: locale별 관리 (ko, en, ar, ja)
+- DB 다국어 컬럼: 7개 엔티티에 _en, _ar, _ja 필드 (Title, Achievement, Event, Mission, MissionTemplate, MissionCategory, CommonCode)
 - 타임존: UTC 기반 저장, ISO 8601 포맷
 
 ### BFF (Backend-for-Frontend)
@@ -529,7 +530,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 
 | 스케줄러                            | 주기                      | 설명                              |
 |---------------------------------|-------------------------|---------------------------------|
-| `DailyMissionInstanceScheduler` | `0 5 0 * * *` (매일 0:05) | 고정 미션 일일 인스턴스 자동 생성             |
+| `DailyMissionInstanceScheduler` | `0 0 0 * * *` (매일 0:00) | 고정 미션 일일 인스턴스 자동 생성 + 자정 자동완료   |
 | `MissionAutoCompleteScheduler`  | 5분 간격 (fixedRate)       | 만료 미션 자동 종료 + 종료 10분 전 경고 알림 발송 |
 | `TokenMaintenanceScheduler`     | `0 0 2 * * *` (매일 2:00) | 만료된 OAuth 토큰 정리                 |
 | `DailyMvpHistoryScheduler`      | `0 5 0 * * *` (매일 0:05) | MVP 히스토리 기록                     |

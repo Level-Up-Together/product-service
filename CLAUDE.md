@@ -349,10 +349,13 @@ i18n properties 파일: `app/src/main/resources/i18n/`
 i18n/
 ├── errors_ko.properties        # 에러 메시지 (한국어)
 ├── errors_en.properties        # 에러 메시지 (영어)
+├── errors_ja.properties        # 에러 메시지 (일본어)
 ├── notifications_ko.properties # 알림 메시지 (한국어)
 ├── notifications_en.properties # 알림 메시지 (영어)
+├── notifications_ja.properties # 알림 메시지 (일본어)
 ├── messages_ko.properties      # 일반 메시지 (한국어)
-└── messages_en.properties      # 일반 메시지 (영어)
+├── messages_en.properties      # 일반 메시지 (영어)
+└── messages_ja.properties      # 일반 메시지 (일본어)
 ```
 
 - `MessageConfig.java`: `ReloadableResourceBundleMessageSource` Bean (UTF-8, `useCodeAsDefaultMessage=true`)
@@ -374,7 +377,7 @@ i18n/
 
 ### 금칙어 (Profanity)
 
-- `ProfanityWord.locale`: 언어별 금칙어 관리 (`ko`, `en`, `ar`)
+- `ProfanityWord.locale`: 언어별 금칙어 관리 (`ko`, `en`, `ar`, `ja`)
 - Unique constraint: `(locale, word)`
 - 전체 언어 통합 검사 + locale별 검사 모두 지원
 
