@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -514,5 +515,55 @@ class MissionExecutionControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/{executionDate}/time : 완료된 미션 수행 시간 수정")
+    void updateExecutionTime() throws Exception {
+        // given
+        doNothing().when(executionService).updateExecutionTime(
+            anyLong(), anyString(), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class));
+
+        String requestBody = """
+            {
+                "started_at": "2026-04-03T14:30:00",
+                "completed_at": "2026-04-03T15:45:00"
+            }
+            """;
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch("/api/v1/missions/{missionId}/executions/{executionDate}/time", 1L, "2026-04-03")
+                .with(user("test-user"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk())
+            .andDo(MockMvcRestDocumentationWrapper.document("mission-execution-update-time",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .summary("완료된 미션 수행 시간 수정")
+                        .description("완료된 미션의 시작/종료 시간을 수정합니다. 경험치는 변경되지 않습니다.")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("수행 날짜 (yyyy-MM-dd)")
+                        )
+                        .requestFields(
+                            fieldWithPath("started_at").type(JsonFieldType.STRING).description("수정할 시작 시간 (yyyy-MM-ddTHH:mm:ss)"),
+                            fieldWithPath("completed_at").type(JsonFieldType.STRING).description("수정할 종료 시간 (yyyy-MM-ddTHH:mm:ss)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.NULL).description("null").optional()
+                        )
+                        .build()
+                )
+            ));
     }
 }
