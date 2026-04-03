@@ -1125,6 +1125,61 @@ class GuildControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/guilds/headquarters/validate : 신규 길드 거점 검증 (길드 생성 전)")
+    void validateHeadquartersForNewTest() throws Exception {
+        // given
+        GuildHeadquartersValidationResponse response = GuildHeadquartersValidationResponse.builder()
+            .valid(true)
+            .message("거점 설정 가능한 위치입니다.")
+            .nearbyGuilds(List.of())
+            .baseRadiusMeters(500)
+            .radiusIncreasePerLevelTier(100)
+            .levelTierSize(5)
+            .build();
+
+        when(guildHeadquartersService.validateHeadquartersLocation(
+            org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.anyDouble(),
+            org.mockito.ArgumentMatchers.anyDouble())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/guilds/headquarters/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"latitude\":37.5665,\"longitude\":126.978}")
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-17b. 신규 길드 거점 검증",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("길드 생성 전 거점 설정 가능 여부 검증 (guildId 없이 호출, 인증 불필요)")
+                        .requestFields(
+                            fieldWithPath("latitude").type(JsonFieldType.NUMBER).description("검증할 위도"),
+                            fieldWithPath("longitude").type(JsonFieldType.NUMBER).description("검증할 경도")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("검증 결과"),
+                            fieldWithPath("value.valid").type(JsonFieldType.BOOLEAN).description("거점 설정 가능 여부"),
+                            fieldWithPath("value.message").type(JsonFieldType.STRING).description("결과 메시지"),
+                            fieldWithPath("value.nearby_guilds").type(JsonFieldType.ARRAY).description("근처 길드 목록").optional(),
+                            fieldWithPath("value.base_radius_meters").type(JsonFieldType.NUMBER).description("기본 반경(미터)").optional(),
+                            fieldWithPath("value.radius_increase_per_level_tier").type(JsonFieldType.NUMBER).description("레벨 티어당 반경 증가량").optional(),
+                            fieldWithPath("value.level_tier_size").type(JsonFieldType.NUMBER).description("레벨 티어 크기").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
     @DisplayName("POST /api/v1/guilds/{guildId}/members/{inviteeId} : 멤버 직접 초대")
     void inviteMemberTest() throws Exception {
         // given

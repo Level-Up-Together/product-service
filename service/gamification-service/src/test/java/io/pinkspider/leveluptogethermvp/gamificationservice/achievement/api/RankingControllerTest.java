@@ -17,6 +17,7 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.RankingService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.RankingResponse;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -387,6 +388,250 @@ class RankingControllerTest {
                             fieldWithPath("value[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value[].right_title_name").type(JsonFieldType.STRING).description("우측 칭호").optional(),
                             fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    private LevelRankingResponse createMockLevelRanking(long rank, String userId, int level, int totalExp) {
+        return LevelRankingResponse.builder()
+            .rank(rank)
+            .userId(userId)
+            .nickname("유저" + rank)
+            .currentLevel(level)
+            .currentExp(totalExp % 1000)
+            .totalExp(totalExp)
+            .totalUsers(100L)
+            .percentile(rank / 100.0 * 100)
+            .build();
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/level : 전체 레벨 랭킹 조회")
+    void getLevelRankingTest() throws Exception {
+        // given
+        Page<LevelRankingResponse> page = new PageImpl<>(
+            List.of(
+                createMockLevelRanking(1L, "user-001", 50, 150000),
+                createMockLevelRanking(2L, "user-002", 48, 140000)
+            ),
+            PageRequest.of(0, 20), 2);
+
+        when(rankingService.getLevelRanking(any(Pageable.class))).thenReturn(page);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/rankings/level")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("랭킹-07. 전체 레벨 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Ranking")
+                        .description("레벨 + 총 경험치 기준 전체 랭킹 조회")
+                        .queryParameters(
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 레벨 랭킹"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("랭킹 목록"),
+                            fieldWithPath("value.content[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.content[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.content[].nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.content[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.content[].equipped_title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
+                            fieldWithPath("value.content[].equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.content[].equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
+                            fieldWithPath("value.content[].left_title").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
+                            fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
+                            fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
+                            fieldWithPath("value.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
+                            fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
+                            fieldWithPath("value.content[].total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
+                            fieldWithPath("value.content[].percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)"),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음").optional(),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨").optional(),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬").optional(),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋").optional(),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부").optional(),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부").optional(),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수").optional(),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수").optional(),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부").optional(),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호").optional(),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음").optional(),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨").optional(),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬").optional(),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부").optional(),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수").optional(),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/level/category/{category} : 카테고리별 레벨 랭킹 조회")
+    void getLevelRankingByCategoryTest() throws Exception {
+        // given
+        Page<LevelRankingResponse> page = new PageImpl<>(
+            List.of(
+                createMockLevelRanking(1L, "user-001", 50, 150000),
+                createMockLevelRanking(2L, "user-002", 48, 140000)
+            ),
+            PageRequest.of(0, 20), 2);
+
+        when(rankingService.getLevelRankingByCategory(anyString(), any(Pageable.class))).thenReturn(page);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/rankings/level/category/{category}", "HEALTH")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("랭킹-08. 카테고리별 레벨 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Ranking")
+                        .description("카테고리별 경험치 획득 기준 레벨 랭킹 조회")
+                        .pathParameters(
+                            parameterWithName("category").type(SimpleType.STRING).description("미션 카테고리 코드 (예: HEALTH, STUDY)")
+                        )
+                        .queryParameters(
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 카테고리별 레벨 랭킹"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("랭킹 목록"),
+                            fieldWithPath("value.content[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.content[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.content[].nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.content[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.content[].equipped_title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
+                            fieldWithPath("value.content[].equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.content[].equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
+                            fieldWithPath("value.content[].left_title").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
+                            fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
+                            fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
+                            fieldWithPath("value.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
+                            fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
+                            fieldWithPath("value.content[].total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
+                            fieldWithPath("value.content[].percentile").type(JsonFieldType.NUMBER).description("상위 몇 %"),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음").optional(),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨").optional(),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬").optional(),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋").optional(),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부").optional(),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부").optional(),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수").optional(),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수").optional(),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부").optional(),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호").optional(),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보").optional(),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음").optional(),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬됨").optional(),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬").optional(),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부").optional(),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수").optional(),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/my/level : 내 레벨 랭킹 조회")
+    void getMyLevelRankingTest() throws Exception {
+        // given
+        LevelRankingResponse response = LevelRankingResponse.builder()
+            .rank(15L)
+            .userId(MOCK_USER_ID)
+            .nickname("테스트유저")
+            .currentLevel(30)
+            .currentExp(500)
+            .totalExp(30500)
+            .totalUsers(100L)
+            .percentile(15.0)
+            .build();
+
+        when(rankingService.getMyLevelRanking(anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/rankings/my/level")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("랭킹-09. 내 레벨 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Ranking")
+                        .description("내 레벨 + 경험치 기준 랭킹 조회 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("내 레벨 랭킹 정보"),
+                            fieldWithPath("value.rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.equipped_title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
+                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+                            fieldWithPath("value.equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
+                            fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
+                            fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
+                            fieldWithPath("value.total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
+                            fieldWithPath("value.percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)")
                         )
                         .build()
                 )

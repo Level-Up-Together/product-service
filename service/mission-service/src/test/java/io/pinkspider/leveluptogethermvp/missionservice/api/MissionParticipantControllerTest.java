@@ -529,4 +529,42 @@ class MissionParticipantControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/{missionId}/is-participating : 미션 참여 여부 조회")
+    void isParticipatingTest() throws Exception {
+        // given
+        Long missionId = 1L;
+        when(participantService.isParticipating(anyLong(), anyString()))
+            .thenReturn(true);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/is-participating", missionId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("참여자-10. 미션 참여 여부 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Participant")
+                        .description("현재 사용자가 특정 미션에 참여 중인지 여부 조회 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.BOOLEAN).description("참여 여부 (true: 참여중, false: 미참여)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
 }

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.supportservice.report.api;
 
+import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -12,6 +13,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
+import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.supportservice.report.api.dto.ReportCreateRequest;
@@ -271,6 +273,47 @@ class ReportControllerTest {
                     ResourceSnippetParameters.builder()
                         .tag("Report")
                         .description("길드 신고 생성 (JWT 토큰 인증 필요)")
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reports/check : 콘텐츠 신고 처리 중 여부 확인")
+    void checkUnderReviewTest() throws Exception {
+        // given
+        when(reportService.isUnderReview(any(ReportTargetType.class), anyString()))
+            .thenReturn(true);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/reports/check")
+                .param("targetType", "FEED")
+                .param("targetId", "12345")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("신고-05. 콘텐츠 신고 처리 중 여부 확인",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Report")
+                        .description("특정 콘텐츠가 신고 처리 중인지 여부 조회 (인증 불필요)")
+                        .queryParameters(
+                            parameterWithName("targetType").type(SimpleType.STRING)
+                                .description("신고 대상 유형 (USER_PROFILE, FEED, FEED_COMMENT, GUILD)"),
+                            parameterWithName("targetId").type(SimpleType.STRING)
+                                .description("신고 대상 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.BOOLEAN).description("신고 처리 중 여부 (true: 처리 중, false: 처리 중 아님)")
+                        )
                         .build()
                 )
             )
