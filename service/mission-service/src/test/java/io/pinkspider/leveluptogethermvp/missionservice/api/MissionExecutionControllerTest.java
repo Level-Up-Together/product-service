@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.springframework.mock.web.MockMultipartFile;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -565,5 +566,780 @@ class MissionExecutionControllerTest {
                         .build()
                 )
             ));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/{executionDate}/start : 특정 날짜 미션 시작")
+    void startExecutionTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.IN_PROGRESS)
+            .startedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.startExecution(anyLong(), anyString(), any(LocalDate.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/start",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-09. 특정 날짜 미션 시작",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("특정 날짜의 미션 수행을 시작합니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (IN_PROGRESS)"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/start : 오늘 미션 시작")
+    void startExecutionTodayTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.IN_PROGRESS)
+            .startedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.startExecutionToday(anyLong(), anyString()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch(
+                    "/api/v1/missions/{missionId}/executions/start", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-10. 오늘 미션 시작",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("오늘 날짜의 미션 수행을 시작합니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (IN_PROGRESS)"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/skip : 오늘 미션 스킵")
+    void skipExecutionTodayTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.MISSED)
+            .build();
+
+        when(executionService.skipExecutionToday(anyLong(), anyString()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch(
+                    "/api/v1/missions/{missionId}/executions/skip", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-11. 오늘 미션 스킵",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("오늘 날짜의 미션 수행을 스킵 처리합니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (SKIPPED)"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/{executionDate}/skip : 특정 날짜 미션 스킵")
+    void skipExecutionTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.MISSED)
+            .build();
+
+        when(executionService.skipExecution(anyLong(), anyString(), any(LocalDate.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/skip",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-12. 특정 날짜 미션 스킵",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("특정 날짜의 미션 수행을 스킵 처리합니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (SKIPPED)"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/executions/in-progress : 진행중 미션 조회")
+    void getInProgressExecutionTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.IN_PROGRESS)
+            .startedAt(LocalDateTime.now().minusMinutes(30))
+            .build();
+
+        when(executionQueryService.getInProgressExecution(anyString()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/executions/in-progress")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-13. 진행중 미션 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("현재 사용자가 진행 중인 미션 실행 정보를 조회합니다 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("진행중 미션 실행 정보").optional(),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID").optional(),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID").optional(),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID").optional(),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜").optional(),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (IN_PROGRESS)").optional(),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/{missionId}/executions/{executionDate} : 특정 날짜 실행 조회")
+    void getExecutionByDateTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .note("1시간 조깅 완료")
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.getExecutionByDate(anyLong(), anyString(), any(LocalDate.class), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-14. 특정 날짜 실행 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("특정 날짜의 미션 실행 정보를 조회합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/{missionId}/executions/{executionDate}/note : 메모 수정")
+    void updateExecutionNoteTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .note("수정된 메모 내용")
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.updateExecutionNote(anyLong(), anyString(), any(LocalDate.class), any(), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/note",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .param("note", "수정된 메모 내용")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-15. 메모 수정",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("완료된 미션 실행의 메모를 수정합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("note").type(SimpleType.STRING).description("수정할 메모 내용").optional(),
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions/{missionId}/executions/{executionDate}/image : 이미지 업로드")
+    void uploadExecutionImageTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .imageUrl("https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid.jpg")
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.uploadExecutionImage(anyLong(), anyString(), any(LocalDate.class), any(), any()))
+            .thenReturn(response);
+
+        MockMultipartFile image = new MockMultipartFile(
+            "image",
+            "test-image.jpg",
+            MediaType.IMAGE_JPEG_VALUE,
+            "fake-image-content".getBytes()
+        );
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.multipart(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/image",
+                    1L, LocalDate.now().toString())
+                .file(image)
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-16. 이미지 업로드",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("완료된 미션 실행에 이미지를 업로드합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("업로드된 이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/missions/{missionId}/executions/{executionDate}/image : 이미지 삭제")
+    void deleteExecutionImageTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .imageUrl(null)
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.deleteExecutionImage(anyLong(), anyString(), any(LocalDate.class), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/image",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-17. 이미지 삭제",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("완료된 미션 실행의 이미지를 삭제합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL (삭제 후 null)").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions/{missionId}/executions/{executionDate}/share : 피드 공유")
+    void shareExecutionToFeedTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .isSharedToFeed(true)
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.shareExecutionToFeed(anyLong(), anyString(), any(LocalDate.class), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/share",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-18. 피드 공유",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("완료된 미션 실행을 피드에 공유합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부 (true)").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/missions/{missionId}/executions/{executionDate}/share : 피드 공유 취소")
+    void unshareExecutionFromFeedTest() throws Exception {
+        // given
+        MissionExecutionResponse response = MissionExecutionResponse.builder()
+            .id(1L)
+            .missionId(1L)
+            .missionTitle("30일 운동 챌린지")
+            .userId(MOCK_USER_ID)
+            .executionDate(LocalDate.now())
+            .status(ExecutionStatus.COMPLETED)
+            .expEarned(50)
+            .isSharedToFeed(false)
+            .completedAt(LocalDateTime.now())
+            .build();
+
+        when(executionService.unshareExecutionFromFeed(anyLong(), anyString(), any(LocalDate.class), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete(
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/share",
+                    1L, LocalDate.now().toString())
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-19. 피드 공유 취소",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("피드에 공유된 미션 실행 공유를 취소합니다. instanceId 파라미터로 고정 미션의 특정 인스턴스를 지정할 수 있습니다 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
+                        )
+                        .queryParameters(
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("미션 실행 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("실행 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.mission_title").type(JsonFieldType.STRING).description("미션 제목").optional(),
+                            fieldWithPath("value.mission_category_name").type(JsonFieldType.STRING).description("미션 카테고리명").optional(),
+                            fieldWithPath("value.mission_type").type(JsonFieldType.STRING).description("미션 타입").optional(),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.execution_date").type(JsonFieldType.STRING).description("실행 날짜"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL").optional(),
+                            fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부 (false)").optional(),
+                            fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
+                            fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
 }

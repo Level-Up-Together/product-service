@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "mission_id": 1,
+    "user_id": "test-user-123",
+    "user_nickname": "운동왕",
+    "user_profile_image_url": "https://cdn.example.com/profile/test-user-123.jpg",
+    "user_level": 5,
+    "content": "같이 열심히 해봐요!",
+    "is_deleted": false,
+    "is_my_comment": true,
+    "created_at": "2025-01-10T12:00:00",
+    "modified_at": "2025-01-10T12:00:00"
+  },
+  {
+    "id": 2,
+    "mission_id": 1,
+    "user_id": "other-user-456",
+    "user_nickname": "건강러버",
+    "user_profile_image_url": "https://cdn.example.com/profile/other-user-456.jpg",
+    "user_level": 3,
+    "content": "저도 참여하고 싶어요!",
+    "is_deleted": false,
+    "is_my_comment": false,
+    "created_at": "2025-01-10T13:00:00",
+    "modified_at": "2025-01-10T13:00:00"
+  }
+]

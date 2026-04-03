@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "guild_id": 10,
+    "guild_name": "테스트 길드",
+    "guild_image_url": "https://example.com/guild.jpg",
+    "inviter_id": "test-user-123",
+    "inviter_nickname": "초대자닉네임",
+    "invitee_id": "invitee-user-456",
+    "invitee_nickname": "초대대상닉네임",
+    "message": "저희 길드에 초대합니다!",
+    "status": "PENDING",
+    "expires_at": "2026-04-10T12:00:00",
+    "created_at": "2026-04-03T12:00:00"
+  },
+  {
+    "id": 2,
+    "guild_id": 10,
+    "guild_name": "테스트 길드",
+    "guild_image_url": "https://example.com/guild.jpg",
+    "inviter_id": "test-user-123",
+    "inviter_nickname": "초대자닉네임",
+    "invitee_id": "invitee-user-789",
+    "invitee_nickname": "다른초대대상닉네임",
+    "message": "함께해요!",
+    "status": "PENDING",
+    "expires_at": "2026-04-10T12:00:00",
+    "created_at": "2026-04-03T13:00:00"
+  }
+]

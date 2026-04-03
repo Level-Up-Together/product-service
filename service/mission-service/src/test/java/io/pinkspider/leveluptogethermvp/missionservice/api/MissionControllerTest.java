@@ -21,8 +21,11 @@ import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionCommentService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
 import io.pinkspider.util.MockUtil;
 import java.util.List;
@@ -930,6 +933,446 @@ class MissionControllerTest {
                         .description("미션 삭제 (IN_PROGRESS 상태가 아닐 때만 가능) (JWT 토큰 인증 필요)")
                         .pathParameters(
                             parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/system : 시스템 미션(미션북) 목록 조회")
+    void getSystemMissionsTest() throws Exception {
+        // given
+        List<MissionTemplateResponse> templateList = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionTemplateResponseList.json",
+            new TypeReference<List<MissionTemplateResponse>>() {});
+        Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
+
+        when(missionService.getSystemMissions(any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/system")
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("12. 시스템 미션(미션북) 목록 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("시스템이 제공하는 미션북 템플릿 목록 조회 (페이징)")
+                        .queryParameters(
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 미션 템플릿 목록"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("미션 템플릿 목록"),
+                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("템플릿 ID"),
+                            fieldWithPath("value.content[].title").type(JsonFieldType.STRING).description("미션 제목"),
+                            fieldWithPath("value.content[].title_en").type(JsonFieldType.STRING).description("미션 제목 (영어)").optional(),
+                            fieldWithPath("value.content[].title_ar").type(JsonFieldType.STRING).description("미션 제목 (아랍어)").optional(),
+                            fieldWithPath("value.content[].title_ja").type(JsonFieldType.STRING).description("미션 제목 (일본어)").optional(),
+                            fieldWithPath("value.content[].description").type(JsonFieldType.STRING).description("미션 설명").optional(),
+                            fieldWithPath("value.content[].description_en").type(JsonFieldType.STRING).description("미션 설명 (영어)").optional(),
+                            fieldWithPath("value.content[].description_ar").type(JsonFieldType.STRING).description("미션 설명 (아랍어)").optional(),
+                            fieldWithPath("value.content[].description_ja").type(JsonFieldType.STRING).description("미션 설명 (일본어)").optional(),
+                            fieldWithPath("value.content[].visibility").type(JsonFieldType.STRING).description("공개 여부").optional(),
+                            fieldWithPath("value.content[].source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.content[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.content[].mission_interval").type(JsonFieldType.STRING).description("수행 인터벌").optional(),
+                            fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("미션 수행 시간 (분)").optional(),
+                            fieldWithPath("value.content[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
+                            fieldWithPath("value.content[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.content[].target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
+                            fieldWithPath("value.content[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
+                            fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋"),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부"),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부"),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부"),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부"),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수"),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions/templates/{templateId}/add : 미션북에서 미션 추가")
+    void addMissionFromTemplateTest() throws Exception {
+        // given
+        Long templateId = 10L;
+        MissionResponse response = MockUtil.readJsonFileToClass(
+            "fixture/missionservice/missionResponse.json", MissionResponse.class);
+
+        when(missionService.createMissionFromTemplate(anyLong(), anyString()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/missions/templates/{templateId}/add", templateId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("13. 미션북에서 미션 추가",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("미션 템플릿으로부터 개인 미션 추가 (미션북) (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("templateId").type(SimpleType.NUMBER).description("미션 템플릿 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("생성된 미션 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.title").type(JsonFieldType.STRING).description("미션 제목"),
+                            fieldWithPath("value.title_en").type(JsonFieldType.STRING).description("미션 제목 (영어)").optional(),
+                            fieldWithPath("value.title_ar").type(JsonFieldType.STRING).description("미션 제목 (아랍어)").optional(),
+                            fieldWithPath("value.title_ja").type(JsonFieldType.STRING).description("미션 제목 (일본어)").optional(),
+                            fieldWithPath("value.description").type(JsonFieldType.STRING).description("미션 설명").optional(),
+                            fieldWithPath("value.description_en").type(JsonFieldType.STRING).description("미션 설명 (영어)").optional(),
+                            fieldWithPath("value.description_ar").type(JsonFieldType.STRING).description("미션 설명 (아랍어)").optional(),
+                            fieldWithPath("value.description_ja").type(JsonFieldType.STRING).description("미션 설명 (일본어)").optional(),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("미션 상태"),
+                            fieldWithPath("value.visibility").type(JsonFieldType.STRING).description("공개 여부"),
+                            fieldWithPath("value.type").type(JsonFieldType.STRING).description("미션 타입"),
+                            fieldWithPath("value.creator_id").type(JsonFieldType.STRING).description("생성자 ID"),
+                            fieldWithPath("value.guild_id").type(JsonFieldType.STRING).description("길드 ID").optional(),
+                            fieldWithPath("value.guild_name").type(JsonFieldType.STRING).description("길드 이름").optional(),
+                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.max_participants").type(JsonFieldType.NUMBER).description("최대 참여 인원").optional(),
+                            fieldWithPath("value.current_participants").type(JsonFieldType.NUMBER).description("현재 참여 인원").optional(),
+                            fieldWithPath("value.start_at").type(JsonFieldType.STRING).description("시작일시").optional(),
+                            fieldWithPath("value.end_at").type(JsonFieldType.STRING).description("종료일시").optional(),
+                            fieldWithPath("value.mission_interval").type(JsonFieldType.STRING).description("수행 인터벌").optional(),
+                            fieldWithPath("value.duration_days").type(JsonFieldType.NUMBER).description("미션 기간 (일)").optional(),
+                            fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("미션 수행 시간 (분)").optional(),
+                            fieldWithPath("value.exp_per_completion").type(JsonFieldType.NUMBER).description("수행 당 경험치").optional(),
+                            fieldWithPath("value.bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
+                            fieldWithPath("value.target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
+                            fieldWithPath("value.daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
+                            fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/system/category/{categoryId} : 카테고리별 시스템 미션 조회")
+    void getSystemMissionsByCategoryTest() throws Exception {
+        // given
+        Long categoryId = 2L;
+        List<MissionTemplateResponse> templateList = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionTemplateResponseList.json",
+            new TypeReference<List<MissionTemplateResponse>>() {});
+        Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
+
+        when(missionService.getSystemMissionsByCategory(anyLong(), any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/system/category/{categoryId}", categoryId)
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("14. 카테고리별 시스템 미션 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("카테고리별 시스템 미션 템플릿 목록 조회 (페이징)")
+                        .pathParameters(
+                            parameterWithName("categoryId").type(SimpleType.NUMBER).description("카테고리 ID")
+                        )
+                        .queryParameters(
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 미션 템플릿 목록"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("미션 템플릿 목록"),
+                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("템플릿 ID"),
+                            fieldWithPath("value.content[].title").type(JsonFieldType.STRING).description("미션 제목"),
+                            fieldWithPath("value.content[].title_en").type(JsonFieldType.STRING).description("미션 제목 (영어)").optional(),
+                            fieldWithPath("value.content[].title_ar").type(JsonFieldType.STRING).description("미션 제목 (아랍어)").optional(),
+                            fieldWithPath("value.content[].title_ja").type(JsonFieldType.STRING).description("미션 제목 (일본어)").optional(),
+                            fieldWithPath("value.content[].description").type(JsonFieldType.STRING).description("미션 설명").optional(),
+                            fieldWithPath("value.content[].description_en").type(JsonFieldType.STRING).description("미션 설명 (영어)").optional(),
+                            fieldWithPath("value.content[].description_ar").type(JsonFieldType.STRING).description("미션 설명 (아랍어)").optional(),
+                            fieldWithPath("value.content[].description_ja").type(JsonFieldType.STRING).description("미션 설명 (일본어)").optional(),
+                            fieldWithPath("value.content[].visibility").type(JsonFieldType.STRING).description("공개 여부").optional(),
+                            fieldWithPath("value.content[].source").type(JsonFieldType.STRING).description("미션 출처").optional(),
+                            fieldWithPath("value.content[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
+                            fieldWithPath("value.content[].mission_interval").type(JsonFieldType.STRING).description("수행 인터벌").optional(),
+                            fieldWithPath("value.content[].duration_minutes").type(JsonFieldType.NUMBER).description("미션 수행 시간 (분)").optional(),
+                            fieldWithPath("value.content[].bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
+                            fieldWithPath("value.content[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.content[].target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
+                            fieldWithPath("value.content[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
+                            fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.content[].category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋"),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부"),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부"),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부"),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부"),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수"),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/{missionId}/comments : 미션 댓글 목록 조회")
+    void getCommentsTest() throws Exception {
+        // given
+        Long missionId = 1L;
+        List<MissionCommentResponse> commentList = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionCommentResponseList.json",
+            new TypeReference<List<MissionCommentResponse>>() {});
+        Page<MissionCommentResponse> responses = new PageImpl<>(commentList, PageRequest.of(0, 20), commentList.size());
+
+        when(missionCommentService.getComments(anyLong(), any(), any(int.class), any(int.class)))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}/comments", missionId)
+                .with(user(MOCK_USER_ID))
+                .param("page", "0")
+                .param("size", "20")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("15. 미션 댓글 목록 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("미션 댓글 목록 조회 (페이징)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .queryParameters(
+                            parameterWithName("page").type(SimpleType.NUMBER).description("페이지 번호 (0부터 시작)").optional(),
+                            parameterWithName("size").type(SimpleType.NUMBER).description("페이지 크기").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("페이징된 댓글 목록"),
+                            fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("댓글 목록"),
+                            fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("댓글 ID"),
+                            fieldWithPath("value.content[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.content[].user_id").type(JsonFieldType.STRING).description("작성자 ID"),
+                            fieldWithPath("value.content[].user_nickname").type(JsonFieldType.STRING).description("작성자 닉네임").optional(),
+                            fieldWithPath("value.content[].user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지 URL").optional(),
+                            fieldWithPath("value.content[].user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
+                            fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("댓글 내용"),
+                            fieldWithPath("value.content[].is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.content[].is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
+                            fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("작성일시").optional(),
+                            fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
+                            fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
+                            fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.pageable.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.pageable.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.pageable.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.pageable.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.pageable.offset").type(JsonFieldType.NUMBER).description("오프셋"),
+                            fieldWithPath("value.pageable.paged").type(JsonFieldType.BOOLEAN).description("페이징 여부"),
+                            fieldWithPath("value.pageable.unpaged").type(JsonFieldType.BOOLEAN).description("비페이징 여부"),
+                            fieldWithPath("value.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
+                            fieldWithPath("value.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
+                            fieldWithPath("value.last").type(JsonFieldType.BOOLEAN).description("마지막 페이지 여부"),
+                            fieldWithPath("value.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                            fieldWithPath("value.number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
+                            fieldWithPath("value.sort").type(JsonFieldType.OBJECT).description("정렬 정보"),
+                            fieldWithPath("value.sort.empty").type(JsonFieldType.BOOLEAN).description("정렬 비어있음 여부"),
+                            fieldWithPath("value.sort.sorted").type(JsonFieldType.BOOLEAN).description("정렬 여부"),
+                            fieldWithPath("value.sort.unsorted").type(JsonFieldType.BOOLEAN).description("미정렬 여부"),
+                            fieldWithPath("value.first").type(JsonFieldType.BOOLEAN).description("첫 페이지 여부"),
+                            fieldWithPath("value.number_of_elements").type(JsonFieldType.NUMBER).description("현재 페이지 요소 수"),
+                            fieldWithPath("value.empty").type(JsonFieldType.BOOLEAN).description("비어있음 여부")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/missions/{missionId}/comments : 미션 댓글 작성")
+    void addCommentTest() throws Exception {
+        // given
+        Long missionId = 1L;
+        MissionCommentRequest request = MissionCommentRequest.builder()
+            .content("같이 열심히 해봐요!")
+            .build();
+
+        MissionCommentResponse response = MockUtil.readJsonFileToClass(
+            "fixture/missionservice/missionCommentResponse.json", MissionCommentResponse.class);
+
+        when(missionCommentService.addComment(anyLong(), anyString(), any(MissionCommentRequest.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/missions/{missionId}/comments", missionId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("16. 미션 댓글 작성",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("미션에 댓글 작성 (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID")
+                        )
+                        .requestFields(
+                            fieldWithPath("content").type(JsonFieldType.STRING).description("댓글 내용 (최대 500자)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("작성된 댓글 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("댓글 ID"),
+                            fieldWithPath("value.mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("작성자 ID"),
+                            fieldWithPath("value.user_nickname").type(JsonFieldType.STRING).description("작성자 닉네임").optional(),
+                            fieldWithPath("value.user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지 URL").optional(),
+                            fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
+                            fieldWithPath("value.content").type(JsonFieldType.STRING).description("댓글 내용"),
+                            fieldWithPath("value.is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성일시").optional(),
+                            fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정일시").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/missions/{missionId}/comments/{commentId} : 미션 댓글 삭제")
+    void deleteCommentTest() throws Exception {
+        // given
+        Long missionId = 1L;
+        Long commentId = 1L;
+
+        doNothing().when(missionCommentService).deleteComment(anyLong(), anyLong(), anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete("/api/v1/missions/{missionId}/comments/{commentId}", missionId, commentId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("17. 미션 댓글 삭제",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("미션 댓글 삭제 (본인 댓글만 가능) (JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("missionId").type(SimpleType.NUMBER).description("미션 ID"),
+                            parameterWithName("commentId").type(SimpleType.NUMBER).description("댓글 ID")
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),

@@ -834,4 +834,267 @@ class MyPageControllerTest {
             .andExpect(MockMvcResultMatchers.status().isOk())
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.friendship_status").value("ACCEPTED"));
     }
+
+    @Test
+    @DisplayName("PUT /api/v1/mypage/preferred-locale : 언어 설정 변경")
+    void updatePreferredLocaleTest() throws Exception {
+        // given
+        org.mockito.Mockito.doNothing().when(myPageService).updatePreferredLocale(anyString(), anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.put("/api/v1/mypage/preferred-locale")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"preferred_locale\":\"ko\"}")
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-10. 언어 설정 변경",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("사용자 언어(locale) 설정 변경 (ko, en, ja 등) (JWT 토큰 인증 필요)")
+                        .requestFields(
+                            fieldWithPath("preferred_locale").type(JsonFieldType.STRING).description("변경할 언어 코드 (ko, en, ja 등)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/mypage/bio : 자기소개 수정")
+    void updateBioTest() throws Exception {
+        // given
+        io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.BioUpdateRequest request =
+            io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.BioUpdateRequest.builder()
+                .bio("새로운 자기소개입니다.")
+                .build();
+
+        ProfileInfo response = ProfileInfo.builder()
+            .userId(MOCK_USER_ID)
+            .nickname("테스트유저")
+            .profileImageUrl("https://example.com/profile.jpg")
+            .bio("새로운 자기소개입니다.")
+            .followerCount(10)
+            .followingCount(10)
+            .build();
+
+        when(myPageService.updateBio(anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.put("/api/v1/mypage/bio")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-11. 자기소개 수정",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("사용자 자기소개(bio) 수정 (최대 200자) (JWT 토큰 인증 필요)")
+                        .requestFields(
+                            fieldWithPath("bio").type(JsonFieldType.STRING).description("변경할 자기소개 (최대 200자)").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("업데이트된 프로필 정보"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/nickname/check : 닉네임 중복 체크")
+    void checkNicknameTest() throws Exception {
+        // given
+        when(myPageService.isNicknameAvailable(anyString(), any())).thenReturn(true);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/nickname/check")
+                .with(user(MOCK_USER_ID))
+                .param("nickname", "새닉네임")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-12. 닉네임 중복 체크",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("닉네임 사용 가능 여부 확인 (available: true이면 사용 가능)")
+                        .queryParameters(
+                            com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName("nickname")
+                                .type(com.epages.restdocs.apispec.SimpleType.STRING)
+                                .description("중복 확인할 닉네임")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("중복 체크 결과"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("확인한 닉네임"),
+                            fieldWithPath("value.available").type(JsonFieldType.BOOLEAN).description("사용 가능 여부 (true: 사용 가능, false: 중복)"),
+                            fieldWithPath("value.message").type(JsonFieldType.STRING).description("안내 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/mypage/nickname : 닉네임 변경")
+    void updateNicknameTest() throws Exception {
+        // given
+        io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.NicknameUpdateRequest request =
+            io.pinkspider.leveluptogethermvp.userservice.mypage.domain.dto.NicknameUpdateRequest.builder()
+                .nickname("새닉네임")
+                .build();
+
+        ProfileInfo response = ProfileInfo.builder()
+            .userId(MOCK_USER_ID)
+            .nickname("새닉네임")
+            .profileImageUrl("https://example.com/profile.jpg")
+            .bio("안녕하세요!")
+            .followerCount(10)
+            .followingCount(10)
+            .build();
+
+        when(myPageService.updateNickname(anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.put("/api/v1/mypage/nickname")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-13. 닉네임 변경",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("닉네임 변경 (한글/영문/숫자 2~10자) (JWT 토큰 인증 필요)")
+                        .requestFields(
+                            fieldWithPath("nickname").type(JsonFieldType.STRING).description("변경할 닉네임 (한글/영문/숫자 2~10자)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("업데이트된 프로필 정보"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("변경된 닉네임"),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.bio").type(JsonFieldType.STRING).description("자기소개").optional(),
+                            fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
+                            fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
+                            fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/mypage/nickname/status : 닉네임 변경 가능 상태")
+    void getNicknameStatusTest() throws Exception {
+        // given
+        when(myPageService.needsNicknameSetup(anyString())).thenReturn(true);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/nickname/status")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-14. 닉네임 변경 가능 상태 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("닉네임 설정 필요 여부 조회 (OAuth 가입 시 자동 생성된 닉네임이면 true) (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("닉네임 상태 정보"),
+                            fieldWithPath("value.needs_nickname_setup").type(JsonFieldType.BOOLEAN).description("닉네임 설정 필요 여부 (true: 설정 필요, false: 설정 완료)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/mypage/account : 회원 탈퇴")
+    void withdrawAccountTest() throws Exception {
+        // given
+        org.mockito.Mockito.doNothing().when(myPageService).withdrawUser(anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.delete("/api/v1/mypage/account")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-15. 회원 탈퇴",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("회원 탈퇴 처리 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.STRING).description("탈퇴 완료 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
 }

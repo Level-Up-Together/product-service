@@ -25,6 +25,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryServi
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildExperienceResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersInfoResponse;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildHeadquartersValidationResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildJoinRequestResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildMemberResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
@@ -38,6 +40,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.mock.web.MockMultipartFile;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -797,6 +800,386 @@ class GuildControllerTest {
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/guilds/level-configs")
                 .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/image : 길드 이미지 업로드")
+    void uploadGuildImageTest() throws Exception {
+        // given
+        MockMultipartFile imageFile = new MockMultipartFile(
+            "image",
+            "guild.jpg",
+            MediaType.IMAGE_JPEG_VALUE,
+            "test image content".getBytes()
+        );
+
+        when(guildService.uploadGuildImage(anyLong(), anyString(), any())).thenReturn(createMockGuildResponse());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.multipart("/api/v1/guilds/{guildId}/image", 1L)
+                .file(imageFile)
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-12. 길드 이미지 업로드",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("길드 이미지 파일 업로드 (multipart/form-data, 마스터만 가능, JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("길드 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.name").type(JsonFieldType.STRING).description("길드 이름"),
+                            fieldWithPath("value.description").type(JsonFieldType.STRING).description("길드 설명").optional(),
+                            fieldWithPath("value.master_id").type(JsonFieldType.STRING).description("마스터 ID"),
+                            fieldWithPath("value.visibility").type(JsonFieldType.STRING).description("공개 여부"),
+                            fieldWithPath("value.join_type").type(JsonFieldType.STRING).description("가입 방식").optional(),
+                            fieldWithPath("value.max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수"),
+                            fieldWithPath("value.current_member_count").type(JsonFieldType.NUMBER).description("현재 멤버 수").optional(),
+                            fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
+                            fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
+                            fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
+                            fieldWithPath("value.base_address").type(JsonFieldType.STRING).description("거점 주소").optional(),
+                            fieldWithPath("value.base_latitude").type(JsonFieldType.NUMBER).description("거점 위도").optional(),
+                            fieldWithPath("value.base_longitude").type(JsonFieldType.NUMBER).description("거점 경도").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("업로드된 길드 이미지 URL").optional(),
+                            fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시"),
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.is_pending_join_request").type(JsonFieldType.BOOLEAN).description("가입 신청 대기중 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/members/{targetUserId}/promote-sub-master : 부마스터 승격")
+    void promoteToSubMasterTest() throws Exception {
+        // given
+        GuildMemberResponse response = GuildMemberResponse.builder()
+            .id(2L)
+            .guildId(1L)
+            .userId("user-456")
+            .role(GuildMemberRole.SUB_MASTER)
+            .status(GuildMemberStatus.ACTIVE)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        when(guildMemberService.promoteToSubMaster(anyLong(), anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post(
+                "/api/v1/guilds/{guildId}/members/{targetUserId}/promote-sub-master", 1L, "user-456")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-13. 부마스터 승격",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("특정 멤버를 부마스터(MANAGER)로 승격 (마스터만 가능, JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
+                            parameterWithName("targetUserId").type(SimpleType.STRING).description("승격할 멤버의 사용자 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("업데이트된 멤버 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("멤버십 ID"),
+                            fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.role").type(JsonFieldType.STRING).description("변경된 역할 (SUB_MASTER)"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.joined_at").type(JsonFieldType.STRING).description("가입일시"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
+                            fieldWithPath("value.equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional(),
+                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional(),
+                            fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
+                            fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/members/{targetUserId}/demote-sub-master : 부마스터 해제")
+    void demoteFromSubMasterTest() throws Exception {
+        // given
+        GuildMemberResponse response = GuildMemberResponse.builder()
+            .id(2L)
+            .guildId(1L)
+            .userId("user-456")
+            .role(GuildMemberRole.MEMBER)
+            .status(GuildMemberStatus.ACTIVE)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        when(guildMemberService.demoteFromSubMaster(anyLong(), anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post(
+                "/api/v1/guilds/{guildId}/members/{targetUserId}/demote-sub-master", 1L, "user-456")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-14. 부마스터 해제",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("부마스터(MANAGER)를 일반 멤버로 강등 (마스터만 가능, JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
+                            parameterWithName("targetUserId").type(SimpleType.STRING).description("강등할 부마스터의 사용자 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("업데이트된 멤버 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("멤버십 ID"),
+                            fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.role").type(JsonFieldType.STRING).description("변경된 역할 (MEMBER)"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태"),
+                            fieldWithPath("value.joined_at").type(JsonFieldType.STRING).description("가입일시"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
+                            fieldWithPath("value.equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional(),
+                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional(),
+                            fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
+                            fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/headquarters : 길드 거점 목록")
+    void getAllHeadquartersTest() throws Exception {
+        // given
+        GuildHeadquartersInfoResponse.HeadquartersConfig config =
+            GuildHeadquartersInfoResponse.HeadquartersConfig.builder()
+                .baseRadiusMeters(500)
+                .radiusIncreasePerLevelTier(100)
+                .levelTierSize(5)
+                .build();
+
+        GuildHeadquartersInfoResponse.GuildHeadquartersInfo hq =
+            GuildHeadquartersInfoResponse.GuildHeadquartersInfo.builder()
+                .guildId(1L)
+                .guildName("테스트 길드")
+                .guildLevel(5)
+                .categoryId(1L)
+                .categoryName("자기계발")
+                .categoryIcon("📚")
+                .latitude(37.5665)
+                .longitude(126.978)
+                .protectionRadiusMeters(500)
+                .build();
+
+        GuildHeadquartersInfoResponse response = GuildHeadquartersInfoResponse.builder()
+            .guilds(List.of(hq))
+            .config(config)
+            .build();
+
+        when(guildHeadquartersService.getAllHeadquartersInfo()).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/headquarters")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-15. 길드 거점 목록",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("모든 길드 거점 정보 조회 (지도 표시용)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("거점 정보"),
+                            fieldWithPath("value.guilds[]").type(JsonFieldType.ARRAY).description("거점을 보유한 길드 목록"),
+                            fieldWithPath("value.guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.guilds[].guild_name").type(JsonFieldType.STRING).description("길드 이름"),
+                            fieldWithPath("value.guilds[].guild_image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.guilds[].guild_level").type(JsonFieldType.NUMBER).description("길드 레벨"),
+                            fieldWithPath("value.guilds[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID"),
+                            fieldWithPath("value.guilds[].category_name").type(JsonFieldType.STRING).description("카테고리 이름"),
+                            fieldWithPath("value.guilds[].category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘"),
+                            fieldWithPath("value.guilds[].latitude").type(JsonFieldType.NUMBER).description("거점 위도"),
+                            fieldWithPath("value.guilds[].longitude").type(JsonFieldType.NUMBER).description("거점 경도"),
+                            fieldWithPath("value.guilds[].protection_radius_meters").type(JsonFieldType.NUMBER).description("보호 반경(미터)"),
+                            fieldWithPath("value.config").type(JsonFieldType.OBJECT).description("거점 설정"),
+                            fieldWithPath("value.config.base_radius_meters").type(JsonFieldType.NUMBER).description("기본 반경(미터)"),
+                            fieldWithPath("value.config.radius_increase_per_level_tier").type(JsonFieldType.NUMBER).description("레벨 티어당 반경 증가량"),
+                            fieldWithPath("value.config.level_tier_size").type(JsonFieldType.NUMBER).description("레벨 티어 크기")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/headquarters/validate : 길드 거점 검증")
+    void validateHeadquartersTest() throws Exception {
+        // given
+        GuildHeadquartersValidationResponse response = GuildHeadquartersValidationResponse.builder()
+            .valid(true)
+            .message("거점 설정 가능한 위치입니다.")
+            .nearbyGuilds(List.of())
+            .baseRadiusMeters(500)
+            .radiusIncreasePerLevelTier(100)
+            .levelTierSize(5)
+            .build();
+
+        when(guildHeadquartersService.validateHeadquartersLocation(anyLong(),
+            org.mockito.ArgumentMatchers.anyDouble(),
+            org.mockito.ArgumentMatchers.anyDouble())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/guilds/{guildId}/headquarters/validate", 1L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"latitude\":37.5665,\"longitude\":126.978}")
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-16. 길드 거점 설정 검증",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("거점 설정 가능 여부 검증 (마스터용, JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID")
+                        )
+                        .requestFields(
+                            fieldWithPath("latitude").type(JsonFieldType.NUMBER).description("검증할 위도"),
+                            fieldWithPath("longitude").type(JsonFieldType.NUMBER).description("검증할 경도")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("검증 결과"),
+                            fieldWithPath("value.valid").type(JsonFieldType.BOOLEAN).description("거점 설정 가능 여부"),
+                            fieldWithPath("value.message").type(JsonFieldType.STRING).description("결과 메시지"),
+                            fieldWithPath("value.nearby_guilds").type(JsonFieldType.ARRAY).description("근처 길드 목록").optional(),
+                            fieldWithPath("value.base_radius_meters").type(JsonFieldType.NUMBER).description("기본 반경(미터)").optional(),
+                            fieldWithPath("value.radius_increase_per_level_tier").type(JsonFieldType.NUMBER).description("레벨 티어당 반경 증가량").optional(),
+                            fieldWithPath("value.level_tier_size").type(JsonFieldType.NUMBER).description("레벨 티어 크기").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/guilds/{guildId}/members/{inviteeId} : 멤버 직접 초대")
+    void inviteMemberTest() throws Exception {
+        // given
+        GuildMemberResponse response = GuildMemberResponse.builder()
+            .id(3L)
+            .guildId(1L)
+            .userId("invitee-789")
+            .role(GuildMemberRole.MEMBER)
+            .status(GuildMemberStatus.ACTIVE)
+            .joinedAt(LocalDateTime.now())
+            .build();
+
+        when(guildMemberService.inviteMember(anyLong(), anyString(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post(
+                "/api/v1/guilds/{guildId}/members/{inviteeId}", 1L, "invitee-789")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-17. 멤버 직접 초대",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("비공개 길드 멤버 직접 초대 (마스터 또는 부마스터만 가능, JWT 토큰 인증 필요)")
+                        .pathParameters(
+                            parameterWithName("guildId").type(SimpleType.NUMBER).description("길드 ID"),
+                            parameterWithName("inviteeId").type(SimpleType.STRING).description("초대할 사용자 ID")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("초대된 멤버 정보"),
+                            fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("멤버십 ID"),
+                            fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("초대된 사용자 ID"),
+                            fieldWithPath("value.role").type(JsonFieldType.STRING).description("역할 (MEMBER)"),
+                            fieldWithPath("value.status").type(JsonFieldType.STRING).description("상태 (ACTIVE)"),
+                            fieldWithPath("value.joined_at").type(JsonFieldType.STRING).description("가입일시"),
+                            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+                            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
+                            fieldWithPath("value.equipped_title_name").type(JsonFieldType.STRING).description("장착된 칭호명").optional(),
+                            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("장착된 칭호 희귀도").optional(),
+                            fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
+                            fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                        )
+                        .build()
+                )
+            )
         );
 
         // then
