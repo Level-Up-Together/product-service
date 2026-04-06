@@ -13,6 +13,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -196,21 +197,52 @@ public class MissionExecutionService {
             throw new IllegalArgumentException("시작 시간은 종료 시간보다 이전이어야 합니다.");
         }
 
+        // 해당 시간대에 다른 완료 미션이 있는지 검증
+        validateNoOverlappingExecution(userId, missionId, executionDate, startedAt, completedAt);
+
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
         Mission mission = participant.getMission();
 
         if (Boolean.TRUE.equals(mission.getIsPinned())) {
-            // 고정 미션: DailyMissionInstance에서 해당 날짜의 완료된 인스턴스 조회
             updatePinnedExecutionTime(participant, executionDate, startedAt, completedAt);
         } else {
-            // 일반 미션: MissionExecution에서 조회
             updateRegularExecutionTime(participant, executionDate, startedAt, completedAt);
         }
 
         log.info("미션 수행 시간 수정: missionId={}, userId={}, date={}, startedAt={}, completedAt={}",
             missionId, userId, executionDate, startedAt, completedAt);
+    }
+
+    /**
+     * 해당 시간대에 다른 완료 미션이 겹치는지 검증
+     */
+    private void validateNoOverlappingExecution(String userId, Long currentMissionId, LocalDate executionDate,
+                                                java.time.LocalDateTime startedAt, java.time.LocalDateTime completedAt) {
+        // 일반 미션 겹침 체크
+        List<MissionExecution> regularExecutions = executionRepository
+            .findCompletedByUserIdAndDateRange(userId, executionDate, executionDate);
+        for (MissionExecution exec : regularExecutions) {
+            if (exec.getParticipant().getMission().getId().equals(currentMissionId)) continue;
+            if (exec.getStartedAt() != null && exec.getCompletedAt() != null) {
+                if (startedAt.isBefore(exec.getCompletedAt()) && completedAt.isAfter(exec.getStartedAt())) {
+                    throw new IllegalStateException("해당 시간대에 이미 수행한 미션이 있습니다.");
+                }
+            }
+        }
+
+        // 고정 미션 겹침 체크
+        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance> pinnedInstances =
+            dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(userId, executionDate, executionDate);
+        for (var instance : pinnedInstances) {
+            if (instance.getParticipant().getMission().getId().equals(currentMissionId)) continue;
+            if (instance.getStartedAt() != null && instance.getCompletedAt() != null) {
+                if (startedAt.isBefore(instance.getCompletedAt()) && completedAt.isAfter(instance.getStartedAt())) {
+                    throw new IllegalStateException("해당 시간대에 이미 수행한 미션이 있습니다.");
+                }
+            }
+        }
     }
 
     private void updateRegularExecutionTime(MissionParticipant participant, LocalDate executionDate,
