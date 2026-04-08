@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse.MissionSearchItem;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse.UserSearchItem;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
+import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
@@ -164,7 +165,9 @@ public class BffSearchService {
     }
 
     private GuildSearchItem toGuildSearchItem(Guild guild) {
-        int memberCount = guild.getMembers() != null ? guild.getMembers().size() : 0;
+        int memberCount = guild.getMembers() != null
+            ? (int) guild.getMembers().stream().filter(GuildMember::isActive).count()
+            : 0;
         return GuildSearchItem.builder()
             .id(String.valueOf(guild.getId()))
             .name(guild.getName())
