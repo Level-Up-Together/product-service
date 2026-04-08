@@ -90,7 +90,7 @@ public class TestLoginService {
             .accessToken(accessToken)
             .refreshToken(refreshToken)
             .tokenType("Bearer")
-            .expiresIn(900) // 15분
+            .expiresIn(86400) // 24시간 (초)
             .userId(userId)
             .deviceId(deviceId)
             .build();

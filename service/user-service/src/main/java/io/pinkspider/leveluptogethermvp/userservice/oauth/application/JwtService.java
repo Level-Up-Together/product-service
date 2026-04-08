@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,9 @@ public class JwtService {
     private final MultiDeviceTokenService tokenService;
     private final SlidingExpirationService slidingExpirationService;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.jwt.access-token-expiry:86400000}")
+    private long accessTokenExpiryMs;
 
     public ReissueJwtResponseDto reissue(RefreshTokenRequestDto request) {
         try {
@@ -89,7 +93,7 @@ public class JwtService {
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)  // 갱신된 토큰 반환 (갱신되지 않았으면 기존 토큰)
                 .tokenType("Bearer")
-                .expiresIn(900)
+                .expiresIn((int) (accessTokenExpiryMs / 1000))
                 .userId(userId)
                 .deviceId(deviceId)
                 .refreshTokenRenewed(refreshTokenRenewed)  // 갱신 여부 플래그

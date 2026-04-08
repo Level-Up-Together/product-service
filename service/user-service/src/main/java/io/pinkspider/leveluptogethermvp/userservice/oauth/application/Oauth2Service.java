@@ -61,6 +61,9 @@ public class Oauth2Service {
     private final OAuth2Properties oAuth2Properties;
     private final GeoIpService geoIpService;
     private final NotificationService notificationService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.jwt.access-token-expiry:86400000}")
+    private long accessTokenExpiryMs;
     private final ApplicationEventPublisher eventPublisher;
 
     public OAuth2LoginUriResponseDto getOauth2LoginUri(String provider, HttpServletRequest request) {
@@ -189,7 +192,7 @@ public class Oauth2Service {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
-                .expiresIn(900) // 15분
+                .expiresIn((int) (accessTokenExpiryMs / 1000))
                 .userId(userId)
                 .deviceId(deviceId)
                 .nicknameSet(users.isNicknameSet())
@@ -253,7 +256,7 @@ public class Oauth2Service {
             .accessToken(accessToken)
             .refreshToken(refreshToken)
             .tokenType("Bearer")
-            .expiresIn(900) // 15분
+            .expiresIn((int) (accessTokenExpiryMs / 1000))
             .userId(userId)
             .deviceId(deviceId)
             .nicknameSet(users.isNicknameSet())
