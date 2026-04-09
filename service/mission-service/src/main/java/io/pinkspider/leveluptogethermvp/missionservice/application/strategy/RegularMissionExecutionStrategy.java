@@ -132,7 +132,10 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                                                        String note, boolean shareToFeed) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
+        // 해당 날짜에 execution이 없으면, 자정을 넘긴 IN_PROGRESS execution을 찾아서 완료 처리
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
+            .or(() -> executionRepository.findInProgressByUserId(userId)
+                .filter(e -> e.getParticipant().getId().equals(participant.getId())))
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
         log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}, shareToFeed={}",

@@ -234,7 +234,10 @@ public class DailyMissionInstanceService {
     public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, boolean shareToFeed) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
+        // 해당 날짜에 IN_PROGRESS가 없으면, 자정을 넘긴 IN_PROGRESS 인스턴스를 찾아서 완료 처리
         DailyMissionInstance instance = instanceRepository.findInProgressByParticipantIdAndDate(participant.getId(), date)
+            .or(() -> instanceRepository.findInProgressByUserId(userId)
+                .filter(i -> i.getParticipant().getId().equals(participant.getId())))
             .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
         return completeInstance(instance.getId(), userId, note, shareToFeed);
