@@ -80,9 +80,10 @@ public class MissionController {
      */
     @GetMapping("/system")
     public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissions(
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<MissionTemplateResponse> responses = missionService.getSystemMissions(pageable);
+        Page<MissionTemplateResponse> responses = missionService.getSystemMissions(userId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 

@@ -956,7 +956,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionTemplateResponse>>() {});
         Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
 
-        when(missionService.getSystemMissions(any()))
+        when(missionService.getSystemMissions(any(), any()))
             .thenReturn(responses);
 
         // when
@@ -1002,6 +1002,7 @@ class MissionControllerTest {
                             fieldWithPath("value.content[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.content[].has_achieved_target").type(JsonFieldType.BOOLEAN).description("목표시간 달성 여부 (로그인 시)").optional(),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
@@ -1171,6 +1172,7 @@ class MissionControllerTest {
                             fieldWithPath("value.content[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
                             fieldWithPath("value.content[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.content[].category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
+                            fieldWithPath("value.content[].has_achieved_target").type(JsonFieldType.BOOLEAN).description("목표시간 달성 여부 (로그인 시)").optional(),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정일시").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),

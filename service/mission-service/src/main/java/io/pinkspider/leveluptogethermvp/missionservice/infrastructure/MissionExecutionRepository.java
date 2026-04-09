@@ -201,4 +201,20 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         @Param("participantId") Long participantId,
         @Param("completedDate") LocalDate completedDate
     );
+
+    /**
+     * 유저가 목표시간 이상 완료한 일반 미션의 baseMissionId(templateId) 목록 조회
+     */
+    @Query("SELECT DISTINCT m.baseMissionId FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.baseMissionId IN :templateIds " +
+           "AND me.status = 'COMPLETED' " +
+           "AND m.targetDurationMinutes IS NOT NULL " +
+           "AND me.expEarned >= m.targetDurationMinutes")
+    List<Long> findAchievedTargetTemplateIds(
+        @Param("userId") String userId,
+        @Param("templateIds") List<Long> templateIds
+    );
 }

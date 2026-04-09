@@ -308,4 +308,21 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
         @Param("participantId") Long participantId,
         @Param("date") LocalDate date
     );
+
+    /**
+     * 유저가 목표시간 이상 완료한 고정 미션의 baseMissionId(templateId) 목록 조회
+     * expEarned >= targetDurationMinutes: 목표시간 달성 시 expEarned = targetDurationMinutes + bonus
+     */
+    @Query("SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.baseMissionId IN :templateIds " +
+           "AND dmi.status = 'COMPLETED' " +
+           "AND dmi.targetDurationMinutes IS NOT NULL " +
+           "AND dmi.expEarned >= dmi.targetDurationMinutes")
+    List<Long> findAchievedTargetTemplateIds(
+        @Param("userId") String userId,
+        @Param("templateIds") List<Long> templateIds
+    );
 }

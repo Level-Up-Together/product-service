@@ -909,7 +909,7 @@ class MissionServiceTest {
                 .thenReturn(page);
 
             // when
-            org.springframework.data.domain.Page<MissionTemplateResponse> result = missionService.getSystemMissions(pageable);
+            org.springframework.data.domain.Page<MissionTemplateResponse> result = missionService.getSystemMissions(null, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);

@@ -22,8 +22,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTem
 import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -41,6 +43,8 @@ public class MissionService {
     private final MissionRepository missionRepository;
     private final MissionTemplateRepository missionTemplateRepository;
     private final MissionParticipantRepository participantRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository executionRepository;
+    private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCategoryService missionCategoryService;
     private final MissionParticipantService missionParticipantService;
     private final GuildQueryFacade guildQueryFacadeService;
@@ -238,10 +242,34 @@ public class MissionService {
      * 시스템 미션 템플릿 목록 조회 (미션북용)
      * mission_template 테이블에서 공개 시스템 템플릿 반환
      */
-    public Page<MissionTemplateResponse> getSystemMissions(Pageable pageable) {
+    public Page<MissionTemplateResponse> getSystemMissions(String userId, Pageable pageable) {
         Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplates(
             MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable);
-        return templates.map(MissionTemplateResponse::from);
+
+        // 비로그인 또는 목표시간 없는 경우 달성 여부 없이 반환
+        if (userId == null) {
+            return templates.map(MissionTemplateResponse::from);
+        }
+
+        List<Long> templateIds = templates.stream()
+            .filter(t -> t.getTargetDurationMinutes() != null)
+            .map(MissionTemplate::getId)
+            .toList();
+
+        Set<Long> achievedIds = new HashSet<>();
+        if (!templateIds.isEmpty()) {
+            achievedIds.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(userId, templateIds));
+            achievedIds.addAll(executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
+        }
+
+        Set<Long> finalAchievedIds = achievedIds;
+        return templates.map(t -> {
+            MissionTemplateResponse response = MissionTemplateResponse.from(t);
+            if (t.getTargetDurationMinutes() != null) {
+                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
+            }
+            return response;
+        });
     }
 
     /**

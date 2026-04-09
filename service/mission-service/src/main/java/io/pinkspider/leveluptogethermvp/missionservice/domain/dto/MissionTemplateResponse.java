@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @NoArgsConstructor
@@ -40,6 +41,8 @@ public class MissionTemplateResponse {
     private Integer dailyExecutionLimit;
     private Long categoryId;
     private String categoryName;
+    @Setter
+    private Boolean hasAchievedTarget;
 
     private LocalDateTime createdAt;
 
