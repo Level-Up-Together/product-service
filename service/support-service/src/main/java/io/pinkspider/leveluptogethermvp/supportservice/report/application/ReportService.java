@@ -14,13 +14,17 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.A
 import io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportFeignClient;
 import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.event.ContentReportedEvent;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import io.pinkspider.global.facade.UserQueryFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -35,7 +39,9 @@ public class ReportService implements ContentReviewChecker {
     private final AdminReportFeignClient adminReportFeignClient;
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final CacheManager cacheManager;
 
+    @CacheEvict(value = "reportUnderReview", key = "#request.targetType().name() + ':' + #request.targetId()")
     public ReportResponse createReport(String userId, ReportCreateRequest request) {
         // 신고자 닉네임 조회
         String reporterNickname;
@@ -111,7 +117,7 @@ public class ReportService implements ContentReviewChecker {
     }
 
     @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "isUnderReviewFallback")
-    @Cacheable(value = "reportUnderReview", key = "#targetType.name() + ':' + #targetId", unless = "#result == false")
+    @Cacheable(value = "reportUnderReview", key = "#targetType.name() + ':' + #targetId")
     public boolean isUnderReview(ReportTargetType targetType, String targetId) {
         AdminReportCheckResponse response = adminReportFeignClient.checkUnderReview(
             targetType.name(),
@@ -129,42 +135,51 @@ public class ReportService implements ContentReviewChecker {
         return false;
     }
 
-    @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "isUnderReviewBatchFallback")
-    @Cacheable(value = "reportUnderReviewBatch", key = "#targetType.name() + ':' + T(String).join(',', #targetIds)")
     public Map<String, Boolean> isUnderReviewBatch(ReportTargetType targetType, List<String> targetIds) {
         if (targetIds == null || targetIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        AdminReportBatchCheckRequest request = AdminReportBatchCheckRequest.builder()
-            .targetType(targetType.name())
-            .targetIds(targetIds)
-            .build();
+        Cache cache = cacheManager.getCache("reportUnderReview");
+        Map<String, Boolean> result = new HashMap<>();
+        List<String> uncachedIds = new ArrayList<>();
 
-        AdminReportBatchCheckResponse response = adminReportFeignClient.checkUnderReviewBatch(request);
-
-        if (response.getValue() != null) {
-            return response.getValue();
-        }
-        return Collections.emptyMap();
-    }
-
-    /**
-     * isUnderReviewBatch fallback - 실패 시 모두 false 반환
-     */
-    public Map<String, Boolean> isUnderReviewBatchFallback(ReportTargetType targetType, List<String> targetIds, Throwable t) {
-        log.debug("신고 상태 일괄 확인 Circuit Breaker fallback: targetType={}, count={}, error={}",
-            targetType, targetIds != null ? targetIds.size() : 0, t.getMessage());
-
-        if (targetIds == null || targetIds.isEmpty()) {
-            return Collections.emptyMap();
+        for (String id : targetIds) {
+            String cacheKey = targetType.name() + ":" + id;
+            Cache.ValueWrapper cached = cache != null ? cache.get(cacheKey) : null;
+            if (cached != null) {
+                result.put(id, (Boolean) cached.get());
+            } else {
+                uncachedIds.add(id);
+            }
         }
 
-        return targetIds.stream()
-            .collect(Collectors.toMap(
-                id -> id,
-                id -> false
-            ));
+        if (!uncachedIds.isEmpty()) {
+            try {
+                AdminReportBatchCheckRequest request = AdminReportBatchCheckRequest.builder()
+                    .targetType(targetType.name())
+                    .targetIds(uncachedIds)
+                    .build();
+                AdminReportBatchCheckResponse response = adminReportFeignClient.checkUnderReviewBatch(request);
+                Map<String, Boolean> fetched = response.getValue() != null ? response.getValue() : Collections.emptyMap();
+
+                for (String id : uncachedIds) {
+                    boolean value = fetched.getOrDefault(id, false);
+                    result.put(id, value);
+                    if (cache != null) {
+                        cache.put(targetType.name() + ":" + id, value);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("신고 상태 일괄 확인 실패: targetType={}, count={}, error={}",
+                    targetType, uncachedIds.size(), e.getMessage());
+                for (String id : uncachedIds) {
+                    result.put(id, false);
+                }
+            }
+        }
+
+        return result;
     }
 
     private void publishContentReportedEvent(String reporterId, ReportCreateRequest request) {

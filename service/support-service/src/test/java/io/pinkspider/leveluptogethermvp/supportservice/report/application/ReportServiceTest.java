@@ -24,7 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
@@ -37,6 +40,9 @@ class ReportServiceTest {
 
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private CacheManager cacheManager;
 
     @InjectMocks
     private ReportService reportService;
@@ -348,19 +354,29 @@ class ReportServiceTest {
     @DisplayName("isUnderReviewBatch 테스트")
     class IsUnderReviewBatchTest {
 
+        private Cache mockCache;
+
+        private void setupCacheMock() {
+            mockCache = Mockito.mock(Cache.class);
+            when(cacheManager.getCache("reportUnderReview")).thenReturn(mockCache);
+        }
+
         @Test
-        @DisplayName("일괄 조회 시 Map으로 결과를 반환한다")
-        void isUnderReviewBatch_success() {
+        @DisplayName("캐시 미스 시 Admin 서버에 배치 조회 후 개별 캐시에 저장한다")
+        void isUnderReviewBatch_cacheMiss_fetchesAndCachesIndividually() {
             // given
+            setupCacheMock();
+            when(mockCache.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
-            java.util.Map<String, Boolean> expectedResult = new java.util.HashMap<>();
-            expectedResult.put("1", true);
-            expectedResult.put("2", false);
-            expectedResult.put("3", true);
+            java.util.Map<String, Boolean> fetchedResult = new java.util.HashMap<>();
+            fetchedResult.put("1", true);
+            fetchedResult.put("2", false);
+            fetchedResult.put("3", true);
 
             io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
                 new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
-            TestReflectionUtils.setField(response, "value", expectedResult);
+            TestReflectionUtils.setField(response, "value", fetchedResult);
 
             when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
 
@@ -372,6 +388,44 @@ class ReportServiceTest {
             assertThat(result.get("1")).isTrue();
             assertThat(result.get("2")).isFalse();
             assertThat(result.get("3")).isTrue();
+
+            // 개별 캐시에 저장 확인
+            verify(mockCache).put("FEED:1", true);
+            verify(mockCache).put("FEED:2", false);
+            verify(mockCache).put("FEED:3", true);
+        }
+
+        @Test
+        @DisplayName("캐시 히트된 ID는 Admin 서버에 조회하지 않는다")
+        void isUnderReviewBatch_partialCacheHit_fetchesOnlyUncached() {
+            // given
+            setupCacheMock();
+            Cache.ValueWrapper cachedTrue = Mockito.mock(Cache.ValueWrapper.class);
+            when(cachedTrue.get()).thenReturn(true);
+
+            when(mockCache.get("FEED:1")).thenReturn(cachedTrue); // 캐시 히트
+            when(mockCache.get("FEED:2")).thenReturn(null);       // 캐시 미스
+            when(mockCache.get("FEED:3")).thenReturn(null);       // 캐시 미스
+
+            java.util.Map<String, Boolean> fetchedResult = new java.util.HashMap<>();
+            fetchedResult.put("2", false);
+            fetchedResult.put("3", true);
+
+            io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
+                new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
+            TestReflectionUtils.setField(response, "value", fetchedResult);
+
+            when(adminReportFeignClient.checkUnderReviewBatch(any())).thenReturn(response);
+
+            // when
+            java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
+
+            // then
+            assertThat(result).hasSize(3);
+            assertThat(result.get("1")).isTrue();  // 캐시에서
+            assertThat(result.get("2")).isFalse(); // Admin에서
+            assertThat(result.get("3")).isTrue();  // Admin에서
         }
 
         @Test
@@ -398,27 +452,38 @@ class ReportServiceTest {
         }
 
         @Test
-        @DisplayName("fallback 메서드는 오류 발생 시 모든 값이 false인 Map을 반환한다")
-        void isUnderReviewBatchFallback_returnsAllFalse() {
+        @DisplayName("Admin 서버 오류 시 캐시되지 않은 ID는 false로 반환한다")
+        void isUnderReviewBatch_adminServerError_returnsFalseForUncached() {
             // given
+            setupCacheMock();
+            Cache.ValueWrapper cachedTrue = Mockito.mock(Cache.ValueWrapper.class);
+            when(cachedTrue.get()).thenReturn(true);
+
+            when(mockCache.get("FEED:1")).thenReturn(cachedTrue); // 캐시 히트
+            when(mockCache.get("FEED:2")).thenReturn(null);       // 캐시 미스
+            when(mockCache.get("FEED:3")).thenReturn(null);       // 캐시 미스
+
+            when(adminReportFeignClient.checkUnderReviewBatch(any()))
+                .thenThrow(new RuntimeException("서버 오류"));
+
+            // when
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2", "3");
-            RuntimeException exception = new RuntimeException("서버 오류");
+            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
-            // when - fallback 메서드 직접 호출 (Circuit Breaker는 단위 테스트에서 비활성화)
-            java.util.Map<String, Boolean> result = reportService.isUnderReviewBatchFallback(
-                ReportTargetType.FEED, targetIds, exception);
-
-            // then
+            // then — 캐시 히트된 결과는 보존, 실패한 것만 false
             assertThat(result).hasSize(3);
-            assertThat(result.get("1")).isFalse();
-            assertThat(result.get("2")).isFalse();
-            assertThat(result.get("3")).isFalse();
+            assertThat(result.get("1")).isTrue();   // 캐시에서 보존
+            assertThat(result.get("2")).isFalse();  // 실패 → false
+            assertThat(result.get("3")).isFalse();  // 실패 → false
         }
 
         @Test
-        @DisplayName("응답 value가 null인 경우 빈 Map을 반환한다")
-        void isUnderReviewBatch_nullValue_returnsEmptyMap() {
+        @DisplayName("응답 value가 null인 경우 모든 ID를 false로 캐싱한다")
+        void isUnderReviewBatch_nullValue_defaultsToFalse() {
             // given
+            setupCacheMock();
+            when(mockCache.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+
             java.util.List<String> targetIds = java.util.Arrays.asList("1", "2");
             io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse response =
                 new io.pinkspider.leveluptogethermvp.supportservice.report.core.feignclient.AdminReportBatchCheckResponse();
@@ -430,7 +495,9 @@ class ReportServiceTest {
             java.util.Map<String, Boolean> result = reportService.isUnderReviewBatch(ReportTargetType.FEED, targetIds);
 
             // then
-            assertThat(result).isEmpty();
+            assertThat(result).hasSize(2);
+            assertThat(result.get("1")).isFalse();
+            assertThat(result.get("2")).isFalse();
         }
     }
 }
