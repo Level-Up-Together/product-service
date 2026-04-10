@@ -485,9 +485,8 @@ public class MyPageService {
 
         Integer nextLevelRequiredExp = getNextLevelRequiredExp(userExp.currentLevel());
 
-        // EXP 퍼센테이지 계산: (totalExp 마지막 3자리 / 다음 레벨 필요 경험치) * 100
-        // 요구사항: 누적 경험치 하위 3자리 / 다음 레벨에 필요한 경험치 * 100 = 퍼센트
-        int expForPercentage = userExp.totalExp() % 1000;  // 마지막 3자리
+        // EXP 퍼센테이지 계산: 현재 레벨 내 경험치 / 다음 레벨 필요 경험치 * 100
+        int expForPercentage = userExp.currentExp() != null ? userExp.currentExp() : 0;
         double expPercentage = nextLevelRequiredExp != null && nextLevelRequiredExp > 0
             ? (double) expForPercentage / nextLevelRequiredExp * 100
             : 0;
