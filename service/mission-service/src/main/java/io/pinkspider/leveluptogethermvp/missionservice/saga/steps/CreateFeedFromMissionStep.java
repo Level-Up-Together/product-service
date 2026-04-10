@@ -10,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -58,12 +59,6 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     @Override
     public SagaStepResult execute(MissionCompletionContext context) {
-        // shareToFeed가 false면 스킵
-        if (!context.isShareToFeed()) {
-            log.debug("Feed sharing not requested, skipping: userId={}", context.getUserId());
-            return SagaStepResult.success("피드 공유 미요청");
-        }
-
         if (context.isPinned()) {
             return executePinned(context);
         } else {
@@ -75,9 +70,10 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         String userId = context.getUserId();
         MissionExecution execution = context.getExecution();
         Mission mission = context.getMission();
+        FeedVisibility visibility = context.isShareToFeed() ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
 
-        log.debug("Creating mission shared feed: userId={}, executionId={}, missionId={}",
-            userId, execution.getId(), mission.getId());
+        log.debug("Creating mission feed: userId={}, executionId={}, missionId={}, visibility={}",
+            userId, execution.getId(), mission.getId(), visibility);
 
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
@@ -101,13 +97,16 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 execution.getNote(),
                 execution.getImageUrl(),
                 durationMinutes,
-                execution.getExpEarned()
+                execution.getExpEarned(),
+                visibility
             );
 
             context.setCreatedFeedId(feed.getId());
 
-            // execution 엔티티의 공유 상태 업데이트 (별도 트랜잭션으로 missionTransactionManager 사용)
-            self.updateExecutionSharedStatus(execution.getId(), true);
+            // execution 엔티티의 공유 상태 업데이트 (공유한 경우만)
+            if (context.isShareToFeed()) {
+                self.updateExecutionSharedStatus(execution.getId(), true);
+            }
 
             log.info("Mission shared feed created: userId={}, feedId={}, executionId={}",
                 userId, feed.getId(), execution.getId());
@@ -124,8 +123,10 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         String userId = context.getUserId();
         DailyMissionInstance instance = context.getInstance();
         Mission mission = context.getMission();
+        FeedVisibility visibility = context.isShareToFeed() ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
 
-        log.debug("Creating feed for pinned mission: userId={}, instanceId={}", userId, instance.getId());
+        log.debug("Creating feed for pinned mission: userId={}, instanceId={}, visibility={}",
+            userId, instance.getId(), visibility);
 
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
@@ -140,7 +141,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 profile.titleName(),
                 profile.titleRarity(),
                 profile.titleColorCode(),
-                instance.getId(),  // executionId - 고정 미션은 instanceId 사용
+                instance.getId(),
                 mission.getId(),
                 instance.getMissionTitle(),
                 instance.getMissionDescription(),
@@ -148,13 +149,16 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 instance.getNote(),
                 instance.getImageUrl(),
                 durationMinutes,
-                instance.getExpEarned()
+                instance.getExpEarned(),
+                visibility
             );
 
             context.setCreatedFeedId(feed.getId());
 
-            // 인스턴스의 공유 상태 업데이트 (별도 트랜잭션)
-            self.updateInstanceSharedStatus(instance.getId(), true);
+            // 인스턴스의 공유 상태 업데이트 (공유한 경우만)
+            if (context.isShareToFeed()) {
+                self.updateInstanceSharedStatus(instance.getId(), true);
+            }
 
             log.info("Pinned mission feed created: feedId={}, instanceId={}", feed.getId(), instance.getId());
             return SagaStepResult.success("피드 생성 완료: feedId=" + feed.getId());

@@ -271,6 +271,20 @@ public class FeedCommandService {
                                                 String missionDescription, Long categoryId,
                                                 String note, String imageUrl,
                                                 Integer durationMinutes, Integer expEarned) {
+        return createMissionSharedFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle,
+            userTitleRarity, userTitleColorCode, executionId, missionId, missionTitle, missionDescription,
+            categoryId, note, imageUrl, durationMinutes, expEarned, FeedVisibility.PUBLIC);
+    }
+
+    @Transactional(transactionManager = "feedTransactionManager")
+    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
+                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
+                                                String userTitleColorCode,
+                                                Long executionId, Long missionId, String missionTitle,
+                                                String missionDescription, Long categoryId,
+                                                String note, String imageUrl,
+                                                Integer durationMinutes, Integer expEarned,
+                                                FeedVisibility visibility) {
         String title = missionTitle;
 
         // 좌/우 칭호 상세 정보 조회
@@ -294,7 +308,7 @@ public class FeedCommandService {
             .referenceType("MISSION_EXECUTION")
             .referenceId(executionId)
             .referenceName(missionTitle)
-            .visibility(FeedVisibility.PUBLIC)
+            .visibility(visibility)
             .categoryId(categoryId)
             .imageUrl(imageUrl)
             .missionId(missionId)
@@ -306,8 +320,8 @@ public class FeedCommandService {
             .build();
 
         ActivityFeed saved = activityFeedRepository.save(feed);
-        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}",
-            userId, missionId, executionId, saved.getId());
+        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}, visibility={}",
+            userId, missionId, executionId, saved.getId(), visibility);
         return saved;
     }
 

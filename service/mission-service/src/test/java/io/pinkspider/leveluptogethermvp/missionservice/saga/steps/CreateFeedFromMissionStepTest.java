@@ -155,24 +155,27 @@ class CreateFeedFromMissionStepTest {
     class ExecuteTest {
 
         @Test
-        @DisplayName("shareToFeed가 false면 피드를 생성하지 않는다")
-        void execute_shareToFeedFalse_skips() {
+        @DisplayName("shareToFeed가 false면 PRIVATE 피드를 생성한다")
+        void execute_shareToFeedFalse_createsPrivateFeed() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, false);
             context.setExecution(execution);
             context.setMission(mission);
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
+            )).thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(result.getMessage()).contains("피드 공유 미요청");
-            verify(feedCommandService, never()).createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt()
-            );
+            assertThat(context.getCreatedFeedId()).isEqualTo(FEED_ID);
+            verify(selfMock, never()).updateExecutionSharedStatus(anyLong(), eq(true));
         }
 
         @Test
@@ -183,7 +186,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt()
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -203,7 +206,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt()
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
