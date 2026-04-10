@@ -118,60 +118,24 @@ public class FeedProjectionEventListener {
         }
     }
 
+    /**
+     * 친구 추가 피드 생성 비활성화 (QA-35: 자동 피드 과다 생성 축소)
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleFriendRequestAccepted(FriendRequestAcceptedEvent event) {
-        try {
-            // 수락한 사용자의 피드 생성
-            UserProfileInfo accepterProfile = userQueryFacadeService.getUserProfile(event.userId());
-            feedCommandService.createActivityFeed(
-                event.userId(),
-                accepterProfile.nickname(),
-                accepterProfile.picture(),
-                accepterProfile.level(),
-                accepterProfile.titleName(),
-                accepterProfile.titleRarity(),
-                accepterProfile.titleColorCode(),
-                ActivityType.FRIEND_ADDED,
-                "새로운 친구!",
-                "새로운 친구가 되었습니다!",
-                null,
-                event.friendshipId(),
-                null,
-                FeedVisibility.PUBLIC,
-                null,
-                null,
-                null
-            );
-
-            // 요청을 보낸 사용자의 피드 생성
-            UserProfileInfo requesterProfile = userQueryFacadeService.getUserProfile(event.requesterId());
-            feedCommandService.createActivityFeed(
-                event.requesterId(),
-                requesterProfile.nickname(),
-                requesterProfile.picture(),
-                requesterProfile.level(),
-                requesterProfile.titleName(),
-                requesterProfile.titleRarity(),
-                requesterProfile.titleColorCode(),
-                ActivityType.FRIEND_ADDED,
-                "새로운 친구!",
-                "새로운 친구가 되었습니다!",
-                null,
-                event.friendshipId(),
-                null,
-                FeedVisibility.PUBLIC,
-                null,
-                null,
-                null
-            );
-            log.info("피드 프로젝션 생성 - 친구 추가: accepterId={}, requesterId={}", event.userId(), event.requesterId());
-        } catch (Exception e) {
-            log.error("피드 프로젝션 실패 - 친구 추가: userId={}, error={}", event.userId(), e.getMessage(), e);
-        }
+        log.debug("친구 추가 피드 생성 스킵 (비활성화): accepterId={}, requesterId={}", event.userId(), event.requesterId());
     }
+
+    private static final java.util.Set<Integer> LEVEL_FEED_MILESTONES = java.util.Set.of(50, 100);
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleUserLevelUp(UserLevelUpEvent event) {
+        // QA-35: 50, 100 레벨 달성 시에만 피드 생성
+        if (!LEVEL_FEED_MILESTONES.contains(event.newLevel())) {
+            log.debug("레벨업 피드 생성 스킵 (마일스톤 아님): userId={}, newLevel={}", event.userId(), event.newLevel());
+            return;
+        }
+
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(event.userId());
             feedCommandService.createActivityFeed(
@@ -269,32 +233,11 @@ public class FeedProjectionEventListener {
         }
     }
 
+    /**
+     * 연속 출석 피드 생성 비활성화 (QA-35: 자동 피드 과다 생성 축소)
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleAttendanceStreak(AttendanceStreakEvent event) {
-        try {
-            UserProfileInfo profile = userQueryFacadeService.getUserProfile(event.userId());
-            feedCommandService.createActivityFeed(
-                event.userId(),
-                profile.nickname(),
-                profile.picture(),
-                profile.level(),
-                profile.titleName(),
-                profile.titleRarity(),
-                profile.titleColorCode(),
-                ActivityType.ATTENDANCE_STREAK,
-                event.streakDays() + "일 연속 출석!",
-                event.streakDays() + "일 연속 출석을 달성했습니다!",
-                null,
-                null,
-                null,
-                FeedVisibility.PUBLIC,
-                null,
-                null,
-                null
-            );
-            log.info("피드 프로젝션 생성 - 연속 출석: userId={}, streakDays={}", event.userId(), event.streakDays());
-        } catch (Exception e) {
-            log.error("피드 프로젝션 실패 - 연속 출석: userId={}, error={}", event.userId(), e.getMessage(), e);
-        }
+        log.debug("연속 출석 피드 생성 스킵 (비활성화): userId={}, streakDays={}", event.userId(), event.streakDays());
     }
 }

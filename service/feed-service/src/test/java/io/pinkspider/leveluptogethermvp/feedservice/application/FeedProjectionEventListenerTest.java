@@ -192,55 +192,12 @@ class FeedProjectionEventListenerTest {
     class HandleFriendRequestAcceptedTest {
 
         @Test
-        @DisplayName("친구 수락 이벤트를 수신하면 양쪽 모두 피드를 생성한다")
-        void handleFriendRequestAccepted_createsTwoFeeds() {
+        @DisplayName("친구 수락 이벤트를 수신해도 피드를 생성하지 않는다 (QA-35 비활성화)")
+        void handleFriendRequestAccepted_disabled() {
             // given
             FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
                 TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L
             );
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
-            when(userQueryFacadeService.getUserProfile(REQUESTER_USER_ID)).thenReturn(requesterProfile);
-
-            // when
-            feedProjectionEventListener.handleFriendRequestAccepted(event);
-
-            // then - 수락자 피드
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.FRIEND_ADDED),
-                eq("새로운 친구!"), eq("새로운 친구가 되었습니다!"),
-                isNull(), eq(100L), isNull(),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
-
-            // then - 요청자 피드
-            verify(feedCommandService).createActivityFeed(
-                eq(REQUESTER_USER_ID), eq("요청자유저"), eq("https://example.com/requester.jpg"),
-                eq(5), eq("견습생"), eq(TitleRarity.COMMON), eq("#CCCCCC"),
-                eq(ActivityType.FRIEND_ADDED),
-                eq("새로운 친구!"), eq("새로운 친구가 되었습니다!"),
-                isNull(), eq(100L), isNull(),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
-
-            verify(feedCommandService, times(2)).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), any(), anyLong(), any(),
-                any(FeedVisibility.class), any(), any(), any()
-            );
-        }
-
-        @Test
-        @DisplayName("프로필 조회 실패 시 예외를 삼킨다")
-        void handleFriendRequestAccepted_profileFetchFails() {
-            // given
-            FriendRequestAcceptedEvent event = new FriendRequestAcceptedEvent(
-                TEST_USER_ID, REQUESTER_USER_ID, "테스트유저", 100L
-            );
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
             feedProjectionEventListener.handleFriendRequestAccepted(event);
@@ -260,10 +217,28 @@ class FeedProjectionEventListenerTest {
     class HandleUserLevelUpTest {
 
         @Test
-        @DisplayName("레벨업 이벤트를 수신하면 피드를 생성한다")
-        void handleUserLevelUp_success() {
+        @DisplayName("마일스톤 레벨(50, 100)이 아니면 피드를 생성하지 않는다 (QA-35)")
+        void handleUserLevelUp_nonMilestone_skips() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 15, 5000L);
+
+            // when
+            feedProjectionEventListener.handleUserLevelUp(event);
+
+            // then
+            verify(feedCommandService, never()).createActivityFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(),
+                any(TitleRarity.class), anyString(), any(ActivityType.class),
+                anyString(), anyString(), any(), any(), any(),
+                any(FeedVisibility.class), any(), any(), any()
+            );
+        }
+
+        @Test
+        @DisplayName("레벨 50 달성 시 피드를 생성한다")
+        void handleUserLevelUp_milestone50_success() {
+            // given
+            UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 50, 50000L);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
@@ -272,9 +247,9 @@ class FeedProjectionEventListenerTest {
             // then
             verify(feedCommandService).createActivityFeed(
                 eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(15), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
+                eq(50), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
                 eq(ActivityType.LEVEL_UP),
-                eq("레벨 15 달성!"), eq("레벨 15에 도달했습니다!"),
+                eq("레벨 50 달성!"), eq("레벨 50에 도달했습니다!"),
                 isNull(), isNull(), isNull(),
                 eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
             );
@@ -338,35 +313,12 @@ class FeedProjectionEventListenerTest {
     class HandleAttendanceStreakTest {
 
         @Test
-        @DisplayName("연속 출석 이벤트를 수신하면 피드를 생성한다")
-        void handleAttendanceStreak_success() {
+        @DisplayName("연속 출석 이벤트를 수신해도 피드를 생성하지 않는다 (QA-35 비활성화)")
+        void handleAttendanceStreak_disabled() {
             // given
             AttendanceStreakEvent event = new AttendanceStreakEvent(TEST_USER_ID, 30);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
-            feedProjectionEventListener.handleAttendanceStreak(event);
-
-            // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.ATTENDANCE_STREAK),
-                eq("30일 연속 출석!"), eq("30일 연속 출석을 달성했습니다!"),
-                isNull(), isNull(), isNull(),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
-        }
-
-        @Test
-        @DisplayName("예외 발생 시 삼킨다")
-        void handleAttendanceStreak_exceptionSwallowed() {
-            // given
-            AttendanceStreakEvent event = new AttendanceStreakEvent(TEST_USER_ID, 7);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("캐시 실패"));
-
-            // when - should not throw
             feedProjectionEventListener.handleAttendanceStreak(event);
 
             // then
