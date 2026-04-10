@@ -152,7 +152,12 @@ public class RankingService {
      * (레벨 기준, 동일 레벨 시 총 경험치 기준)
      */
     public LevelRankingResponse getMyLevelRanking(String userId) {
-        long totalUsers = userExperienceRepository.countTotalUsers();
+        // 활성 사용자만 대상으로 랭킹 계산
+        List<String> allUserIds = userExperienceRepository.findAll().stream()
+            .map(UserExperience::getUserId)
+            .collect(Collectors.toList());
+        List<String> activeUserIds = userQueryFacadeService.getActiveUserIds(allUserIds);
+        long totalUsers = activeUserIds.size();
 
         // 사용자 정보 조회 (닉네임, 프로필 이미지)
         UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
@@ -171,9 +176,10 @@ public class RankingService {
                 titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
         }
 
-        long rank = userExperienceRepository.calculateLevelRank(
+        long rank = userExperienceRepository.calculateLevelRankAmongActiveUsers(
             userExp.getCurrentLevel(),
-            userExp.getTotalExp()
+            userExp.getTotalExp(),
+            activeUserIds
         );
 
         return LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl,
@@ -186,7 +192,6 @@ public class RankingService {
      * (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순)
      */
     public Page<LevelRankingResponse> getLevelRanking(Pageable pageable) {
-        long totalUsers = userExperienceRepository.countTotalUsers();
         Page<UserExperience> expPage = userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable);
 
         // 사용자 ID 목록 추출
@@ -196,6 +201,7 @@ public class RankingService {
 
         // 탈퇴 사용자 필터링
         Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
+        long totalUsers = activeUserIds.size();
 
         // 사용자 정보 일괄 조회 (캐시)
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
@@ -289,11 +290,12 @@ class RankingServiceTest {
             // given
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 15, 5000);
 
-            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
+            when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRank(15, 5000)).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
@@ -308,7 +310,8 @@ class RankingServiceTest {
         @DisplayName("경험치가 없으면 기본값을 반환한다")
         void getMyLevelRanking_noExp() {
             // given
-            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userExperienceRepository.findAll()).thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of());
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
@@ -410,7 +413,6 @@ class RankingServiceTest {
             UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
             Page<UserExperience> expPage = new PageImpl<>(List.of(exp1, exp2), pageable, 2);
 
-            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
             when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable)).thenReturn(expPage);
             when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of("user1", new UserProfileInfo("user1", "유저1", null, 20, null, null, null), "user2", new UserProfileInfo("user2", "유저2", null, 15, null, null, null)));
@@ -540,11 +542,12 @@ class RankingServiceTest {
             // given
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 15, 5000);
 
-            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
+            when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트닉네임", null, 15, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRank(15, 5000)).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);
@@ -561,11 +564,12 @@ class RankingServiceTest {
             // given
             UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 15, 5000);
 
-            when(userExperienceRepository.countTotalUsers()).thenReturn(100L);
+            when(userExperienceRepository.findAll()).thenReturn(List.of(exp));
+            when(userQueryFacadeService.getActiveUserIds(any())).thenReturn(List.of(TEST_USER_ID));
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(new UserProfileInfo(TEST_USER_ID, "사용자", null, 1, null, null, null));
             when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
-            when(userExperienceRepository.calculateLevelRank(15, 5000)).thenReturn(10L);
+            when(userExperienceRepository.calculateLevelRankAmongActiveUsers(eq(15), eq(5000), any())).thenReturn(10L);
 
             // when
             LevelRankingResponse result = rankingService.getMyLevelRanking(TEST_USER_ID);

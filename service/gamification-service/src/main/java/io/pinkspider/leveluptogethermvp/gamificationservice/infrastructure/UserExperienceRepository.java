@@ -33,6 +33,21 @@ public interface UserExperienceRepository extends JpaRepository<UserExperience, 
     long calculateLevelRank(@Param("level") int level, @Param("totalExp") int totalExp);
 
     /**
+     * 활성 사용자만 대상으로 레벨 기준 랭킹 순위 계산
+     */
+    @Query("""
+        SELECT COUNT(ue) + 1 FROM UserExperience ue
+        WHERE ue.userId IN :activeUserIds
+          AND (ue.currentLevel > :level
+               OR (ue.currentLevel = :level AND ue.totalExp > :totalExp))
+        """)
+    long calculateLevelRankAmongActiveUsers(
+        @Param("level") int level,
+        @Param("totalExp") int totalExp,
+        @Param("activeUserIds") List<String> activeUserIds
+    );
+
+    /**
      * 전체 사용자 수 (경험치 테이블 기준)
      */
     @Query("SELECT COUNT(ue) FROM UserExperience ue")
