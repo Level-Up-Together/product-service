@@ -26,4 +26,6 @@ public class MobileLoginRequestDto {
     private String deviceType;  // android, ios
 
     private String deviceId;
+
+    private String preferredLocale;  // ko, en, ar, ja
 }

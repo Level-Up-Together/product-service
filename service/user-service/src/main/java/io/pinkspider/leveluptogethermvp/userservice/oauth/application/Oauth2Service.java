@@ -158,10 +158,11 @@ public class Oauth2Service {
                                                           String provider,
                                                           String providerToken,
                                                           String deviceType,
-                                                          String deviceId) {
+                                                          String deviceId,
+                                                          String preferredLocale) {
         try {
             OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
-            Users users = dbProcessOAuth2User(userInfo);
+            Users users = dbProcessOAuth2User(userInfo, preferredLocale);
 
             // Update login info with IP and country
             updateLoginInfo(httpRequest, users);
@@ -265,6 +266,11 @@ public class Oauth2Service {
 
     @Transactional
     protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo) {
+        return dbProcessOAuth2User(userInfo, null);
+    }
+
+    @Transactional
+    protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo, String preferredLocale) {
         // 이메일을 암호화하여 기존 사용자 조회 (JPA @Convert는 쿼리 파라미터에 적용되지 않음)
         String encryptedEmail = CryptoUtils.encryptAes(userInfo.getEmail());
         Optional<Users> existingUser = userRepository.findByEncryptedEmailAndProvider(
@@ -277,6 +283,15 @@ public class Oauth2Service {
             if (user.getStatus() == UserStatus.WITHDRAWN) {
                 log.warn("탈퇴한 사용자 로그인 시도: userId={}, provider={}", user.getId(), userInfo.getProvider());
                 throw new CustomException("030001", "탈퇴한 계정입니다. 새로 가입해 주세요.");
+            }
+            // 기존 유저의 locale이 기본값(en)이고, 앱에서 다른 locale을 전달한 경우 업데이트
+            if (preferredLocale != null
+                && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale)
+                && "en".equals(user.getPreferredLocale())
+                && !preferredLocale.equals("en")) {
+                user.updatePreferredLocale(preferredLocale);
+                userRepository.save(user);
+                log.info("기존 사용자 locale 업데이트: userId={}, locale={}", user.getId(), preferredLocale);
             }
             log.info("기존 사용자 로그인: userId={}, provider={}", user.getId(), userInfo.getProvider());
             return user;
@@ -296,11 +311,16 @@ public class Oauth2Service {
 
         // 신규 사용자 저장 (provider는 소문자로 정규화)
         // nicknameSet = false: 신규 사용자는 반드시 닉네임 설정 단계를 거침
+        // preferredLocale이 지원 언어이면 사용, 아니면 기본값(en)
+        String locale = (preferredLocale != null && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale))
+            ? preferredLocale : io.pinkspider.global.translation.enums.SupportedLocale.DEFAULT.getCode();
+
         Users newUsers = Users.builder()
             .email(userInfo.getEmail())
             .nickname(nickname)
             .provider(userInfo.getProvider().toLowerCase())
             .nicknameSet(false)
+            .preferredLocale(locale)
             .build();
 
         Users savedUser = userRepository.save(newUsers);

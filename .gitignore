@@ -69,3 +69,4 @@ firebase-service-account.json
 *.keystore
 *.p12.org
 /docs/keystore-prod-base64.txt
+/docs/prod-logs/

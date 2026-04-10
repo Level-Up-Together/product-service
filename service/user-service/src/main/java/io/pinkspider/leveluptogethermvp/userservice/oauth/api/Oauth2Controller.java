@@ -81,7 +81,8 @@ public class Oauth2Controller {
             request.getProvider(),
             request.getAccessToken(),
             request.getDeviceType(),
-            request.getDeviceId()
+            request.getDeviceId(),
+            request.getPreferredLocale()
         );
 
         return ApiResult.<CreateJwtResponseDto>builder()
