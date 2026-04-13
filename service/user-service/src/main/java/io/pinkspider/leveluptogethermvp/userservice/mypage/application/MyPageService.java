@@ -207,6 +207,17 @@ public class MyPageService {
     }
 
     @Transactional
+    public void updatePreferredTimezone(String userId, String timezone) {
+        if (!io.pinkspider.global.translation.enums.SupportedTimezone.isValid(timezone)) {
+            throw new CustomException("TIMEZONE_001", "error.timezone.unsupported");
+        }
+        Users user = findUserOrThrow(userId);
+        user.updatePreferredTimezone(timezone);
+        userRepository.save(user);
+        log.info("타임존 설정 변경: userId={}, timezone={}", userId, timezone);
+    }
+
+    @Transactional
     public ProfileInfo updateBio(String userId, String bio) {
         Users user = findUserOrThrow(userId);
 

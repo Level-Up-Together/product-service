@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Component
@@ -29,7 +30,7 @@ public class SeasonRewardScheduler {
 
         try {
             // 종료된 시즌 중 보상 미처리 시즌 조회
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
             List<Season> endedSeasons = seasonRepository.findEndedSeasonsWithoutRewards(now);
 
             if (endedSeasons.isEmpty()) {

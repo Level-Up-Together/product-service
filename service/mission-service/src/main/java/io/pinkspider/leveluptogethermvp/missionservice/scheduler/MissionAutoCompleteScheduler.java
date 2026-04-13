@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -65,7 +66,7 @@ public class MissionAutoCompleteScheduler {
             int targetExecutionCount = autoCompleteTargetReachedExecutions();
 
             // 3. 2시간 초과 일반 미션 자동 종료 (목표시간 미설정)
-            LocalDateTime expireThreshold = LocalDateTime.now().minusMinutes(MAXIMUM_EXECUTION_MINUTES);
+            LocalDateTime expireThreshold = LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(MAXIMUM_EXECUTION_MINUTES);
             int executionCount = autoCompleteExpiredExecutions(expireThreshold);
             int instanceCount = autoCompleteExpiredInstances(expireThreshold);
 
@@ -88,7 +89,7 @@ public class MissionAutoCompleteScheduler {
 
         int count = 0;
         for (DailyMissionInstance instance : instances) {
-            long elapsed = Duration.between(instance.getStartedAt(), LocalDateTime.now()).toMinutes();
+            long elapsed = Duration.between(instance.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC"))).toMinutes();
             if (elapsed >= instance.getTargetDurationMinutes()) {
                 String userId = instance.getParticipant().getUserId();
                 try {
@@ -114,7 +115,7 @@ public class MissionAutoCompleteScheduler {
 
         int count = 0;
         for (MissionExecution execution : executions) {
-            long elapsed = Duration.between(execution.getStartedAt(), LocalDateTime.now()).toMinutes();
+            long elapsed = Duration.between(execution.getStartedAt(), LocalDateTime.now(ZoneId.of("UTC"))).toMinutes();
             Integer targetMinutes = execution.getParticipant().getMission().getTargetDurationMinutes();
             if (targetMinutes != null && elapsed >= targetMinutes) {
                 String userId = execution.getParticipant().getUserId();
@@ -156,7 +157,7 @@ public class MissionAutoCompleteScheduler {
                     && participant.getStatus() != ParticipantStatus.COMPLETED) {
                     participant.setStatus(ParticipantStatus.COMPLETED);
                     participant.setProgress(100);
-                    participant.setCompletedAt(LocalDateTime.now());
+                    participant.setCompletedAt(LocalDateTime.now(ZoneId.of("UTC")));
                 }
                 count++;
                 log.info("일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
@@ -204,7 +205,7 @@ public class MissionAutoCompleteScheduler {
         }
 
         int count = 0;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
 
         for (int warningMinute : warningPoints) {
             // 해당 시점 ± 스케줄러 주기(5분) 범위의 미션 탐색

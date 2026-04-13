@@ -179,7 +179,7 @@ class Oauth2ControllerTest {
             "fixture/userservice/oauth/mockCreateJwtResponseDto.json",
             CreateJwtResponseDto.class);
 
-        when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345"), any()))
+        when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345"), any(), any()))
             .thenReturn(mockCreateJwtResponseDto);
 
         // when
@@ -202,7 +202,8 @@ class Oauth2ControllerTest {
                             fieldWithPath("access_token").type(JsonFieldType.STRING).description("네이티브 SDK에서 받은 access_token (Apple의 경우 id_token)"),
                             fieldWithPath("device_type").type(JsonFieldType.STRING).description("디바이스 타입 (ios, android)").optional(),
                             fieldWithPath("device_id").type(JsonFieldType.STRING).description("디바이스 고유 ID").optional(),
-                            fieldWithPath("preferred_locale").type(JsonFieldType.STRING).description("선호 언어 (ko, en, ar, ja)").optional()
+                            fieldWithPath("preferred_locale").type(JsonFieldType.STRING).description("선호 언어 (ko, en, ar, ja)").optional(),
+                            fieldWithPath("preferred_timezone").type(JsonFieldType.STRING).description("선호 타임존 IANA ID (e.g., Asia/Seoul, Asia/Tokyo)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),

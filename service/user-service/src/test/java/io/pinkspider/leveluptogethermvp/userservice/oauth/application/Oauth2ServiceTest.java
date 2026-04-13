@@ -470,7 +470,7 @@ class Oauth2ServiceTest {
 
                 // when
                 CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID, null);
+                    httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -521,7 +521,7 @@ class Oauth2ServiceTest {
 
                 // when
                 CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", "mobile", null, null);
+                    httpRequest, "google", "google-provider-token", "mobile", null, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -562,7 +562,7 @@ class Oauth2ServiceTest {
 
                 // when
                 CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", null, null, null);
+                    httpRequest, "google", "google-provider-token", null, null, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -581,7 +581,7 @@ class Oauth2ServiceTest {
 
             // when & then
             assertThatThrownBy(() -> oauth2Service.createJwtFromMobileToken(
-                httpRequest, "google", "invalid-token", "mobile", TEST_DEVICE_ID, null))
+                httpRequest, "google", "invalid-token", "mobile", TEST_DEVICE_ID, null, null))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("소셜 로그인 실패");
         }

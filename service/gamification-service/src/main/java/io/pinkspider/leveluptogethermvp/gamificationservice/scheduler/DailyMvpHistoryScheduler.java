@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Component
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class DailyMvpHistoryScheduler {
         log.info("일간 MVP 히스토리 저장 스케줄러 시작");
 
         try {
-            LocalDate yesterday = LocalDate.now().minusDays(1);
+            LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1);
             dailyMvpHistoryService.captureAndSaveDailyMvp(yesterday);
             log.info("일간 MVP 히스토리 저장 완료: date={}", yesterday);
         } catch (Exception e) {

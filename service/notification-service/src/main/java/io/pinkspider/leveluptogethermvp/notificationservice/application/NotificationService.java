@@ -15,6 +15,8 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.User
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -272,8 +274,10 @@ public class NotificationService {
             : notificationRepository.save(notification);
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
-        if (pref.getPushEnabled()) {
+        if (pref.getPushEnabled() && !isInQuietHours(userId, pref)) {
             sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+        } else if (pref.getPushEnabled()) {
+            log.debug("Quiet Hours 활성화 - 푸시 알림 스킵: userId={}, type={}", userId, type);
         }
 
         return NotificationResponse.from(saved);
@@ -299,6 +303,47 @@ public class NotificationService {
         String message = resolveNotificationMessage("notification.content_reported.guild_message", userLocale, targetTypeDescription);
         createNotification(guildMasterId, NotificationType.CONTENT_REPORTED,
             title, message, "GUILD", guildId, "/guild/" + guildId);
+    }
+
+    // ==================== Quiet Hours ====================
+
+    /**
+     * 사용자의 현재 시간이 Quiet Hours 범위 내인지 확인.
+     * 사용자 타임존 기반으로 판단한다.
+     */
+    private boolean isInQuietHours(String userId, NotificationPreference pref) {
+        if (!Boolean.TRUE.equals(pref.getQuietHoursEnabled())
+            || pref.getQuietHoursStart() == null || pref.getQuietHoursEnd() == null) {
+            return false;
+        }
+
+        try {
+            ZoneId userZone = resolveUserZone(userId);
+            LocalTime now = LocalTime.now(userZone);
+            LocalTime start = LocalTime.parse(pref.getQuietHoursStart());
+            LocalTime end = LocalTime.parse(pref.getQuietHoursEnd());
+
+            // 야간 범위 (예: 22:00 ~ 08:00)
+            if (start.isAfter(end)) {
+                return now.isAfter(start) || now.isBefore(end);
+            }
+            // 주간 범위 (예: 13:00 ~ 15:00)
+            return now.isAfter(start) && now.isBefore(end);
+        } catch (Exception e) {
+            log.warn("Quiet Hours 확인 실패: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
+    }
+
+    private ZoneId resolveUserZone(String userId) {
+        try {
+            String timezone = userRepository.findById(userId)
+                .map(Users::getPreferredTimezone)
+                .orElse("Asia/Seoul");
+            return ZoneId.of(timezone);
+        } catch (Exception e) {
+            return ZoneId.of("Asia/Seoul");
+        }
     }
 
     // ==================== i18n 헬퍼 ====================

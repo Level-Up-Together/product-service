@@ -159,10 +159,11 @@ public class Oauth2Service {
                                                           String providerToken,
                                                           String deviceType,
                                                           String deviceId,
-                                                          String preferredLocale) {
+                                                          String preferredLocale,
+                                                          String preferredTimezone) {
         try {
             OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
-            Users users = dbProcessOAuth2User(userInfo, preferredLocale);
+            Users users = dbProcessOAuth2User(userInfo, preferredLocale, preferredTimezone);
 
             // Update login info with IP and country
             updateLoginInfo(httpRequest, users);
@@ -266,11 +267,11 @@ public class Oauth2Service {
 
     @Transactional
     protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo) {
-        return dbProcessOAuth2User(userInfo, null);
+        return dbProcessOAuth2User(userInfo, null, null);
     }
 
     @Transactional
-    protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo, String preferredLocale) {
+    protected Users dbProcessOAuth2User(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
         // 이메일을 암호화하여 기존 사용자 조회 (JPA @Convert는 쿼리 파라미터에 적용되지 않음)
         String encryptedEmail = CryptoUtils.encryptAes(userInfo.getEmail());
         Optional<Users> existingUser = userRepository.findByEncryptedEmailAndProvider(
@@ -285,13 +286,26 @@ public class Oauth2Service {
                 throw new CustomException("030001", "탈퇴한 계정입니다. 새로 가입해 주세요.");
             }
             // 기존 유저의 locale이 기본값(en)이고, 앱에서 다른 locale을 전달한 경우 업데이트
+            boolean needsSave = false;
             if (preferredLocale != null
                 && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale)
                 && "en".equals(user.getPreferredLocale())
                 && !preferredLocale.equals("en")) {
                 user.updatePreferredLocale(preferredLocale);
-                userRepository.save(user);
+                needsSave = true;
                 log.info("기존 사용자 locale 업데이트: userId={}, locale={}", user.getId(), preferredLocale);
+            }
+            // 타임존이 전달되었고 기본값이면 업데이트
+            if (preferredTimezone != null
+                && io.pinkspider.global.translation.enums.SupportedTimezone.isValid(preferredTimezone)
+                && "Asia/Seoul".equals(user.getPreferredTimezone())
+                && !preferredTimezone.equals(user.getPreferredTimezone())) {
+                user.updatePreferredTimezone(preferredTimezone);
+                needsSave = true;
+                log.info("기존 사용자 timezone 업데이트: userId={}, timezone={}", user.getId(), preferredTimezone);
+            }
+            if (needsSave) {
+                userRepository.save(user);
             }
             log.info("기존 사용자 로그인: userId={}, provider={}", user.getId(), userInfo.getProvider());
             return user;
@@ -315,12 +329,17 @@ public class Oauth2Service {
         String locale = (preferredLocale != null && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale))
             ? preferredLocale : io.pinkspider.global.translation.enums.SupportedLocale.DEFAULT.getCode();
 
+        // 타임존: 클라이언트 전달값 > locale 기반 추론
+        String timezone = io.pinkspider.global.translation.enums.SupportedTimezone.resolve(
+            preferredTimezone, null, locale);
+
         Users newUsers = Users.builder()
             .email(userInfo.getEmail())
             .nickname(nickname)
             .provider(userInfo.getProvider().toLowerCase())
             .nicknameSet(false)
             .preferredLocale(locale)
+            .preferredTimezone(timezone)
             .build();
 
         Users savedUser = userRepository.save(newUsers);
@@ -446,6 +465,18 @@ public class Oauth2Service {
                 geoResult.country(),
                 geoResult.countryCode()
             );
+
+            // 타임존이 기본값이면 GeoIP 국가코드로 추론하여 업데이트
+            if ("Asia/Seoul".equals(users.getPreferredTimezone()) && geoResult.countryCode() != null) {
+                String inferred = io.pinkspider.global.translation.enums.SupportedTimezone.fromCountryCode(
+                    geoResult.countryCode());
+                if (!inferred.equals(users.getPreferredTimezone())) {
+                    users.updatePreferredTimezone(inferred);
+                    log.info("GeoIP 기반 타임존 추론: userId={}, country={}, timezone={}",
+                        users.getId(), geoResult.countryCode(), inferred);
+                }
+            }
+
             userRepository.save(users);
 
             log.info("로그인 정보 업데이트 - userId: {}, IP: {}, country: {}",

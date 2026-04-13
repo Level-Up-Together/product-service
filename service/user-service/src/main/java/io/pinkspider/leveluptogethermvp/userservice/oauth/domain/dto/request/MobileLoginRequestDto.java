@@ -28,4 +28,6 @@ public class MobileLoginRequestDto {
     private String deviceId;
 
     private String preferredLocale;  // ko, en, ar, ja
+
+    private String preferredTimezone;  // IANA timezone ID (e.g., Asia/Seoul, Asia/Tokyo)
 }

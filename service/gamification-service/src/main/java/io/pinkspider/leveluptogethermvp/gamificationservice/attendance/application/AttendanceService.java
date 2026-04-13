@@ -13,7 +13,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dt
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,13 +40,14 @@ public class AttendanceService {
     private final AttendanceRewardConfigCacheService rewardConfigCacheService;
     private final UserExperienceService userExperienceService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserRepository userRepository;
 
     private static final int DEFAULT_DAILY_EXP = 10;
     private static final Set<Integer> STREAK_MILESTONES = Set.of(7, 14, 30, 60, 90);
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public AttendanceCheckInResponse checkIn(String userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(resolveUserZone(userId));
 
         // 이미 출석했는지 확인
         Optional<AttendanceRecord> existingRecord =
@@ -111,12 +115,13 @@ public class AttendanceService {
     }
 
     public boolean hasCheckedInToday(String userId) {
-        return attendanceRecordRepository.existsByUserIdAndAttendanceDate(userId, LocalDate.now());
+        return attendanceRecordRepository.existsByUserIdAndAttendanceDate(userId, LocalDate.now(resolveUserZone(userId)));
     }
 
     public MonthlyAttendanceResponse getMonthlyAttendance(String userId, String yearMonth) {
+        LocalDate userToday = LocalDate.now(resolveUserZone(userId));
         String targetYearMonth = yearMonth != null ? yearMonth :
-            LocalDate.now().getYear() + "-" + String.format("%02d", LocalDate.now().getMonthValue());
+            userToday.getYear() + "-" + String.format("%02d", userToday.getMonthValue());
 
         List<AttendanceRecord> records =
             attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(userId, targetYearMonth);
@@ -161,7 +166,7 @@ public class AttendanceService {
         }
 
         AttendanceRecord record = latestRecord.get();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(resolveUserZone(userId));
 
         // 어제나 오늘 출석했으면 연속 출석 유지
         if (record.getAttendanceDate().equals(today) ||
@@ -233,5 +238,16 @@ public class AttendanceService {
 
     public void initializeDefaultRewardConfigs() {
         rewardConfigCacheService.initializeDefaultRewardConfigs();
+    }
+
+    private ZoneId resolveUserZone(String userId) {
+        try {
+            String timezone = userRepository.findById(userId)
+                .map(Users::getPreferredTimezone)
+                .orElse("Asia/Seoul");
+            return ZoneId.of(timezone);
+        } catch (Exception e) {
+            return ZoneId.of("Asia/Seoul");
+        }
     }
 }

@@ -83,6 +83,15 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    @PutMapping("/preferred-timezone")
+    public ResponseEntity<ApiResult<Void>> updatePreferredTimezone(
+        @CurrentUser String userId,
+        @RequestBody java.util.Map<String, String> request) {
+
+        myPageService.updatePreferredTimezone(userId, request.get("preferred_timezone"));
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
     @PutMapping("/bio")
     public ResponseEntity<ApiResult<ProfileInfo>> updateBio(
         @CurrentUser String userId,
