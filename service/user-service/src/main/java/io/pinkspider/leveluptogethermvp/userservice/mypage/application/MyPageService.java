@@ -601,7 +601,16 @@ public class MyPageService {
     }
 
     private Integer getNextLevelRequiredExp(int currentLevel) {
-        UserLevelConfig config = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
-        return config != null ? config.getRequiredExp() : 100 + (currentLevel - 1) * 50;  // 기본 공식
+        // 다음 레벨의 required_exp를 조회 (레벨 1→2로 가려면 레벨 2의 required_exp가 필요)
+        UserLevelConfig nextConfig = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel + 1);
+        if (nextConfig != null && nextConfig.getRequiredExp() > 0) {
+            return nextConfig.getRequiredExp();
+        }
+        // 현재 레벨 config의 required_exp로 폴백 (0이 아닌 경우만)
+        UserLevelConfig currentConfig = userLevelConfigCacheService.getLevelConfigByLevel(currentLevel);
+        if (currentConfig != null && currentConfig.getRequiredExp() > 0) {
+            return currentConfig.getRequiredExp();
+        }
+        return 100 + (currentLevel - 1) * 50;  // 기본 공식
     }
 }

@@ -156,7 +156,7 @@ class MyPageServiceTest {
                 new UserExperienceDto(null, TEST_USER_ID, 1, 0, 0, null, null, null));
             when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(3L);
-            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
             when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
 
             // when
