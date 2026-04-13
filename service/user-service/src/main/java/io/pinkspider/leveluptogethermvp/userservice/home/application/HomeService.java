@@ -20,6 +20,8 @@ import io.pinkspider.global.translation.LocaleUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -67,22 +69,33 @@ public class HomeService {
      * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명)
      */
     public List<TodayPlayerResponse> getTodayPlayers() {
-        return getTodayPlayers(null);
+        return getTodayPlayers(null, null);
     }
 
     /**
-     * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명) - 다국어 지원
+     * MVP 목록 조회 - 다국어 지원 (타임존 미지정 시 기본값 사용)
+     */
+    public List<TodayPlayerResponse> getTodayPlayers(String locale) {
+        return getTodayPlayers(locale, null);
+    }
+
+    /**
+     * MVP 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 사람 5명) - 다국어 + 타임존 지원
      * N+1 문제 해결을 위해 배치 조회 사용
      * Redis 캐싱 적용 (5분 TTL)
      *
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
      */
-    @Cacheable(value = "todayPlayers", key = "#locale ?: 'ko'", cacheManager = "redisCacheManager")
-    public List<TodayPlayerResponse> getTodayPlayers(String locale) {
-        // 오늘 00:00 ~ 23:59:59
-        LocalDate today = LocalDate.now();
-        LocalDateTime startDate = today.atStartOfDay();
-        LocalDateTime endDate = today.atTime(LocalTime.MAX);
+    @Cacheable(value = "todayPlayers", key = "(#locale ?: 'ko') + '_' + (#timezone ?: 'Asia/Seoul')", cacheManager = "redisCacheManager")
+    public List<TodayPlayerResponse> getTodayPlayers(String locale, String timezone) {
+        // 사용자 타임존 기준 "오늘"을 UTC로 변환하여 DB 조회
+        ZoneId userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        LocalDate today = LocalDate.now(userZone);
+        ZonedDateTime startZoned = today.atStartOfDay(userZone);
+        ZonedDateTime endZoned = today.atTime(LocalTime.MAX).atZone(userZone);
+        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         // 상위 5명 조회
         List<Object[]> topGainers = gamificationQueryFacadeService.findTopExpGainersByPeriod(
@@ -152,21 +165,33 @@ public class HomeService {
      * 3. 중복 제거 후 최대 5명 반환
      */
     public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId) {
-        return getTodayPlayersByCategory(categoryId, null);
+        return getTodayPlayersByCategory(categoryId, null, null);
     }
 
     /**
-     * 카테고리별 MVP 목록 조회 (하이브리드 선정) - 다국어 지원
+     * 카테고리별 MVP 목록 조회 - 다국어 지원 (타임존 미지정 시 기본값 사용)
+     */
+    public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale) {
+        return getTodayPlayersByCategory(categoryId, locale, null);
+    }
+
+    /**
+     * 카테고리별 MVP 목록 조회 (하이브리드 선정) - 다국어 + 타임존 지원
      * Redis 캐싱 적용 (5분 TTL)
      *
      * @param categoryId 카테고리 ID
      * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
      */
-    @Cacheable(value = "todayPlayersByCategory", key = "#categoryId + '_' + (#locale ?: 'ko')", cacheManager = "redisCacheManager")
-    public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale) {
-        LocalDate today = LocalDate.now();
-        LocalDateTime startDate = today.atStartOfDay();
-        LocalDateTime endDate = today.atTime(LocalTime.MAX);
+    @Cacheable(value = "todayPlayersByCategory", key = "#categoryId + '_' + (#locale ?: 'ko') + '_' + (#timezone ?: 'Asia/Seoul')", cacheManager = "redisCacheManager")
+    public List<TodayPlayerResponse> getTodayPlayersByCategory(Long categoryId, String locale, String timezone) {
+        // 사용자 타임존 기준 "오늘"을 UTC로 변환하여 DB 조회
+        ZoneId userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        LocalDate today = LocalDate.now(userZone);
+        ZonedDateTime startZoned = today.atStartOfDay(userZone);
+        ZonedDateTime endZoned = today.atTime(LocalTime.MAX).atZone(userZone);
+        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         List<TodayPlayerResponse> result = new ArrayList<>();
         Set<String> addedUserIds = new HashSet<>();
@@ -226,16 +251,28 @@ public class HomeService {
     }
 
     /**
-     * MVP 길드 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 길드 5개)
+     * MVP 길드 목록 조회 (기본 타임존)
+     */
+    public List<MvpGuildResponse> getMvpGuilds() {
+        return getMvpGuilds(null);
+    }
+
+    /**
+     * MVP 길드 목록 조회 (금일 00:00 ~ 24:00 기준 가장 경험치를 많이 획득한 길드 5개) - 타임존 지원
      * N+1 문제 해결을 위해 배치 조회 사용
      * Redis 캐싱 적용 (5분 TTL)
+     *
+     * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
      */
-    @Cacheable(value = "mvpGuilds", cacheManager = "redisCacheManager")
-    public List<MvpGuildResponse> getMvpGuilds() {
-        // 오늘 00:00 ~ 23:59:59
-        LocalDate today = LocalDate.now();
-        LocalDateTime startDate = today.atStartOfDay();
-        LocalDateTime endDate = today.atTime(LocalTime.MAX);
+    @Cacheable(value = "mvpGuilds", key = "#timezone ?: 'Asia/Seoul'", cacheManager = "redisCacheManager")
+    public List<MvpGuildResponse> getMvpGuilds(String timezone) {
+        // 사용자 타임존 기준 "오늘"을 UTC로 변환하여 DB 조회
+        ZoneId userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        LocalDate today = LocalDate.now(userZone);
+        ZonedDateTime startZoned = today.atStartOfDay(userZone);
+        ZonedDateTime endZoned = today.atTime(LocalTime.MAX).atZone(userZone);
+        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         // 상위 5개 길드 조회
         List<Object[]> topGuilds = guildQueryFacadeService.getTopExpGuildsByPeriod(

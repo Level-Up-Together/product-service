@@ -31,8 +31,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Table(name = "daily_mvp_history",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_daily_mvp_history_date_rank",
-        columnNames = {"mvp_date", "mvp_rank"}
+        name = "uk_daily_mvp_history_date_rank_tz",
+        columnNames = {"mvp_date", "mvp_rank", "timezone"}
     ),
     indexes = {
         @Index(name = "idx_dmh_user_id", columnList = "user_id"),
@@ -52,6 +52,12 @@ public class DailyMvpHistory extends LocalDateTimeBaseEntity {
     @Column(name = "mvp_date", nullable = false)
     @Comment("MVP 선정 날짜")
     private LocalDate mvpDate;
+
+    @lombok.Builder.Default
+    @NotNull
+    @Column(name = "timezone", nullable = false, length = 50)
+    @Comment("타임존 그룹 (Asia/Seoul, Asia/Riyadh, UTC)")
+    private String timezone = "Asia/Seoul";
 
     @NotNull
     @Column(name = "mvp_rank", nullable = false)

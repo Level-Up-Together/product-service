@@ -28,6 +28,11 @@ public interface DailyMvpCategoryStatsRepository extends JpaRepository<DailyMvpC
     void deleteByStatsDate(LocalDate statsDate);
 
     /**
+     * 특정 날짜 + 타임존의 데이터 삭제 (재처리용)
+     */
+    void deleteByStatsDateAndTimezone(LocalDate statsDate, String timezone);
+
+    /**
      * 카테고리별 총 경험치 통계 (기간)
      */
     @Query("""

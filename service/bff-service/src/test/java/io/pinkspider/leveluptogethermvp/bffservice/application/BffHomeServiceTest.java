@@ -222,8 +222,8 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -258,7 +258,7 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenReturn(List.of(testGuildResponse));
@@ -285,7 +285,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
             when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
+            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenReturn(List.of(testGuildResponse));
@@ -308,7 +308,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
             when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenThrow(new RuntimeException("길드 조회 실패"));
@@ -331,7 +331,7 @@ class BffHomeServiceTest {
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt()))
                 .thenThrow(new RuntimeException("피드 조회 실패"));
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -355,7 +355,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
+            when(homeService.getTodayPlayers(any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -379,7 +379,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenThrow(new RuntimeException("카테고리 조회 실패"));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -403,7 +403,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("내 길드 조회 실패"));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -426,7 +426,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenThrow(new RuntimeException("공개 길드 조회 실패"));
@@ -450,7 +450,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -474,7 +474,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -499,7 +499,7 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(Collections.emptyList());
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -526,8 +526,8 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -563,8 +563,8 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -596,8 +596,8 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds()).thenReturn(Collections.emptyList());
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);

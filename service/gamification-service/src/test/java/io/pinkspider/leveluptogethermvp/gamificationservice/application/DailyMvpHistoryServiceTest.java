@@ -156,13 +156,13 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("이미 5개 이상의 MVP 히스토리가 저장된 경우 스킵한다")
         void captureAndSaveDailyMvp_alreadySaved_skips() {
             // given
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(5L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(5L);
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository, never()).deleteByMvpDate(any());
+            verify(historyRepository, never()).deleteByMvpDateAndTimezone(any(), any());
             verify(experienceHistoryRepository, never()).findTopExpGainersByPeriod(any(), any(), any());
             verify(historyRepository, never()).save(any());
         }
@@ -171,13 +171,13 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("이미 MVP_COUNT(5)보다 많은 경우에도 스킵한다")
         void captureAndSaveDailyMvp_moreThanMvpCount_skips() {
             // given
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(7L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(7L);
 
             // when
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository, never()).deleteByMvpDate(any());
+            verify(historyRepository, never()).deleteByMvpDateAndTimezone(any(), any());
             verify(historyRepository, never()).save(any());
         }
 
@@ -186,7 +186,7 @@ class DailyMvpHistoryServiceTest {
         void captureAndSaveDailyMvp_partialSaved_deletesAndResaves() {
             // given
             String userId = "user-1";
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(3L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(3L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -209,8 +209,8 @@ class DailyMvpHistoryServiceTest {
             dailyMvpHistoryService.captureAndSaveDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository).deleteByMvpDate(TEST_DATE);
-            verify(categoryStatsRepository).deleteByStatsDate(TEST_DATE);
+            verify(historyRepository).deleteByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul");
+            verify(categoryStatsRepository).deleteByStatsDateAndTimezone(TEST_DATE, "Asia/Seoul");
             verify(historyRepository).save(any(DailyMvpHistory.class));
         }
 
@@ -218,7 +218,7 @@ class DailyMvpHistoryServiceTest {
         @DisplayName("MVP 데이터가 없는 경우(topGainers가 빈 리스트) 저장 없이 종료한다")
         void captureAndSaveDailyMvp_noData_doesNotSave() {
             // given
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
                 .thenReturn(Collections.emptyList());
 
@@ -237,7 +237,7 @@ class DailyMvpHistoryServiceTest {
             String userId1 = "user-1";
             String userId2 = "user-2";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(
                 topGainerRow(userId1, 1000L),
@@ -294,7 +294,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-profile";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -332,7 +332,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-level";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -369,7 +369,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-with-title";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -412,7 +412,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-left-only";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 500L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -452,7 +452,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-title";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 400L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -491,7 +491,7 @@ class DailyMvpHistoryServiceTest {
             String categoryName = "운동";
             Long categoryId = 10L;
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 700L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -536,7 +536,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-no-category";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 300L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -576,7 +576,7 @@ class DailyMvpHistoryServiceTest {
             String categoryName = "운동";
             Long categoryId = 10L;
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 600L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -612,7 +612,7 @@ class DailyMvpHistoryServiceTest {
             // given
             String userId = "user-unknown-category";
 
-            when(historyRepository.countByMvpDate(TEST_DATE)).thenReturn(0L);
+            when(historyRepository.countByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul")).thenReturn(0L);
 
             List<Object[]> topGainers = topGainersOf(topGainerRow(userId, 400L));
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(PageRequest.class)))
@@ -678,8 +678,8 @@ class DailyMvpHistoryServiceTest {
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository).deleteByMvpDate(TEST_DATE);
-            verify(categoryStatsRepository).deleteByStatsDate(TEST_DATE);
+            verify(historyRepository).deleteByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul");
+            verify(categoryStatsRepository).deleteByStatsDateAndTimezone(TEST_DATE, "Asia/Seoul");
             verify(historyRepository).save(any(DailyMvpHistory.class));
         }
 
@@ -694,8 +694,8 @@ class DailyMvpHistoryServiceTest {
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository).deleteByMvpDate(TEST_DATE);
-            verify(categoryStatsRepository).deleteByStatsDate(TEST_DATE);
+            verify(historyRepository).deleteByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul");
+            verify(categoryStatsRepository).deleteByStatsDateAndTimezone(TEST_DATE, "Asia/Seoul");
             verify(historyRepository, never()).save(any());
         }
 
@@ -725,9 +725,9 @@ class DailyMvpHistoryServiceTest {
             // when
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
 
-            // then: countByMvpDate가 호출되지 않음을 검증 (reprocess는 존재 체크 없이 무조건 재처리)
-            verify(historyRepository, never()).countByMvpDate(any());
-            verify(historyRepository).deleteByMvpDate(TEST_DATE);
+            // then: countByMvpDateAndTimezone가 호출되지 않음을 검증 (reprocess는 존재 체크 없이 무조건 재처리)
+            verify(historyRepository, never()).countByMvpDateAndTimezone(any(), any());
+            verify(historyRepository).deleteByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul");
             verify(historyRepository).save(any(DailyMvpHistory.class));
         }
 
@@ -776,8 +776,8 @@ class DailyMvpHistoryServiceTest {
             dailyMvpHistoryService.reprocessDailyMvp(TEST_DATE);
 
             // then
-            verify(historyRepository).deleteByMvpDate(TEST_DATE);
-            verify(categoryStatsRepository).deleteByStatsDate(TEST_DATE);
+            verify(historyRepository).deleteByMvpDateAndTimezone(TEST_DATE, "Asia/Seoul");
+            verify(categoryStatsRepository).deleteByStatsDateAndTimezone(TEST_DATE, "Asia/Seoul");
 
             ArgumentCaptor<DailyMvpHistory> captor = ArgumentCaptor.forClass(DailyMvpHistory.class);
             verify(historyRepository, times(3)).save(captor.capture());

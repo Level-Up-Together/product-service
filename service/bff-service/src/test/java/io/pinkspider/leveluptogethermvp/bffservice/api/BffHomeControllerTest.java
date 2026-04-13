@@ -281,7 +281,7 @@ class BffHomeControllerTest {
             .notices(List.of(createMockNoticeResponse()))
             .build();
 
-        when(bffHomeService.getHomeData(anyString(), any(), anyInt(), anyInt(), anyInt(), any()))
+        when(bffHomeService.getHomeData(anyString(), any(), anyInt(), anyInt(), anyInt(), any(), any()))
             .thenReturn(mockResponse);
 
         // when

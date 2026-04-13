@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,34 +49,47 @@ public class DailyMvpHistoryService {
     private static final int MVP_COUNT = 5;
 
     /**
-     * 특정 날짜의 MVP 데이터를 캡처하여 저장
+     * 특정 날짜의 MVP 데이터를 캡처하여 저장 (기본 타임존: Asia/Seoul)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void captureAndSaveDailyMvp(LocalDate targetDate) {
+        captureAndSaveDailyMvp(targetDate, "Asia/Seoul");
+    }
+
+    /**
+     * 특정 날짜 + 타임존의 MVP 데이터를 캡처하여 저장
+     * targetDate는 해당 타임존 기준 날짜이며, DB 쿼리 시 UTC로 변환하여 조회
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void captureAndSaveDailyMvp(LocalDate targetDate, String timezone) {
         // 이미 존재하는 경우 스킵 (중복 방지)
         // 기존 레코드 수를 확인하여 완전히 저장된 경우만 스킵
-        long existingCount = historyRepository.countByMvpDate(targetDate);
+        long existingCount = historyRepository.countByMvpDateAndTimezone(targetDate, timezone);
         if (existingCount >= MVP_COUNT) {
-            log.info("이미 저장된 MVP 히스토리가 있습니다: date={}, count={}", targetDate, existingCount);
+            log.info("이미 저장된 MVP 히스토리가 있습니다: date={}, timezone={}, count={}", targetDate, timezone, existingCount);
             return;
         }
 
         // 부분적으로 저장된 경우 기존 데이터 삭제 후 재저장
         if (existingCount > 0) {
-            log.warn("부분적으로 저장된 MVP 히스토리 발견, 삭제 후 재저장: date={}, existingCount={}", targetDate, existingCount);
-            historyRepository.deleteByMvpDate(targetDate);
-            categoryStatsRepository.deleteByStatsDate(targetDate);
+            log.warn("부분적으로 저장된 MVP 히스토리 발견, 삭제 후 재저장: date={}, timezone={}, existingCount={}", targetDate, timezone, existingCount);
+            historyRepository.deleteByMvpDateAndTimezone(targetDate, timezone);
+            categoryStatsRepository.deleteByStatsDateAndTimezone(targetDate, timezone);
         }
 
-        LocalDateTime startDate = targetDate.atStartOfDay();
-        LocalDateTime endDate = targetDate.atTime(LocalTime.MAX);
+        // 타임존 기준 날짜 경계를 UTC로 변환 (experience_history는 UTC로 저장됨)
+        ZoneId zone = ZoneId.of(timezone);
+        ZonedDateTime startZoned = targetDate.atStartOfDay(zone);
+        ZonedDateTime endZoned = targetDate.atTime(LocalTime.MAX).atZone(zone);
+        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         // 1. 상위 5명의 MVP 조회
         List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
             startDate, endDate, PageRequest.of(0, MVP_COUNT));
 
         if (topGainers.isEmpty()) {
-            log.info("해당 날짜에 MVP 데이터가 없습니다: date={}", targetDate);
+            log.info("해당 날짜에 MVP 데이터가 없습니다: date={}, timezone={}", targetDate, timezone);
             return;
         }
 
@@ -125,6 +140,7 @@ public class DailyMvpHistoryService {
 
             DailyMvpHistory history = DailyMvpHistory.builder()
                 .mvpDate(targetDate)
+                .timezone(timezone)
                 .mvpRank(rank++)
                 .userId(odayUserId)
                 .nickname(profile != null ? profile.nickname() : null)
@@ -142,40 +158,52 @@ public class DailyMvpHistoryService {
         }
 
         // 9. 카테고리 통계 저장 (Top 5 사용자의 카테고리별 활동)
-        saveCategoryStats(targetDate, categoryStatsMap, categoryNameToIdMap);
+        saveCategoryStats(targetDate, timezone, categoryStatsMap, categoryNameToIdMap);
 
-        log.info("MVP 히스토리 저장 완료: date={}, count={}", targetDate, topGainers.size());
+        log.info("MVP 히스토리 저장 완료: date={}, timezone={}, count={}", targetDate, timezone, topGainers.size());
     }
 
     /**
-     * 수동으로 특정 날짜의 MVP 데이터 재처리
+     * 수동으로 특정 날짜의 MVP 데이터 재처리 (기본 타임존: Asia/Seoul)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void reprocessDailyMvp(LocalDate targetDate) {
-        log.info("MVP 히스토리 재처리 시작: date={}", targetDate);
+        reprocessDailyMvp(targetDate, "Asia/Seoul");
+    }
+
+    /**
+     * 수동으로 특정 날짜 + 타임존의 MVP 데이터 재처리
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void reprocessDailyMvp(LocalDate targetDate, String timezone) {
+        log.info("MVP 히스토리 재처리 시작: date={}, timezone={}", targetDate, timezone);
 
         // 기존 데이터 삭제
-        historyRepository.deleteByMvpDate(targetDate);
-        categoryStatsRepository.deleteByStatsDate(targetDate);
+        historyRepository.deleteByMvpDateAndTimezone(targetDate, timezone);
+        categoryStatsRepository.deleteByStatsDateAndTimezone(targetDate, timezone);
 
         // 재처리
-        captureAndSaveDailyMvpInternal(targetDate);
+        captureAndSaveDailyMvpInternal(targetDate, timezone);
 
-        log.info("MVP 히스토리 재처리 완료: date={}", targetDate);
+        log.info("MVP 히스토리 재처리 완료: date={}, timezone={}", targetDate, timezone);
     }
 
     /**
      * 내부용 저장 메서드 (존재 체크 없이)
      */
-    private void captureAndSaveDailyMvpInternal(LocalDate targetDate) {
-        LocalDateTime startDate = targetDate.atStartOfDay();
-        LocalDateTime endDate = targetDate.atTime(LocalTime.MAX);
+    private void captureAndSaveDailyMvpInternal(LocalDate targetDate, String timezone) {
+        // 타임존 기준 날짜 경계를 UTC로 변환
+        ZoneId zone = ZoneId.of(timezone);
+        ZonedDateTime startZoned = targetDate.atStartOfDay(zone);
+        ZonedDateTime endZoned = targetDate.atTime(LocalTime.MAX).atZone(zone);
+        LocalDateTime startDate = startZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endDate = endZoned.withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         List<Object[]> topGainers = experienceHistoryRepository.findTopExpGainersByPeriod(
             startDate, endDate, PageRequest.of(0, MVP_COUNT));
 
         if (topGainers.isEmpty()) {
-            log.info("해당 날짜에 MVP 데이터가 없습니다: date={}", targetDate);
+            log.info("해당 날짜에 MVP 데이터가 없습니다: date={}, timezone={}", targetDate, timezone);
             return;
         }
 
@@ -217,6 +245,7 @@ public class DailyMvpHistoryService {
 
             DailyMvpHistory history = DailyMvpHistory.builder()
                 .mvpDate(targetDate)
+                .timezone(timezone)
                 .mvpRank(rank++)
                 .userId(odayUserId)
                 .nickname(profile != null ? profile.nickname() : null)
@@ -233,10 +262,11 @@ public class DailyMvpHistoryService {
             historyRepository.save(history);
         }
 
-        saveCategoryStats(targetDate, categoryStatsMap, categoryNameToIdMap);
+        saveCategoryStats(targetDate, timezone, categoryStatsMap, categoryNameToIdMap);
     }
 
-    private void saveCategoryStats(LocalDate targetDate, Map<String, List<Object[]>> categoryStatsMap,
+    private void saveCategoryStats(LocalDate targetDate, String timezone,
+                                   Map<String, List<Object[]>> categoryStatsMap,
                                    Map<String, Long> categoryNameToIdMap) {
         for (Map.Entry<String, List<Object[]>> entry : categoryStatsMap.entrySet()) {
             String odayUserId = entry.getKey();
@@ -255,6 +285,7 @@ public class DailyMvpHistoryService {
                 if (categoryId != null && categoryExp > 0) {
                     DailyMvpCategoryStats categoryStat = DailyMvpCategoryStats.builder()
                         .statsDate(targetDate)
+                        .timezone(timezone)
                         .userId(odayUserId)
                         .categoryId(categoryId)
                         .categoryName(categoryName)

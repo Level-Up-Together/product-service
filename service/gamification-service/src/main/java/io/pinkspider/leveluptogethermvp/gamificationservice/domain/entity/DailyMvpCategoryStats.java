@@ -28,8 +28,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Table(name = "daily_mvp_category_stats",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_dmcs_date_user_category",
-        columnNames = {"stats_date", "user_id", "category_id"}
+        name = "uk_dmcs_date_user_category_tz",
+        columnNames = {"stats_date", "user_id", "category_id", "timezone"}
     ),
     indexes = {
         @Index(name = "idx_dmcs_stats_date", columnList = "stats_date"),
@@ -50,6 +50,12 @@ public class DailyMvpCategoryStats extends LocalDateTimeBaseEntity {
     @Column(name = "stats_date", nullable = false)
     @Comment("통계 날짜")
     private LocalDate statsDate;
+
+    @lombok.Builder.Default
+    @NotNull
+    @Column(name = "timezone", nullable = false, length = 50)
+    @Comment("타임존 그룹 (Asia/Seoul, Asia/Riyadh, UTC)")
+    private String timezone = "Asia/Seoul";
 
     @NotNull
     @Column(name = "user_id", nullable = false, length = 100)

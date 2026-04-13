@@ -65,6 +65,21 @@ public interface DailyMvpHistoryRepository extends JpaRepository<DailyMvpHistory
     void deleteByMvpDate(LocalDate mvpDate);
 
     /**
+     * 특정 날짜 + 타임존의 데이터 개수 확인
+     */
+    long countByMvpDateAndTimezone(LocalDate mvpDate, String timezone);
+
+    /**
+     * 특정 날짜 + 타임존의 데이터 삭제 (재처리용)
+     */
+    void deleteByMvpDateAndTimezone(LocalDate mvpDate, String timezone);
+
+    /**
+     * 특정 날짜 + 타임존의 MVP 목록 조회
+     */
+    List<DailyMvpHistory> findByMvpDateAndTimezoneOrderByMvpRankAsc(LocalDate mvpDate, String timezone);
+
+    /**
      * 사용자별 MVP 선정 횟수 통계 (기간)
      */
     @Query("""

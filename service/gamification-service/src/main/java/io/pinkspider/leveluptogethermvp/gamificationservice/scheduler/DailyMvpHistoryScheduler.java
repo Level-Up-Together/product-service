@@ -17,22 +17,41 @@ public class DailyMvpHistoryScheduler {
     private final DailyMvpHistoryService dailyMvpHistoryService;
 
     /**
-     * 매일 새벽 00:05에 전일 MVP 데이터 저장
-     * 자정 직후 실행하여 전일(어제) 데이터를 완전히 캡처
+     * 매일 새벽 00:00 KST에 전일 MVP 데이터 저장 (Asia/Seoul 타임존)
      */
-    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
-    public void saveDailyMvpHistory() {
-        log.info("일간 MVP 히스토리 저장 스케줄러 시작");
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+    public void saveDailyMvpHistoryKst() {
+        saveDailyMvpHistoryForTimezone("Asia/Seoul");
+    }
+
+    /**
+     * 매일 새벽 00:00 AST에 전일 MVP 데이터 저장 (Asia/Riyadh 타임존)
+     */
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Riyadh")
+    public void saveDailyMvpHistoryAst() {
+        saveDailyMvpHistoryForTimezone("Asia/Riyadh");
+    }
+
+    /**
+     * 매일 새벽 00:00 UTC에 전일 MVP 데이터 저장 (UTC 타임존)
+     */
+    @Scheduled(cron = "0 0 0 * * *", zone = "UTC")
+    public void saveDailyMvpHistoryUtc() {
+        saveDailyMvpHistoryForTimezone("UTC");
+    }
+
+    private void saveDailyMvpHistoryForTimezone(String timezone) {
+        log.info("일간 MVP 히스토리 저장 스케줄러 시작: timezone={}", timezone);
 
         try {
-            LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1);
-            dailyMvpHistoryService.captureAndSaveDailyMvp(yesterday);
-            log.info("일간 MVP 히스토리 저장 완료: date={}", yesterday);
+            ZoneId zone = ZoneId.of(timezone);
+            LocalDate yesterday = LocalDate.now(zone).minusDays(1);
+            dailyMvpHistoryService.captureAndSaveDailyMvp(yesterday, timezone);
+            log.info("일간 MVP 히스토리 저장 완료: date={}, timezone={}", yesterday, timezone);
         } catch (Exception e) {
-            log.error("일간 MVP 히스토리 저장 실패", e);
-            // TODO: Slack 알림 또는 재시도 로직 추가 고려
+            log.error("일간 MVP 히스토리 저장 실패: timezone={}", timezone, e);
         }
 
-        log.info("일간 MVP 히스토리 저장 스케줄러 종료");
+        log.info("일간 MVP 히스토리 저장 스케줄러 종료: timezone={}", timezone);
     }
 }

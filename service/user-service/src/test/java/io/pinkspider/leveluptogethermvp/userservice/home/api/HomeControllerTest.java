@@ -231,7 +231,7 @@ class HomeControllerTest {
             createMockTodayPlayerResponse(3)
         );
 
-        when(homeService.getTodayPlayers(isNull())).thenReturn(players);
+        when(homeService.getTodayPlayers(isNull(), isNull())).thenReturn(players);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -283,7 +283,7 @@ class HomeControllerTest {
             createMockTodayPlayerResponse(2)
         );
 
-        when(homeService.getTodayPlayersByCategory(eq(1L), isNull())).thenReturn(players);
+        when(homeService.getTodayPlayersByCategory(eq(1L), isNull(), isNull())).thenReturn(players);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -315,7 +315,7 @@ class HomeControllerTest {
     @DisplayName("GET /api/v1/home/today-players : 오늘의 플레이어가 없을 경우 빈 목록 반환")
     void getTodayPlayersEmptyTest() throws Exception {
         // given
-        when(homeService.getTodayPlayers(isNull())).thenReturn(List.of());
+        when(homeService.getTodayPlayers(isNull(), isNull())).thenReturn(List.of());
 
         // when & then
         mockMvc.perform(
@@ -333,7 +333,7 @@ class HomeControllerTest {
             MvpGuildResponse.of(2L, "테스트길드2", "https://example.com/guild2.jpg", 3, 5, 3000L, 2)
         );
 
-        when(homeService.getMvpGuilds()).thenReturn(guilds);
+        when(homeService.getMvpGuilds(isNull())).thenReturn(guilds);
 
         // when
         ResultActions resultActions = mockMvc.perform(

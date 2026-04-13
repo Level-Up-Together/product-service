@@ -64,13 +64,14 @@ public class HomeController {
     @GetMapping("/today-players")
     public ResponseEntity<ApiResult<List<TodayPlayerResponse>>> getTodayPlayers(
         @RequestParam(required = false) Long categoryId,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone
     ) {
         List<TodayPlayerResponse> players;
         if (categoryId != null) {
-            players = homeService.getTodayPlayersByCategory(categoryId, acceptLanguage);
+            players = homeService.getTodayPlayersByCategory(categoryId, acceptLanguage, timezone);
         } else {
-            players = homeService.getTodayPlayers(acceptLanguage);
+            players = homeService.getTodayPlayers(acceptLanguage, timezone);
         }
         return ResponseEntity.ok(ApiResult.<List<TodayPlayerResponse>>builder().value(players).build());
     }
@@ -80,8 +81,10 @@ public class HomeController {
      * - 오늘 가장 많은 경험치를 획득한 길드 5개
      */
     @GetMapping("/mvp-guilds")
-    public ResponseEntity<ApiResult<List<MvpGuildResponse>>> getMvpGuilds() {
-        List<MvpGuildResponse> guilds = homeService.getMvpGuilds();
+    public ResponseEntity<ApiResult<List<MvpGuildResponse>>> getMvpGuilds(
+        @RequestHeader(value = "X-Timezone", required = false) String timezone
+    ) {
+        List<MvpGuildResponse> guilds = homeService.getMvpGuilds(timezone);
         return ResponseEntity.ok(ApiResult.<List<MvpGuildResponse>>builder().value(guilds).build());
     }
 

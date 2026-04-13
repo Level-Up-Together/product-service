@@ -61,9 +61,10 @@ public class BffHomeController {
         @RequestParam(defaultValue = "0") int feedPage,
         @RequestParam(defaultValue = "20") int feedSize,
         @RequestParam(defaultValue = "5") int publicGuildSize,
-        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone
     ) {
-        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, acceptLanguage);
+        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, acceptLanguage, timezone);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
 
