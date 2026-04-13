@@ -152,7 +152,19 @@ jacocoTestReport {
                     '**/pagenation/**',
                     '**/types/**',
                     '**/DgsConstants*.class',
-                    '**/*Application.class'
+                    '**/*Application.class',
+                    // 외부 의존성 (S3, Firebase, Redis Consumer, AWS Rekognition)
+                    '**/S3*ImageStorageService.class',
+                    '**/Local*ImageStorageService.class',
+                    '**/FcmPushService.class',
+                    '**/AppPushMessageConsumer.class',
+                    '**/AwsRekognitionModerationService.class',
+                    // WebSocket 컨트롤러 (통합 테스트 대상)
+                    '**/*WebSocketController.class',
+                    // Admin 내부 API 컨트롤러
+                    '**/*InternalController.class',
+                    // HTTP 요청 의존 컴포넌트
+                    '**/DeviceIdentifier.class'
             ])
         }))
     }

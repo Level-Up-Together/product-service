@@ -182,6 +182,230 @@ class LoadMissionDataStepTest {
             assertThat(context.getGuildId()).isEqualTo(123L);
             assertThat(context.getGuildExpEarned()).isEqualTo(10);
         }
+
+        @Test
+        @DisplayName("이미 완료된 수행 기록이면 실패한다")
+        void execute_failsWhenAlreadyCompleted() {
+            // given
+            execution.setStatus(ExecutionStatus.COMPLETED);
+            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("이미 완료된 수행 기록");
+        }
+
+        @Test
+        @DisplayName("미실행 처리된 수행 기록이면 실패한다")
+        void execute_failsWhenMissed() {
+            // given
+            execution.setStatus(ExecutionStatus.MISSED);
+            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("미실행 처리된 수행 기록");
+        }
+
+        @Test
+        @DisplayName("PENDING 상태 수행 기록이면 '진행 중인 수행 기록만' 오류를 반환한다")
+        void execute_failsWhenStatusIsPending() {
+            // given
+            execution.setStatus(ExecutionStatus.PENDING);
+            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
+                .thenReturn(Optional.of(execution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("진행 중인 수행 기록만");
+        }
+
+        @Test
+        @DisplayName("expPerCompletion이 null이면 기본값 10을 사용한다")
+        void execute_nullExpPerCompletion_usesDefaultExp() {
+            // given
+            Mission missionWithNullExp = Mission.builder()
+                .title("기본 경험치 미션")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .categoryId(1L)
+                .categoryName("운동")
+                .expPerCompletion(null)
+                .build();
+            setId(missionWithNullExp, 10L);
+
+            MissionParticipant nullExpParticipant = MissionParticipant.builder()
+                .mission(missionWithNullExp)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(0)
+                .build();
+            setId(nullExpParticipant, 10L);
+
+            MissionExecution nullExpExecution = MissionExecution.builder()
+                .participant(nullExpParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(nullExpExecution, 10L);
+
+            MissionCompletionContext context = new MissionCompletionContext(10L, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(10L))
+                .thenReturn(Optional.of(nullExpExecution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getUserExpEarned()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("길드 미션이지만 guildId가 null이면 길드 경험치를 설정하지 않는다")
+        void execute_guildMissionWithNullGuildId_doesNotSetGuildExp() {
+            // given
+            Mission guildMissionNoId = Mission.builder()
+                .title("길드 미션 (ID없음)")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .type(MissionType.GUILD)
+                .guildId(null)
+                .categoryId(1L)
+                .categoryName("운동")
+                .expPerCompletion(50)
+                .build();
+            setId(guildMissionNoId, 5L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMissionNoId)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 5L);
+
+            MissionExecution guildExecution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(guildExecution, 5L);
+
+            MissionCompletionContext context = new MissionCompletionContext(5L, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(5L))
+                .thenReturn(Optional.of(guildExecution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildId()).isNull();
+            assertThat(context.getGuildExpEarned()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("길드 미션에서 guildExpPerCompletion이 null이면 기본값 5를 사용한다")
+        void execute_guildMission_nullGuildExp_usesDefault() {
+            // given
+            Mission guildMission = Mission.builder()
+                .title("길드 미션 (기본 경험치)")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .type(MissionType.GUILD)
+                .guildId("200")
+                .categoryId(1L)
+                .categoryName("운동")
+                .expPerCompletion(50)
+                .guildExpPerCompletion(null)
+                .build();
+            setId(guildMission, 6L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 6L);
+
+            MissionExecution guildExecution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(guildExecution, 6L);
+
+            MissionCompletionContext context = new MissionCompletionContext(6L, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(6L))
+                .thenReturn(Optional.of(guildExecution));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildExpEarned()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("shouldExecute는 pinned 미션에서 false를 반환한다")
+        void shouldExecute_pinned_returnsFalse() {
+            // given
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                1L, TEST_USER_ID, null, false);
+
+            // when
+            boolean result = loadMissionDataStep.shouldExecute().test(pinnedContext);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("shouldExecute는 일반 미션에서 true를 반환한다")
+        void shouldExecute_regular_returnsTrue() {
+            // given
+            MissionCompletionContext regularContext = new MissionCompletionContext(1L, TEST_USER_ID, null);
+
+            // when
+            boolean result = loadMissionDataStep.shouldExecute().test(regularContext);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("Repository 예외 발생 시 실패 결과를 반환한다")
+        void execute_repositoryException_returnsFailure() {
+            // given
+            MissionCompletionContext context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
+            when(executionRepository.findByIdWithParticipantAndMission(EXECUTION_ID))
+                .thenThrow(new RuntimeException("DB 연결 오류"));
+
+            // when
+            SagaStepResult result = loadMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+        }
     }
 
     @Nested

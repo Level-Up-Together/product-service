@@ -449,5 +449,285 @@ class MultiDeviceTokenServiceTest {
             assertThat(result).isEqualTo(1);
             verify(redisTemplate).delete("session:user1:mobile:device1");
         }
+
+        @Test
+        @DisplayName("refreshToken이 null이면 세션을 삭제한다")
+        void cleanupExpiredSessions_nullRefreshToken() {
+            // given
+            Set<String> sessionKeys = new HashSet<>();
+            sessionKeys.add("session:user2:web:device2");
+
+            when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(hashOperations.get("session:user2:web:device2", "refreshToken")).thenReturn(null);
+
+            // when
+            int result = multiDeviceTokenService.cleanupExpiredSessions();
+
+            // then
+            assertThat(result).isEqualTo(1);
+            verify(redisTemplate).delete("session:user2:web:device2");
+        }
+
+        @Test
+        @DisplayName("유효한 세션은 삭제하지 않는다")
+        void cleanupExpiredSessions_validSession_notDeleted() {
+            // given
+            Set<String> sessionKeys = new HashSet<>();
+            sessionKeys.add("session:user3:mobile:device3");
+
+            when(redisTemplate.keys("session:*")).thenReturn(sessionKeys);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get("session:user3:mobile:device3", "refreshToken")).thenReturn(REFRESH_TOKEN);
+            when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(true);
+
+            // when
+            int result = multiDeviceTokenService.cleanupExpiredSessions();
+
+            // then
+            assertThat(result).isEqualTo(0);
+            verify(redisTemplate, never()).delete(eq("session:user3:mobile:device3"));
+        }
+    }
+
+    @Nested
+    @DisplayName("blacklistToken 추가 분기 테스트")
+    class BlacklistTokenExtraTest {
+
+        @Test
+        @DisplayName("remainingTime이 0 이하이면 블랙리스트에 추가하지 않는다")
+        void blacklistToken_zeroRemainingTime_notAdded() {
+            // given
+            String jti = "test-jti";
+
+            when(jwtUtil.validateToken(ACCESS_TOKEN)).thenReturn(true);
+            when(jwtUtil.getJtiFromToken(ACCESS_TOKEN)).thenReturn(jti);
+            when(jwtUtil.getRemainingTime(ACCESS_TOKEN)).thenReturn(0L);
+
+            // when
+            multiDeviceTokenService.blacklistToken(ACCESS_TOKEN);
+
+            // then
+            verify(redisTemplate, never()).opsForValue();
+        }
+
+        @Test
+        @DisplayName("토큰 검증 실패 시 블랙리스트에 추가하지 않는다")
+        void blacklistToken_invalidToken_notAdded() {
+            // given
+            when(jwtUtil.validateToken(ACCESS_TOKEN)).thenReturn(false);
+
+            // when
+            multiDeviceTokenService.blacklistToken(ACCESS_TOKEN);
+
+            // then
+            verify(redisTemplate, never()).opsForValue();
+        }
+
+        @Test
+        @DisplayName("예외 발생 시 로그만 남기고 종료한다")
+        void blacklistToken_exception_doesNotThrow() {
+            // given
+            when(jwtUtil.validateToken(ACCESS_TOKEN)).thenThrow(new RuntimeException("JWT error"));
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> multiDeviceTokenService.blacklistToken(ACCESS_TOKEN));
+        }
+    }
+
+    @Nested
+    @DisplayName("getSessionInfo 테스트")
+    class GetSessionInfoTest {
+
+        @Test
+        @DisplayName("refreshToken이 없으면 기본 세션 정보만 반환한다")
+        void getSessionInfo_noRefreshToken() {
+            // given
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("accessToken", ACCESS_TOKEN);
+            sessionData.put("userId", TEST_USER_ID);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+
+            // when
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            // then
+            assertThat(result).containsKey("accessToken");
+            assertThat(result).doesNotContainKey("refreshTokenRemaining");
+        }
+
+        @Test
+        @DisplayName("refreshToken이 있으면 토큰 정보를 포함한 세션 정보를 반환한다")
+        void getSessionInfo_withRefreshToken() {
+            // given
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("accessToken", ACCESS_TOKEN);
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            sessionData.put("userId", TEST_USER_ID);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(86400000L);
+            when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(true);
+            when(slidingExpirationService.shouldRenewRefreshToken(REFRESH_TOKEN)).thenReturn(false);
+            when(slidingExpirationService.canRenewToken(REFRESH_TOKEN)).thenReturn(true);
+
+            // when
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            // then
+            assertThat(result).containsKey("refreshTokenRemaining");
+            assertThat(result).containsKey("shouldRenewRefreshToken");
+            assertThat(result).containsKey("refreshTokenValid");
+            assertThat(result).containsKey("canRenewRefreshToken");
+        }
+
+        @Test
+        @DisplayName("refreshToken 처리 중 예외가 발생하면 기본값을 반환한다")
+        void getSessionInfo_refreshTokenException() {
+            // given
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            String sessionKey = "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenThrow(new RuntimeException("token error"));
+
+            // when
+            Map<String, Object> result = multiDeviceTokenService.getSessionInfo(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID);
+
+            // then
+            assertThat(result.get("refreshTokenRemaining")).isEqualTo(0);
+            assertThat(result.get("shouldRenewRefreshToken")).isEqualTo(false);
+            assertThat(result.get("refreshTokenValid")).isEqualTo(false);
+            assertThat(result.get("canRenewRefreshToken")).isEqualTo(false);
+        }
+    }
+
+    @Nested
+    @DisplayName("getActiveSessions 추가 분기 테스트")
+    class GetActiveSessionsExtraTest {
+
+        @Test
+        @DisplayName("세션 데이터가 비어있으면 해당 세션을 건너뛴다")
+        void getActiveSessions_emptySessionData_skipped() {
+            // given
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+
+            Set<String> sessions = new HashSet<>();
+            sessions.add("session:" + TEST_USER_ID + ":mobile:device1");
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
+            when(hashOperations.entries("session:" + TEST_USER_ID + ":mobile:device1"))
+                .thenReturn(new HashMap<>());
+
+            // when
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("refreshToken이 있고 accessToken도 있으면 모든 정보를 포함한다")
+        void getActiveSessions_withBothTokens() {
+            // given
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+
+            Set<String> sessions = new HashSet<>();
+            String sessionKey = "session:" + TEST_USER_ID + ":mobile:device1";
+            sessions.add(sessionKey);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
+
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("deviceType", "mobile");
+            sessionData.put("deviceId", "device1");
+            sessionData.put("accessToken", ACCESS_TOKEN);
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            sessionData.put("loginTime", "1000000");
+            sessionData.put("userId", TEST_USER_ID);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenReturn(86400000L);
+            when(jwtUtil.validateToken(REFRESH_TOKEN)).thenReturn(true);
+            when(slidingExpirationService.shouldRenewRefreshToken(REFRESH_TOKEN)).thenReturn(false);
+            when(jwtUtil.getRemainingTime(ACCESS_TOKEN)).thenReturn(3600000L);
+            when(jwtUtil.validateToken(ACCESS_TOKEN)).thenReturn(true);
+
+            // when
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDeviceType()).isEqualTo("mobile");
+        }
+
+        @Test
+        @DisplayName("refreshToken 예외 발생 시 기본값으로 처리한다")
+        void getActiveSessions_refreshTokenException() {
+            // given
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+
+            Set<String> sessions = new HashSet<>();
+            String sessionKey = "session:" + TEST_USER_ID + ":mobile:device1";
+            sessions.add(sessionKey);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
+
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("deviceType", "mobile");
+            sessionData.put("deviceId", "device1");
+            sessionData.put("refreshToken", REFRESH_TOKEN);
+            sessionData.put("loginTime", "1000000");
+            sessionData.put("userId", TEST_USER_ID);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+
+            when(jwtUtil.getRemainingTime(REFRESH_TOKEN)).thenThrow(new RuntimeException("token error"));
+
+            // when
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getRefreshTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+        }
+
+        @Test
+        @DisplayName("accessToken 예외 발생 시 기본값으로 처리한다")
+        void getActiveSessions_accessTokenException() {
+            // given
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+
+            Set<String> sessions = new HashSet<>();
+            String sessionKey = "session:" + TEST_USER_ID + ":mobile:device1";
+            sessions.add(sessionKey);
+            when(setOperations.members("userSessions:" + TEST_USER_ID)).thenReturn(sessions);
+
+            Map<Object, Object> sessionData = new HashMap<>();
+            sessionData.put("deviceType", "mobile");
+            sessionData.put("deviceId", "device1");
+            sessionData.put("accessToken", ACCESS_TOKEN);
+            sessionData.put("loginTime", "1000000");
+            sessionData.put("userId", TEST_USER_ID);
+            when(hashOperations.entries(sessionKey)).thenReturn(sessionData);
+
+            when(jwtUtil.getRemainingTime(ACCESS_TOKEN)).thenThrow(new RuntimeException("token error"));
+
+            // when
+            List<Session> result = multiDeviceTokenService.getActiveSessions(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getAccessTokenRemaining()).isEqualTo(java.math.BigInteger.ZERO);
+        }
     }
 }

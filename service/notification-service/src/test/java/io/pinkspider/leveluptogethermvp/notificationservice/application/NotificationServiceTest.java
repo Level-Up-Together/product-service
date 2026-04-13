@@ -699,4 +699,200 @@ class NotificationServiceTest {
             verify(notificationRepository).save(any(Notification.class));
         }
     }
+
+    @Nested
+    @DisplayName("pushEnabled + quietHours 분기 테스트")
+    class PushEnabledQuietHoursTest {
+
+        @Test
+        @DisplayName("pushEnabled가 false이면 푸시 알림을 전송하지 않는다")
+        void createNotification_pushDisabled_doesNotSendPush() {
+            // given
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .pushEnabled(false)
+                .friendNotifications(true)
+                .guildNotifications(true)
+                .socialNotifications(true)
+                .systemNotifications(true)
+                .quietHoursEnabled(false)
+                .build();
+            setId(preference, 1L);
+
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+            verify(appPushMessageProducer, org.mockito.Mockito.never()).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("pushEnabled가 true이고 quietHours 미설정이면 푸시 알림을 전송한다")
+        void createNotification_pushEnabled_noQuietHours_sendsPush() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+            verify(appPushMessageProducer).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("quietHoursEnabled=true이지만 start/end가 null이면 푸시 알림을 전송한다")
+        void createNotification_quietHoursEnabled_nullStartEnd_sendsPush() {
+            // given
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .pushEnabled(true)
+                .friendNotifications(true)
+                .guildNotifications(true)
+                .socialNotifications(true)
+                .systemNotifications(true)
+                .quietHoursEnabled(true)
+                .quietHoursStart(null)
+                .quietHoursEnd(null)
+                .build();
+            setId(preference, 1L);
+
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+            // quietHours가 활성화되어도 start/end가 null이므로 quiet hours 아님 → 푸시 전송됨
+            verify(appPushMessageProducer).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("사용자가 존재하고 timezone이 설정되어 있으면 해당 timezone으로 quiet hours 판단한다")
+        void createNotification_userWithTimezone_quietHoursCheck() {
+            // given
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id(TEST_USER_ID)
+                    .email("test@example.com")
+                    .nickname("testNick")
+                    .provider("google")
+                    .preferredTimezone("Asia/Seoul")
+                    .build();
+
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .pushEnabled(true)
+                .friendNotifications(true)
+                .guildNotifications(true)
+                .socialNotifications(true)
+                .systemNotifications(true)
+                .quietHoursEnabled(true)
+                .quietHoursStart("02:00")
+                .quietHoursEnd("04:00")
+                .build();
+            setId(preference, 1L);
+
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+            // 결과는 현재 시간에 따라 다르지만 예외 없이 실행되어야 함
+        }
+    }
+
+    @Nested
+    @DisplayName("updatePreferences 추가 분기 테스트")
+    class UpdatePreferencesExtraTest {
+
+        @Test
+        @DisplayName("guildNotifications, socialNotifications, systemNotifications도 업데이트된다")
+        void updatePreferences_allFields_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            NotificationPreferenceRequest request = NotificationPreferenceRequest.builder()
+                .pushEnabled(false)
+                .friendNotifications(false)
+                .guildNotifications(false)
+                .socialNotifications(false)
+                .systemNotifications(false)
+                .quietHoursEnabled(true)
+                .quietHoursStart("22:00")
+                .quietHoursEnd("08:00")
+                .build();
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+
+            // when
+            NotificationPreferenceResponse result = notificationService.updatePreferences(TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(preference.getPushEnabled()).isFalse();
+            assertThat(preference.getFriendNotifications()).isFalse();
+            assertThat(preference.getGuildNotifications()).isFalse();
+            assertThat(preference.getSocialNotifications()).isFalse();
+            assertThat(preference.getSystemNotifications()).isFalse();
+            assertThat(preference.getQuietHoursEnabled()).isTrue();
+            assertThat(preference.getQuietHoursStart()).isEqualTo("22:00");
+            assertThat(preference.getQuietHoursEnd()).isEqualTo("08:00");
+        }
+    }
+
+    @Nested
+    @DisplayName("createNotification iconUrl 포함 테스트")
+    class CreateNotificationWithIconUrlTest {
+
+        @Test
+        @DisplayName("iconUrl을 포함하여 알림을 생성한다")
+        void createNotification_withIconUrl_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = Notification.builder()
+                .userId(TEST_USER_ID)
+                .notificationType(NotificationType.TITLE_ACQUIRED)
+                .title("칭호 획득")
+                .message("새 칭호를 획득했습니다")
+                .iconUrl("rarity:LEGENDARY")
+                .build();
+            setId(savedNotification, 1L);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, "칭호 획득",
+                "새 칭호를 획득했습니다", "TITLE", 1L, "/achievement", "rarity:LEGENDARY");
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getIconUrl()).isEqualTo("rarity:LEGENDARY");
+        }
+    }
 }

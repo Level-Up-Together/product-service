@@ -934,6 +934,24 @@ class FeedQueryServiceTest {
         }
 
         @Test
+        @DisplayName("currentUserId가 null이어도 피드 상세를 조회한다")
+        void getFeed_currentUserIdNull_success() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(reportService.isUnderReview(ReportTargetType.FEED, "1")).thenReturn(false);
+
+            // when
+            ActivityFeedResponse result = feedQueryService.getFeed(feedId, null);
+
+            // then - currentUserId null이면 likedByMe=false, isMyFeed=false
+            assertThat(result).isNotNull();
+            assertThat(result.isLikedByMe()).isFalse();
+        }
+
+        @Test
         @DisplayName("댓글 목록 조회 시 신고 처리중 상태가 일괄 조회된다")
         void getComments_batchUnderReviewCheck() {
             // given
@@ -963,6 +981,300 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
             verify(reportService).isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList());
+        }
+    }
+
+    @Nested
+    @DisplayName("translateFeed 분기 테스트")
+    class TranslateFeedTest {
+
+        @Test
+        @DisplayName("기본 언어(en)로 공개 피드를 조회하면 번역 서비스를 호출하지 않는다")
+        void getPublicFeeds_defaultLocale_noTranslation() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            // then - 기본 언어이므로 translationService 호출 안됨
+            org.mockito.Mockito.verify(translationService, org.mockito.Mockito.never())
+                .translateContent(any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("acceptLanguage가 null이면 기본 언어로 처리되어 번역을 호출하지 않는다")
+        void getPublicFeeds_nullLocale_noTranslation() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, null);
+
+            // then - null locale도 기본 언어 처리
+            org.mockito.Mockito.verify(translationService, org.mockito.Mockito.never())
+                .translateContent(any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("translateComment 분기 테스트")
+    class TranslateCommentTest {
+
+        @Test
+        @DisplayName("삭제된 댓글은 번역을 호출하지 않는다")
+        void getComments_deletedComment_noTranslation() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment deletedComment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("삭제된 댓글")
+                .isDeleted(true)
+                .build();
+            setId(deletedComment, 1L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "en");
+
+            // then - 삭제된 댓글은 번역 안 함
+            org.mockito.Mockito.verify(translationService, org.mockito.Mockito.never())
+                .translateContent(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("기본 언어(en) 댓글 조회 시 번역을 호출하지 않는다")
+        void getComments_defaultLocale_noTranslation() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("댓글")
+                .isDeleted(false)
+                .build();
+            setId(comment, 2L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "en");
+
+            // then - 기본 언어이므로 번역 안 함
+            org.mockito.Mockito.verify(translationService, org.mockito.Mockito.never())
+                .translateContent(any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("getComments getUserProfile 예외 폴백 테스트")
+    class GetCommentsFallbackTest {
+
+        @Test
+        @DisplayName("userProfile 조회 실패 시 comment에 저장된 userLevel로 폴백한다")
+        void getComments_userProfileException_fallbackToCommentLevel() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("댓글")
+                .isDeleted(false)
+                .userLevel(7)  // 저장된 레벨
+                .build();
+            setId(comment, 3L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenThrow(new RuntimeException("사용자 조회 실패"));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then - 예외가 전파되지 않고 저장된 userLevel 사용
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getUserLevel()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("userProfile 조회 실패 및 comment.userLevel도 null이면 기본값 1을 사용한다")
+        void getComments_userProfileException_userLevelNull_defaultsTo1() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("댓글")
+                .isDeleted(false)
+                // userLevel = null
+                .build();
+            setId(comment, 4L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenThrow(new RuntimeException("사용자 조회 실패"));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then - 기본값 1 사용
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getUserLevel()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getLikedFeedIds 분기 테스트")
+    class GetLikedFeedIdsTest {
+
+        @Test
+        @DisplayName("currentUserId가 null이면 빈 좋아요 목록을 반환한다")
+        void getPublicFeeds_userIdNull_emptyLikedIds() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(null, 0, 10);
+
+            // then - userId null이면 feedLikeRepository 호출 안됨
+            assertThat(result.getContent()).hasSize(1);
+            org.mockito.Mockito.verify(feedLikeRepository, org.mockito.Mockito.never())
+                .findLikedFeedIds(any(), anyList());
+        }
+
+        @Test
+        @DisplayName("피드 목록이 비어있으면 좋아요 조회를 하지 않는다")
+        void getPublicFeeds_emptyFeeds_noLikeQuery() {
+            // given
+            Page<ActivityFeed> emptyPage = new PageImpl<>(Collections.emptyList());
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(emptyPage);
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            // then - 빈 피드 목록이면 findLikedFeedIds 호출 안됨
+            assertThat(result.getContent()).isEmpty();
+            org.mockito.Mockito.verify(feedLikeRepository, org.mockito.Mockito.never())
+                .findLikedFeedIds(any(), anyList());
+        }
+    }
+
+    @Nested
+    @DisplayName("getPublicFeedsByCategory 추가 분기 테스트")
+    class GetPublicFeedsByCategoryExtraTest {
+
+        @Test
+        @DisplayName("page > 0이면 Featured 피드를 추가하지 않는다")
+        void getPublicFeedsByCategory_pageGreaterThanZero_noFeatured() {
+            // given
+            Long categoryId = 1L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(99L));
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when - page=1 (첫 페이지 아님)
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, TEST_USER_ID, 1, 10);
+
+            // then - featured는 첫 페이지에만 적용
+            assertThat(result.getContent()).hasSize(1);
+            // findByIdIn이 호출되지 않음 (featuredFeedIds가 비어있지 않아도 page>0이면 featured 추가 안됨)
+        }
+
+        @Test
+        @DisplayName("combined 피드가 size를 초과하면 잘라낸다")
+        void getPublicFeedsByCategory_oversizedCombined_truncated() {
+            // given
+            Long categoryId = 1L;
+            // 5개 featured + 5개 normal → size=5 초과
+            List<ActivityFeed> featuredFeeds = new java.util.ArrayList<>();
+            List<Long> featuredIds = new java.util.ArrayList<>();
+            for (int i = 1; i <= 5; i++) {
+                ActivityFeed f = createTestFeed((long)i, TEST_USER_ID);
+                featuredFeeds.add(f);
+                featuredIds.add((long)i);
+            }
+            // normal 피드 1개 (duplicate 아닌 것)
+            ActivityFeed normalFeed = createTestFeed(10L, OTHER_USER_ID);
+            Page<ActivityFeed> normalPage = new PageImpl<>(List.of(normalFeed));
+
+            when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(featuredIds);
+            when(activityFeedRepository.findByIdIn(featuredIds)).thenReturn(featuredFeeds);
+            when(activityFeedRepository.findPublicFeedsByCategoryId(eq(categoryId), any(Pageable.class)))
+                .thenReturn(normalPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when - size=5
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeedsByCategory(categoryId, TEST_USER_ID, 0, 5);
+
+            // then - 5개로 제한됨
+            assertThat(result.getContent()).hasSize(5);
+        }
+    }
+
+    @Nested
+    @DisplayName("searchFeedsByCategory 분기 테스트")
+    class SearchFeedsByCategoryExtraTest {
+
+        @Test
+        @DisplayName("유효하지 않은 카테고리로 피드 검색 시 빈 결과 반환")
+        void searchFeedsByCategory_invalidCategory_returnsEmpty() {
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.searchFeedsByCategory(
+                "키워드", "INVALID_CATEGORY", TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            org.mockito.Mockito.verify(activityFeedRepository, org.mockito.Mockito.never())
+                .searchByKeywordAndCategory(any(), anyList(), any());
         }
     }
 }

@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.home.application;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -621,6 +622,388 @@ class HomeServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getRightTitle()).isEqualTo("محارب");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildTitleInfoFromList 분기 테스트")
+    class BuildTitleInfoFromListTest {
+
+        @Test
+        @DisplayName("RIGHT 칭호만 있을 때 combinedTitle이 rightTitle과 같다")
+        void getTodayPlayers_rightTitleOnly() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            UserTitleDto rightUserTitle = new UserTitleDto(
+                2L, testUserId, 2L, "전사", null, null,
+                null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT,
+                null, null, true, TitlePosition.RIGHT, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(rightUserTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            TodayPlayerResponse player = result.get(0);
+            assertThat(player.getRightTitle()).isEqualTo("전사");
+            assertThat(player.getLeftTitle()).isNull();
+            assertThat(player.getTitle()).isEqualTo("전사");
+            assertThat(player.getTitleRarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("LEFT/RIGHT 칭호에서 LEFT rarity가 더 높으면 LEFT 색상 코드가 사용된다")
+        void getTodayPlayers_leftRarityHigher_usesLeftColorCode() {
+            // given
+            Object[] row1 = {testUserId, 200L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            UserTitleDto leftUserTitle = new UserTitleDto(
+                1L, testUserId, 1L, "전설의", null, null,
+                null, null, null, TitleRarity.LEGENDARY, TitlePosition.LEFT,
+                "#FF0000", null, true, TitlePosition.LEFT, null
+            );
+
+            UserTitleDto rightUserTitle = new UserTitleDto(
+                2L, testUserId, 2L, "전사", null, null,
+                null, null, null, TitleRarity.COMMON, TitlePosition.RIGHT,
+                "#00FF00", null, true, TitlePosition.RIGHT, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 10));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(leftUserTitle, rightUserTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTitleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+            assertThat(result.get(0).getTitleColorCode()).isEqualTo("#FF0000");
+        }
+
+        @Test
+        @DisplayName("LEFT/RIGHT 칭호에서 RIGHT rarity가 더 높으면 RIGHT 색상 코드가 사용된다")
+        void getTodayPlayers_rightRarityHigher_usesRightColorCode() {
+            // given
+            Object[] row1 = {testUserId, 200L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            UserTitleDto leftUserTitle = new UserTitleDto(
+                1L, testUserId, 1L, "용감한", null, null,
+                null, null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                "#AAAAAA", null, true, TitlePosition.LEFT, null
+            );
+
+            UserTitleDto rightUserTitle = new UserTitleDto(
+                2L, testUserId, 2L, "용의 심장", null, null,
+                null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
+                "#FFD700", null, true, TitlePosition.RIGHT, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 15));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(leftUserTitle, rightUserTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTitleRarity()).isEqualTo(TitleRarity.LEGENDARY);
+            assertThat(result.get(0).getTitleColorCode()).isEqualTo("#FFD700");
+        }
+
+        @Test
+        @DisplayName("칭호 목록이 null일 때 빈 TitleInfo를 반환한다")
+        void getTodayPlayers_titlesNull_emptyTitleInfo() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            // titleMap에 testUserId 없음 → null
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTitle()).isNull();
+            assertThat(result.get(0).getTitleRarity()).isNull();
+            assertThat(result.get(0).getLeftTitle()).isNull();
+            assertThat(result.get(0).getRightTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("칭호 중 LEFT도 RIGHT도 아닌 포지션은 무시된다")
+        void getTodayPlayers_noLeftOrRightPosition_titleInfoEmpty() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            // BOTH 포지션 등 LEFT/RIGHT 아닌 경우
+            UserTitleDto otherTitle = new UserTitleDto(
+                1L, testUserId, 1L, "기타칭호", null, null,
+                null, null, null, TitleRarity.RARE, null,  // equippedPosition = null
+                null, null, true, null, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(otherTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getLeftTitle()).isNull();
+            assertThat(result.get(0).getRightTitle()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getMvpGuilds timezone 지원 테스트")
+    class GetMvpGuildsTimezoneTest {
+
+        @Test
+        @DisplayName("timezone 지정 시 해당 타임존 기준으로 MVP 길드를 조회한다")
+        void getMvpGuilds_withTimezone() {
+            // given
+            Long guildId = 1L;
+            Object[] row1 = {guildId, 300L};
+            List<Object[]> topGuilds = new ArrayList<>();
+            topGuilds.add(row1);
+
+            io.pinkspider.global.facade.dto.GuildWithMemberCount guildWithCount =
+                new io.pinkspider.global.facade.dto.GuildWithMemberCount(
+                    guildId, "글로벌길드", "https://example.com/guild.jpg", 3, 20
+                );
+
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(topGuilds);
+            when(guildQueryFacadeService.getGuildsWithMemberCounts(List.of(guildId)))
+                .thenReturn(List.of(guildWithCount));
+
+            // when
+            List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse> result =
+                homeService.getMvpGuilds("America/New_York");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("글로벌길드");
+            assertThat(result.get(0).getEarnedExp()).isEqualTo(300L);
+        }
+
+        @Test
+        @DisplayName("timezone이 null이면 기본 Asia/Seoul을 사용한다")
+        void getMvpGuilds_timezoneNull_usesDefault() {
+            // given
+            Long guildId = 2L;
+            Object[] row1 = {guildId, 500L};
+            List<Object[]> topGuilds = new ArrayList<>();
+            topGuilds.add(row1);
+
+            io.pinkspider.global.facade.dto.GuildWithMemberCount guildWithCount =
+                new io.pinkspider.global.facade.dto.GuildWithMemberCount(
+                    guildId, "서울길드", null, 7, 30
+                );
+
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(topGuilds);
+            when(guildQueryFacadeService.getGuildsWithMemberCounts(List.of(guildId)))
+                .thenReturn(List.of(guildWithCount));
+
+            // when
+            List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse> result =
+                homeService.getMvpGuilds((String) null);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("서울길드");
+        }
+    }
+
+    @Nested
+    @DisplayName("getTodayPlayersByCategory 추가 분기 테스트")
+    class GetTodayPlayersByCategoryExtraTest {
+
+        @Test
+        @DisplayName("timezone 지정 시 카테고리별 플레이어를 조회한다")
+        void getTodayPlayersByCategory_withTimezone() {
+            // given
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
+                .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getCategory(testCategoryId))
+                .thenReturn(testCategoryResponse);
+
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> autoGainers = new ArrayList<>();
+            autoGainers.add(row1);
+            when(gamificationQueryFacadeService.findTopExpGainersByCategoryAndPeriod(
+                eq("운동"), any(), any(), any()))
+                .thenReturn(autoGainers);
+            when(userRepository.findById(testUserId)).thenReturn(java.util.Optional.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevel(testUserId)).thenReturn(5);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(testUserId))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<TodayPlayerResponse> result =
+                homeService.getTodayPlayersByCategory(testCategoryId, "ko", "America/Los_Angeles");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserId()).isEqualTo(testUserId);
+        }
+
+        @Test
+        @DisplayName("자동 선정 플레이어가 5명을 채울 때 결과가 제한된다")
+        void getTodayPlayersByCategory_autoFillsToMax() {
+            // given
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
+                .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getCategory(testCategoryId))
+                .thenReturn(testCategoryResponse);
+
+            // 6명의 자동 선정 데이터
+            List<Object[]> autoGainers = new ArrayList<>();
+            for (int i = 1; i <= 6; i++) {
+                String uid = "auto-user-" + i;
+                autoGainers.add(new Object[]{uid, (long)(100 * i)});
+
+                Users u = Users.builder().nickname("자동" + i).build();
+                setId(u, uid);
+                lenient().when(userRepository.findById(uid)).thenReturn(java.util.Optional.of(u));
+                lenient().when(gamificationQueryFacadeService.getUserLevel(uid)).thenReturn(3);
+                lenient().when(gamificationQueryFacadeService.getEquippedTitlesByUserId(uid))
+                    .thenReturn(Collections.emptyList());
+            }
+
+            when(gamificationQueryFacadeService.findTopExpGainersByCategoryAndPeriod(
+                eq("운동"), any(), any(), any()))
+                .thenReturn(autoGainers);
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayersByCategory(testCategoryId);
+
+            // then
+            assertThat(result.size()).isLessThanOrEqualTo(5);
+        }
+    }
+
+    @Nested
+    @DisplayName("getTodayPlayers userMap 미포함 사용자 처리 테스트")
+    class TodayPlayersUserNotInMapTest {
+
+        @Test
+        @DisplayName("userMap에 없는 사용자는 결과에서 스킵된다")
+        void getTodayPlayers_userNotInMap_skipped() {
+            // given
+            String unknownUserId = "unknown-user-id";
+            Object[] row1 = {unknownUserId, 500L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            // userMap에 unknownUserId 없음
+            when(userRepository.findAllById(List.of(unknownUserId))).thenReturn(List.of());
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(unknownUserId)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(unknownUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("levelMap에 없는 사용자는 기본 레벨 1로 처리된다")
+        void getTodayPlayers_userNotInLevelMap_usesDefaultLevel() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            // levelMap에 없음 → getOrDefault(userId, 1)
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("타임존 지정 시 해당 타임존 기준으로 오늘의 플레이어를 조회한다")
+        void getTodayPlayers_withTimezone() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers("en", "America/New_York");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserId()).isEqualTo(testUserId);
         }
     }
 

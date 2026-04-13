@@ -16,6 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
@@ -73,6 +74,15 @@ class MissionServiceTest {
 
     @Mock
     private MissionTemplateRepository missionTemplateRepository;
+
+    @Mock
+    private UserQueryFacade userQueryFacadeService;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository executionRepository;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Mock
     private ReportService reportService;
@@ -604,6 +614,112 @@ class MissionServiceTest {
             assertThatThrownBy(() -> missionService.createMission(TEST_USER_ID, request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("비활성화된 카테고리입니다.");
+        }
+
+        @Test
+        @DisplayName("customCategory를 사용하여 미션을 생성한다")
+        void createMission_withCustomCategory_success() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("커스텀 카테고리 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .customCategory("나만의 카테고리")
+                .build();
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .customCategory("나만의 카테고리")
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionCategoryService, never()).getCategory(any());
+        }
+
+        @Test
+        @DisplayName("길드 미션 생성 시 guildId가 있으면 길드 이름을 조회한다")
+        void createMission_guildMission_fetchesGuildName() {
+            // given
+            Long guildIdLong = 100L;
+            String guildIdStr = "100";
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildIdStr)
+                .build();
+
+            when(guildQueryFacadeService.getGuildName(guildIdLong)).thenReturn("테스트 길드");
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .guildId(guildIdStr)
+                .guildName("테스트 길드")
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildQueryFacadeService).getGuildName(guildIdLong);
+        }
+
+        @Test
+        @DisplayName("길드 미션 생성 시 guildId가 숫자가 아니면 길드 이름 조회를 건너뛴다")
+        void createMission_guildMission_invalidGuildId_skipsGuildName() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("invalid-guild-id")
+                .build();
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .guildId("invalid-guild-id")
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(guildQueryFacadeService, never()).getGuildName(any());
         }
     }
 
@@ -1481,6 +1597,460 @@ class MissionServiceTest {
             assertThatThrownBy(() -> missionService.createMissionFromTemplate(templateId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 추가한 미션입니다");
+        }
+    }
+
+    // ============================================================
+    // getUserMissions 테스트
+    // ============================================================
+
+    @Nested
+    @DisplayName("getUserMissions 테스트")
+    class GetUserMissionsTest {
+
+        private static final String TARGET_USER_ID = "target-user-456";
+
+        private Mission buildMission(MissionVisibility visibility) {
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(visibility)
+                .type(MissionType.PERSONAL)
+                .creatorId(TARGET_USER_ID)
+                .build();
+            setId(mission, 1L);
+            return mission;
+        }
+
+        @Test
+        @DisplayName("본인 조회 시 모든 visibility 미션을 반환한다")
+        void getUserMissions_self_returnsAll() {
+            // given
+            List<Mission> missions = List.of(
+                buildMission(MissionVisibility.PUBLIC),
+                buildMission(MissionVisibility.FRIENDS_ONLY),
+                buildMission(MissionVisibility.GUILD_ONLY),
+                buildMission(MissionVisibility.PRIVATE)
+            );
+
+            when(missionRepository.findUserMissionsByVisibility(
+                eq(TARGET_USER_ID),
+                eq(List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY,
+                    MissionVisibility.GUILD_ONLY, MissionVisibility.PRIVATE))
+            )).thenReturn(missions);
+
+            // when
+            List<MissionResponse> result = missionService.getUserMissions(TARGET_USER_ID, TARGET_USER_ID);
+
+            // then
+            assertThat(result).hasSize(4);
+            verify(userQueryFacadeService, never()).areFriends(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("친구 조회 시 PUBLIC과 FRIENDS_ONLY 미션을 반환한다")
+        void getUserMissions_friend_returnsPublicAndFriendsOnly() {
+            // given
+            String friendUserId = "friend-user-789";
+            List<Mission> missions = List.of(
+                buildMission(MissionVisibility.PUBLIC),
+                buildMission(MissionVisibility.FRIENDS_ONLY)
+            );
+
+            when(userQueryFacadeService.areFriends(friendUserId, TARGET_USER_ID)).thenReturn(true);
+            when(missionRepository.findUserMissionsByVisibility(
+                eq(TARGET_USER_ID),
+                eq(List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY))
+            )).thenReturn(missions);
+
+            // when
+            List<MissionResponse> result = missionService.getUserMissions(TARGET_USER_ID, friendUserId);
+
+            // then
+            assertThat(result).hasSize(2);
+            verify(userQueryFacadeService).areFriends(friendUserId, TARGET_USER_ID);
+        }
+
+        @Test
+        @DisplayName("타인(낯선 사람) 조회 시 PUBLIC 미션만 반환한다")
+        void getUserMissions_stranger_returnsPublicOnly() {
+            // given
+            String strangerUserId = "stranger-user-999";
+            List<Mission> missions = List.of(
+                buildMission(MissionVisibility.PUBLIC)
+            );
+
+            when(userQueryFacadeService.areFriends(strangerUserId, TARGET_USER_ID)).thenReturn(false);
+            when(missionRepository.findUserMissionsByVisibility(
+                eq(TARGET_USER_ID),
+                eq(List.of(MissionVisibility.PUBLIC))
+            )).thenReturn(missions);
+
+            // when
+            List<MissionResponse> result = missionService.getUserMissions(TARGET_USER_ID, strangerUserId);
+
+            // then
+            assertThat(result).hasSize(1);
+            verify(userQueryFacadeService).areFriends(strangerUserId, TARGET_USER_ID);
+        }
+
+        @Test
+        @DisplayName("비로그인(currentUserId=null) 조회 시 PUBLIC 미션만 반환한다")
+        void getUserMissions_anonymous_returnsPublicOnly() {
+            // given
+            List<Mission> missions = List.of(
+                buildMission(MissionVisibility.PUBLIC)
+            );
+
+            when(missionRepository.findUserMissionsByVisibility(
+                eq(TARGET_USER_ID),
+                eq(List.of(MissionVisibility.PUBLIC))
+            )).thenReturn(missions);
+
+            // when
+            List<MissionResponse> result = missionService.getUserMissions(TARGET_USER_ID, null);
+
+            // then
+            assertThat(result).hasSize(1);
+            verify(userQueryFacadeService, never()).areFriends(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("미션이 없으면 빈 리스트를 반환한다")
+        void getUserMissions_empty_returnsEmptyList() {
+            // given
+            when(userQueryFacadeService.areFriends(anyString(), eq(TARGET_USER_ID))).thenReturn(false);
+            when(missionRepository.findUserMissionsByVisibility(
+                eq(TARGET_USER_ID),
+                any()
+            )).thenReturn(List.of());
+
+            // when
+            List<MissionResponse> result = missionService.getUserMissions(TARGET_USER_ID, "other-user");
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("updateMission 추가 분기 테스트")
+    class UpdateMissionAdditionalTest {
+
+        private Mission buildDraftMission() {
+            Mission mission = Mission.builder()
+                .title("기존 제목")
+                .description("기존 설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, 1L);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+            return mission;
+        }
+
+        @Test
+        @DisplayName("수정 불가 상태 미션 수정 시 예외가 발생한다")
+        void updateMission_nonModifiableStatus_throwsException() {
+            // given
+            Mission mission = Mission.builder()
+                .title("진행중 미션")
+                .description("설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, 1L);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .build();
+
+            // when & then
+            assertThatThrownBy(() -> missionService.updateMission(1L, TEST_USER_ID, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("작성중 상태의 미션만 수정할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("clearCategory=true이면 카테고리를 제거한다")
+        void updateMission_clearCategory_removesCategoryFields() {
+            // given
+            Mission mission = buildDraftMission();
+            mission.setCategoryId(1L);
+            mission.setCategoryName("운동");
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .clearCategory(true)
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getCategoryId()).isNull();
+            assertThat(mission.getCategoryName()).isNull();
+            assertThat(mission.getCustomCategory()).isNull();
+        }
+
+        @Test
+        @DisplayName("categoryId를 지정하면 카테고리를 업데이트한다")
+        void updateMission_withCategoryId_updatesCategoryFields() {
+            // given
+            Mission mission = buildDraftMission();
+            MissionCategoryResponse categoryResponse = MissionCategoryResponse.builder()
+                .id(2L)
+                .name("독서")
+                .isActive(true)
+                .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(missionCategoryService.getCategory(2L)).thenReturn(categoryResponse);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .categoryId(2L)
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getCategoryId()).isEqualTo(2L);
+            assertThat(mission.getCategoryName()).isEqualTo("독서");
+        }
+
+        @Test
+        @DisplayName("비활성 카테고리로 수정 시 예외가 발생한다")
+        void updateMission_inactiveCategory_throwsException() {
+            // given
+            Mission mission = buildDraftMission();
+            MissionCategoryResponse inactiveCategory = MissionCategoryResponse.builder()
+                .id(2L)
+                .name("비활성")
+                .isActive(false)
+                .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+            when(missionCategoryService.getCategory(2L)).thenReturn(inactiveCategory);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .categoryId(2L)
+                    .build();
+
+            // when & then
+            assertThatThrownBy(() -> missionService.updateMission(1L, TEST_USER_ID, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("비활성화된 카테고리입니다");
+        }
+
+        @Test
+        @DisplayName("customCategory를 지정하면 customCategory를 업데이트한다")
+        void updateMission_withCustomCategory_updatesCustomCategory() {
+            // given
+            Mission mission = buildDraftMission();
+            mission.setCategoryId(1L);
+            mission.setCategoryName("운동");
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .customCategory("나만의 카테고리")
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getCategoryId()).isNull();
+            assertThat(mission.getCustomCategory()).isEqualTo("나만의 카테고리");
+            // getCategoryName() falls back to customCategory when categoryName field is null
+            assertThat(mission.getCategoryName()).isEqualTo("나만의 카테고리");
+        }
+
+        @Test
+        @DisplayName("customCategory가 blank이면 customCategory를 업데이트하지 않는다")
+        void updateMission_blankCustomCategory_doesNotUpdate() {
+            // given
+            Mission mission = buildDraftMission();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .customCategory("   ")
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getCustomCategory()).isNull();
+        }
+
+        @Test
+        @DisplayName("모든 필드를 한번에 수정할 수 있다")
+        void updateMission_allFields_success() {
+            // given
+            Mission mission = buildDraftMission();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .description("수정된 설명")
+                    .visibility(MissionVisibility.PRIVATE)
+                    .maxParticipants(5)
+                    .missionInterval(MissionInterval.DAILY)
+                    .durationMinutes(30)
+                    .expPerCompletion(100)
+                    .bonusExpOnFullCompletion(50)
+                    .targetDurationMinutes(25)
+                    .dailyExecutionLimit(2)
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getTitle()).isEqualTo("수정된 제목");
+            assertThat(mission.getDescription()).isEqualTo("수정된 설명");
+            assertThat(mission.getVisibility()).isEqualTo(MissionVisibility.PRIVATE);
+            assertThat(mission.getMaxParticipants()).isEqualTo(5);
+            assertThat(mission.getMissionInterval()).isEqualTo(MissionInterval.DAILY);
+            assertThat(mission.getDurationMinutes()).isEqualTo(30);
+        }
+    }
+
+    @Nested
+    @DisplayName("createMission 추가 분기 테스트")
+    class CreateMissionAdditionalTest {
+
+        @Test
+        @DisplayName("길드 미션에 guildId가 없으면 예외가 발생한다")
+        void createMission_guildMissionWithoutGuildId_throwsException() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .type(MissionType.GUILD)
+                .guildId(null)
+                .visibility(MissionVisibility.PUBLIC)
+                .build();
+
+            // when & then
+            assertThatThrownBy(() -> missionService.createMission(TEST_USER_ID, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드 ID가 필요합니다");
+        }
+
+        @Test
+        @DisplayName("customCategory가 있으면 categoryId 없이도 미션을 생성한다")
+        void createMission_withCustomCategory_success() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("커스텀 카테고리 미션")
+                .description("설명")
+                .type(MissionType.PERSONAL)
+                .visibility(MissionVisibility.PUBLIC)
+                .customCategory("나만의 운동")
+                .build();
+
+            Mission saved = Mission.builder()
+                .title("커스텀 카테고리 미션")
+                .description("설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .customCategory("나만의 운동")
+                .build();
+            setId(saved, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(saved);
+
+            // when
+            MissionResponse result = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(missionRepository).save(any(Mission.class));
+        }
+
+        @Test
+        @DisplayName("categoryId가 null이고 customCategory도 null이면 카테고리 없이 생성된다")
+        void createMission_withoutCategory_success() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("카테고리 없는 미션")
+                .description("설명")
+                .type(MissionType.PERSONAL)
+                .visibility(MissionVisibility.PUBLIC)
+                .build();
+
+            Mission saved = Mission.builder()
+                .title("카테고리 없는 미션")
+                .description("설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(saved, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(saved);
+
+            // when
+            MissionResponse result = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("guildId 파싱 실패 시 guildName이 null로 설정된다")
+        void createMission_guildIdParseFailure_guildNameNull() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .type(MissionType.GUILD)
+                .guildId("not-a-number")
+                .visibility(MissionVisibility.PUBLIC)
+                .build();
+
+            Mission saved = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .creatorId(TEST_USER_ID)
+                .guildId("not-a-number")
+                .build();
+            setId(saved, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(saved);
+
+            // when
+            MissionResponse result = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+            // 파싱 실패해도 예외 없이 실행됨
         }
     }
 }

@@ -17,6 +17,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -48,6 +50,9 @@ class MissionExecutionServiceTest {
 
     @Mock
     private MissionParticipantRepository participantRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Mock
     private MissionCompletionSaga missionCompletionSaga;
@@ -607,6 +612,282 @@ class MissionExecutionServiceTest {
         }
     }
 
+
+    @Nested
+    @DisplayName("updateExecutionTime 테스트")
+    class UpdateExecutionTimeTest {
+
+        @Test
+        @DisplayName("시작 시간이 종료 시간보다 이후이면 예외가 발생한다")
+        void updateExecutionTime_startAfterEnd_throwsException() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(10, 0);
+            LocalDateTime completedAt = date.atTime(9, 0);  // start > end
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                executionService.updateExecutionTime(testMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+        }
+
+        @Test
+        @DisplayName("시작 시간과 종료 시간이 같으면 예외가 발생한다")
+        void updateExecutionTime_startEqualsEnd_throwsException() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime sameTime = date.atTime(10, 0);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                executionService.updateExecutionTime(testMission.getId(), testUserId, date, sameTime, sameTime)
+            );
+        }
+
+        @Test
+        @DisplayName("일반 미션 수행 시간을 정상적으로 수정한다")
+        void updateExecutionTime_regularMission_success() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(9, 0);
+            LocalDateTime completedAt = date.atTime(9, 30);
+
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(execution));
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), date))
+                .thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(executionRepository.save(any(MissionExecution.class))).thenReturn(execution);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(testMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+            verify(executionRepository).save(execution);
+        }
+
+        @Test
+        @DisplayName("완료 상태가 아닌 미션 수행 시간 수정 시 예외가 발생한다")
+        void updateExecutionTime_notCompleted_throwsException() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(9, 0);
+            LocalDateTime completedAt = date.atTime(9, 30);
+
+            MissionExecution pendingExecution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(date)
+                .status(ExecutionStatus.PENDING)  // PENDING, not COMPLETED
+                .build();
+            setId(pendingExecution, 99L);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), date))
+                .thenReturn(Optional.of(pendingExecution));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () ->
+                executionService.updateExecutionTime(testMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+        }
+
+        @Test
+        @DisplayName("다른 미션과 시간이 겹치면 예외가 발생한다")
+        void updateExecutionTime_overlapping_throwsException() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(9, 0);
+            LocalDateTime completedAt = date.atTime(10, 0);
+
+            // 다른 미션이 9:30~10:30으로 겹침
+            Mission otherMission = Mission.builder()
+                .title("다른 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .expPerCompletion(30)
+                .build();
+            setId(otherMission, 999L);
+
+            MissionParticipant otherParticipant = MissionParticipant.builder()
+                .mission(otherMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.COMPLETED)
+                .build();
+            setId(otherParticipant, 999L);
+
+            MissionExecution overlappingExecution = MissionExecution.builder()
+                .participant(otherParticipant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .build();
+            setId(overlappingExecution, 999L);
+            TestReflectionUtils.setField(overlappingExecution, "startedAt", date.atTime(9, 30));
+            TestReflectionUtils.setField(overlappingExecution, "completedAt", date.atTime(10, 30));
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of(overlappingExecution));
+
+            // when & then - 일반 미션 겹침 체크에서 바로 예외 발생 (고정 미션 체크까지 도달하지 않음)
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () ->
+                executionService.updateExecutionTime(testMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+        }
+
+        @Test
+        @DisplayName("고정 미션 수행 시간 수정 시 DailyMissionInstance를 업데이트한다")
+        void updateExecutionTime_pinnedMission_updatesInstance() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(8, 0);
+            LocalDateTime completedAt = date.atTime(8, 30);
+
+            Mission pinnedMission = Mission.builder()
+                .title("고정 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .isPinned(true)
+                .expPerCompletion(50)
+                .build();
+            setId(pinnedMission, 50L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(pinnedParticipant, 50L);
+
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(pinnedParticipant)
+                .instanceDate(date)
+                .sequenceNumber(1)
+                .missionTitle("고정 미션")
+                .status(ExecutionStatus.COMPLETED)
+                .startedAt(date.atTime(7, 0))
+                .completionCount(1)
+                .totalExpEarned(50)
+                .isAutoCompleted(false)
+                .build();
+            setId(instance, 50L);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(participantRepository.findByMissionIdAndUserId(pinnedMission.getId(), testUserId))
+                .thenReturn(Optional.of(pinnedParticipant));
+            when(dailyMissionInstanceRepository.findCompletedByParticipantIdAndDate(pinnedParticipant.getId(), date))
+                .thenReturn(List.of(instance));
+            when(dailyMissionInstanceRepository.save(any(DailyMissionInstance.class))).thenReturn(instance);
+
+            // when
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                executionService.updateExecutionTime(pinnedMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+
+            verify(dailyMissionInstanceRepository).save(instance);
+        }
+
+        @Test
+        @DisplayName("고정 미션 완료 기록이 없으면 예외가 발생한다")
+        void updateExecutionTime_pinnedMissionNoInstance_throwsException() {
+            // given
+            LocalDate date = LocalDate.now();
+            LocalDateTime startedAt = date.atTime(8, 0);
+            LocalDateTime completedAt = date.atTime(8, 30);
+
+            Mission pinnedMission = Mission.builder()
+                .title("고정 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .isPinned(true)
+                .expPerCompletion(50)
+                .build();
+            setId(pinnedMission, 51L);
+
+            MissionParticipant pinnedParticipant = MissionParticipant.builder()
+                .mission(pinnedMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(pinnedParticipant, 51L);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(testUserId, date, date))
+                .thenReturn(List.of());
+            when(participantRepository.findByMissionIdAndUserId(pinnedMission.getId(), testUserId))
+                .thenReturn(Optional.of(pinnedParticipant));
+            when(dailyMissionInstanceRepository.findCompletedByParticipantIdAndDate(pinnedParticipant.getId(), date))
+                .thenReturn(List.of());  // 완료 기록 없음
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                executionService.updateExecutionTime(pinnedMission.getId(), testUserId, date, startedAt, completedAt)
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("completeExecution Saga 추가 분기 테스트")
+    class CompleteExecutionExtraTest {
+
+        @Test
+        @DisplayName("Saga 실패 및 exception이 null이어도 예외를 던진다")
+        void completeExecution_sagaFailureNullException_throwsException() {
+            // given
+            Long executionId = 1L;
+            MissionCompletionContext context = new MissionCompletionContext(testUserId);
+            SagaResult<MissionCompletionContext> failureResult = SagaResult.failure(
+                context, "실패 메시지");  // exception = null
+
+            when(missionCompletionSaga.execute(executionId, testUserId, null, false))
+                .thenReturn(failureResult);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () ->
+                executionService.completeExecution(executionId, testUserId, null)
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("completeExecutionByDate 추가 예외 테스트")
+    class CompleteExecutionByDateExtraTest {
+
+        @Test
+        @DisplayName("해당 날짜의 execution이 없으면 예외가 발생한다")
+        void completeExecutionByDate_executionNotFound_throwsException() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.empty());  // execution 없음
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                executionService.completeExecutionByDate(testMission.getId(), testUserId, executionDate, "노트")
+            );
+        }
+    }
 
     @Nested
     @DisplayName("피드 공유 취소 테스트")

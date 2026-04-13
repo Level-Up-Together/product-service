@@ -229,6 +229,44 @@ class GuildMemberServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("길드 인원이 가득 찼습니다");
         }
+
+        @Test
+        @DisplayName("APPROVAL_REQUIRED 길드에 이미 대기 중인 가입 신청이 있으면 예외가 발생한다")
+        void requestJoin_failWhenAlreadyPending() {
+            // given
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder()
+                .message("가입 희망합니다")
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(1L, testUserId, JoinRequestStatus.PENDING)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.requestJoin(1L, testUserId, joinRequest))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 가입 신청이 진행 중입니다");
+        }
+
+        @Test
+        @DisplayName("카테고리 이름이 null이면 기본 이름으로 에러 메시지가 생성된다")
+        void requestJoin_categoryNameNull_usesDefaultName() {
+            // given
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder()
+                .message("가입 희망합니다")
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(null); // null category
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.requestJoin(1L, testUserId, joinRequest))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("해당");
+        }
     }
 
     @Nested
@@ -461,6 +499,40 @@ class GuildMemberServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("길드 마스터는 탈퇴할 수 없습니다");
         }
+
+        @Test
+        @DisplayName("길드 멤버가 아닌 사람이 탈퇴하면 예외가 발생한다")
+        void leaveGuild_notMember_throwsException() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.leaveGuild(1L, testUserId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("길드 멤버가 아닙니다");
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 멤버가 다시 탈퇴하면 예외가 발생한다")
+        void leaveGuild_alreadyLeft_throwsException() {
+            // given
+            GuildMember leftMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now().minusDays(10))
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(leftMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.leaveGuild(1L, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 탈퇴한 멤버입니다");
+        }
     }
 
     @Nested
@@ -575,6 +647,61 @@ class GuildMemberServiceTest {
             assertThatThrownBy(() -> guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 부길드마스터입니다");
+        }
+
+        @Test
+        @DisplayName("마스터 역할인 멤버는 부길드마스터로 승격할 수 없다")
+        void promoteToSubMaster_failWhenTargetIsMaster() {
+            // given
+            GuildMember masterAsTarget = GuildMember.builder()
+                .guild(testGuild)
+                .userId("another-master")
+                .role(GuildMemberRole.MASTER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, "another-master"))
+                .thenReturn(Optional.of(masterAsTarget));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.promoteToSubMaster(1L, testMasterId, "another-master"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("길드 마스터는 승격 대상이 아닙니다");
+        }
+
+        @Test
+        @DisplayName("비활성 멤버는 부길드마스터로 승격할 수 없다")
+        void promoteToSubMaster_failWhenNotActive() {
+            // given
+            GuildMember leftMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(leftMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("활성 상태의 멤버만 승격할 수 있습니다");
+        }
+
+        @Test
+        @DisplayName("자기 자신을 부길드마스터로 승격할 수 없다")
+        void promoteToSubMaster_failWhenSelf() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.promoteToSubMaster(1L, testMasterId, testMasterId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("자기 자신을 부길드마스터로 승격할 수 없습니다");
         }
     }
 
@@ -752,6 +879,50 @@ class GuildMemberServiceTest {
             assertThatThrownBy(() -> guildMemberService.kickMember(1L, testMasterId, testMasterId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("자기 자신을 추방할 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 멤버는 추방할 수 없다")
+        void kickMember_alreadyLeft_throwsException() {
+            // given
+            GuildMember leftMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(leftMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.kickMember(1L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 탈퇴하거나 추방된 멤버입니다");
+        }
+
+        @Test
+        @DisplayName("추방 대상이 마스터이면 예외가 발생한다")
+        void kickMember_targetIsMaster_throwsException() {
+            // given
+            GuildMember targetMasterMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId("another-id")
+                .role(GuildMemberRole.MASTER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, "another-id")).thenReturn(Optional.of(targetMasterMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.kickMember(1L, testMasterId, "another-id"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("길드 마스터는 추방할 수 없습니다");
         }
     }
 
@@ -989,6 +1160,278 @@ class GuildMemberServiceTest {
             assertThat(response.getUserId()).isEqualTo(testUserId);
             assertThat(response.getRole()).isEqualTo(GuildMemberRole.MEMBER);
             verify(guildMemberRepository).save(any(GuildMember.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("초대를 통한 가입 테스트")
+    class InviteMemberTest {
+
+        @Test
+        @DisplayName("비공개 길드에 초대로 신규 멤버를 추가한다")
+        void inviteMember_newMember_success() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .description("비공개")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(2L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testUserId)).thenReturn(Optional.empty());
+            when(guildMemberRepository.save(any(GuildMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("테스트유저");
+
+            // when
+            GuildMemberResponse response = guildMemberService.inviteMember(2L, testMasterId, testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getUserId()).isEqualTo(testUserId);
+            verify(guildMemberRepository).save(any(GuildMember.class));
+        }
+
+        @Test
+        @DisplayName("이미 같은 카테고리 길드에 있으면 초대할 수 없다")
+        void inviteMember_alreadyInSameCategoryGuild_throwsException() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.inviteMember(2L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("카테고리");
+        }
+
+        @Test
+        @DisplayName("카테고리가 null이면 기본 이름으로 에러 메시지가 생성된다")
+        void inviteMember_categoryNull_usesDefaultName() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
+            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(null);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.inviteMember(2L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("해당");
+        }
+
+        @Test
+        @DisplayName("이미 길드 멤버이면 초대할 수 없다")
+        void inviteMember_alreadyMember_throwsException() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.inviteMember(2L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 길드 멤버입니다");
+        }
+
+        @Test
+        @DisplayName("길드 정원이 가득 찼으면 초대할 수 없다")
+        void inviteMember_guildFull_throwsException() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(10)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(2L)).thenReturn(10L);
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.inviteMember(2L, testMasterId, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("길드 인원이 가득 찼습니다");
+        }
+
+        @Test
+        @DisplayName("탈퇴한 멤버를 다시 초대하면 재가입 처리된다")
+        void inviteMember_rejoinAfterLeave_success() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(testMasterId)
+                .maxMembers(50)
+                .categoryId(testCategoryId)
+                .build();
+            setId(privateGuild, 2L);
+
+            GuildMember leftMember = GuildMember.builder()
+                .guild(privateGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now().minusDays(10))
+                .leftAt(LocalDateTime.now().minusDays(1))
+                .build();
+            setId(leftMember, 1L);
+
+            when(guildHelper.findActiveGuildById(2L)).thenReturn(privateGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(2L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(2L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testUserId)).thenReturn(Optional.of(leftMember));
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("테스트유저");
+
+            // when
+            GuildMemberResponse response = guildMemberService.inviteMember(2L, testMasterId, testUserId);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(leftMember.getStatus()).isEqualTo(GuildMemberStatus.ACTIVE);
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("가입 신청 추가 예외 테스트")
+    class ApproveJoinRequestExtraTest {
+
+        @Test
+        @DisplayName("가입 신청이 존재하지 않으면 예외가 발생한다")
+        void approveJoinRequest_notFound_throwsException() {
+            // given
+            when(joinRequestRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.approveJoinRequest(999L, testMasterId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("가입 신청을 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("길드 정원이 가득 찬 상태에서 승인하면 예외가 발생한다")
+        void approveJoinRequest_guildFull_throwsException() {
+            // given
+            GuildJoinRequest joinRequest = GuildJoinRequest.builder()
+                .guild(testGuild)
+                .requesterId(testUserId)
+                .message("가입 희망합니다")
+                .build();
+            setId(joinRequest, 1L);
+
+            when(joinRequestRepository.findById(1L)).thenReturn(Optional.of(joinRequest));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId)).thenReturn(Optional.of(testMasterMember));
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L); // maxMembers = 50
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.approveJoinRequest(1L, testMasterId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("길드 인원이 가득 찼습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("가입 신청 거절 추가 테스트")
+    class RejectJoinRequestExtraTest {
+
+        @Test
+        @DisplayName("가입 신청이 존재하지 않으면 예외가 발생한다")
+        void rejectJoinRequest_notFound_throwsException() {
+            // given
+            when(joinRequestRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.rejectJoinRequest(999L, testMasterId, "거절"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("가입 신청을 찾을 수 없습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("마스터 이전 추가 예외 테스트")
+    class TransferMasterExtraTest {
+
+        @Test
+        @DisplayName("새 마스터 대상이 길드원이 아니면 예외가 발생한다")
+        void transferMaster_newMasterNotMember_throwsException() {
+            // given
+            String newMasterId = "new-master-id";
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, newMasterId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.transferMaster(1L, testMasterId, newMasterId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("새 길드 마스터가 길드원이 아닙니다");
+        }
+
+        @Test
+        @DisplayName("새 마스터 대상이 비활성 멤버이면 예외가 발생한다")
+        void transferMaster_newMasterInactive_throwsException() {
+            // given
+            String newMasterId = "new-master-id";
+            GuildMember inactiveMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(newMasterId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.LEFT)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, newMasterId)).thenReturn(Optional.of(inactiveMember));
+
+            // when & then
+            assertThatThrownBy(() -> guildMemberService.transferMaster(1L, testMasterId, newMasterId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("활성 상태의 길드원만 마스터가 될 수 있습니다");
         }
     }
 }

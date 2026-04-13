@@ -679,6 +679,242 @@ class TitleServiceTest {
     }
 
     @Nested
+    @DisplayName("changeTitles 테스트")
+    class ChangeTitlesTest {
+
+        @Test
+        @DisplayName("같은 ID로 칭호 변경 시 예외가 발생한다")
+        void changeTitles_sameId_throwsException() {
+            // given
+            Long sameId = 1L;
+
+            // when & then
+            assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, sameId, sameId))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 좌측 칭호 ID로 변경 시 예외가 발생한다")
+        void changeTitles_leftNotFound_throwsException() {
+            // given
+            Long leftId = 999L;
+            Long rightId = 2L;
+
+            when(userTitleRepository.existsById(leftId)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 우측 칭호 ID로 변경 시 예외가 발생한다")
+        void changeTitles_rightNotFound_throwsException() {
+            // given
+            Long leftId = 1L;
+            Long rightId = 999L;
+
+            when(userTitleRepository.existsById(leftId)).thenReturn(true);
+            when(userTitleRepository.existsById(rightId)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 좌측 칭호로 변경 시 예외가 발생한다")
+        void changeTitles_leftOwnerMismatch_throwsException() {
+            // given
+            Long leftId = 1L;
+            Long rightId = 2L;
+            String otherUserId = "other-user";
+
+            Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(leftId, otherUserId, leftTitle, false, null);
+
+            when(userTitleRepository.existsById(leftId)).thenReturn(true);
+            when(userTitleRepository.existsById(rightId)).thenReturn(true);
+            when(userTitleRepository.findById(leftId)).thenReturn(Optional.of(leftUserTitle));
+
+            // when & then
+            assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 우측 칭호로 변경 시 예외가 발생한다")
+        void changeTitles_rightOwnerMismatch_throwsException() {
+            // given
+            Long leftId = 1L;
+            Long rightId = 2L;
+            String otherUserId = "other-user";
+
+            Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title rightTitle = createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
+            UserTitle rightUserTitle = createTestUserTitle(rightId, otherUserId, rightTitle, false, null);
+
+            when(userTitleRepository.existsById(leftId)).thenReturn(true);
+            when(userTitleRepository.existsById(rightId)).thenReturn(true);
+            when(userTitleRepository.findById(leftId)).thenReturn(Optional.of(leftUserTitle));
+            when(userTitleRepository.findById(rightId)).thenReturn(Optional.of(rightUserTitle));
+
+            // when & then
+            assertThatThrownBy(() -> titleService.changeTitles(TEST_USER_ID, leftId, rightId))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class);
+        }
+
+        @Test
+        @DisplayName("유효한 칭호로 변경 성공")
+        void changeTitles_success() {
+            // given
+            Long leftId = 1L;
+            Long rightId = 2L;
+
+            Title leftTitle = createTestTitle(leftId, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            Title rightTitle = createTestTitle(rightId, "모험가", TitlePosition.RIGHT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(leftId, TEST_USER_ID, leftTitle, false, null);
+            UserTitle rightUserTitle = createTestUserTitle(rightId, TEST_USER_ID, rightTitle, false, null);
+
+            when(userTitleRepository.existsById(leftId)).thenReturn(true);
+            when(userTitleRepository.existsById(rightId)).thenReturn(true);
+            when(userTitleRepository.findById(leftId)).thenReturn(Optional.of(leftUserTitle));
+            when(userTitleRepository.findById(rightId)).thenReturn(Optional.of(rightUserTitle));
+            when(userTitleRepository.save(leftUserTitle)).thenReturn(leftUserTitle);
+            when(userTitleRepository.save(rightUserTitle)).thenReturn(rightUserTitle);
+            // getCombinedEquippedTitleInfo 호출을 위해 findEquippedTitlesByUserId mock
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            TitleService.TitleChangeResult result = titleService.changeTitles(TEST_USER_ID, leftId, rightId);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.leftTitle()).isEqualTo(leftUserTitle);
+            assertThat(result.rightTitle()).isEqualTo(rightUserTitle);
+            verify(userTitleRepository).unequipAllByUserId(TEST_USER_ID);
+            verify(eventPublisher).publishEvent(any(TitleEquippedEvent.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("grantAndEquipDefaultTitles 추가 분기 테스트")
+    class GrantAndEquipDefaultTitlesExtraTest {
+
+        @Test
+        @DisplayName("기본 LEFT 칭호가 없으면 예외가 발생한다")
+        void grantAndEquipDefaultTitles_leftMissing_throwsException() {
+            // given
+            when(titleRepository.existsById(77L)).thenReturn(false);
+            when(titleRepository.existsById(78L)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> titleService.grantAndEquipDefaultTitles(TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("기본 RIGHT 칭호가 없으면 예외가 발생한다")
+        void grantAndEquipDefaultTitles_rightMissing_throwsException() {
+            // given
+            when(titleRepository.existsById(77L)).thenReturn(true);
+            when(titleRepository.existsById(78L)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> titleService.grantAndEquipDefaultTitles(TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("getEquippedLeftTitleNameMap 테스트")
+    class GetEquippedLeftTitleNameMapTest {
+
+        @Test
+        @DisplayName("빈 userIds 입력 시 빈 Map을 반환한다")
+        void getEquippedLeftTitleNameMap_emptyIds() {
+            // when
+            var result = titleService.getEquippedLeftTitleNameMap(List.of());
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("null userIds 입력 시 빈 Map을 반환한다")
+        void getEquippedLeftTitleNameMap_nullIds() {
+            // when
+            var result = titleService.getEquippedLeftTitleNameMap(null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("정상적으로 LEFT 칭호 이름을 반환한다")
+        void getEquippedLeftTitleNameMap_success() {
+            // given
+            Title leftTitle = createTestTitle(1L, "신입", TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle leftUserTitle = createTestUserTitle(1L, TEST_USER_ID, leftTitle, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(TEST_USER_ID)))
+                .thenReturn(List.of(leftUserTitle));
+
+            // when
+            var result = titleService.getEquippedLeftTitleNameMap(List.of(TEST_USER_ID));
+
+            // then
+            assertThat(result).containsKey(TEST_USER_ID);
+            assertThat(result.get(TEST_USER_ID)).isEqualTo("신입");
+        }
+    }
+
+    @Nested
+    @DisplayName("getEquippedTitleEntitiesByUserIds 테스트")
+    class GetEquippedTitleEntitiesByUserIdsTest {
+
+        @Test
+        @DisplayName("빈 userIds 입력 시 빈 Map을 반환한다")
+        void getEquippedTitleEntitiesByUserIds_emptyIds() {
+            // when
+            var result = titleService.getEquippedTitleEntitiesByUserIds(List.of());
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("null userIds 입력 시 빈 Map을 반환한다")
+        void getEquippedTitleEntitiesByUserIds_nullIds() {
+            // when
+            var result = titleService.getEquippedTitleEntitiesByUserIds(null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("countUserTitles 테스트")
+    class CountUserTitlesTest {
+
+        @Test
+        @DisplayName("사용자의 칭호 수를 반환한다")
+        void countUserTitles_success() {
+            // given
+            when(userTitleRepository.countByUserId(TEST_USER_ID)).thenReturn(3L);
+
+            // when
+            long result = titleService.countUserTitles(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(3L);
+        }
+    }
+
+    @Nested
     @DisplayName("getCombinedEquippedTitleName 테스트")
     class GetCombinedEquippedTitleNameTest {
 

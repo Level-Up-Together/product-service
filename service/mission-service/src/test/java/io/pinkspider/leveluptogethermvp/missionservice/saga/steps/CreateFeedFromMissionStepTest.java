@@ -13,8 +13,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.mockito.ArgumentCaptor;
+
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -297,6 +300,135 @@ class CreateFeedFromMissionStepTest {
             // then
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("피드 보상 실패");
+        }
+    }
+
+    @Nested
+    @DisplayName("resolveFeedVisibility 테스트 (execute를 통한 간접 검증)")
+    class ResolveFeedVisibilityTest {
+
+        private void stubFeedCommandService(ActivityFeed feed) {
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
+            )).thenReturn(feed);
+        }
+
+        private ArgumentCaptor<FeedVisibility> captureVisibility() {
+            return ArgumentCaptor.forClass(FeedVisibility.class);
+        }
+
+        @Test
+        @DisplayName("shareToFeed=false이면 미션 visibility에 관계없이 PRIVATE 피드를 생성한다")
+        void resolveFeedVisibility_shareToFeedFalse_returnPrivate() {
+            // given
+            context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, false);
+            context.setExecution(execution);
+            context.setMission(mission);  // mission.visibility = PUBLIC
+
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+            )).thenReturn(activityFeed);
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.PRIVATE);
+        }
+
+        @Test
+        @DisplayName("미션 visibility=FRIENDS_ONLY이고 shareToFeed=true이면 FRIENDS 피드를 생성한다")
+        void resolveFeedVisibility_friendsOnly_returnsFriends() {
+            // given
+            mission.setVisibility(MissionVisibility.FRIENDS_ONLY);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.FRIENDS);
+        }
+
+        @Test
+        @DisplayName("미션 visibility=GUILD_ONLY이고 shareToFeed=true이면 GUILD 피드를 생성한다")
+        void resolveFeedVisibility_guildOnly_returnsGuild() {
+            // given
+            mission.setVisibility(MissionVisibility.GUILD_ONLY);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.GUILD);
+        }
+
+        @Test
+        @DisplayName("미션 visibility=PRIVATE이고 shareToFeed=true이면 PRIVATE 피드를 생성한다")
+        void resolveFeedVisibility_private_returnsPrivate() {
+            // given
+            mission.setVisibility(MissionVisibility.PRIVATE);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.PRIVATE);
+        }
+
+        @Test
+        @DisplayName("미션 visibility=PUBLIC이고 shareToFeed=true이면 PUBLIC 피드를 생성한다")
+        void resolveFeedVisibility_public_returnsPublic() {
+            // given
+            mission.setVisibility(MissionVisibility.PUBLIC);  // 기본값 확인
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
+            when(feedCommandService.createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+            )).thenReturn(activityFeed);
+            doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
+
+            // when
+            SagaStepResult result = createFeedFromMissionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.PUBLIC);
         }
     }
 }

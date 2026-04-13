@@ -157,6 +157,134 @@ class KakaoWebhookServiceTest {
             );
             assertEquals("invalid_request", exception.getErrorCode());
         }
+
+        @Test
+        @DisplayName("지원하지 않는 알고리즘으로 검증 실패")
+        void handleAccountStatusWebhook_unsupportedAlgorithm() {
+            // given - alg가 RS256이 아닌 경우
+            // Header: {"kid":"test","typ":"secevent+jwt","alg":"HS256"}
+            String invalidAlgToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiSFMyNTYifQ." +
+                "eyJhdWQiOiJ0ZXN0IiwiYmxhIjoiYmxhIn0." +
+                "signature";
+
+            // when & then
+            KakaoWebhookService.SetValidationException exception = assertThrows(
+                KakaoWebhookService.SetValidationException.class,
+                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAlgToken)
+            );
+            assertEquals("invalid_request", exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("잘못된 Issuer로 검증 실패")
+        void handleAccountStatusWebhook_invalidIssuer() {
+            // given - iss가 https://kauth.kakao.com이 아닌 경우
+            // Header: {"kid":"test","typ":"secevent+jwt","alg":"RS256"}
+            // Payload: {"iss":"https://evil.com","aud":"test-rest-api-key",...}
+            String invalidIssuerToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ." +
+                "eyJpc3MiOiJodHRwczovL2V2aWwuY29tIiwiYXVkIjoidGVzdC1yZXN0LWFwaS1rZXkifQ." +
+                "signature";
+
+            // when & then
+            KakaoWebhookService.SetValidationException exception = assertThrows(
+                KakaoWebhookService.SetValidationException.class,
+                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidIssuerToken)
+            );
+            assertEquals("invalid_issuer", exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("잘못된 Audience로 검증 실패")
+        void handleAccountStatusWebhook_invalidAudience() {
+            // given - aud가 설정된 restApiKey와 다른 경우
+            // Header: {"kid":"test","typ":"secevent+jwt","alg":"RS256"}
+            // Payload: {"iss":"https://kauth.kakao.com","aud":"wrong-audience"}
+            String invalidAudToken = "eyJraWQiOiJ0ZXN0IiwidHlwIjoic2VjZXZlbnQrand0IiwiYWxnIjoiUlMyNTYifQ." +
+                "eyJpc3MiOiJodHRwczovL2thdXRoLmtha2FvLmNvbSIsImF1ZCI6Indyb25nLWF1ZGllbmNlIn0." +
+                "signature";
+
+            // when & then
+            KakaoWebhookService.SetValidationException exception = assertThrows(
+                KakaoWebhookService.SetValidationException.class,
+                () -> kakaoWebhookService.handleAccountStatusWebhook(invalidAudToken)
+            );
+            assertEquals("invalid_audience", exception.getErrorCode());
+        }
+    }
+
+    @Nested
+    @DisplayName("validateAdminKey 추가 분기 테스트")
+    class ValidateAdminKeyExtraTest {
+
+        @Test
+        @DisplayName("null Authorization으로 실패")
+        void handleUnlinkWebhook_nullAuthorization() {
+            // given
+            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
+                .appId("123456")
+                .userId("987654321")
+                .referrerType("UNLINK_FROM_APPS")
+                .build();
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class,
+                () -> kakaoWebhookService.handleUnlinkWebhook(null, request));
+            assertEquals("000720", exception.getCode());
+        }
+
+        @Test
+        @DisplayName("expectedKey가 null일 때 실패")
+        void handleUnlinkWebhook_nullExpectedKey() {
+            // given
+            OAuth2Properties props = new OAuth2Properties();
+            OAuth2Properties.KakaoWebhook kakaoWebhook = new OAuth2Properties.KakaoWebhook();
+            kakaoWebhook.setAdminKey(null); // expectedKey = null
+            kakaoWebhook.setRestApiKey("test-rest-api-key");
+            kakaoWebhook.setAppId("123456");
+            props.setKakaoWebhook(kakaoWebhook);
+
+            KakaoWebhookService service = new KakaoWebhookService(
+                props, userRepository, tokenService, objectMapper
+            );
+
+            String authorization = "KakaoAK some-key";
+            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
+                .appId("123456")
+                .userId("987654321")
+                .referrerType("UNLINK_FROM_APPS")
+                .build();
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class,
+                () -> service.handleUnlinkWebhook(authorization, request));
+            assertEquals("000720", exception.getCode());
+        }
+
+        @Test
+        @DisplayName("expectedAppId가 null이면 앱 ID 검증을 건너뛴다")
+        void handleUnlinkWebhook_nullExpectedAppId() {
+            // given
+            OAuth2Properties props = new OAuth2Properties();
+            OAuth2Properties.KakaoWebhook kakaoWebhook = new OAuth2Properties.KakaoWebhook();
+            kakaoWebhook.setAdminKey("test-admin-key");
+            kakaoWebhook.setRestApiKey("test-rest-api-key");
+            kakaoWebhook.setAppId(null); // expectedAppId = null → 검증 건너뜀
+            props.setKakaoWebhook(kakaoWebhook);
+
+            KakaoWebhookService service = new KakaoWebhookService(
+                props, userRepository, tokenService, objectMapper
+            );
+
+            String authorization = "KakaoAK test-admin-key";
+            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
+                .appId("any-app-id")
+                .userId("987654321")
+                .referrerType("UNLINK_FROM_APPS")
+                .build();
+
+            // when & then
+            assertDoesNotThrow(() -> service.handleUnlinkWebhook(authorization, request));
+        }
     }
 
     @Nested

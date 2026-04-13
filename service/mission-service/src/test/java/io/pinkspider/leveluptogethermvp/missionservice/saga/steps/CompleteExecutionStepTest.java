@@ -3,11 +3,14 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.saga.SagaStepResult;
+import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -35,6 +38,9 @@ class CompleteExecutionStepTest {
 
     @Mock
     private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private MissionExecutionProperties missionExecutionProperties;
 
     @InjectMocks
     private CompleteExecutionStep completeExecutionStep;
@@ -174,6 +180,173 @@ class CompleteExecutionStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             assertThat(execution.getNote()).isNull();
+        }
+
+        @Test
+        @DisplayName("목표시간 미션에서 경과시간이 목표시간 이상이면 보너스 경험치를 지급한다")
+        void execute_targetDurationMission_fullBonus() {
+            // given
+            Mission targetMission = Mission.builder()
+                .title("30분 러닝")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .targetDurationMinutes(30)
+                .expPerCompletion(50)
+                .build();
+            setId(targetMission, 2L);
+
+            MissionParticipant targetParticipant = MissionParticipant.builder()
+                .mission(targetMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(0)
+                .build();
+            setId(targetParticipant, 2L);
+
+            MissionExecution targetExecution = MissionExecution.builder()
+                .participant(targetParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(targetExecution, 2L);
+            // 40분 경과 (목표 30분 이상)
+            targetExecution.setStartedAt(LocalDateTime.now().minusMinutes(40));
+
+            MissionCompletionContext targetContext = new MissionCompletionContext(2L, TEST_USER_ID, null);
+            targetContext.setExecution(targetExecution);
+            targetContext.setParticipant(targetParticipant);
+            targetContext.setMission(targetMission);
+            targetContext.addCompensationData(
+                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
+
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(targetContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            // 목표시간(30) + 보너스(50) = 80 exp
+            assertThat(targetExecution.getExpEarned()).isEqualTo(80);
+        }
+
+        @Test
+        @DisplayName("목표시간 미션에서 경과시간이 목표시간 미만이면 경과시간 기반 경험치를 지급한다")
+        void execute_targetDurationMission_partialTime() {
+            // given
+            Mission targetMission = Mission.builder()
+                .title("30분 러닝")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .targetDurationMinutes(30)
+                .expPerCompletion(50)
+                .build();
+            setId(targetMission, 3L);
+
+            MissionParticipant targetParticipant = MissionParticipant.builder()
+                .mission(targetMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(0)
+                .build();
+            setId(targetParticipant, 3L);
+
+            MissionExecution targetExecution = MissionExecution.builder()
+                .participant(targetParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(targetExecution, 3L);
+            // 10분 경과 (목표 30분 미만)
+            targetExecution.setStartedAt(LocalDateTime.now().minusMinutes(10));
+
+            MissionCompletionContext targetContext = new MissionCompletionContext(3L, TEST_USER_ID, null);
+            targetContext.setExecution(targetExecution);
+            targetContext.setParticipant(targetParticipant);
+            targetContext.setMission(targetMission);
+            targetContext.addCompensationData(
+                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
+
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(targetContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            // 경과시간(10분) 기반 경험치
+            assertThat(targetExecution.getExpEarned()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("2시간 초과 수행이면 기본 경험치를 지급하고 자동완료 처리한다")
+        void execute_over2Hours_grantBaseExpAndAutoComplete() {
+            // given
+            execution.setStartedAt(LocalDateTime.now().minusMinutes(130));
+            when(missionExecutionProperties.getBaseExp()).thenReturn(20);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getExpEarned()).isEqualTo(20);
+            assertThat(execution.getIsAutoCompleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("shouldExecute는 pinned 미션에서 false를 반환한다")
+        void shouldExecute_pinned_returnsFalse() {
+            // given
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                1L, TEST_USER_ID, null, false);
+
+            // when
+            boolean result = completeExecutionStep.shouldExecute().test(pinnedContext);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("shouldExecute는 일반 미션에서 true를 반환한다")
+        void shouldExecute_regular_returnsTrue() {
+            // given
+            MissionCompletionContext regularContext = new MissionCompletionContext(1L, TEST_USER_ID, null);
+
+            // when
+            boolean result = completeExecutionStep.shouldExecute().test(regularContext);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("일반 미션 완료 후 미래 PENDING execution을 삭제한다")
+        void execute_nonPinnedMission_deletesFuturePendingExecutions() {
+            // given
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(executionRepository.deleteFuturePendingExecutions(anyLong(), any()))
+                .thenReturn(3);
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(executionRepository).deleteFuturePendingExecutions(
+                eq(participant.getId()), eq(execution.getExecutionDate()));
         }
     }
 

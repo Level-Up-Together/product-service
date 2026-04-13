@@ -169,6 +169,43 @@ class GrantUserExperienceStepTest {
             // then
             assertThat(result.isSuccess()).isFalse();
         }
+
+        @Test
+        @DisplayName("isPinned=true이면 context의 categoryId/categoryName을 사용한다")
+        void execute_pinned_usesPinnedCategoryInfo() {
+            // given
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                1L, TEST_USER_ID, null, false);
+            pinnedContext.setMission(mission);
+            pinnedContext.setCategoryId(99L);
+            pinnedContext.setCategoryName("독서");
+            pinnedContext.setMissionTitle("매일 독서 30분");
+            pinnedContext.setUserExpEarned(EXP_TO_GRANT);
+
+            UserExperienceDto afterExp = new UserExperienceDto(null, TEST_USER_ID, 6, 50, 550, null, null, null);
+
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                .thenReturn(userExperience)
+                .thenReturn(afterExp);
+            when(gamificationQueryFacadeService.addExperience(
+                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
+                .thenReturn(afterExp);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.execute(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(gamificationQueryFacadeService).addExperience(
+                TEST_USER_ID,
+                EXP_TO_GRANT,
+                ExpSourceType.MISSION_EXECUTION,
+                mission.getId(),
+                "고정 미션 수행 완료: 매일 독서 30분",
+                99L,
+                "독서"
+            );
+        }
     }
 
     @Nested
@@ -215,6 +252,38 @@ class GrantUserExperienceStepTest {
             // then
             assertThat(result.isSuccess()).isFalse();
             assertThat(result.getMessage()).contains("경험치 환수 실패");
+        }
+
+        @Test
+        @DisplayName("isPinned=true이면 환수 시 context의 categoryId/categoryName을 사용한다")
+        void compensate_pinned_usesPinnedCategoryInfo() {
+            // given
+            MissionCompletionContext pinnedContext = MissionCompletionContext.forPinned(
+                1L, TEST_USER_ID, null, false);
+            pinnedContext.setMission(mission);
+            pinnedContext.setCategoryId(99L);
+            pinnedContext.setCategoryName("독서");
+            pinnedContext.setUserExpEarned(EXP_TO_GRANT);
+
+            UserExperienceDto mockResponse = new UserExperienceDto(null, TEST_USER_ID, 5, 100, 500, null, null, null);
+            when(gamificationQueryFacadeService.subtractExperience(
+                anyString(), anyInt(), any(ExpSourceType.class), anyLong(), anyString(), any(), anyString()))
+                .thenReturn(mockResponse);
+
+            // when
+            SagaStepResult result = grantUserExperienceStep.compensate(pinnedContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(gamificationQueryFacadeService).subtractExperience(
+                TEST_USER_ID,
+                EXP_TO_GRANT,
+                ExpSourceType.MISSION_EXECUTION,
+                mission.getId(),
+                "고정 미션 완료 보상 - 경험치 환수",
+                99L,
+                "독서"
+            );
         }
     }
 }

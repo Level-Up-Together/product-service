@@ -41,6 +41,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.Use
 import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProfileCacheService;
@@ -921,6 +922,472 @@ class MyPageServiceTest {
             assertThatThrownBy(() -> myPageService.withdrawUser(TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("code", "USER_001");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildExperienceInfo 분기 테스트")
+    class BuildExperienceInfoTest {
+
+        @Test
+        @DisplayName("currentExp가 null이면 0으로 처리한다")
+        void buildExperienceInfo_currentExpNull_treatedAsZero() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            // currentExp = null
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 5, null, 200, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(6)).thenReturn(UserLevelConfig.builder().requiredExp(300).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getExperience().getCurrentExp()).isNull();
+            assertThat(result.getExperience().getExpForPercentage()).isEqualTo(0);
+            assertThat(result.getExperience().getExpPercentage()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("nextLevelConfig가 null이고 currentConfig도 null이면 기본 공식을 사용한다")
+        void buildExperienceInfo_bothConfigNull_usesDefaultFormula() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 10, 50, 500, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            // nextLevelConfig = null
+            when(userLevelConfigCacheService.getLevelConfigByLevel(11)).thenReturn(null);
+            // currentConfig = null
+            when(userLevelConfigCacheService.getLevelConfigByLevel(10)).thenReturn(null);
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            // 기본 공식: 100 + (10 - 1) * 50 = 550
+            assertThat(result.getExperience().getNextLevelRequiredExp()).isEqualTo(550);
+        }
+
+        @Test
+        @DisplayName("nextLevelConfig가 null이지만 currentConfig가 있으면 currentConfig를 사용한다")
+        void buildExperienceInfo_nextConfigNull_usesCurrentConfig() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 10, 50, 500, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            // nextLevelConfig = null
+            when(userLevelConfigCacheService.getLevelConfigByLevel(11)).thenReturn(null);
+            // currentConfig has requiredExp
+            when(userLevelConfigCacheService.getLevelConfigByLevel(10)).thenReturn(UserLevelConfig.builder().requiredExp(450).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getExperience().getNextLevelRequiredExp()).isEqualTo(450);
+        }
+
+        @Test
+        @DisplayName("nextLevelConfig requiredExp가 0이면 currentConfig로 폴백한다")
+        void buildExperienceInfo_nextConfigZeroExp_fallbackToCurrentConfig() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 3, 50, 150, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            // nextLevelConfig exists but requiredExp = 0
+            when(userLevelConfigCacheService.getLevelConfigByLevel(4)).thenReturn(UserLevelConfig.builder().requiredExp(0).build());
+            // currentConfig with valid requiredExp
+            when(userLevelConfigCacheService.getLevelConfigByLevel(3)).thenReturn(UserLevelConfig.builder().requiredExp(200).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getExperience().getNextLevelRequiredExp()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("expPercentage가 100을 초과하면 100으로 제한한다")
+        void buildExperienceInfo_expPercentageCappedAt100() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            // currentExp > nextLevelRequiredExp
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 1, 150, 150, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getExperience().getExpPercentage()).isEqualTo(100.0);
+        }
+    }
+
+    @Nested
+    @DisplayName("buildUserInfo 분기 테스트")
+    class BuildUserInfoTest {
+
+        @Test
+        @DisplayName("createdAt이 null이면 오늘 날짜를 기준으로 계산한다")
+        void buildUserInfo_createdAtNull_usesToday() {
+            // given
+            Users user = Users.builder()
+                .nickname("테스터")
+                .email(TEST_USER_ID + "@test.com")
+                .build();
+            setId(user, TEST_USER_ID);
+            // createdAt을 null로 유지 (set하지 않음)
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID)).thenReturn(
+                new UserExperienceDto(null, TEST_USER_ID, 1, 0, 0, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getUserInfo().getDaysSinceJoined()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getPublicProfile 칭호 분기 테스트")
+    class GetPublicProfileTitleTest {
+
+        @Test
+        @DisplayName("LEFT와 RIGHT 칭호가 모두 있을 때 정상 조회된다")
+        void getPublicProfile_leftAndRightTitle() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            UserTitleDto leftTitle = createTestUserTitleDto(1L, TEST_USER_ID, 1L, "용감한", TitleRarity.RARE, TitlePosition.LEFT, true, TitlePosition.LEFT);
+            UserTitleDto rightTitle = createTestUserTitleDto(2L, TEST_USER_ID, 2L, "전사", TitleRarity.EPIC, TitlePosition.RIGHT, true, TitlePosition.RIGHT);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftTitle, rightTitle));
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(10);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(5L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList())).thenReturn(java.util.Map.of());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getLeftTitle()).isNotNull();
+            assertThat(result.getLeftTitle().getName()).isEqualTo("용감한");
+            assertThat(result.getRightTitle()).isNotNull();
+            assertThat(result.getRightTitle().getName()).isEqualTo("전사");
+        }
+
+        @Test
+        @DisplayName("길드 멤버십이 있을 때 길드 정보가 포함된다")
+        void getPublicProfile_withGuildMemberships() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            GuildMembershipInfo guild = new GuildMembershipInfo(1L, "테스트길드", "https://example.com/guild.jpg", 5, false, false);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(5);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(2L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of(guild));
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(1L))).thenReturn(java.util.Map.of(1L, 12));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getGuilds()).hasSize(1);
+            assertThat(result.getGuilds().get(0).getName()).isEqualTo("테스트길드");
+            assertThat(result.getGuilds().get(0).getMemberCount()).isEqualTo(12);
+        }
+
+        @Test
+        @DisplayName("길드 멤버수 map에 guildId가 없으면 0으로 처리된다")
+        void getPublicProfile_guildMemberCountMissing_defaultsToZero() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            GuildMembershipInfo guild = new GuildMembershipInfo(99L, "없는길드", null, 1, false, false);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of(guild));
+            // 멤버수 map에 99L이 없음
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(99L))).thenReturn(java.util.Map.of());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getGuilds()).hasSize(1);
+            assertThat(result.getGuilds().get(0).getMemberCount()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("createdAt이 null인 사용자의 공개 프로필 조회 시 오늘 날짜를 사용한다")
+        void getPublicProfile_createdAtNull_usesToday() {
+            // given
+            Users user = Users.builder()
+                .nickname("신규유저")
+                .email("new@test.com")
+                .build();
+            setId(user, TEST_USER_ID);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList())).thenReturn(java.util.Map.of());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getDaysSinceJoined()).isEqualTo(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserTitles 칭호 장착 분기 테스트")
+    class GetUserTitlesEquippedBranchTest {
+
+        @Test
+        @DisplayName("RIGHT 칭호만 장착된 경우 equippedRightId가 설정된다")
+        void getUserTitles_rightTitleEquipped() {
+            // given
+            UserTitleDto rightTitle = createTestUserTitleDto(2L, TEST_USER_ID, 2L, "우측칭호",
+                TitleRarity.RARE, TitlePosition.RIGHT, true, TitlePosition.RIGHT);
+
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo(TEST_USER_ID)).thenReturn(List.of(rightTitle));
+
+            // when
+            UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
+
+            // then
+            assertThat(result.getEquippedRightId()).isEqualTo(2L);
+            assertThat(result.getEquippedLeftId()).isNull();
+        }
+
+        @Test
+        @DisplayName("equippedPosition이 null인 칭호는 장착 ID로 설정되지 않는다")
+        void getUserTitles_equippedPositionNull_notSetAsEquipped() {
+            // given
+            UserTitleDto titleWithNullPosition = new UserTitleDto(
+                3L, TEST_USER_ID, 3L, "칭호", null, null,
+                "설명", null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                null, null, true, null, null  // equippedPosition = null
+            );
+
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo(TEST_USER_ID)).thenReturn(List.of(titleWithNullPosition));
+
+            // when
+            UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
+
+            // then
+            assertThat(result.getEquippedLeftId()).isNull();
+            assertThat(result.getEquippedRightId()).isNull();
+        }
+
+        @Test
+        @DisplayName("isEquipped가 false인 칭호는 장착 ID로 설정되지 않는다")
+        void getUserTitles_notEquipped_notSetAsEquippedId() {
+            // given
+            UserTitleDto notEquippedTitle = new UserTitleDto(
+                4L, TEST_USER_ID, 4L, "미장착칭호", null, null,
+                "설명", null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                null, null, false, TitlePosition.LEFT, null
+            );
+
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo(TEST_USER_ID)).thenReturn(List.of(notEquippedTitle));
+
+            // when
+            UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
+
+            // then
+            assertThat(result.getEquippedLeftId()).isNull();
+        }
+
+        @Test
+        @DisplayName("칭호 rarity가 null이면 rarity name이 null이다")
+        void getUserTitles_rarityNull_rarityNameNull() {
+            // given
+            UserTitleDto titleNoRarity = new UserTitleDto(
+                5L, TEST_USER_ID, 5L, "무희귀칭호", null, null,
+                "설명", null, null, null, null,
+                null, null, false, null, null
+            );
+
+            when(gamificationQueryFacadeService.getUserTitlesWithTitleInfo(TEST_USER_ID)).thenReturn(List.of(titleNoRarity));
+
+            // when
+            UserTitleListResponse result = myPageService.getUserTitles(TEST_USER_ID);
+
+            // then
+            assertThat(result.getTitles().get(0).getRarity()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("isNicknameAvailable userId null 분기 테스트")
+    class IsNicknameAvailableUserIdNullTest {
+
+        @Test
+        @DisplayName("userId가 null이면 전체 중복을 확인한다")
+        void isNicknameAvailable_userIdNull_checksAll() {
+            // given
+            when(userRepository.existsByNickname("신규닉네임")).thenReturn(false);
+
+            // when
+            boolean result = myPageService.isNicknameAvailable("신규닉네임", null);
+
+            // then
+            assertThat(result).isTrue();
+            verify(userRepository).existsByNickname("신규닉네임");
+            verify(userRepository, never()).existsByNicknameAndIdNot(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("userId가 null이고 닉네임이 이미 존재하면 false를 반환한다")
+        void isNicknameAvailable_userIdNull_alreadyExists() {
+            // given
+            when(userRepository.existsByNickname("기존닉네임")).thenReturn(true);
+
+            // when
+            boolean result = myPageService.isNicknameAvailable("기존닉네임", null);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("updatePreferredLocale 테스트")
+    class UpdatePreferredLocaleTest {
+
+        @Test
+        @DisplayName("지원되는 locale로 변경이 성공한다")
+        void updatePreferredLocale_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when & then (en은 SupportedLocale에서 지원)
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> myPageService.updatePreferredLocale(TEST_USER_ID, "en")
+            );
+            verify(userRepository).save(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("지원되지 않는 locale이면 예외가 발생한다")
+        void updatePreferredLocale_unsupported_throwsException() {
+            // when & then
+            assertThatThrownBy(() -> myPageService.updatePreferredLocale(TEST_USER_ID, "xx"))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "LOCALE_001");
+        }
+    }
+
+    @Nested
+    @DisplayName("updatePreferredTimezone 테스트")
+    class UpdatePreferredTimezoneTest {
+
+        @Test
+        @DisplayName("지원되는 timezone으로 변경이 성공한다")
+        void updatePreferredTimezone_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> myPageService.updatePreferredTimezone(TEST_USER_ID, "Asia/Seoul")
+            );
+            verify(userRepository).save(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("지원되지 않는 timezone이면 예외가 발생한다")
+        void updatePreferredTimezone_unsupported_throwsException() {
+            // when & then
+            assertThatThrownBy(() -> myPageService.updatePreferredTimezone(TEST_USER_ID, "Invalid/Zone"))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "TIMEZONE_001");
+        }
+    }
+
+    @Nested
+    @DisplayName("updateBio null 분기 테스트")
+    class UpdateBioNullTest {
+
+        @Test
+        @DisplayName("bio가 null이면 예외 없이 업데이트된다")
+        void updateBio_null_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+
+            // when
+            ProfileInfo result = myPageService.updateBio(TEST_USER_ID, null);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(userRepository).save(any(Users.class));
         }
     }
 
