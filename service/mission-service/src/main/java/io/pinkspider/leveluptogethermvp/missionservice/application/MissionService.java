@@ -48,6 +48,7 @@ public class MissionService {
     private final MissionCategoryService missionCategoryService;
     private final MissionParticipantService missionParticipantService;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final ReportService reportService;
 
@@ -202,6 +203,31 @@ public class MissionService {
         }
 
         return result;
+    }
+
+    /**
+     * 특정 유저의 미션 목록 조회 (공개 범위 필터링)
+     * - Self: 전체 표시
+     * - Friend: PUBLIC + FRIENDS_ONLY
+     * - Stranger: PUBLIC만
+     */
+    public List<MissionResponse> getUserMissions(String targetUserId, String currentUserId) {
+        boolean isSelf = currentUserId != null && currentUserId.equals(targetUserId);
+        boolean isFriend = currentUserId != null && !isSelf
+            && userQueryFacadeService.areFriends(currentUserId, targetUserId);
+
+        List<MissionVisibility> allowedVisibilities;
+        if (isSelf) {
+            allowedVisibilities = List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY,
+                MissionVisibility.GUILD_ONLY, MissionVisibility.PRIVATE);
+        } else if (isFriend) {
+            allowedVisibilities = List.of(MissionVisibility.PUBLIC, MissionVisibility.FRIENDS_ONLY);
+        } else {
+            allowedVisibilities = List.of(MissionVisibility.PUBLIC);
+        }
+
+        List<Mission> missions = missionRepository.findUserMissionsByVisibility(targetUserId, allowedVisibilities);
+        return missions.stream().map(MissionResponse::from).toList();
     }
 
     public Page<MissionResponse> getPublicOpenMissions(Pageable pageable) {

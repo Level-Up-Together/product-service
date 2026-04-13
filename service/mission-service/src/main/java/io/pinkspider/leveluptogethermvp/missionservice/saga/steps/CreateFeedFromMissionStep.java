@@ -70,7 +70,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         String userId = context.getUserId();
         MissionExecution execution = context.getExecution();
         Mission mission = context.getMission();
-        FeedVisibility visibility = context.isShareToFeed() ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
+        FeedVisibility visibility = resolveFeedVisibility(context);
 
         log.debug("Creating mission feed: userId={}, executionId={}, missionId={}, visibility={}",
             userId, execution.getId(), mission.getId(), visibility);
@@ -123,7 +123,7 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         String userId = context.getUserId();
         DailyMissionInstance instance = context.getInstance();
         Mission mission = context.getMission();
-        FeedVisibility visibility = context.isShareToFeed() ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
+        FeedVisibility visibility = resolveFeedVisibility(context);
 
         log.debug("Creating feed for pinned mission: userId={}, instanceId={}, visibility={}",
             userId, instance.getId(), visibility);
@@ -235,5 +235,24 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             instanceRepository.save(instance);
             log.info("Instance shared status updated: instanceId={}, shared={}", instanceId, shared);
         });
+    }
+
+    /**
+     * 미션의 공개 범위에 따라 피드 공개 범위를 결정
+     */
+    private FeedVisibility resolveFeedVisibility(MissionCompletionContext context) {
+        if (!context.isShareToFeed()) {
+            return FeedVisibility.PRIVATE;
+        }
+        Mission mission = context.getMission();
+        if (mission == null) {
+            return FeedVisibility.PUBLIC;
+        }
+        return switch (mission.getVisibility()) {
+            case FRIENDS_ONLY -> FeedVisibility.FRIENDS;
+            case GUILD_ONLY -> FeedVisibility.GUILD;
+            case PRIVATE -> FeedVisibility.PRIVATE;
+            default -> FeedVisibility.PUBLIC;
+        };
     }
 }

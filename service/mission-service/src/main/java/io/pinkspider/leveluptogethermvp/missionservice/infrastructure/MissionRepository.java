@@ -41,6 +41,11 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     @Query("SELECT m FROM Mission m WHERE m.creatorId = :creatorId AND m.isDeleted = false ORDER BY m.createdAt DESC")
     List<Mission> findMyMissions(@Param("creatorId") String creatorId);
 
+    @Query("SELECT m FROM Mission m WHERE m.creatorId = :userId AND m.visibility IN :visibilities AND m.isDeleted = false ORDER BY m.createdAt DESC")
+    List<Mission> findUserMissionsByVisibility(
+        @Param("userId") String userId,
+        @Param("visibilities") List<MissionVisibility> visibilities);
+
     /**
      * 내 미션 목록 조회 (고정미션 > 길드미션 > 일반미션 순으로 정렬)
      * 정렬 우선순위:

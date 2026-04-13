@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum MissionVisibility {
 
     PUBLIC("public", "공개"),
+    FRIENDS_ONLY("friends_only", "친구 공개"),
     PRIVATE("private", "비공개"),
     GUILD_ONLY("guild_only", "길드 전용");
 

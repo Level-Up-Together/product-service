@@ -59,6 +59,15 @@ public class MissionController {
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<ApiResult<List<MissionResponse>>> getUserMissions(
+        @PathVariable String userId,
+        @CurrentUser(required = false) String currentUserId) {
+
+        List<MissionResponse> responses = missionService.getUserMissions(userId, currentUserId);
+        return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
+    }
+
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<MissionResponse>>> getPublicOpenMissions(
         @PageableDefault(size = 20) Pageable pageable) {
