@@ -211,8 +211,8 @@ class DailyMissionInstanceServiceTest {
         }
 
         @Test
-        @DisplayName("지난 날짜의 진행 중인 미션은 자동 완료 처리하고 새 인스턴스를 시작한다")
-        void startInstance_pastDateInProgress_autoComplete() {
+        @DisplayName("지난 날짜의 진행 중인 미션이 있어도 에러를 던진다 (사용자가 직접 종료해야 함)")
+        void startInstance_pastDateInProgress_throwsException() {
             // given: 어제 날짜의 IN_PROGRESS 인스턴스
             LocalDate yesterday = LocalDate.now().minusDays(1);
             DailyMissionInstance pastInProgressInstance = DailyMissionInstance.createFrom(participant, yesterday);
@@ -222,22 +222,11 @@ class DailyMissionInstanceServiceTest {
 
             when(instanceRepository.findInProgressByUserId(TEST_USER_ID))
                 .thenReturn(Optional.of(pastInProgressInstance));
-            when(instanceRepository.save(pastInProgressInstance))
-                .thenReturn(pastInProgressInstance);
-            when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
-                .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(instance))
-                .thenReturn(instance);
 
-            // when
-            DailyMissionInstanceResponse response = service.startInstance(INSTANCE_ID, TEST_USER_ID);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(pastInProgressInstance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
-            assertThat(pastInProgressInstance.getIsAutoCompleted()).isTrue();
-            assertThat(pastInProgressInstance.getExpEarned()).isGreaterThan(0);
-            verify(instanceRepository, times(2)).save(any(DailyMissionInstance.class));
+            // when & then
+            assertThatThrownBy(() -> service.startInstance(INSTANCE_ID, TEST_USER_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 진행 중인 미션이 있습니다");
         }
 
         @Test

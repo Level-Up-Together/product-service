@@ -112,38 +112,20 @@ public class DailyMissionInstanceService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse startInstance(Long instanceId, String userId) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
-
-        // 이미 진행 중인 일반 미션이 있는지 확인
+        // 이미 진행 중인 일반 미션이 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
         executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {
-            if (inProgressExecution.getExecutionDate().isBefore(today)) {
-                log.info("지난 날짜 IN_PROGRESS 일반 미션 자동 완료 처리: executionId={}, date={}",
-                    inProgressExecution.getId(), inProgressExecution.getExecutionDate());
-                inProgressExecution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
-                executionRepository.save(inProgressExecution);
-            } else {
-                String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
-                throw new IllegalStateException(
-                    String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                        inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId()));
-            }
+            String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
+            throw new IllegalStateException(
+                String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                    inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId()));
         });
 
-        // 이미 진행 중인 고정 미션 인스턴스가 있는지 확인
+        // 이미 진행 중인 고정 미션 인스턴스가 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
         instanceRepository.findInProgressByUserId(userId).ifPresent(inProgress -> {
-            // 지난 날짜의 IN_PROGRESS 인스턴스는 자동 완료 처리 (경험치 보존)
-            if (inProgress.getInstanceDate().isBefore(today)) {
-                log.info("지난 날짜 IN_PROGRESS 인스턴스 자동 완료 처리: instanceId={}, date={}, title={}",
-                    inProgress.getId(), inProgress.getInstanceDate(), inProgress.getMissionTitle());
-                inProgress.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
-                instanceRepository.save(inProgress);
-            } else {
-                // 오늘 날짜의 진행 중인 인스턴스가 있으면 에러
-                throw new IllegalStateException(
-                    String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                        inProgress.getMissionTitle())
-                );
-            }
+            throw new IllegalStateException(
+                String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                    inProgress.getMissionTitle())
+            );
         });
 
         DailyMissionInstance instance = findInstanceById(instanceId);

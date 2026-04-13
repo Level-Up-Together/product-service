@@ -47,47 +47,20 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     @Override
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
-
-        // 이미 진행 중인 고정 미션이 있는지 확인
+        // 이미 진행 중인 고정 미션이 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
         dailyMissionInstanceRepository.findInProgressByUserId(userId).ifPresent(inProgressInstance -> {
-            if (inProgressInstance.getInstanceDate().isBefore(today)) {
-                log.info("지난 날짜 IN_PROGRESS 고정 미션 자동 완료 처리: instanceId={}, date={}",
-                    inProgressInstance.getId(), inProgressInstance.getInstanceDate());
-                inProgressInstance.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
-                dailyMissionInstanceRepository.save(inProgressInstance);
-            } else {
-                throw new IllegalStateException(
-                    String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                        inProgressInstance.getMissionTitle()));
-            }
+            throw new IllegalStateException(
+                String.format("이미 진행 중인 미션이 있습니다: %s. 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                    inProgressInstance.getMissionTitle()));
         });
 
-        // 이미 진행 중인 일반 미션이 있는지 확인
+        // 이미 진행 중인 일반 미션이 있는지 확인 (날짜 무관 — 사용자가 직접 종료해야 함)
         executionRepository.findInProgressByUserId(userId).ifPresent(inProgressExecution -> {
-            // 지난 날짜의 IN_PROGRESS 실행은 자동 완료 처리 (경험치 보존)
-            if (inProgressExecution.getExecutionDate().isBefore(today)) {
-                log.info("지난 날짜 IN_PROGRESS 일반 미션 자동 완료 처리: executionId={}, date={}",
-                    inProgressExecution.getId(), inProgressExecution.getExecutionDate());
-                inProgressExecution.autoCompleteForDateChange(missionExecutionProperties.getBaseExp());
-                executionRepository.save(inProgressExecution);
-                // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
-                MissionParticipant inProgressParticipant = inProgressExecution.getParticipant();
-                if (inProgressParticipant != null
-                    && !Boolean.TRUE.equals(inProgressParticipant.getMission().getIsPinned())
-                    && inProgressParticipant.getStatus() != ParticipantStatus.COMPLETED) {
-                    inProgressParticipant.setStatus(ParticipantStatus.COMPLETED);
-                    inProgressParticipant.setProgress(100);
-                    inProgressParticipant.setCompletedAt(java.time.LocalDateTime.now());
-                    participantRepository.save(inProgressParticipant);
-                }
-            } else {
-                String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
-                throw new IllegalStateException(
-                    String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
-                        inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId())
-                );
-            }
+            String inProgressMissionTitle = inProgressExecution.getParticipant().getMission().getTitle();
+            throw new IllegalStateException(
+                String.format("이미 진행 중인 미션이 있습니다: %s (ID: %d). 해당 미션을 완료하거나 취소한 후 시작해주세요.",
+                    inProgressMissionTitle, inProgressExecution.getParticipant().getMission().getId())
+            );
         });
 
         MissionParticipant participant = findParticipant(missionId, userId);
