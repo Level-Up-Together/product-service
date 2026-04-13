@@ -27,6 +27,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissio
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MissionExecutionQueryServiceTest {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private LocalDate today() {
+        return LocalDate.now(KST);
+    }
 
     @Mock
     private MissionExecutionRepository executionRepository;
@@ -355,7 +362,7 @@ class MissionExecutionQueryServiceTest {
             // given
             MissionExecution execution = MissionExecution.builder()
                 .participant(testParticipant)
-                .executionDate(LocalDate.now())
+                .executionDate(today())
                 .status(ExecutionStatus.IN_PROGRESS)
                 .build();
             setId(execution, 1L);
@@ -393,10 +400,10 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("오늘 수행 목록을 정상적으로 조회한다")
         void getTodayExecutions_success() {
             // given
-            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now(), 50, 30);
+            MissionExecution execution1 = createCompletedExecution(1L, today(), 50, 30);
             MissionExecution execution2 = MissionExecution.builder()
                 .participant(testParticipant)
-                .executionDate(LocalDate.now())
+                .executionDate(today())
                 .status(ExecutionStatus.PENDING)
                 .build();
             setId(execution2, 2L);
@@ -445,7 +452,7 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("고정 미션의 오늘 DailyMissionInstance가 없으면 자동 생성한다")
         void getTodayExecutions_createsPinnedMissionInstance() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             // 고정 미션 설정
             Mission pinnedMission = Mission.builder()
@@ -507,7 +514,7 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("고정 미션의 오늘 DailyMissionInstance가 이미 있으면 생성하지 않는다")
         void getTodayExecutions_doesNotCreateIfInstanceExists() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             // 고정 미션 설정
             Mission pinnedMission = Mission.builder()
@@ -567,8 +574,8 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("참여자의 수행 목록을 정상적으로 조회한다")
         void getExecutionsByParticipant_success() {
             // given
-            MissionExecution execution1 = createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30);
-            MissionExecution execution2 = createCompletedExecution(2L, LocalDate.now(), 50, 30);
+            MissionExecution execution1 = createCompletedExecution(1L, today().minusDays(1), 50, 30);
+            MissionExecution execution2 = createCompletedExecution(2L, today(), 50, 30);
 
             when(executionRepository.findByParticipantId(testParticipant.getId()))
                 .thenReturn(List.of(execution1, execution2));
@@ -607,8 +614,8 @@ class MissionExecutionQueryServiceTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantId(testParticipant.getId()))
                 .thenReturn(List.of(
-                    createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
-                    createCompletedExecution(2L, LocalDate.now(), 50, 30)
+                    createCompletedExecution(1L, today().minusDays(1), 50, 30),
+                    createCompletedExecution(2L, today(), 50, 30)
                 ));
             when(executionRepository.countByParticipantIdAndStatus(testParticipant.getId(), ExecutionStatus.COMPLETED))
                 .thenReturn(1L);
@@ -658,7 +665,7 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("특정 날짜의 수행 기록을 조회한다 (Strategy 위임)")
         void getExecutionByDate_success() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
@@ -688,8 +695,8 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("날짜 범위 내의 수행 기록을 조회한다")
         void getExecutionsByDateRange_success() {
             // given
-            LocalDate startDate = LocalDate.now().minusDays(7);
-            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = today().minusDays(7);
+            LocalDate endDate = today();
             List<MissionExecution> executions = List.of(
                 createCompletedExecution(1L, startDate.plusDays(1), 50, 30),
                 createCompletedExecution(2L, startDate.plusDays(3), 50, 30),
@@ -714,8 +721,8 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("날짜 범위 내에 수행 기록이 없으면 빈 목록을 반환한다")
         void getExecutionsByDateRange_empty() {
             // given
-            LocalDate startDate = LocalDate.now().minusDays(7);
-            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = today().minusDays(7);
+            LocalDate endDate = today();
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -741,8 +748,8 @@ class MissionExecutionQueryServiceTest {
         void getExecutionsForMission_success() {
             // given
             List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, LocalDate.now().minusDays(2), 50, 30),
-                createCompletedExecution(2L, LocalDate.now().minusDays(1), 50, 30)
+                createCompletedExecution(1L, today().minusDays(2), 50, 30),
+                createCompletedExecution(2L, today().minusDays(1), 50, 30)
             );
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
@@ -768,8 +775,8 @@ class MissionExecutionQueryServiceTest {
         void getExecutionsByMissionAndUser_success() {
             // given
             List<MissionExecution> executions = List.of(
-                createCompletedExecution(1L, LocalDate.now().minusDays(1), 50, 30),
-                createCompletedExecution(2L, LocalDate.now(), 50, 30)
+                createCompletedExecution(1L, today().minusDays(1), 50, 30),
+                createCompletedExecution(2L, today(), 50, 30)
             );
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
@@ -807,7 +814,7 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("오늘 완료된 고정 미션 인스턴스 목록을 조회한다")
         void getCompletedPinnedInstancesForToday_success() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             // 고정 미션 설정
             Mission pinnedMission = Mission.builder()
@@ -853,7 +860,7 @@ class MissionExecutionQueryServiceTest {
         @DisplayName("오늘 완료된 고정 미션이 없으면 빈 목록을 반환한다")
         void getCompletedPinnedInstancesForToday_empty() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndInstanceDate(testUserId, today))
                 .thenReturn(List.of());

@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionCon
 import io.pinkspider.global.saga.SagaResult;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MissionExecutionServiceTest {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private LocalDate today() {
+        return LocalDate.now(KST);
+    }
 
     @Mock
     private MissionExecutionRepository executionRepository;
@@ -119,7 +126,7 @@ class MissionExecutionServiceTest {
         @DisplayName("일반 미션(isPinned=false)은 오늘 하루치만 생성한다")
         void generateExecutionsForParticipant_regularMission_createsTodayOnly() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             Mission regularMission = Mission.builder()
                 .title("일반 미션")
@@ -190,7 +197,7 @@ class MissionExecutionServiceTest {
         @DisplayName("이미 오늘 날짜의 execution이 있으면 생성을 건너뛴다")
         void generateExecutionsForParticipant_alreadyExists_skipsCreation() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             Mission regularMission = Mission.builder()
                 .title("일반 미션")
@@ -231,7 +238,7 @@ class MissionExecutionServiceTest {
         @DisplayName("isPinned가 null인 경우 일반 미션으로 처리하여 오늘 하루치만 생성한다")
         void generateExecutionsForParticipant_isPinnedNull_createsTodayOnly() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
 
             Mission missionWithNullPinned = Mission.builder()
                 .title("isPinned null 미션")
@@ -279,7 +286,7 @@ class MissionExecutionServiceTest {
         @DisplayName("startExecution은 Strategy로 위임한다")
         void startExecution_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             MissionExecution execution = MissionExecution.builder()
                 .participant(testParticipant)
                 .executionDate(date)
@@ -304,7 +311,7 @@ class MissionExecutionServiceTest {
         @DisplayName("skipExecution은 Strategy로 위임한다")
         void skipExecution_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             MissionExecution execution = MissionExecution.builder()
                 .participant(testParticipant)
                 .executionDate(date)
@@ -329,7 +336,7 @@ class MissionExecutionServiceTest {
         @DisplayName("completeExecution(날짜 기반)은 Strategy로 위임한다")
         void completeExecution_withDate_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             String note = "완료!";
             boolean shareToFeed = true;
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
@@ -353,7 +360,7 @@ class MissionExecutionServiceTest {
         @DisplayName("uploadExecutionImage는 Strategy로 위임한다")
         void uploadExecutionImage_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             org.springframework.web.multipart.MultipartFile mockFile =
                 new org.springframework.mock.web.MockMultipartFile("image", "test.jpg", "image/jpeg", "test".getBytes());
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
@@ -377,7 +384,7 @@ class MissionExecutionServiceTest {
         @DisplayName("deleteExecutionImage는 Strategy로 위임한다")
         void deleteExecutionImage_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
@@ -399,7 +406,7 @@ class MissionExecutionServiceTest {
         @DisplayName("shareExecutionToFeed는 Strategy로 위임한다")
         void shareExecutionToFeed_delegatesToStrategy() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
@@ -429,7 +436,7 @@ class MissionExecutionServiceTest {
         @DisplayName("updateExecutionNote는 Strategy로 위임한다")
         void updateExecutionNote_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
             String newNote = "오늘 운동 완료!";
@@ -461,7 +468,7 @@ class MissionExecutionServiceTest {
             String note = "완료!";
             boolean shareToFeed = false;
 
-            MissionExecution execution = createCompletedExecution(executionId, LocalDate.now(), 50, 30);
+            MissionExecution execution = createCompletedExecution(executionId, today(), 50, 30);
             MissionCompletionContext context = new MissionCompletionContext(testUserId);
             context.setExecution(execution);
 
@@ -509,7 +516,7 @@ class MissionExecutionServiceTest {
             String note = "완료!";
             boolean shareToFeed = true;
 
-            MissionExecution execution = createCompletedExecution(executionId, LocalDate.now(), 50, 30);
+            MissionExecution execution = createCompletedExecution(executionId, today(), 50, 30);
             MissionCompletionContext context = new MissionCompletionContext(testUserId);
             context.setExecution(execution);
 
@@ -537,7 +544,7 @@ class MissionExecutionServiceTest {
         @DisplayName("날짜별로 미션 수행을 완료한다")
         void completeExecutionByDate_success() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
             String note = "완료!";
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionCompletionContext context = new MissionCompletionContext(testUserId);
@@ -565,7 +572,7 @@ class MissionExecutionServiceTest {
         @DisplayName("참여 정보가 없으면 예외가 발생한다")
         void completeExecutionByDate_noParticipant_throwsException() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.empty());
@@ -621,7 +628,7 @@ class MissionExecutionServiceTest {
         @DisplayName("시작 시간이 종료 시간보다 이후이면 예외가 발생한다")
         void updateExecutionTime_startAfterEnd_throwsException() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(10, 0);
             LocalDateTime completedAt = date.atTime(9, 0);  // start > end
 
@@ -635,7 +642,7 @@ class MissionExecutionServiceTest {
         @DisplayName("시작 시간과 종료 시간이 같으면 예외가 발생한다")
         void updateExecutionTime_startEqualsEnd_throwsException() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime sameTime = date.atTime(10, 0);
 
             // when & then
@@ -648,7 +655,7 @@ class MissionExecutionServiceTest {
         @DisplayName("일반 미션 수행 시간을 정상적으로 수정한다")
         void updateExecutionTime_regularMission_success() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(9, 0);
             LocalDateTime completedAt = date.atTime(9, 30);
 
@@ -675,7 +682,7 @@ class MissionExecutionServiceTest {
         @DisplayName("완료 상태가 아닌 미션 수행 시간 수정 시 예외가 발생한다")
         void updateExecutionTime_notCompleted_throwsException() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(9, 0);
             LocalDateTime completedAt = date.atTime(9, 30);
 
@@ -705,7 +712,7 @@ class MissionExecutionServiceTest {
         @DisplayName("다른 미션과 시간이 겹치면 예외가 발생한다")
         void updateExecutionTime_overlapping_throwsException() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(9, 0);
             LocalDateTime completedAt = date.atTime(10, 0);
 
@@ -749,7 +756,7 @@ class MissionExecutionServiceTest {
         @DisplayName("고정 미션 수행 시간 수정 시 DailyMissionInstance를 업데이트한다")
         void updateExecutionTime_pinnedMission_updatesInstance() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(8, 0);
             LocalDateTime completedAt = date.atTime(8, 30);
 
@@ -806,7 +813,7 @@ class MissionExecutionServiceTest {
         @DisplayName("고정 미션 완료 기록이 없으면 예외가 발생한다")
         void updateExecutionTime_pinnedMissionNoInstance_throwsException() {
             // given
-            LocalDate date = LocalDate.now();
+            LocalDate date = today();
             LocalDateTime startedAt = date.atTime(8, 0);
             LocalDateTime completedAt = date.atTime(8, 30);
 
@@ -875,7 +882,7 @@ class MissionExecutionServiceTest {
         @DisplayName("해당 날짜의 execution이 없으면 예외가 발생한다")
         void completeExecutionByDate_executionNotFound_throwsException() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
@@ -900,7 +907,7 @@ class MissionExecutionServiceTest {
         @DisplayName("unshareExecutionFromFeed는 Strategy로 위임한다")
         void unshareExecutionFromFeed_delegatesToStrategy() {
             // given
-            LocalDate executionDate = LocalDate.now();
+            LocalDate executionDate = today();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 

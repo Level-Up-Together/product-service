@@ -20,9 +20,13 @@ import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domai
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.MonthlyAttendanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AttendanceServiceTest {
@@ -43,10 +48,26 @@ class AttendanceServiceTest {
     @Mock
     private UserExperienceService userExperienceService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private AttendanceService attendanceService;
 
     private static final String TEST_USER_ID = "test-user-123";
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    @BeforeEach
+    void setUp() {
+        org.mockito.Mockito.lenient().when(userRepository.findById(anyString())).thenReturn(Optional.empty());
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(KST);
+    }
 
     private AttendanceRecord createTestAttendanceRecord(Long id, String userId, LocalDate date, int consecutiveDays) {
         AttendanceRecord record = AttendanceRecord.create(userId, date, consecutiveDays);
@@ -64,7 +85,7 @@ class AttendanceServiceTest {
         @DisplayName("첫 출석 체크를 정상적으로 수행한다")
         void checkIn_firstTime_success() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             AttendanceRecord savedRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
@@ -93,7 +114,7 @@ class AttendanceServiceTest {
         @DisplayName("이미 출석한 경우 중복 출석으로 처리한다")
         void checkIn_alreadyCheckedIn() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             AttendanceRecord existingRecord = createTestAttendanceRecord(1L, TEST_USER_ID, today, 1);
 
             when(attendanceRecordRepository.findByUserIdAndAttendanceDate(TEST_USER_ID, today))
@@ -112,7 +133,7 @@ class AttendanceServiceTest {
         @DisplayName("연속 출석 시 연속 일수가 증가한다")
         void checkIn_consecutiveDays_incremented() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             LocalDate yesterday = today.minusDays(1);
 
             AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 5);
@@ -141,7 +162,7 @@ class AttendanceServiceTest {
         @DisplayName("3일 연속 출석 시 보너스 경험치를 지급한다")
         void checkIn_3dayStreak_bonusExp() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             LocalDate yesterday = today.minusDays(1);
 
             AttendanceRecord yesterdayRecord = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 2);
@@ -181,7 +202,7 @@ class AttendanceServiceTest {
         @DisplayName("오늘 출석했으면 true를 반환한다")
         void hasCheckedInToday_true() {
             // given
-            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, LocalDate.now()))
+            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, today()))
                 .thenReturn(true);
 
             // when
@@ -195,7 +216,7 @@ class AttendanceServiceTest {
         @DisplayName("오늘 출석하지 않았으면 false를 반환한다")
         void hasCheckedInToday_false() {
             // given
-            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, LocalDate.now()))
+            when(attendanceRecordRepository.existsByUserIdAndAttendanceDate(TEST_USER_ID, today()))
                 .thenReturn(false);
 
             // when
@@ -243,7 +264,7 @@ class AttendanceServiceTest {
         @DisplayName("yearMonth가 null이면 현재 월을 조회한다")
         void getMonthlyAttendance_nullYearMonth_usesCurrentMonth() {
             // given
-            LocalDate now = LocalDate.now();
+            LocalDate now = today();
             String currentYearMonth = now.getYear() + "-" + String.format("%02d", now.getMonthValue());
 
             when(attendanceRecordRepository.findByUserIdAndYearMonthOrderByDayOfMonthAsc(TEST_USER_ID, currentYearMonth))
@@ -270,7 +291,7 @@ class AttendanceServiceTest {
         @DisplayName("오늘 출석한 경우 현재 연속 일수를 반환한다")
         void getCurrentStreak_checkedInToday() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, today, 5);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
@@ -287,7 +308,7 @@ class AttendanceServiceTest {
         @DisplayName("어제 출석한 경우 현재 연속 일수를 반환한다")
         void getCurrentStreak_checkedInYesterday() {
             // given
-            LocalDate yesterday = LocalDate.now().minusDays(1);
+            LocalDate yesterday = today().minusDays(1);
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, yesterday, 3);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))
@@ -318,7 +339,7 @@ class AttendanceServiceTest {
         @DisplayName("2일 이상 출석하지 않으면 0을 반환한다")
         void getCurrentStreak_streakBroken() {
             // given
-            LocalDate twoDaysAgo = LocalDate.now().minusDays(2);
+            LocalDate twoDaysAgo = today().minusDays(2);
             AttendanceRecord record = createTestAttendanceRecord(1L, TEST_USER_ID, twoDaysAgo, 10);
 
             when(attendanceRecordRepository.findLatestByUserId(TEST_USER_ID))

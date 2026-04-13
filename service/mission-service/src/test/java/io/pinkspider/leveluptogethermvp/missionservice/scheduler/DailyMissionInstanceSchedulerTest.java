@@ -32,6 +32,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +51,12 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DailyMissionInstanceScheduler 테스트")
 class DailyMissionInstanceSchedulerTest {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private LocalDate today() {
+        return LocalDate.now(KST);
+    }
 
     @Mock
     private DailyMissionInstanceRepository instanceRepository;
@@ -218,7 +225,7 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("지난 날짜 IN_PROGRESS 고정 미션을 Saga로 자동 완료한다")
         void autoCompletePastDayInstances_viaSaga() {
             // given
-            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
+            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, today().minusDays(1));
             setId(inProgressInstance, 100L);
             inProgressInstance.start();
             TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusHours(3));
@@ -243,7 +250,7 @@ class DailyMissionInstanceSchedulerTest {
             // given
             MissionExecution inProgressExecution = MissionExecution.builder()
                 .participant(participant1)
-                .executionDate(LocalDate.now().minusDays(1))
+                .executionDate(today().minusDays(1))
                 .status(ExecutionStatus.IN_PROGRESS)
                 .startedAt(LocalDateTime.now().minusHours(3))
                 .build();
@@ -267,7 +274,7 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("Saga 실패 시 엔티티 레벨 직접 완료로 폴백한다")
         void autoCompletePastDayInstances_fallbackOnSagaFailure() {
             // given
-            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, LocalDate.now().minusDays(1));
+            DailyMissionInstance inProgressInstance = DailyMissionInstance.createFrom(participant1, today().minusDays(1));
             setId(inProgressInstance, 100L);
             inProgressInstance.start();
             TestReflectionUtils.setField(inProgressInstance, "startedAt", LocalDateTime.now().minusHours(3));
@@ -318,7 +325,7 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("PENDING 인스턴스가 없으면 새로 생성한다")
         void createOrGetTodayInstance_creates() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             when(instanceRepository.findPendingByParticipantIdAndDate(eq(1L), eq(today)))
                 .thenReturn(List.of());
             when(instanceRepository.findMaxSequenceNumber(eq(1L), eq(today)))
@@ -345,7 +352,7 @@ class DailyMissionInstanceSchedulerTest {
         @DisplayName("PENDING 인스턴스가 있으면 기존 인스턴스를 반환한다")
         void createOrGetTodayInstance_returnsExisting() {
             // given
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             DailyMissionInstance existingInstance = DailyMissionInstance.createFrom(participant1, today);
             setId(existingInstance, 100L);
 
