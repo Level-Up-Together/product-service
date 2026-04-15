@@ -114,7 +114,7 @@ class MissionExecutionControllerTest {
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.completeExecution(anyLong(), anyString(), any(LocalDate.class), anyString(), anyBoolean()))
+        when(executionService.completeExecution(anyLong(), anyString(), any(LocalDate.class), anyString(), any(io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility.class)))
             .thenReturn(response);
 
         // when
@@ -123,6 +123,7 @@ class MissionExecutionControllerTest {
                     1L, LocalDate.now().toString())
                 .with(user(MOCK_USER_ID))
                 .param("note", "1시간 조깅 완료")
+                .param("feedVisibility", "PUBLIC")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("미션실행-01. 미션 실행 완료 처리",
@@ -137,7 +138,8 @@ class MissionExecutionControllerTest {
                             parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
                         )
                         .queryParameters(
-                            parameterWithName("note").type(SimpleType.STRING).description("메모").optional()
+                            parameterWithName("note").type(SimpleType.STRING).description("메모").optional(),
+                            parameterWithName("feedVisibility").type(SimpleType.STRING).description("피드 공개범위 (PUBLIC, FRIENDS, PRIVATE)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
@@ -1213,7 +1215,7 @@ class MissionExecutionControllerTest {
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.shareExecutionToFeed(anyLong(), anyString(), any(LocalDate.class), any()))
+        when(executionService.shareExecutionToFeed(anyLong(), anyString(), any(LocalDate.class), any(), any()))
             .thenReturn(response);
 
         // when
@@ -1222,6 +1224,7 @@ class MissionExecutionControllerTest {
                     "/api/v1/missions/{missionId}/executions/{executionDate}/share",
                     1L, LocalDate.now().toString())
                 .with(user(MOCK_USER_ID))
+                .param("feedVisibility", "PUBLIC")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
             MockMvcRestDocumentationWrapper.document("미션실행-18. 피드 공유",
@@ -1236,7 +1239,8 @@ class MissionExecutionControllerTest {
                             parameterWithName("executionDate").type(SimpleType.STRING).description("실행 날짜 (yyyy-MM-dd)")
                         )
                         .queryParameters(
-                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional()
+                            parameterWithName("instanceId").type(SimpleType.NUMBER).description("고정 미션 인스턴스 ID").optional(),
+                            parameterWithName("feedVisibility").type(SimpleType.STRING).description("피드 공개범위 (PUBLIC, FRIENDS, PRIVATE)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
