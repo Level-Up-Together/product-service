@@ -82,6 +82,10 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "preferred_timezone", length = 50, nullable = false)
     private String preferredTimezone = "Asia/Seoul";
 
+    @lombok.Builder.Default
+    @Column(name = "preferred_feed_visibility", length = 20, nullable = false)
+    private String preferredFeedVisibility = "PUBLIC";
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -112,6 +116,10 @@ public class Users extends LocalDateTimeBaseEntity {
 
     public void updatePreferredTimezone(String preferredTimezone) {
         this.preferredTimezone = preferredTimezone;
+    }
+
+    public void updatePreferredFeedVisibility(String preferredFeedVisibility) {
+        this.preferredFeedVisibility = preferredFeedVisibility;
     }
 
     public void updateLastLoginInfo(String ip, String country, String countryCode) {

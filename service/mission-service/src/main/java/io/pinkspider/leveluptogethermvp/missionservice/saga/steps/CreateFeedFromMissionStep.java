@@ -238,21 +238,14 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
     }
 
     /**
-     * 미션의 공개 범위에 따라 피드 공개 범위를 결정
+     * 피드 공개 범위를 결정
+     *
+     * 우선순위: context.feedVisibility (유저가 실행 완료 시 직접 선택한 값)
+     * feedVisibility가 PRIVATE이면 shareToFeed=false와 동일하게 비공개 피드 생성
      */
     private FeedVisibility resolveFeedVisibility(MissionCompletionContext context) {
-        if (!context.isShareToFeed()) {
-            return FeedVisibility.PRIVATE;
-        }
-        Mission mission = context.getMission();
-        if (mission == null) {
-            return FeedVisibility.PUBLIC;
-        }
-        return switch (mission.getVisibility()) {
-            case FRIENDS_ONLY -> FeedVisibility.FRIENDS;
-            case GUILD_ONLY -> FeedVisibility.GUILD;
-            case PRIVATE -> FeedVisibility.PRIVATE;
-            default -> FeedVisibility.PUBLIC;
-        };
+        return context.getFeedVisibility() != null
+            ? context.getFeedVisibility()
+            : FeedVisibility.PRIVATE;
     }
 }

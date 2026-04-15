@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
 import io.pinkspider.global.moderation.annotation.ModerateImage;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
@@ -32,9 +33,9 @@ public class PinnedMissionExecutionStrategy implements MissionExecutionStrategy 
 
     @Override
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate,
-                                                       String note, boolean shareToFeed) {
+                                                       String note, FeedVisibility feedVisibility) {
         log.info("고정 미션 완료 요청, DailyMissionInstanceService로 위임: missionId={}", missionId);
-        var response = dailyMissionInstanceService.completeInstanceByMission(missionId, userId, executionDate, note, shareToFeed);
+        var response = dailyMissionInstanceService.completeInstanceByMission(missionId, userId, executionDate, note, feedVisibility);
         return MissionExecutionResponse.fromDailyInstance(response);
     }
 
@@ -57,9 +58,9 @@ public class PinnedMissionExecutionStrategy implements MissionExecutionStrategy 
 
     @Override
     public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate,
-                                                          Long instanceId) {
-        log.info("고정 미션 피드 공유 요청: missionId={}, instanceId={}", missionId, instanceId);
-        var response = dailyMissionInstanceService.shareToFeedByMission(missionId, userId, executionDate, instanceId);
+                                                          Long instanceId, FeedVisibility feedVisibility) {
+        log.info("고정 미션 피드 공유 요청: missionId={}, instanceId={}, visibility={}", missionId, instanceId, feedVisibility);
+        var response = dailyMissionInstanceService.shareToFeedByMission(missionId, userId, executionDate, instanceId, feedVisibility);
         return MissionExecutionResponse.fromDailyInstance(response);
     }
 

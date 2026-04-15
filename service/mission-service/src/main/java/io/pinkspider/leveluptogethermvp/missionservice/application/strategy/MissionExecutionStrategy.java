@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,7 +14,7 @@ public interface MissionExecutionStrategy {
     MissionExecutionResponse skipExecution(Long missionId, String userId, LocalDate executionDate);
 
     MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate,
-                                                String note, boolean shareToFeed);
+                                                String note, FeedVisibility feedVisibility);
 
     // === 후처리 메서드 (instanceId 지원 — 고정 미션의 특정 인스턴스 타겟팅) ===
 
@@ -24,7 +25,7 @@ public interface MissionExecutionStrategy {
                                                     Long instanceId);
 
     MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate,
-                                                    Long instanceId);
+                                                    Long instanceId, FeedVisibility feedVisibility);
 
     MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate,
                                                         Long instanceId);
@@ -47,7 +48,7 @@ public interface MissionExecutionStrategy {
     }
 
     default MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate) {
-        return shareExecutionToFeed(missionId, userId, executionDate, null);
+        return shareExecutionToFeed(missionId, userId, executionDate, null, FeedVisibility.PUBLIC);
     }
 
     default MissionExecutionResponse unshareExecutionFromFeed(Long missionId, String userId, LocalDate executionDate) {

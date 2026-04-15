@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
@@ -196,11 +197,19 @@ public class DailyMissionInstanceService {
      * 인스턴스 완료 (경험치 지급 + 피드 공유 옵션)
      */
     public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, boolean shareToFeed) {
-        log.info("고정 미션 완료 요청 (Saga): instanceId={}, userId={}, shareToFeed={}",
-            instanceId, userId, shareToFeed);
+        FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
+        return completeInstance(instanceId, userId, note, visibility);
+    }
+
+    /**
+     * 인스턴스 완료 (경험치 지급 + 피드 공개범위 지정)
+     */
+    public DailyMissionInstanceResponse completeInstance(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info("고정 미션 완료 요청 (Saga): instanceId={}, userId={}, feedVisibility={}",
+            instanceId, userId, feedVisibility);
 
         SagaResult<MissionCompletionContext> result =
-            missionCompletionSaga.executePinned(instanceId, userId, note, shareToFeed);
+            missionCompletionSaga.executePinned(instanceId, userId, note, feedVisibility);
 
         if (!result.isSuccess()) {
             throw new IllegalStateException("고정 미션 완료 실패: " + result.getMessage());
@@ -214,6 +223,15 @@ public class DailyMissionInstanceService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, boolean shareToFeed) {
+        FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
+        return completeInstanceByMission(missionId, userId, date, note, visibility);
+    }
+
+    /**
+     * 고정 미션 완료 (missionId + date로 조회, 피드 공개범위 지정)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         // 해당 날짜에 IN_PROGRESS가 없으면, 자정을 넘긴 IN_PROGRESS 인스턴스를 찾아서 완료 처리
@@ -222,7 +240,7 @@ public class DailyMissionInstanceService {
                 .filter(i -> i.getParticipant().getId().equals(participant.getId())))
             .orElseThrow(() -> new IllegalArgumentException("진행 중인 인스턴스를 찾을 수 없습니다: " + date));
 
-        return completeInstance(instance.getId(), userId, note, shareToFeed);
+        return completeInstance(instance.getId(), userId, note, feedVisibility);
     }
 
     /**
@@ -261,6 +279,14 @@ public class DailyMissionInstanceService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse shareToFeed(Long instanceId, String userId) {
+        return shareToFeed(instanceId, userId, FeedVisibility.PUBLIC);
+    }
+
+    /**
+     * 완료된 인스턴스를 피드에 공유 (공개범위 지정)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse shareToFeed(Long instanceId, String userId, FeedVisibility feedVisibility) {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
@@ -272,11 +298,11 @@ public class DailyMissionInstanceService {
             throw new IllegalStateException("이미 피드에 공유된 미션입니다.");
         }
 
-        createFeedFromInstance(instance, userId);
+        createFeedFromInstance(instance, userId, feedVisibility);
         instanceRepository.save(instance);
 
-        log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}",
-            instanceId, userId);
+        log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}, visibility={}",
+            instanceId, userId, feedVisibility);
 
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -288,6 +314,15 @@ public class DailyMissionInstanceService {
     public DailyMissionInstanceResponse shareToFeedByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
         DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
         return shareToFeed(instance.getId(), userId);
+    }
+
+    /**
+     * 고정 미션 피드 공유 (missionId + date + optional instanceId, 공개범위 지정)
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse shareToFeedByMission(Long missionId, String userId, LocalDate date, Long instanceId, FeedVisibility feedVisibility) {
+        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+        return shareToFeed(instance.getId(), userId, feedVisibility);
     }
 
     /**
@@ -508,7 +543,7 @@ public class DailyMissionInstanceService {
         }
     }
 
-    private void createFeedFromInstance(DailyMissionInstance instance, String userId) {
+    private void createFeedFromInstance(DailyMissionInstance instance, String userId, FeedVisibility feedVisibility) {
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
 
@@ -528,7 +563,8 @@ public class DailyMissionInstanceService {
                 instance.getNote(),
                 instance.getImageUrl(),
                 instance.getDurationMinutes(),
-                instance.getExpEarned()
+                instance.getExpEarned(),
+                feedVisibility
             );
 
             instance.setIsSharedToFeed(true);

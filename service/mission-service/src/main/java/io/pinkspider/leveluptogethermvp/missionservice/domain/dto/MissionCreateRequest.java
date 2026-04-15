@@ -34,8 +34,8 @@ public class MissionCreateRequest {
     @NoProfanity(fieldName = "미션 설명")
     private String description;
 
-    @NotNull(message = "공개 여부는 필수입니다.")
-    private MissionVisibility visibility;
+    @Builder.Default
+    private MissionVisibility visibility = MissionVisibility.PRIVATE;
 
     @NotNull(message = "미션 타입은 필수입니다.")
     private MissionType type;

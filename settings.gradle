@@ -7,7 +7,13 @@ rootProject.name = 'product-service'
 // Platform shared library (IDE에서 소스 편집 가능하도록 composite build)
 def platformDir = file('../level-up-together-platform')
 if (platformDir.exists()) {
-    includeBuild '../level-up-together-platform'
+    includeBuild('../level-up-together-platform') {
+        dependencySubstitution {
+            substitute module('io.pinkspider:lut-platform-kernel') using project(':kernel')
+            substitute module('io.pinkspider:lut-platform-infra') using project(':infra')
+            substitute module('io.pinkspider:lut-platform-saga') using project(':saga')
+        }
+    }
 }
 
 // Service module (single compilation unit — services share circular deps)

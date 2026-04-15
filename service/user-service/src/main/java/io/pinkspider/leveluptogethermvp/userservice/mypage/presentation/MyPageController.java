@@ -83,6 +83,25 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    @GetMapping("/preferred-feed-visibility")
+    public ResponseEntity<ApiResult<java.util.Map<String, String>>> getPreferredFeedVisibility(
+        @CurrentUser String userId) {
+
+        String visibility = myPageService.getPreferredFeedVisibility(userId);
+        return ResponseEntity.ok(ApiResult.<java.util.Map<String, String>>builder()
+            .value(java.util.Map.of("preferred_feed_visibility", visibility))
+            .build());
+    }
+
+    @PutMapping("/preferred-feed-visibility")
+    public ResponseEntity<ApiResult<Void>> updatePreferredFeedVisibility(
+        @CurrentUser String userId,
+        @RequestBody java.util.Map<String, String> request) {
+
+        myPageService.updatePreferredFeedVisibility(userId, request.get("preferred_feed_visibility"));
+        return ResponseEntity.ok(ApiResult.getBase());
+    }
+
     @PutMapping("/preferred-timezone")
     public ResponseEntity<ApiResult<Void>> updatePreferredTimezone(
         @CurrentUser String userId,

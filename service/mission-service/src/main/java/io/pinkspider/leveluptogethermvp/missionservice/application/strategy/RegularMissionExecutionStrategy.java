@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 
 import io.pinkspider.global.moderation.annotation.ModerateImage;
 import io.pinkspider.global.saga.SagaResult;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageStorageService;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
@@ -102,7 +103,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     @Override
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate,
-                                                       String note, boolean shareToFeed) {
+                                                       String note, FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         // 해당 날짜에 execution이 없으면, 자정을 넘긴 IN_PROGRESS execution을 찾아서 완료 처리
@@ -111,10 +112,10 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 .filter(e -> e.getParticipant().getId().equals(participant.getId())))
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + executionDate));
 
-        log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}, shareToFeed={}",
-            execution.getId(), userId, shareToFeed);
+        log.info("미션 수행 완료 요청 (Saga): executionId={}, userId={}, feedVisibility={}",
+            execution.getId(), userId, feedVisibility);
 
-        SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(execution.getId(), userId, note, shareToFeed);
+        SagaResult<MissionCompletionContext> result = missionCompletionSaga.execute(execution.getId(), userId, note, feedVisibility);
 
         if (result.isSuccess()) {
             return missionCompletionSaga.toResponse(result);
@@ -196,7 +197,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     @Override
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate,
-                                                          Long instanceId) {
+                                                          Long instanceId, FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), executionDate)
@@ -233,14 +234,15 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 execution.getNote(),
                 execution.getImageUrl(),
                 durationMinutes,
-                execution.getExpEarned()
+                execution.getExpEarned(),
+                feedVisibility
             );
 
             execution.shareToFeed();
             executionRepository.save(execution);
 
-            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}, feedId={}",
-                userId, missionId, executionDate, createdFeed.getId());
+            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}, feedId={}, visibility={}",
+                userId, missionId, executionDate, createdFeed.getId(), feedVisibility);
 
         } catch (Exception e) {
             log.error("피드 공유 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());

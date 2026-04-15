@@ -28,6 +28,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionPar
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.saga.SagaResult;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,6 +68,9 @@ class MissionExecutionServiceTest {
 
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
+
+    @Mock
+    private UserQueryFacade userQueryFacadeService;
 
     @InjectMocks
     private MissionExecutionService executionService;
@@ -338,22 +343,22 @@ class MissionExecutionServiceTest {
             // given
             LocalDate date = today();
             String note = "완료!";
-            boolean shareToFeed = true;
+            FeedVisibility feedVisibility = FeedVisibility.PUBLIC;
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
             when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
-            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, shareToFeed))
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, feedVisibility))
                 .thenReturn(expectedResponse);
 
             // when
             MissionExecutionResponse result = executionService.completeExecution(
-                testMission.getId(), testUserId, date, note, shareToFeed);
+                testMission.getId(), testUserId, date, note, feedVisibility);
 
             // then
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
-            verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, shareToFeed);
+            verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, feedVisibility);
         }
 
         @Test
@@ -411,7 +416,7 @@ class MissionExecutionServiceTest {
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
             when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
-            when(mockStrategy.shareExecutionToFeed(testMission.getId(), testUserId, date, null))
+            when(mockStrategy.shareExecutionToFeed(testMission.getId(), testUserId, date, null, FeedVisibility.PUBLIC))
                 .thenReturn(expectedResponse);
 
             // when
@@ -421,7 +426,7 @@ class MissionExecutionServiceTest {
             // then
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
-            verify(mockStrategy).shareExecutionToFeed(testMission.getId(), testUserId, date, null);
+            verify(mockStrategy).shareExecutionToFeed(testMission.getId(), testUserId, date, null, FeedVisibility.PUBLIC);
         }
     }
 

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
@@ -108,18 +109,18 @@ class PinnedMissionExecutionStrategyTest {
     void completeExecution_delegatesToDailyMissionInstanceService() {
         // given
         String note = "완료!";
-        boolean shareToFeed = true;
+        FeedVisibility feedVisibility = FeedVisibility.PUBLIC;
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getNote()).thenReturn(note);
 
-        when(dailyMissionInstanceService.completeInstanceByMission(testMissionId, testUserId, testDate, note, shareToFeed))
+        when(dailyMissionInstanceService.completeInstanceByMission(testMissionId, testUserId, testDate, note, feedVisibility))
             .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.completeExecution(testMissionId, testUserId, testDate, note, shareToFeed);
+        MissionExecutionResponse response = strategy.completeExecution(testMissionId, testUserId, testDate, note, feedVisibility);
 
         // then
-        verify(dailyMissionInstanceService).completeInstanceByMission(testMissionId, testUserId, testDate, note, shareToFeed);
+        verify(dailyMissionInstanceService).completeInstanceByMission(testMissionId, testUserId, testDate, note, feedVisibility);
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
     }
@@ -166,17 +167,18 @@ class PinnedMissionExecutionStrategyTest {
     @DisplayName("shareExecutionToFeed는 DailyMissionInstanceService로 위임한다")
     void shareExecutionToFeed_delegatesToDailyMissionInstanceService() {
         // given
+        FeedVisibility feedVisibility = FeedVisibility.PUBLIC;
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getIsSharedToFeed()).thenReturn(true);
 
-        when(dailyMissionInstanceService.shareToFeedByMission(testMissionId, testUserId, testDate, null))
+        when(dailyMissionInstanceService.shareToFeedByMission(testMissionId, testUserId, testDate, null, feedVisibility))
             .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.shareExecutionToFeed(testMissionId, testUserId, testDate, null);
+        MissionExecutionResponse response = strategy.shareExecutionToFeed(testMissionId, testUserId, testDate, null, feedVisibility);
 
         // then
-        verify(dailyMissionInstanceService).shareToFeedByMission(testMissionId, testUserId, testDate, null);
+        verify(dailyMissionInstanceService).shareToFeedByMission(testMissionId, testUserId, testDate, null, feedVisibility);
         assertThat(response).isNotNull();
         assertThat(response.getIsSharedToFeed()).isTrue();
     }

@@ -87,6 +87,24 @@ public class UserQueryFacadeService implements UserQueryFacade {
             .orElse(null);
     }
 
+    // ========== 피드 공개범위 선호 ==========
+
+    @Override
+    public String getPreferredFeedVisibility(String userId) {
+        return userRepository.findById(userId)
+            .map(Users::getPreferredFeedVisibility)
+            .orElse("PUBLIC");
+    }
+
+    @Override
+    @Transactional(transactionManager = "userTransactionManager")
+    public void updatePreferredFeedVisibility(String userId, String feedVisibility) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.updatePreferredFeedVisibility(feedVisibility);
+            userRepository.save(user);
+        });
+    }
+
     // ========== 친구 관계 ==========
 
     public List<String> getFriendIds(String userId) {

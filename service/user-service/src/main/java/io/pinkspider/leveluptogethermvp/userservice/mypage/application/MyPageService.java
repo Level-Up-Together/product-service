@@ -206,6 +206,27 @@ public class MyPageService {
         log.info("언어 설정 변경: userId={}, locale={}", userId, locale);
     }
 
+    public String getPreferredFeedVisibility(String userId) {
+        Users user = findUserOrThrow(userId);
+        return user.getPreferredFeedVisibility();
+    }
+
+    @Transactional
+    public void updatePreferredFeedVisibility(String userId, String feedVisibility) {
+        if (feedVisibility == null || feedVisibility.isBlank()) {
+            throw new CustomException("VISIBILITY_001", "error.visibility.empty");
+        }
+        try {
+            io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility.valueOf(feedVisibility);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException("VISIBILITY_002", "error.visibility.invalid");
+        }
+        Users user = findUserOrThrow(userId);
+        user.updatePreferredFeedVisibility(feedVisibility);
+        userRepository.save(user);
+        log.info("피드 공개범위 설정 변경: userId={}, feedVisibility={}", userId, feedVisibility);
+    }
+
     @Transactional
     public void updatePreferredTimezone(String userId, String timezone) {
         if (!io.pinkspider.global.translation.enums.SupportedTimezone.isValid(timezone)) {

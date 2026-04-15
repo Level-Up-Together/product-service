@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.saga;
 
 import io.pinkspider.global.saga.SagaContext;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -26,6 +27,7 @@ public class MissionCompletionContext extends SagaContext {
     private String note;
     private boolean shareToFeed = false;
     private boolean pinned = false;
+    private FeedVisibility feedVisibility = FeedVisibility.PRIVATE;
 
     // === Regular Mission Input ===
     private Long executionId;
@@ -91,12 +93,31 @@ public class MissionCompletionContext extends SagaContext {
         this.shareToFeed = shareToFeed;
     }
 
+    public MissionCompletionContext(Long executionId, String userId, String note, FeedVisibility feedVisibility) {
+        super(SAGA_TYPE, userId);
+        this.executionId = executionId;
+        this.userId = userId;
+        this.note = note;
+        this.feedVisibility = feedVisibility;
+        this.shareToFeed = feedVisibility != FeedVisibility.PRIVATE;
+    }
+
     // === Pinned mission factory ===
     public static MissionCompletionContext forPinned(Long instanceId, String userId, String note, boolean shareToFeed) {
         MissionCompletionContext ctx = new MissionCompletionContext(userId);
         ctx.instanceId = instanceId;
         ctx.note = note;
         ctx.shareToFeed = shareToFeed;
+        ctx.pinned = true;
+        return ctx;
+    }
+
+    public static MissionCompletionContext forPinned(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+        MissionCompletionContext ctx = new MissionCompletionContext(userId);
+        ctx.instanceId = instanceId;
+        ctx.note = note;
+        ctx.feedVisibility = feedVisibility;
+        ctx.shareToFeed = feedVisibility != FeedVisibility.PRIVATE;
         ctx.pinned = true;
         return ctx;
     }

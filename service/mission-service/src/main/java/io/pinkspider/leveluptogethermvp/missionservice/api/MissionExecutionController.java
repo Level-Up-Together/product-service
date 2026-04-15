@@ -5,6 +5,7 @@ import io.pinkspider.global.ratelimit.PerUserRateLimit;
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionQueryService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.ExecutionTimeUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
@@ -65,6 +66,8 @@ public class MissionExecutionController {
 
     /**
      * 미션의 특정 날짜 실행 완료 처리
+     *
+     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, PRIVATE). 미지정 시 유저의 선호 공개범위 사용.
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     @PerUserRateLimit(name = "missionCompletion", limit = 10, windowSeconds = 60)
@@ -73,10 +76,10 @@ public class MissionExecutionController {
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
         @RequestParam(required = false) String note,
-        @RequestParam(required = false, defaultValue = "false") boolean shareToFeed) {
+        @RequestParam(required = false) FeedVisibility feedVisibility) {
 
         MissionExecutionResponse response = executionService.completeExecution(
-            missionId, userId, executionDate, note, shareToFeed);
+            missionId, userId, executionDate, note, feedVisibility);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
@@ -264,15 +267,17 @@ public class MissionExecutionController {
      * 완료된 미션 실행을 피드에 공유
      *
      * @param instanceId 고정 미션의 특정 인스턴스 ID (optional)
+     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS). 미지정 시 PUBLIC.
      */
     @PostMapping("/{missionId}/executions/{executionDate}/share")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> shareExecutionToFeed(
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
-        @RequestParam(required = false) Long instanceId) {
+        @RequestParam(required = false) Long instanceId,
+        @RequestParam(required = false, defaultValue = "PUBLIC") FeedVisibility feedVisibility) {
 
-        MissionExecutionResponse response = executionService.shareExecutionToFeed(missionId, userId, executionDate, instanceId);
+        MissionExecutionResponse response = executionService.shareExecutionToFeed(missionId, userId, executionDate, instanceId, feedVisibility);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 

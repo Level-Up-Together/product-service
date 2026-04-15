@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga;
 import io.pinkspider.global.saga.SagaEventPublisher;
 import io.pinkspider.global.saga.SagaOrchestrator;
 import io.pinkspider.global.saga.SagaResult;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompleteExecutionStep;
@@ -83,6 +84,17 @@ public class MissionCompletionSaga {
     }
 
     /**
+     * 일반 미션 완료 Saga 실행 (피드 공개범위 지정)
+     */
+    public SagaResult<MissionCompletionContext> execute(Long executionId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info("Starting MissionCompletionSaga (regular): executionId={}, userId={}, feedVisibility={}",
+            executionId, userId, feedVisibility);
+
+        MissionCompletionContext context = new MissionCompletionContext(executionId, userId, note, feedVisibility);
+        return runSaga(context);
+    }
+
+    /**
      * 고정 미션 완료 Saga 실행
      */
     public SagaResult<MissionCompletionContext> executePinned(Long instanceId, String userId, String note) {
@@ -97,6 +109,17 @@ public class MissionCompletionSaga {
             instanceId, userId, shareToFeed);
 
         MissionCompletionContext context = MissionCompletionContext.forPinned(instanceId, userId, note, shareToFeed);
+        return runSaga(context);
+    }
+
+    /**
+     * 고정 미션 완료 Saga 실행 (피드 공개범위 지정)
+     */
+    public SagaResult<MissionCompletionContext> executePinned(Long instanceId, String userId, String note, FeedVisibility feedVisibility) {
+        log.info("Starting MissionCompletionSaga (pinned): instanceId={}, userId={}, feedVisibility={}",
+            instanceId, userId, feedVisibility);
+
+        MissionCompletionContext context = MissionCompletionContext.forPinned(instanceId, userId, note, feedVisibility);
         return runSaga(context);
     }
 

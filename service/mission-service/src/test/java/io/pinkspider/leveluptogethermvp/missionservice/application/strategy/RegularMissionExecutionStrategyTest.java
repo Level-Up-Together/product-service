@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionImageStorageService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -293,11 +294,12 @@ class RegularMissionExecutionStrategyTest {
     class CompleteExecutionTest {
 
         @Test
-        @DisplayName("날짜와 노트로 미션 수행을 완료한다")
+        @DisplayName("날짜와 노트로 미션 수행을 완료한다 (PRIVATE)")
         void completeExecution_withDateAndNote_success() {
             // given
             LocalDate executionDate = LocalDate.now();
             String note = "완료!";
+            FeedVisibility feedVisibility = FeedVisibility.PRIVATE;
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionCompletionContext context = new MissionCompletionContext(testUserId);
             context.setExecution(execution);
@@ -307,27 +309,27 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, false))
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, feedVisibility))
                 .thenReturn(successResult);
             when(missionCompletionSaga.toResponse(successResult))
                 .thenReturn(MissionExecutionResponse.from(execution));
 
             // when
             MissionExecutionResponse response = strategy.completeExecution(
-                testMission.getId(), testUserId, executionDate, note, false);
+                testMission.getId(), testUserId, executionDate, note, feedVisibility);
 
             // then
             assertThat(response).isNotNull();
-            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, false);
+            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, feedVisibility);
         }
 
         @Test
-        @DisplayName("날짜, 노트, 피드 공유 옵션으로 미션 수행을 완료한다")
+        @DisplayName("날짜, 노트, 피드 공유 옵션으로 미션 수행을 완료한다 (PUBLIC)")
         void completeExecution_withDateNoteAndShare_success() {
             // given
             LocalDate executionDate = LocalDate.now();
             String note = "완료!";
-            boolean shareToFeed = true;
+            FeedVisibility feedVisibility = FeedVisibility.PUBLIC;
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
             MissionCompletionContext context = new MissionCompletionContext(testUserId);
             context.setExecution(execution);
@@ -337,18 +339,18 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, shareToFeed))
+            when(missionCompletionSaga.execute(execution.getId(), testUserId, note, feedVisibility))
                 .thenReturn(successResult);
             when(missionCompletionSaga.toResponse(successResult))
                 .thenReturn(MissionExecutionResponse.from(execution));
 
             // when
             MissionExecutionResponse response = strategy.completeExecution(
-                testMission.getId(), testUserId, executionDate, note, shareToFeed);
+                testMission.getId(), testUserId, executionDate, note, feedVisibility);
 
             // then
             assertThat(response).isNotNull();
-            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, true);
+            verify(missionCompletionSaga).execute(execution.getId(), testUserId, note, feedVisibility);
         }
     }
 
@@ -508,7 +510,7 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(execution));
 
             // when & then
-            assertThatThrownBy(() -> strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate))
+            assertThatThrownBy(() -> strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("완료된 미션만 피드에 공유할 수 있습니다");
         }
@@ -527,7 +529,7 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(execution));
 
             // when & then
-            assertThatThrownBy(() -> strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate))
+            assertThatThrownBy(() -> strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 피드에 공유된 미션입니다");
         }

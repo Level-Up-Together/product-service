@@ -19,6 +19,7 @@ import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.enums.TitleRarity;
@@ -262,14 +263,14 @@ class DailyMissionInstanceServiceTest {
 
             // Saga 결과 mock
             MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
+                INSTANCE_ID, TEST_USER_ID, "완료 메모", FeedVisibility.PRIVATE);
             context.setInstance(instance);
             context.setUserExpEarned(50);
 
             SagaResult<MissionCompletionContext> sagaResult =
                 SagaResult.success(context, "성공");
 
-            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", false))
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", FeedVisibility.PRIVATE))
                 .thenReturn(sagaResult);
             when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
                 .thenReturn(DailyMissionInstanceResponse.from(instance));
@@ -280,7 +281,7 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getNote()).isEqualTo("완료 메모");
-            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", false);
+            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료 메모", FeedVisibility.PRIVATE);
         }
 
         @Test
@@ -296,14 +297,14 @@ class DailyMissionInstanceServiceTest {
 
             // Saga 결과 mock
             MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, "완료!", true);
+                INSTANCE_ID, TEST_USER_ID, "완료!", FeedVisibility.PUBLIC);
             context.setInstance(instance);
             context.setUserExpEarned(50);
 
             SagaResult<MissionCompletionContext> sagaResult =
                 SagaResult.success(context, "성공");
 
-            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", true))
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", FeedVisibility.PUBLIC))
                 .thenReturn(sagaResult);
             when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
                 .thenReturn(DailyMissionInstanceResponse.from(instance));
@@ -315,7 +316,7 @@ class DailyMissionInstanceServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(response.getNote()).isEqualTo("완료!");
-            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", true);
+            verify(missionCompletionSaga).executePinned(INSTANCE_ID, TEST_USER_ID, "완료!", FeedVisibility.PUBLIC);
         }
     }
 
@@ -856,7 +857,7 @@ class DailyMissionInstanceServiceTest {
             instance.complete();
 
             MissionCompletionContext context = MissionCompletionContext.forPinned(
-                INSTANCE_ID, TEST_USER_ID, "완료", false);
+                INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PRIVATE);
             context.setInstance(instance);
             SagaResult<MissionCompletionContext> sagaResult = SagaResult.success(context, "성공");
 
@@ -864,7 +865,7 @@ class DailyMissionInstanceServiceTest {
                 .thenReturn(Optional.of(participant));
             when(instanceRepository.findInProgressByParticipantIdAndDate(PARTICIPANT_ID, today))
                 .thenReturn(Optional.of(instance));
-            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", false))
+            when(missionCompletionSaga.executePinned(INSTANCE_ID, TEST_USER_ID, "완료", FeedVisibility.PRIVATE))
                 .thenReturn(sagaResult);
             when(missionCompletionSaga.toPinnedResponse(any(SagaResult.class)))
                 .thenReturn(DailyMissionInstanceResponse.from(instance));
@@ -939,7 +940,7 @@ class DailyMissionInstanceServiceTest {
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 10, "테스트 칭호", TitleRarity.COMMON, "#FFFFFF"));
             when(feedCommandService.createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
-                    any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                    any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(feed);
             when(instanceRepository.save(any(DailyMissionInstance.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -950,7 +951,7 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(response).isNotNull();
             verify(feedCommandService).createMissionSharedFeed(any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 

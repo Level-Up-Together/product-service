@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.saga.SagaResult;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -32,6 +34,7 @@ public class MissionExecutionService {
     private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
+    private final UserQueryFacade userQueryFacadeService;
 
     /**
      * 미션 참여 시 실행 일정 생성
@@ -83,12 +86,26 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note) {
-        return completeExecution(missionId, userId, executionDate, note, false);
+        return completeExecution(missionId, userId, executionDate, note, (FeedVisibility) null);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, boolean shareToFeed) {
-        return strategyResolver.resolve(missionId, userId).completeExecution(missionId, userId, executionDate, note, shareToFeed);
+        FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
+        return completeExecution(missionId, userId, executionDate, note, visibility);
+    }
+
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
+        // feedVisibility가 null이면 유저의 선호 공개범위 사용
+        FeedVisibility resolvedVisibility = feedVisibility != null
+            ? feedVisibility
+            : resolveFeedVisibility(userId);
+
+        // 유저의 선호 공개범위 업데이트
+        userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
+
+        return strategyResolver.resolve(missionId, userId).completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
     }
 
     // === 후처리 메서드 (instanceId 지원) ===
@@ -105,7 +122,12 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).shareExecutionToFeed(missionId, userId, executionDate, instanceId);
+        return shareExecutionToFeed(missionId, userId, executionDate, instanceId, FeedVisibility.PUBLIC);
+    }
+
+    @Transactional(transactionManager = "missionTransactionManager")
+    public MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate, Long instanceId, FeedVisibility feedVisibility) {
+        return strategyResolver.resolve(missionId, userId).shareExecutionToFeed(missionId, userId, executionDate, instanceId, feedVisibility);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
@@ -273,5 +295,14 @@ public class MissionExecutionService {
         instance.setStartedAt(startedAt);
         instance.setCompletedAt(completedAt);
         dailyMissionInstanceRepository.save(instance);
+    }
+
+    private FeedVisibility resolveFeedVisibility(String userId) {
+        try {
+            String preferred = userQueryFacadeService.getPreferredFeedVisibility(userId);
+            return FeedVisibility.valueOf(preferred);
+        } catch (Exception e) {
+            return FeedVisibility.PUBLIC;
+        }
     }
 }
