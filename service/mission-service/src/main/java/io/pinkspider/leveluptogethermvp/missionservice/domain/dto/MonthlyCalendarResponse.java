@@ -45,6 +45,7 @@ public class MonthlyCalendarResponse {
     public static class DailyMission {
         private Long missionId;
         private String missionTitle;
+        private String categoryName;
         private Integer expEarned;
         private Integer durationMinutes;
         private LocalDateTime startedAt;
