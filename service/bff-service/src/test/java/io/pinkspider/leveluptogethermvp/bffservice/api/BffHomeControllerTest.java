@@ -281,7 +281,7 @@ class BffHomeControllerTest {
             .notices(List.of(createMockNoticeResponse()))
             .build();
 
-        when(bffHomeService.getHomeData(anyString(), any(), anyInt(), anyInt(), anyInt(), any(), any()))
+        when(bffHomeService.getHomeData(anyString(), any(), any(), anyInt(), anyInt(), anyInt(), any(), any()))
             .thenReturn(mockResponse);
 
         // when
@@ -306,7 +306,9 @@ class BffHomeControllerTest {
                             parameterWithName("feedSize").type(SimpleType.INTEGER)
                                 .description("피드 페이지 크기 (기본: 20)").optional(),
                             parameterWithName("publicGuildSize").type(SimpleType.INTEGER)
-                                .description("공개 길드 조회 개수 (기본: 5)").optional()
+                                .description("공개 길드 조회 개수 (기본: 5)").optional(),
+                            parameterWithName("feedSearchType").type(SimpleType.STRING)
+                                .description("피드 필터 타입 (ALL, FRIENDS, GUILD, MINE)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),

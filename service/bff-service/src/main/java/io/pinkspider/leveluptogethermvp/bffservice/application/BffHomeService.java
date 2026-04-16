@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
 import io.pinkspider.leveluptogethermvp.noticeservice.application.NoticeService;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
@@ -80,29 +81,23 @@ public class BffHomeService {
      * @return HomeDataResponse 홈 화면 데이터
      */
     public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize) {
-        return getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, null);
+        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, null, null);
     }
 
-    /**
-     * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다. (다국어 지원)
-     *
-     * @param userId 현재 로그인한 사용자 ID
-     * @param categoryId 카테고리 ID (선택적, null이면 전체)
-     * @param feedPage 피드 페이지 번호 (기본: 0)
-     * @param feedSize 피드 페이지 크기 (기본: 20)
-     * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
-     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
-     * @return HomeDataResponse 홈 화면 데이터
-     */
     public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale) {
-        return getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, locale, null);
+        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, null);
+    }
+
+    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
+        return getHomeData(userId, categoryId, null, feedPage, feedSize, publicGuildSize, locale, timezone);
     }
 
     /**
-     * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다. (다국어 + 타임존 지원)
+     * 홈 화면에 필요한 모든 데이터를 한 번에 조회합니다. (다국어 + 타임존 + 피드 필터 지원)
      *
      * @param userId 현재 로그인한 사용자 ID
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param feedSearchType 피드 필터 타입 (ALL, FRIENDS, GUILD, MINE)
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
@@ -110,7 +105,8 @@ public class BffHomeService {
      * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
      * @return HomeDataResponse 홈 화면 데이터
      */
-    public HomeDataResponse getHomeData(String userId, Long categoryId, int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
+    public HomeDataResponse getHomeData(String userId, Long categoryId, FeedSearchType feedSearchType,
+                                         int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
         log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}, locale={}, timezone={}", userId, categoryId, feedPage, feedSize, locale, timezone);
 
         // 업적 동기화 - 비동기로 처리하여 홈 로딩을 차단하지 않음
@@ -128,7 +124,10 @@ public class BffHomeService {
         CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<ActivityFeedResponse> feedPage1;
-                if (categoryId != null) {
+                if (feedSearchType != null && feedSearchType != FeedSearchType.ALL) {
+                    // 필터 타입별 피드 조회
+                    feedPage1 = feedQueryService.getFilteredFeeds(feedSearchType, userId, feedPage, feedSize, locale);
+                } else if (categoryId != null) {
                     // 카테고리별 피드 조회 (하이브리드)
                     feedPage1 = feedQueryService.getPublicFeedsByCategory(categoryId, userId, feedPage, feedSize);
                 } else {

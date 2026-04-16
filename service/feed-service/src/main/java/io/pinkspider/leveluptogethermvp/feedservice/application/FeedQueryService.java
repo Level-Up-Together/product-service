@@ -15,12 +15,15 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminStats
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDate;
@@ -52,6 +55,7 @@ public class FeedQueryService {
     private final FeedCommentRepository feedCommentRepository;
     private final AdminInternalFeignClient adminInternalFeignClient;
     private final UserQueryFacade userQueryFacadeService;
+    private final GuildQueryFacade guildQueryFacadeService;
     private final TranslationService translationService;
     private final ReportService reportService;
 
@@ -84,6 +88,90 @@ public class FeedQueryService {
                 feed,
                 likedFeedIds.contains(feed.getId()),
                 currentUserId != null && feed.getUserId().equals(currentUserId),
+                translation
+            );
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
+            return response;
+        });
+    }
+
+    /**
+     * 필터 타입별 피드 조회 (QA-60)
+     *
+     * @param searchType ALL=전체 공개, FRIENDS=친구 글, GUILD=길드 글, MINE=내 글
+     */
+    public Page<ActivityFeedResponse> getFilteredFeeds(FeedSearchType searchType, String userId,
+                                                        int page, int size, String acceptLanguage) {
+        if (searchType == null || userId == null) {
+            return getPublicFeeds(userId, page, size, acceptLanguage);
+        }
+        return switch (searchType) {
+            case ALL -> getPublicFeeds(userId, page, size, acceptLanguage);
+            case FRIENDS -> getFriendsOnlyFeeds(userId, page, size, acceptLanguage);
+            case GUILD -> getMyGuildFeeds(userId, page, size, acceptLanguage);
+            case MINE -> getMyFeeds(userId, page, size, acceptLanguage);
+        };
+    }
+
+    /**
+     * 친구 피드만 조회 (공개 + 친구공개)
+     */
+    private Page<ActivityFeedResponse> getFriendsOnlyFeeds(String userId, int page, int size, String acceptLanguage) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<String> friendIds = userQueryFacadeService.getFriendIds(userId);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+
+        if (friendIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Page<ActivityFeed> feeds = activityFeedRepository.findFriendsFeeds(friendIds, pageable);
+        return enrichFeeds(feeds, userId, targetLocale);
+    }
+
+    /**
+     * 내가 속한 길드의 피드 조회
+     */
+    private Page<ActivityFeedResponse> getMyGuildFeeds(String userId, int page, int size, String acceptLanguage) {
+        Pageable pageable = PageRequest.of(page, size);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+
+        List<Long> guildIds = guildQueryFacadeService.getUserGuildMemberships(userId)
+            .stream().map(GuildMembershipInfo::guildId).toList();
+
+        if (guildIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeedsByGuildIds(guildIds, pageable);
+        return enrichFeeds(feeds, userId, targetLocale);
+    }
+
+    /**
+     * 내가 쓴 피드만 조회
+     */
+    private Page<ActivityFeedResponse> getMyFeeds(String userId, int page, int size, String acceptLanguage) {
+        Pageable pageable = PageRequest.of(page, size);
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+
+        Page<ActivityFeed> feeds = activityFeedRepository.findByUserId(userId, pageable);
+        return enrichFeeds(feeds, userId, targetLocale);
+    }
+
+    /**
+     * 피드 목록을 좋아요/신고/번역 정보로 보강
+     */
+    private Page<ActivityFeedResponse> enrichFeeds(Page<ActivityFeed> feeds, String userId, String targetLocale) {
+        Set<Long> likedFeedIds = getLikedFeedIds(userId, feeds.getContent());
+        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
+
+        return feeds.map(feed -> {
+            TranslationInfo translation = translateFeed(feed, targetLocale);
+            ActivityFeedResponse response = ActivityFeedResponse.from(
+                feed,
+                likedFeedIds.contains(feed.getId()),
+                userId != null && feed.getUserId().equals(userId),
                 translation
             );
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));

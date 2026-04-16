@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.feedservice.api;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
@@ -36,19 +37,24 @@ public class ActivityFeedController {
     private final FeedCommandService feedCommandService;
 
     /**
-     * 전체 공개 피드 조회 - categoryId가 있으면 해당 카테고리별 피드 조회
+     * 피드 조회 - searchType으로 필터, categoryId로 카테고리 필터
+     *
+     * @param searchType 필터 타입 (ALL, FRIENDS, GUILD, MINE). 미지정 시 ALL.
      */
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getPublicFeeds(
         @CurrentUser(required = false) String userId,
         @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) FeedSearchType searchType,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
         Page<ActivityFeedResponse> feeds;
-        if (categoryId != null) {
+        if (categoryId != null && (searchType == null || searchType == FeedSearchType.ALL)) {
             feeds = feedQueryService.getPublicFeedsByCategory(categoryId, userId, page, size, acceptLanguage);
+        } else if (searchType != null && searchType != FeedSearchType.ALL) {
+            feeds = feedQueryService.getFilteredFeeds(searchType, userId, page, size, acceptLanguage);
         } else {
             feeds = feedQueryService.getPublicFeeds(userId, page, size, acceptLanguage);
         }

@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataRespo
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffHomeService;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffMissionService;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffSearchService;
 import io.pinkspider.global.annotation.CurrentUser;
@@ -48,6 +49,7 @@ public class BffHomeController {
      *
      * @param userId 인증된 사용자 ID
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param feedSearchType 피드 필터 타입 (ALL, FRIENDS, GUILD, MINE). 미지정 시 ALL.
      * @param feedPage 피드 페이지 번호 (기본: 0)
      * @param feedSize 피드 페이지 크기 (기본: 20)
      * @param publicGuildSize 공개 길드 조회 개수 (기본: 5)
@@ -58,13 +60,14 @@ public class BffHomeController {
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
         @CurrentUser String userId,
         @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) FeedSearchType feedSearchType,
         @RequestParam(defaultValue = "0") int feedPage,
         @RequestParam(defaultValue = "20") int feedSize,
         @RequestParam(defaultValue = "5") int publicGuildSize,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
         @RequestHeader(value = "X-Timezone", required = false) String timezone
     ) {
-        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedPage, feedSize, publicGuildSize, acceptLanguage, timezone);
+        HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedSearchType, feedPage, feedSize, publicGuildSize, acceptLanguage, timezone);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
     }
 
