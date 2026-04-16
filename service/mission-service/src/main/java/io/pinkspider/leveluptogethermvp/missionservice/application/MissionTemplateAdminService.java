@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInter
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionTemplateAdminService {
 
     private final MissionTemplateRepository templateRepository;
+    private final MissionRepository missionRepository;
     private final MissionCategoryService missionCategoryService;
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
@@ -157,6 +159,14 @@ public class MissionTemplateAdminService {
         }
 
         MissionTemplate saved = templateRepository.save(template);
+
+        // 복제된 미션들에 시간 설정 전파
+        int propagated = missionRepository.updateDurationByBaseMissionId(
+            id, saved.getDurationMinutes(), saved.getTargetDurationMinutes());
+        if (propagated > 0) {
+            log.info("템플릿 시간 설정 전파: templateId={}, 업데이트된 미션 {}개", id, propagated);
+        }
+
         log.info("미션 템플릿 수정 (Admin): {} (ID: {})", request.title(), id);
         return MissionTemplateAdminResponse.from(saved);
     }

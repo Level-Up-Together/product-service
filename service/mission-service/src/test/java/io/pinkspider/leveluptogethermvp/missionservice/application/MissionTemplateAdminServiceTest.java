@@ -42,6 +42,9 @@ class MissionTemplateAdminServiceTest {
     private MissionTemplateRepository templateRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository missionRepository;
+
+    @Mock
     private MissionCategoryService missionCategoryService;
 
     @InjectMocks

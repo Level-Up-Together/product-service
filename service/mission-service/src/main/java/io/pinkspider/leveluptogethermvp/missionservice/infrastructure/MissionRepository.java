@@ -152,4 +152,14 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     long countBySourceAndCreatorId(@Param("source") MissionSource source, @Param("creatorId") String creatorId);
 
     boolean existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(Long baseMissionId, String creatorId);
+
+    // 템플릿에서 복제된 미션들의 시간 설정 일괄 업데이트
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional(transactionManager = "missionTransactionManager")
+    @Query("UPDATE Mission m SET m.durationMinutes = :durationMinutes, m.targetDurationMinutes = :targetDurationMinutes " +
+           "WHERE m.baseMissionId = :templateId AND m.isDeleted = false")
+    int updateDurationByBaseMissionId(
+        @Param("templateId") Long templateId,
+        @Param("durationMinutes") Integer durationMinutes,
+        @Param("targetDurationMinutes") Integer targetDurationMinutes);
 }
