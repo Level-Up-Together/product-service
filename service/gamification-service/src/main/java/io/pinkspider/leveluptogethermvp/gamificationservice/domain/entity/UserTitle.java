@@ -71,6 +71,14 @@ public class UserTitle extends LocalDateTimeBaseEntity {
     @Comment("장착 위치 (LEFT: 좌측, RIGHT: 우측)")
     private TitlePosition equippedPosition;
 
+    @Column(name = "granted_by")
+    @Comment("부여한 관리자 ID (관리자 부여인 경우)")
+    private Long grantedBy;
+
+    @Column(name = "grant_reason", length = 500)
+    @Comment("부여 사유 (관리자 부여인 경우)")
+    private String grantReason;
+
     public void equip(TitlePosition position) {
         this.isEquipped = true;
         this.equippedPosition = position;

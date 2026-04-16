@@ -4,6 +4,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTi
 import io.pinkspider.global.enums.TitlePosition;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -45,4 +47,13 @@ public interface UserTitleRepository extends JpaRepository<UserTitle, Long> {
      */
     @Query("SELECT ut FROM UserTitle ut JOIN FETCH ut.title WHERE ut.userId IN :userIds AND ut.isEquipped = true")
     List<UserTitle> findEquippedTitlesByUserIdIn(@Param("userIds") List<String> userIds);
+
+    /**
+     * 관리자 부여 칭호 이력 조회 (grantedBy != null)
+     */
+    @Query(value = "SELECT ut FROM UserTitle ut JOIN FETCH ut.title WHERE ut.grantedBy IS NOT NULL " +
+        "AND (:keyword IS NULL OR ut.title.name LIKE %:keyword% OR ut.grantReason LIKE %:keyword%)",
+        countQuery = "SELECT COUNT(ut) FROM UserTitle ut WHERE ut.grantedBy IS NOT NULL " +
+            "AND (:keyword IS NULL OR ut.title.name LIKE %:keyword% OR ut.grantReason LIKE %:keyword%)")
+    Page<UserTitle> findGrantHistory(@Param("keyword") String keyword, Pageable pageable);
 }
