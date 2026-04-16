@@ -723,6 +723,62 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 **Strategy 메서드** (8개): `startExecution`, `endExecution`, `cancelExecution`, `getActiveExecution`,
 `shareExecutionToFeed`, `unshareExecutionFromFeed`, `updateExecutionNote`, `updateExecutionImage`
 
+### Mission Execution Mode (수행 방식)
+
+미션의 수행 방식을 결정하는 `MissionExecutionMode` enum:
+
+```java
+TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 2시간 자동완료
+SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP, 하루 10회 제한
+```
+
+- `Mission.executionMode` 필드로 미션 생성 시 선택 (TIMED/SIMPLE)
+- `MissionExecutionLifecycle.complete()`에서 SIMPLE 모드 분기
+- SIMPLE 모드는 최소 수행 시간 제한 없음, 자동완료 불필요
+- 하루 제한 체크: `MissionExecutionService.validateSimpleDailyLimit()`
+  (일반+고정 미션의 SIMPLE 완료 합산)
+
+### Feed Visibility at Execution (피드 공개범위)
+
+피드 공개범위를 미션 생성이 아닌 **실행 완료 시** 선택:
+
+- `MissionExecutionController.completeExecution()` — `feedVisibility` 파라미터 (PUBLIC/FRIENDS/PRIVATE)
+- `Users.preferredFeedVisibility` — 유저의 최근 선택값을 기억 (쿠팡 UX 패턴)
+- `GET/PUT /api/v1/mypage/preferred-feed-visibility` — 선호 공개범위 조회/수정
+- Saga의 `CreateFeedFromMissionStep`은 `context.getFeedVisibility()`를 직접 사용
+- **피드 중복 생성 방지**: `shareExecutionToFeed()`에서 기존 피드가 있으면 업데이트, 없으면 생성
+  (`FeedCommandService.updateFeedContentByExecutionId()`)
+
+### Feed Search Type (홈피드 필터)
+
+홈 피드 조회 시 필터별 뷰:
+
+```java
+FeedSearchType { ALL, FRIENDS, GUILD, MINE }
+```
+
+- `GET /api/v1/feeds/public?searchType=FRIENDS` — 피드 API에 searchType 파라미터
+- `GET /api/v1/bff/home?feedSearchType=GUILD` — BFF에 feedSearchType 파라미터
+- `FeedQueryService.getFilteredFeeds()` — searchType별 분기
+  - FRIENDS: `findFriendsFeeds()` (친구의 PUBLIC+FRIENDS 피드)
+  - GUILD: `findGuildFeedsByGuildIds()` (내 길드들의 PUBLIC+GUILD 피드)
+  - MINE: `findByUserId()` (내 피드 전체)
+
+### Mission Feed Sync (미션 기록 ↔ 피드 동기화)
+
+미션 실행의 note/image 변경 시 연관된 ActivityFeed에 자동 동기화:
+
+- `MissionFeedNoteChangedEvent` → `FeedCommandService.updateFeedDescriptionByExecutionId()`
+- `MissionFeedImageChangedEvent` → `FeedCommandService.updateFeedImageUrlByExecutionId()`
+- `isSharedToFeed` 여부와 무관하게 항상 이벤트 발행 (Saga 생성 PRIVATE 피드도 동기화)
+
+### Mission Template Propagation (템플릿 수정 전파)
+
+어드민에서 `MissionTemplate`의 시간 설정을 수정하면 이미 복제된 Mission에도 전파:
+
+- `MissionTemplateAdminService.updateTemplate()` → `MissionRepository.updateDurationByBaseMissionId()`
+- `duration_minutes`, `target_duration_minutes` 일괄 업데이트 (`baseMissionId` 기반)
+
 ### Mission Soft Delete (미션 소프트 삭제)
 
 미션 삭제 시 물리적 삭제 대신 소프트 삭제 사용:
