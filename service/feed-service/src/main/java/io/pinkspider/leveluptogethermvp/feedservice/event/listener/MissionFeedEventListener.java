@@ -4,6 +4,7 @@ import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 
 import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
+import io.pinkspider.global.event.MissionFeedNoteChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,17 @@ public class MissionFeedEventListener {
         safeHandle("MissionFeedImageChanged", () ->
             feedCommandService.updateFeedImageUrlByExecutionId(
                 event.executionId(), event.imageUrl()));
+    }
+
+    /**
+     * 미션 수행 기록의 노트 변경 시 피드 description 동기화
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFeedNoteChanged(MissionFeedNoteChangedEvent event) {
+        safeHandle("MissionFeedNoteChanged", () ->
+            feedCommandService.updateFeedDescriptionByExecutionId(
+                event.executionId(), event.note()));
     }
 
     /**

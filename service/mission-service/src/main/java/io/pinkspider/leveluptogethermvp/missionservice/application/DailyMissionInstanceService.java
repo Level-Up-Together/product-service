@@ -373,6 +373,9 @@ public class DailyMissionInstanceService {
         instance.setNote(note);
         instanceRepository.save(instance);
 
+        // 피드 노트 동기화 (이벤트 기반)
+        eventPublisher.publishEvent(new io.pinkspider.global.event.MissionFeedNoteChangedEvent(userId, instance.getId(), note));
+
         log.info("고정 미션 기록 업데이트: missionId={}, userId={}, date={}, instanceId={}", missionId, userId, date, instance.getId());
         return DailyMissionInstanceResponse.from(instance);
     }
@@ -402,10 +405,8 @@ public class DailyMissionInstanceService {
 
         instance.setImageUrl(imageUrl);
 
-        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트 (이벤트 기반)
-        if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
-            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), imageUrl));
-        }
+        // 피드 이미지 동기화 (이벤트 기반)
+        eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), imageUrl));
 
         instanceRepository.save(instance);
 
@@ -436,10 +437,8 @@ public class DailyMissionInstanceService {
             missionImageStorageService.delete(instance.getImageUrl());
             instance.setImageUrl(null);
 
-            // 피드 이미지도 삭제 (이벤트 기반)
-            if (Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
-                eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), null));
-            }
+            // 피드 이미지 동기화 (이벤트 기반)
+            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), null));
 
             instanceRepository.save(instance);
 

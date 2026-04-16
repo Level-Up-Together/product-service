@@ -391,6 +391,19 @@ public class FeedCommandService {
     }
 
     /**
+     * executionId로 피드 description(노트) 업데이트
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public void updateFeedDescriptionByExecutionId(Long executionId, String description) {
+        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+            feed.setDescription(description);
+            activityFeedRepository.save(feed);
+            log.info("Feed description updated by executionId: executionId={}, descLength={}", executionId,
+                description != null ? description.length() : 0);
+        });
+    }
+
+    /**
      * 사용자의 모든 피드의 칭호 정보 업데이트 (칭호 장착/해제 시 호출)
      */
     @Transactional(transactionManager = "feedTransactionManager")

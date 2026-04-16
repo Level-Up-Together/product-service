@@ -157,10 +157,8 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         execution.setImageUrl(imageUrl);
         executionRepository.save(execution);
 
-        // 이미 공유된 피드가 있으면 피드의 이미지 URL도 업데이트 (이벤트 기반)
-        if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), imageUrl));
-        }
+        // 피드 이미지 동기화 (이벤트 기반)
+        eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), imageUrl));
 
         log.info("미션 이미지 업로드: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
         return MissionExecutionResponse.from(execution);
@@ -184,9 +182,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
             execution.setImageUrl(null);
             executionRepository.save(execution);
 
-            if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-                eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), null));
-            }
+            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, execution.getId(), null));
 
             log.info("미션 이미지 삭제: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
         }
@@ -291,6 +287,9 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
 
         execution.setNote(note);
         executionRepository.save(execution);
+
+        // 피드 노트 동기화 (이벤트 기반)
+        eventPublisher.publishEvent(new io.pinkspider.global.event.MissionFeedNoteChangedEvent(userId, execution.getId(), note));
 
         log.info("미션 기록 업데이트: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
         return MissionExecutionResponse.from(execution);
