@@ -44,6 +44,12 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant mp WHERE mp.userId = :userId AND me.status = 'COMPLETED'")
     long countCompletedByUserId(@Param("userId") String userId);
 
+    // SIMPLE 모드 일반 미션의 오늘 완료 횟수
+    @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant p JOIN p.mission m " +
+           "WHERE p.userId = :userId AND me.executionDate = :date AND me.status = 'COMPLETED' " +
+           "AND m.executionMode = 'SIMPLE'")
+    long countSimpleCompletedByUserIdAndDate(@Param("userId") String userId, @Param("date") LocalDate date);
+
     @Modifying
     @Query("UPDATE MissionExecution me SET me.status = 'MISSED' " +
            "WHERE me.status = 'PENDING' AND me.executionDate < :date")

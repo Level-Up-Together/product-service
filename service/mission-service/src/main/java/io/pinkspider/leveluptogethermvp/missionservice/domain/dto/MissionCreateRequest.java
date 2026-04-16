@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
@@ -77,6 +78,10 @@ public class MissionCreateRequest {
     // 고정 미션 여부 (삭제할 때까지 목록에 유지)
     @Builder.Default
     private Boolean isPinned = false;
+
+    // 수행 방식 (TIMED: 시간 측정, SIMPLE: 수행 여부)
+    @Builder.Default
+    private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
 
     // 목표 수행 시간 (분) - 달성 시 보너스 XP
     @Min(value = 1, message = "목표 시간은 최소 1분 이상이어야 합니다.")

@@ -65,24 +65,26 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 execution.setNote(context.getNote());
             }
 
-            // 경험치 오버라이드
+            // SIMPLE 모드는 complete()에서 이미 고정 EXP 설정됨 — 오버라이드 불필요
             Mission mission = context.getMission();
-            long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
+            if (mission != null && mission.getExecutionMode() != io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+                long elapsed = Duration.between(execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
 
-            if (mission != null && mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
-                // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
-                if (elapsed >= mission.getTargetDurationMinutes()) {
-                    int bonus = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 0;
-                    execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
-                } else {
-                    execution.setExpEarned((int) Math.max(1, elapsed));
+                if (mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
+                    // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
+                    if (elapsed >= mission.getTargetDurationMinutes()) {
+                        int bonus = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 0;
+                        execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
+                    } else {
+                        execution.setExpEarned((int) Math.max(1, elapsed));
+                    }
+                } else if (elapsed > 120) {
+                    // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
+                    execution.setExpEarned(missionExecutionProperties.getBaseExp());
+                    execution.setIsAutoCompleted(true);
+                    log.info("2시간 초과 수동 종료 - 기본 경험치 적용: executionId={}, elapsed={}분, baseExp={}",
+                        execution.getId(), elapsed, missionExecutionProperties.getBaseExp());
                 }
-            } else if (elapsed > 120) {
-                // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
-                execution.setExpEarned(missionExecutionProperties.getBaseExp());
-                execution.setIsAutoCompleted(true);
-                log.info("2시간 초과 수동 종료 - 기본 경험치 적용: executionId={}, elapsed={}분, baseExp={}",
-                    execution.getId(), elapsed, missionExecutionProperties.getBaseExp());
             }
 
             // complete()에서 계산된 시간 기반 경험치를 context에 반영

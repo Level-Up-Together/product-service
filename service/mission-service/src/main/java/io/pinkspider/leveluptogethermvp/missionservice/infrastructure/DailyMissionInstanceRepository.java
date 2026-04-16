@@ -309,6 +309,15 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
         @Param("date") LocalDate date
     );
 
+    // SIMPLE 모드 고정 미션의 오늘 완료 횟수
+    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi JOIN dmi.participant p JOIN p.mission m " +
+           "WHERE p.userId = :userId AND dmi.instanceDate = :date AND dmi.status = 'COMPLETED' " +
+           "AND m.executionMode = 'SIMPLE'")
+    long countSimpleCompletedByUserIdAndDate(
+        @Param("userId") String userId,
+        @Param("date") LocalDate date
+    );
+
     /**
      * 유저가 목표시간 이상 완료한 고정 미션의 baseMissionId(templateId) 목록 조회
      * expEarned >= targetDurationMinutes: 목표시간 달성 시 expEarned = targetDurationMinutes + bonus

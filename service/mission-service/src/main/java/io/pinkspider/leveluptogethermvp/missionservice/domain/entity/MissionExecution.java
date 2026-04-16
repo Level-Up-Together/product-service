@@ -104,6 +104,15 @@ public class MissionExecution extends LocalDateTimeBaseEntity implements Mission
 
     // === MissionExecutionLifecycle 구현 ===
 
+    @Override
+    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode getExecutionMode() {
+        if (this.participant != null && this.participant.getMission() != null) {
+            var mode = this.participant.getMission().getExecutionMode();
+            return mode != null ? mode : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+        }
+        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+    }
+
     /**
      * 경험치 계산: 분당 1 EXP, 최소 1분, 최대 480분(8시간)
      */

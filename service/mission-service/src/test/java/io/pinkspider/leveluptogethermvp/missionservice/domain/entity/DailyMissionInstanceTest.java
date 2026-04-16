@@ -240,17 +240,19 @@ class DailyMissionInstanceTest {
         }
 
         @Test
-        @DisplayName("1분 미만 수행 시 완료할 수 없다")
-        void complete_lessThanOneMinute_throwsException() {
+        @DisplayName("1분 미만 수행도 완료할 수 있다")
+        void complete_lessThanOneMinute_success() {
             // given
             DailyMissionInstance instance = createInstance(LocalDate.now());
             instance.start();
             // 방금 시작 (1분 미만)
 
-            // when & then
-            assertThatThrownBy(instance::complete)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("최소 1분 이상 수행해야 완료할 수 있습니다");
+            // when
+            instance.complete();
+
+            // then
+            assertThat(instance.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(instance.getCompletedAt()).isNotNull();
         }
     }
 

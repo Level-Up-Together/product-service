@@ -4,6 +4,7 @@ import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -54,15 +55,19 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                 instance.setNote(context.getNote());
             }
 
-            // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
-            if ((instance.getTargetDurationMinutes() == null || instance.getTargetDurationMinutes() <= 0)
-                && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
-                long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
-                if (elapsed > 120) {
-                    instance.setExpEarned(missionExecutionProperties.getBaseExp());
-                    instance.setIsAutoCompleted(true);
-                    log.info("2시간 초과 수동 종료 - 기본 경험치 적용: instanceId={}, elapsed={}분, baseExp={}",
-                        instance.getId(), elapsed, missionExecutionProperties.getBaseExp());
+            // SIMPLE 모드는 complete()에서 이미 고정 EXP 설정됨 — 오버라이드 불필요
+            Mission mission = context.getMission();
+            if (mission != null && mission.getExecutionMode() != io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+                // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
+                if ((instance.getTargetDurationMinutes() == null || instance.getTargetDurationMinutes() <= 0)
+                    && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
+                    long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+                    if (elapsed > 120) {
+                        instance.setExpEarned(missionExecutionProperties.getBaseExp());
+                        instance.setIsAutoCompleted(true);
+                        log.info("2시간 초과 수동 종료 - 기본 경험치 적용: instanceId={}, elapsed={}분, baseExp={}",
+                            instance.getId(), elapsed, missionExecutionProperties.getBaseExp());
+                    }
                 }
             }
 

@@ -4,6 +4,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -97,6 +98,9 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
+        // SIMPLE 모드 하루 제한 체크
+        validateSimpleDailyLimit(missionId, userId, executionDate);
+
         // feedVisibility가 null이면 유저의 선호 공개범위 사용
         FeedVisibility resolvedVisibility = feedVisibility != null
             ? feedVisibility
@@ -295,6 +299,22 @@ public class MissionExecutionService {
         instance.setStartedAt(startedAt);
         instance.setCompletedAt(completedAt);
         dailyMissionInstanceRepository.save(instance);
+    }
+
+    private void validateSimpleDailyLimit(Long missionId, String userId, LocalDate date) {
+        Mission mission = participantRepository.findByMissionIdAndUserId(missionId, userId)
+            .map(MissionParticipant::getMission)
+            .orElse(null);
+        if (mission == null || mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
+            return;
+        }
+        long regularCount = executionRepository.countSimpleCompletedByUserIdAndDate(userId, date);
+        long pinnedCount = dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(userId, date);
+        long totalCount = regularCount + pinnedCount;
+        if (totalCount >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+            throw new IllegalStateException(
+                "즉시종료는 하루 " + MissionExecutionMode.SIMPLE_DAILY_LIMIT + "회까지 수행할 수 있어요. 내일 다시 도전해보세요!");
+        }
     }
 
     private FeedVisibility resolveFeedVisibility(String userId) {

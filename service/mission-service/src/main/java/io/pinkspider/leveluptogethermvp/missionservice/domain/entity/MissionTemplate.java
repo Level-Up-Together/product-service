@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.global.translation.LocaleUtils;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
@@ -117,6 +118,12 @@ public class MissionTemplate extends LocalDateTimeBaseEntity {
     @Comment("고정 미션 여부")
     @Builder.Default
     private Boolean isPinned = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_mode", nullable = false, length = 20)
+    @Comment("수행 방식 (TIMED: 시간 측정, SIMPLE: 수행 여부)")
+    @Builder.Default
+    private MissionExecutionMode executionMode = MissionExecutionMode.TIMED;
 
     @Column(name = "target_duration_minutes")
     @Comment("목표 수행 시간 (분)")

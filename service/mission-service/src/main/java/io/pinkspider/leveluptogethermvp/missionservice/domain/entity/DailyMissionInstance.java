@@ -190,7 +190,19 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
      * 자동 완료 가능 여부: 목표시간 설정 미션은 스케줄러가 Saga를 통해 별도 처리
      */
     @Override
+    public io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode getExecutionMode() {
+        if (this.participant != null && this.participant.getMission() != null) {
+            var mode = this.participant.getMission().getExecutionMode();
+            return mode != null ? mode : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+        }
+        return io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED;
+    }
+
+    @Override
     public boolean shouldAutoComplete() {
+        if (getExecutionMode() == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+            return false;
+        }
         return this.targetDurationMinutes == null || this.targetDurationMinutes <= 0;
     }
 

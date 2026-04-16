@@ -127,7 +127,8 @@ class MissionControllerTest {
                             fieldWithPath("bonus_exp_on_full_completion").type(JsonFieldType.NUMBER).description("전체 완료 시 보너스 경험치").optional(),
                             fieldWithPath("target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
                             fieldWithPath("daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
-                            fieldWithPath("is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional()
+                            fieldWithPath("is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
@@ -167,6 +168,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -242,6 +244,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -315,6 +318,7 @@ class MissionControllerTest {
                             fieldWithPath("value[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -395,6 +399,7 @@ class MissionControllerTest {
                             fieldWithPath("value.content[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.content[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.content[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.content[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
@@ -493,6 +498,7 @@ class MissionControllerTest {
                             fieldWithPath("value[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -595,6 +601,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -671,6 +678,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -747,6 +755,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -823,6 +832,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -899,6 +909,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()
@@ -1102,6 +1113,7 @@ class MissionControllerTest {
                             fieldWithPath("value.participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
                         )
                         .build()

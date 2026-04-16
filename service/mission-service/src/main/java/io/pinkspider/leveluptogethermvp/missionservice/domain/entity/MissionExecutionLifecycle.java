@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.entity;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -40,6 +41,14 @@ public interface MissionExecutionLifecycle {
     Boolean getIsAutoCompleted();
     void setIsAutoCompleted(Boolean isAutoCompleted);
 
+    /**
+     * 미션의 수행 방식 조회 (TIMED / SIMPLE)
+     * 기본값 TIMED — 엔티티에서 Mission 참조를 통해 오버라이드
+     */
+    default MissionExecutionMode getExecutionMode() {
+        return MissionExecutionMode.TIMED;
+    }
+
     // === 상태 전이 (공통 default 구현) ===
 
     /**
@@ -78,13 +87,17 @@ public interface MissionExecutionLifecycle {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        long elapsedSeconds = Duration.between(getStartedAt(), now).getSeconds();
-        if (elapsedSeconds / 60 < MINIMUM_EXECUTION_MINUTES) {
-            throw new IllegalStateException(String.format(
-                "최소 1분 이상 수행해야 완료할 수 있습니다. (시작: %s, 현재: %s, 경과: %d초)",
-                getStartedAt(), now, elapsedSeconds));
+
+        if (getExecutionMode() == MissionExecutionMode.SIMPLE) {
+            // SIMPLE 모드: 즉시 완료, 고정 경험치
+            setStatus(ExecutionStatus.COMPLETED);
+            setCompletedAt(now);
+            setExpEarned(MissionExecutionMode.SIMPLE_EXP);
+            onComplete();
+            return;
         }
 
+        // TIMED 모드: 시간 기반 경험치 계산
         setStatus(ExecutionStatus.COMPLETED);
         setCompletedAt(now);
         setExpEarned(calculateExpByDuration());
@@ -100,12 +113,6 @@ public interface MissionExecutionLifecycle {
         }
         if (getStatus() == ExecutionStatus.MISSED) {
             throw new IllegalStateException("미실행 처리된 수행 기록은 취소할 수 없습니다.");
-        }
-        if (getStatus() == ExecutionStatus.IN_PROGRESS && getStartedAt() != null) {
-            long elapsedSeconds = Duration.between(getStartedAt(), LocalDateTime.now()).getSeconds();
-            if (elapsedSeconds >= MINIMUM_EXECUTION_MINUTES * 60) {
-                throw new IllegalStateException("1분 이상 수행한 미션은 취소할 수 없습니다.");
-            }
         }
         setStatus(ExecutionStatus.PENDING);
         setStartedAt(null);

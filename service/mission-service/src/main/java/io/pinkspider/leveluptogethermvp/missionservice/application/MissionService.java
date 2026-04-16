@@ -109,6 +109,7 @@ public class MissionService {
             .categoryName(categoryName)
             .customCategory(customCategory)
             .isPinned(Boolean.TRUE.equals(request.getIsPinned()))
+            .executionMode(request.getExecutionMode() != null ? request.getExecutionMode() : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED)
             .targetDurationMinutes(request.getTargetDurationMinutes())
             .dailyExecutionLimit(request.getDailyExecutionLimit())
             .build();
@@ -158,6 +159,7 @@ public class MissionService {
             .durationMinutes(template.getDurationMinutes())
             .bonusExpOnFullCompletion(template.getBonusExpOnFullCompletion())
             .isPinned(Boolean.TRUE.equals(template.getIsPinned()))
+            .executionMode(template.getExecutionMode() != null ? template.getExecutionMode() : io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.TIMED)
             .targetDurationMinutes(template.getTargetDurationMinutes())
             .dailyExecutionLimit(template.getDailyExecutionLimit())
             .categoryId(template.getCategoryId())

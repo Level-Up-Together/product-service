@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParticipationType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
@@ -40,6 +41,7 @@ public class MissionResponse {
     private MissionParticipationType participationType;
     private Boolean isCustomizable;
     private Boolean isPinned;
+    private MissionExecutionMode executionMode;
     private String creatorId;
     private String guildId;
     private String guildName;
@@ -87,6 +89,7 @@ public class MissionResponse {
             .participationType(mission.getParticipationType())
             .isCustomizable(mission.getIsCustomizable())
             .isPinned(mission.getIsPinned())
+            .executionMode(mission.getExecutionMode())
             .creatorId(mission.getCreatorId())
             .guildId(mission.getGuildId())
             .guildName(mission.getGuildName())

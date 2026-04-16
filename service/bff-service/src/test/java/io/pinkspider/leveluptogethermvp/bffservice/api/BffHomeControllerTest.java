@@ -762,6 +762,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_missions[].participation_type").type(JsonFieldType.STRING).description("참여 유형").optional(),
                             fieldWithPath("value.my_missions[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.my_missions[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
+                            fieldWithPath("value.my_missions[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.my_missions[].creator_id").type(JsonFieldType.STRING).description("생성자 ID"),
                             fieldWithPath("value.my_missions[].guild_id").type(JsonFieldType.STRING).description("길드 ID").optional(),
                             fieldWithPath("value.my_missions[].guild_name").type(JsonFieldType.STRING).description("길드 이름").optional(),
