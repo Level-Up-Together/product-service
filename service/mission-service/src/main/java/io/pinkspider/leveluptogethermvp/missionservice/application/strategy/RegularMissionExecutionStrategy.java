@@ -203,43 +203,52 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
             throw new IllegalStateException("완료된 미션만 피드에 공유할 수 있습니다.");
         }
 
-        if (Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
-            throw new IllegalStateException("이미 피드에 공유된 미션입니다.");
-        }
-
         Mission mission = participant.getMission();
 
         try {
-            UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
-            Integer durationMinutes = execution.calculateExpByDuration();
-            Long categoryId = mission.getCategoryId();
+            // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
+            var existingFeed = feedCommandService.updateFeedContentByExecutionId(
+                execution.getId(), execution.getNote(), execution.getImageUrl(), feedVisibility);
 
-            var createdFeed = feedCommandService.createMissionSharedFeed(
-                userId,
-                profile.nickname(),
-                profile.picture(),
-                profile.level(),
-                profile.titleName(),
-                profile.titleRarity(),
-                profile.titleColorCode(),
-                execution.getId(),
-                mission.getId(),
-                mission.getTitle(),
-                mission.getDescription(),
-                categoryId,
-                execution.getNote(),
-                execution.getImageUrl(),
-                durationMinutes,
-                execution.getExpEarned(),
-                feedVisibility
-            );
+            if (existingFeed != null) {
+                if (!Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
+                    execution.shareToFeed();
+                    executionRepository.save(execution);
+                }
+                log.info("미션 피드 업데이트 완료: userId={}, missionId={}, feedId={}, visibility={}",
+                    userId, missionId, existingFeed.getId(), feedVisibility);
+            } else {
+                // 피드가 없는 경우 → 새로 생성
+                UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
+                Integer durationMinutes = execution.calculateExpByDuration();
+                Long categoryId = mission.getCategoryId();
 
-            execution.shareToFeed();
-            executionRepository.save(execution);
+                var createdFeed = feedCommandService.createMissionSharedFeed(
+                    userId,
+                    profile.nickname(),
+                    profile.picture(),
+                    profile.level(),
+                    profile.titleName(),
+                    profile.titleRarity(),
+                    profile.titleColorCode(),
+                    execution.getId(),
+                    mission.getId(),
+                    mission.getTitle(),
+                    mission.getDescription(),
+                    categoryId,
+                    execution.getNote(),
+                    execution.getImageUrl(),
+                    durationMinutes,
+                    execution.getExpEarned(),
+                    feedVisibility
+                );
 
-            log.info("미션 피드 공유 완료: userId={}, missionId={}, executionDate={}, feedId={}, visibility={}",
-                userId, missionId, executionDate, createdFeed.getId(), feedVisibility);
+                execution.shareToFeed();
+                executionRepository.save(execution);
 
+                log.info("미션 피드 공유 완료: userId={}, missionId={}, feedId={}, visibility={}",
+                    userId, missionId, createdFeed.getId(), feedVisibility);
+            }
         } catch (Exception e) {
             log.error("피드 공유 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
             throw new IllegalStateException("피드 공유에 실패했습니다: " + e.getMessage(), e);

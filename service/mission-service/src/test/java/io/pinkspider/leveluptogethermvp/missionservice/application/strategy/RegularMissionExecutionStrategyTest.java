@@ -516,8 +516,8 @@ class RegularMissionExecutionStrategyTest {
         }
 
         @Test
-        @DisplayName("이미 공유된 미션 공유 시 예외가 발생한다")
-        void shareExecutionToFeed_alreadyShared_throwsException() {
+        @DisplayName("이미 공유된 미션도 재공유(업데이트)가 가능하다")
+        void shareExecutionToFeed_alreadyShared_updatesExistingFeed() {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
@@ -527,11 +527,15 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
 
-            // when & then
-            assertThatThrownBy(() -> strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 피드에 공유된 미션입니다");
+            // when
+            MissionExecutionResponse response = strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any());
         }
     }
 

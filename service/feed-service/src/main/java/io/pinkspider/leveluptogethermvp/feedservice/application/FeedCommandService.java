@@ -404,6 +404,25 @@ public class FeedCommandService {
     }
 
     /**
+     * executionId로 피드 visibility/description/imageUrl 업데이트
+     * Saga가 생성한 기존 피드를 record 페이지에서 갱신할 때 사용
+     *
+     * @return 업데이트된 피드, 없으면 null
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public ActivityFeed updateFeedContentByExecutionId(Long executionId, String description, String imageUrl,
+                                                        FeedVisibility visibility) {
+        return activityFeedRepository.findByExecutionId(executionId).map(feed -> {
+            feed.setDescription(description);
+            feed.setImageUrl(imageUrl);
+            feed.setVisibility(visibility);
+            activityFeedRepository.save(feed);
+            log.info("Feed content updated by executionId: executionId={}, visibility={}", executionId, visibility);
+            return feed;
+        }).orElse(null);
+    }
+
+    /**
      * 사용자의 모든 피드의 칭호 정보 업데이트 (칭호 장착/해제 시 호출)
      */
     @Transactional(transactionManager = "feedTransactionManager")

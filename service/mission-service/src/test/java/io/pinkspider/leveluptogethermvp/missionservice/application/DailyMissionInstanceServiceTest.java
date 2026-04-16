@@ -362,8 +362,8 @@ class DailyMissionInstanceServiceTest {
         }
 
         @Test
-        @DisplayName("이미 공유된 인스턴스는 다시 공유할 수 없다")
-        void shareToFeed_alreadyShared_throwsException() {
+        @DisplayName("이미 공유된 인스턴스도 재공유(업데이트)가 가능하다")
+        void shareToFeed_alreadyShared_updatesExistingFeed() {
             // given - 완료 후 이미 공유된 상태 설정
             TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
             TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(30));
@@ -372,11 +372,15 @@ class DailyMissionInstanceServiceTest {
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
 
-            // when & then
-            assertThatThrownBy(() -> service.shareToFeed(INSTANCE_ID, TEST_USER_ID))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 피드에 공유된 미션입니다");
+            // when
+            DailyMissionInstanceResponse response = service.shareToFeed(INSTANCE_ID, TEST_USER_ID);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any());
         }
     }
 

@@ -294,11 +294,17 @@ public class DailyMissionInstanceService {
             throw new IllegalStateException("완료된 미션만 피드에 공유할 수 있습니다.");
         }
 
-        if (instance.getIsSharedToFeed()) {
-            throw new IllegalStateException("이미 피드에 공유된 미션입니다.");
-        }
+        // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
+        var existingFeed = feedCommandService.updateFeedContentByExecutionId(
+            instance.getId(), instance.getNote(), instance.getImageUrl(), feedVisibility);
 
-        createFeedFromInstance(instance, userId, feedVisibility);
+        if (existingFeed != null) {
+            if (!Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
+                instance.setIsSharedToFeed(true);
+            }
+        } else {
+            createFeedFromInstance(instance, userId, feedVisibility);
+        }
         instanceRepository.save(instance);
 
         log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}, visibility={}",
