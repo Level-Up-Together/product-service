@@ -106,10 +106,18 @@ public class MissionExecutionService {
             ? feedVisibility
             : resolveFeedVisibility(userId);
 
-        // 유저의 선호 공개범위 업데이트
-        userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
+        // 미션 완료 처리 (Saga)
+        MissionExecutionResponse response = strategyResolver.resolve(missionId, userId)
+            .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
 
-        return strategyResolver.resolve(missionId, userId).completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
+        // 유저의 선호 공개범위 업데이트 (user_db — 실패해도 미션 완료에 영향 없음)
+        try {
+            userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
+        } catch (Exception e) {
+            log.warn("선호 공개범위 업데이트 실패 (무시): userId={}, error={}", userId, e.getMessage());
+        }
+
+        return response;
     }
 
     // === 후처리 메서드 (instanceId 지원) ===
