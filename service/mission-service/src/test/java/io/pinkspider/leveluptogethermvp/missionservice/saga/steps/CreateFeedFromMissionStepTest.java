@@ -158,7 +158,7 @@ class CreateFeedFromMissionStepTest {
     class ExecuteTest {
 
         @Test
-        @DisplayName("feedVisibility가 PRIVATE이면 PRIVATE 피드를 생성한다")
+        @DisplayName("feedVisibility가 PRIVATE이면 PRIVATE 피드를 생성한다 (마이페이지 내가 쓴 글용)")
         void execute_feedVisibilityPrivate_createsPrivateFeed() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
@@ -313,7 +313,7 @@ class CreateFeedFromMissionStepTest {
 
         @Test
         @DisplayName("context.feedVisibility=PRIVATE이면 PRIVATE 피드를 생성한다")
-        void resolveFeedVisibility_private_returnPrivate() {
+        void resolveFeedVisibility_private_createsPrivateFeed() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
             context.setExecution(execution);
@@ -411,7 +411,7 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("context.feedVisibility=null이면 PRIVATE으로 기본 설정된다")
+        @DisplayName("context.feedVisibility=null이면 PRIVATE으로 기본 설정되어 PRIVATE 피드를 생성한다")
         void resolveFeedVisibility_null_defaultsToPrivate() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);

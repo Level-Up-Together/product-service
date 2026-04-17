@@ -32,14 +32,24 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         @Param("endTime") LocalDateTime endTime,
         Pageable pageable);
 
-    // 사용자의 피드 조회
+    // 사용자의 피드 조회 (전체 — 마이페이지 내가 쓴 글용)
     @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :userId ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findByUserId(@Param("userId") String userId, Pageable pageable);
 
-    // 친구 피드 조회 (공개 + 친구공개)
+    // 사용자의 공개 피드 조회 (PRIVATE 제외 — 홈피드 MINE 필터용)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :userId " +
+           "AND f.visibility != 'PRIVATE' ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsByUserId(@Param("userId") String userId, Pageable pageable);
+
+    // 친구 피드 조회 (공개 + 친구공개) — 타임라인용
     @Query("SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds " +
            "AND f.visibility IN ('PUBLIC', 'FRIENDS') ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findFriendsFeeds(@Param("friendIds") List<String> friendIds, Pageable pageable);
+
+    // 친구공개 피드만 조회 — FRIENDS 필터 탭용
+    @Query("SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds " +
+           "AND f.visibility = 'FRIENDS' ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findFriendsOnlyFeeds(@Param("friendIds") List<String> friendIds, Pageable pageable);
 
     // 길드 피드 조회
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
@@ -56,10 +66,16 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         @Param("friendIds") List<String> friendIds,
         Pageable pageable);
 
-    // 유저가 속한 길드들의 피드 조회
+    // 유저가 속한 길드들의 피드 조회 (공개 + 길드공개) — 길드 상세 등
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds " +
            "AND f.visibility IN ('PUBLIC', 'GUILD') ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildFeedsByGuildIds(
+        @Param("guildIds") List<Long> guildIds, Pageable pageable);
+
+    // 길드공개 피드만 조회 — GUILD 필터 탭용
+    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds " +
+           "AND f.visibility = 'GUILD' ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findGuildOnlyFeedsByGuildIds(
         @Param("guildIds") List<Long> guildIds, Pageable pageable);
 
     // 특정 타입 피드 조회

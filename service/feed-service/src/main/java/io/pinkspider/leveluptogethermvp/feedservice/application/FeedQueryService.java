@@ -125,7 +125,7 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findFriendsFeeds(friendIds, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findFriendsOnlyFeeds(friendIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
@@ -143,18 +143,18 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeedsByGuildIds(guildIds, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findGuildOnlyFeedsByGuildIds(guildIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
     /**
-     * 내가 쓴 피드만 조회
+     * 내가 쓴 피드만 조회 (PRIVATE 제외 — 홈피드 MINE 필터용)
      */
     private Page<ActivityFeedResponse> getMyFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findByUserId(userId, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsByUserId(userId, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
