@@ -101,7 +101,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     }
 
     @Override
-    @Transactional(transactionManager = "missionTransactionManager")
+    @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate,
                                                        String note, FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
