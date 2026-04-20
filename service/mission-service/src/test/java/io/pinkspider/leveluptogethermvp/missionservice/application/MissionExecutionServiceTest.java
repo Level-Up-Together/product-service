@@ -4,6 +4,7 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -359,6 +360,30 @@ class MissionExecutionServiceTest {
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
             verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, feedVisibility);
+        }
+
+        @Test
+        @DisplayName("feedVisibility가 null이면 PRIVATE으로 처리한다")
+        void completeExecution_nullVisibility_defaultsToPrivate() {
+            // given
+            LocalDate date = today();
+            String note = "완료!";
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
+
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.PRIVATE))
+                .thenReturn(expectedResponse);
+
+            // when
+            MissionExecutionResponse result = executionService.completeExecution(
+                testMission.getId(), testUserId, date, note, (FeedVisibility) null);
+
+            // then
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.PRIVATE);
+            // preferred visibility는 업데이트하지 않음 (명시적 선택 아님)
+            verify(userQueryFacadeService, never()).updatePreferredFeedVisibility(anyString(), anyString());
         }
 
         @Test

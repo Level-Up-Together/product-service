@@ -101,20 +101,22 @@ public class MissionExecutionService {
         // SIMPLE 모드 하루 제한 체크
         validateSimpleDailyLimit(missionId, userId, executionDate);
 
-        // feedVisibility가 null이면 유저의 선호 공개범위 사용
+        // feedVisibility가 null이면 비공개 (명시적 선택 없음 = 공유 의사 없음)
         FeedVisibility resolvedVisibility = feedVisibility != null
             ? feedVisibility
-            : resolveFeedVisibility(userId);
+            : FeedVisibility.PRIVATE;
 
         // 미션 완료 처리 (Saga)
         MissionExecutionResponse response = strategyResolver.resolve(missionId, userId)
             .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
 
-        // 유저의 선호 공개범위 업데이트 (user_db — 실패해도 미션 완료에 영향 없음)
-        try {
-            userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
-        } catch (Exception e) {
-            log.warn("선호 공개범위 업데이트 실패 (무시): userId={}, error={}", userId, e.getMessage());
+        // 유저가 명시적으로 공개범위를 선택한 경우에만 선호 값 업데이트
+        if (feedVisibility != null) {
+            try {
+                userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
+            } catch (Exception e) {
+                log.warn("선호 공개범위 업데이트 실패 (무시): userId={}, error={}", userId, e.getMessage());
+            }
         }
 
         return response;
