@@ -221,7 +221,7 @@ public class DailyMissionInstanceService {
     /**
      * 고정 미션 완료 (missionId + date로 조회)
      */
-    @Transactional(transactionManager = "missionTransactionManager")
+    @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, boolean shareToFeed) {
         FeedVisibility visibility = shareToFeed ? FeedVisibility.PUBLIC : FeedVisibility.PRIVATE;
         return completeInstanceByMission(missionId, userId, date, note, visibility);
@@ -229,8 +229,9 @@ public class DailyMissionInstanceService {
 
     /**
      * 고정 미션 완료 (missionId + date로 조회, 피드 공개범위 지정)
+     * readOnly: Saga가 REQUIRES_NEW로 인스턴스를 업데이트하므로, 이 트랜잭션에서 flush하면 StaleObjectStateException 발생
      */
-    @Transactional(transactionManager = "missionTransactionManager")
+    @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public DailyMissionInstanceResponse completeInstanceByMission(Long missionId, String userId, LocalDate date, String note, FeedVisibility feedVisibility) {
         MissionParticipant participant = findParticipant(missionId, userId);
 
