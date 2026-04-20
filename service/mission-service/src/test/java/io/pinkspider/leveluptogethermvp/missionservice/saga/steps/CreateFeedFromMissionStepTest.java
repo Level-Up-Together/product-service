@@ -158,27 +158,24 @@ class CreateFeedFromMissionStepTest {
     class ExecuteTest {
 
         @Test
-        @DisplayName("feedVisibility가 PRIVATE이면 PRIVATE 피드를 생성한다 (마이페이지 내가 쓴 글용)")
-        void execute_feedVisibilityPrivate_createsPrivateFeed() {
+        @DisplayName("feedVisibility가 PRIVATE이면 피드 생성을 스킵한다")
+        void execute_feedVisibilityPrivate_skipsFeedCreation() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
             context.setExecution(execution);
             context.setMission(mission);
-
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
-            when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
-            )).thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(context.getCreatedFeedId()).isEqualTo(FEED_ID);
-            verify(selfMock, never()).updateExecutionSharedStatus(anyLong(), eq(true));
+            assertThat(context.getCreatedFeedId()).isNull();
+            verify(feedCommandService, never()).createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
+            );
         }
 
         @Test
@@ -312,27 +309,23 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("context.feedVisibility=PRIVATE이면 PRIVATE 피드를 생성한다")
-        void resolveFeedVisibility_private_createsPrivateFeed() {
+        @DisplayName("context.feedVisibility=PRIVATE이면 피드 생성을 스킵한다")
+        void resolveFeedVisibility_private_skipsFeedCreation() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null, FeedVisibility.PRIVATE);
             context.setExecution(execution);
             context.setMission(mission);
-
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
-            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
-            when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
-            )).thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.PRIVATE);
+            verify(feedCommandService, never()).createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
+            );
         }
 
         @Test
@@ -411,27 +404,23 @@ class CreateFeedFromMissionStepTest {
         }
 
         @Test
-        @DisplayName("context.feedVisibility=null이면 PRIVATE으로 기본 설정되어 PRIVATE 피드를 생성한다")
-        void resolveFeedVisibility_null_defaultsToPrivate() {
+        @DisplayName("context.feedVisibility=null이면 PRIVATE으로 간주하여 피드 생성을 스킵한다")
+        void resolveFeedVisibility_null_defaultsToPrivateAndSkips() {
             // given
             context = new MissionCompletionContext(EXECUTION_ID, TEST_USER_ID, null);
             context.setExecution(execution);
             context.setMission(mission);
-
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
-            ArgumentCaptor<FeedVisibility> visibilityCaptor = captureVisibility();
-            when(feedCommandService.createMissionSharedFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
-                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
-            )).thenReturn(activityFeed);
 
             // when
             SagaStepResult result = createFeedFromMissionStep.execute(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            assertThat(visibilityCaptor.getValue()).isEqualTo(FeedVisibility.PRIVATE);
+            verify(feedCommandService, never()).createMissionSharedFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
+                anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
+                anyString(), anyString(), any(Integer.class), anyInt(), any()
+            );
         }
     }
 }

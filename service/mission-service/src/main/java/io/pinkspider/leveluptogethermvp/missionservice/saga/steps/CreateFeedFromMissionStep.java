@@ -59,6 +59,12 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
     @Override
     public SagaStepResult execute(MissionCompletionContext context) {
+        FeedVisibility visibility = resolveFeedVisibility(context);
+        if (visibility == FeedVisibility.PRIVATE) {
+            log.debug("PRIVATE visibility — 피드 생성 스킵 (기록 페이지에서 공개범위 선택 시 생성): userId={}", context.getUserId());
+            return SagaStepResult.success("비공개 — 피드 생성 스킵");
+        }
+
         if (context.isPinned()) {
             return executePinned(context);
         } else {
