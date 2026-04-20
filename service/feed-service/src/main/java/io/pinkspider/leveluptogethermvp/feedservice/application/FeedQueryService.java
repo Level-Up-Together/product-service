@@ -544,7 +544,7 @@ public class FeedQueryService {
      * executionId로 피드 존재 여부 확인
      */
     public boolean existsFeedByExecutionId(Long executionId) {
-        return activityFeedRepository.findByExecutionId(executionId).isPresent();
+        return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).isPresent();
     }
 
     // ========== Helper Methods ==========

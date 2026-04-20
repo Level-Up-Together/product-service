@@ -372,7 +372,7 @@ public class FeedCommandService {
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public void deleteFeedByExecutionId(Long executionId) {
-        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
             activityFeedRepository.delete(feed);
             log.info("Feed deleted by executionId: executionId={}, feedId={}", executionId, feed.getId());
         });
@@ -383,7 +383,7 @@ public class FeedCommandService {
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedImageUrlByExecutionId(Long executionId, String imageUrl) {
-        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
             feed.setImageUrl(imageUrl);
             activityFeedRepository.save(feed);
             log.info("Feed image updated by executionId: executionId={}, imageUrl={}", executionId, imageUrl);
@@ -395,7 +395,7 @@ public class FeedCommandService {
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedDescriptionByExecutionId(Long executionId, String description) {
-        activityFeedRepository.findByExecutionId(executionId).ifPresent(feed -> {
+        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
             feed.setDescription(description);
             activityFeedRepository.save(feed);
             log.info("Feed description updated by executionId: executionId={}, descLength={}", executionId,
@@ -412,7 +412,7 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed updateFeedContentByExecutionId(Long executionId, String description, String imageUrl,
                                                         FeedVisibility visibility) {
-        return activityFeedRepository.findByExecutionId(executionId).map(feed -> {
+        return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).map(feed -> {
             feed.setDescription(description);
             feed.setImageUrl(imageUrl);
             feed.setVisibility(visibility);

@@ -158,7 +158,8 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     int deleteByMissionId(@Param("missionId") Long missionId);
 
     // executionId로 피드 조회 (mission → feed 단방향 조회용)
-    Optional<ActivityFeed> findByExecutionId(Long executionId);
+    // executionId로 피드 조회 (중복 방지: 최신 1건)
+    Optional<ActivityFeed> findFirstByExecutionIdOrderByCreatedAtDesc(Long executionId);
 
     // 사용자의 모든 피드의 프로필 스냅샷 업데이트
     @Modifying
