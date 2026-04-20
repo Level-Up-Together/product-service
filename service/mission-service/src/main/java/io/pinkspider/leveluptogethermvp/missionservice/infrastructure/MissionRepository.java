@@ -164,6 +164,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("targetDurationMinutes") Integer targetDurationMinutes);
 
     // SIMPLE 미션 생성 개수 조회 (삭제되지 않은 것만)
-    @Query("SELECT COUNT(m) FROM Mission m WHERE m.creatorId = :creatorId AND m.executionMode = 'SIMPLE' AND m.isDeleted = false")
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.creatorId = :creatorId " +
+           "AND m.executionMode = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE " +
+           "AND m.isDeleted = false")
     long countSimpleMissionsByCreatorId(@Param("creatorId") String creatorId);
 }
