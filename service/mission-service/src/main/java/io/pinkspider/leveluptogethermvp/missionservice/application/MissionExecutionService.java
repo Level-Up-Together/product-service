@@ -77,6 +77,8 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
+        // SIMPLE 모드 하루 제한 체크 (시작 시점에서 차단해야 IN_PROGRESS 좀비 방지)
+        validateSimpleDailyLimit(missionId, userId, executionDate);
         return strategyResolver.resolve(missionId, userId).startExecution(missionId, userId, executionDate);
     }
 

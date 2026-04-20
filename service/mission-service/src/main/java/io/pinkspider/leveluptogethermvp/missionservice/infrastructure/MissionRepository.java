@@ -162,4 +162,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("templateId") Long templateId,
         @Param("durationMinutes") Integer durationMinutes,
         @Param("targetDurationMinutes") Integer targetDurationMinutes);
+
+    // SIMPLE 미션 생성 개수 조회 (삭제되지 않은 것만)
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.creatorId = :creatorId AND m.executionMode = 'SIMPLE' AND m.isDeleted = false")
+    long countSimpleMissionsByCreatorId(@Param("creatorId") String creatorId);
 }

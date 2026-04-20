@@ -58,6 +58,15 @@ public class MissionService {
             throw new IllegalArgumentException("길드 미션은 길드 ID가 필요합니다.");
         }
 
+        // SIMPLE 미션 생성 개수 제한
+        if (request.getExecutionMode() == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+            long simpleCount = missionRepository.countSimpleMissionsByCreatorId(creatorId);
+            if (simpleCount >= io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+                throw new IllegalStateException(
+                    "수행 여부 미션은 최대 " + io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE_DAILY_LIMIT + "개까지 생성할 수 있습니다.");
+            }
+        }
+
         // 카테고리 처리: categoryId 또는 customCategory 중 하나만 사용 (스냅샷 패턴)
         Long categoryId = null;
         String categoryName = null;
