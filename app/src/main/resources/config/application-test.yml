@@ -145,6 +145,7 @@ spring:
       database: logger_service
 
 logging:
+  dir: ./test-logs
   level:
     org.apache: OFF
 

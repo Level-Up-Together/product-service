@@ -41,6 +41,8 @@ public class MyPageResponse {
         private EquippedTitleInfo rightTitle;
         private Integer followerCount;
         private Integer followingCount;
+        private String email;
+        private String provider;
     }
 
     @Getter

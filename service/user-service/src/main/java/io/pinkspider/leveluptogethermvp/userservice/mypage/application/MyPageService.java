@@ -509,6 +509,8 @@ public class MyPageService {
             .rightTitle(rightTitle)
             .followerCount(friendCount)
             .followingCount(friendCount)
+            .email(user.getEmail())
+            .provider(user.getProvider())
             .build();
     }
 
