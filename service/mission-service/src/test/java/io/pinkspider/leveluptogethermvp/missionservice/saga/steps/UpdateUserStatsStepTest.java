@@ -116,7 +116,6 @@ class UpdateUserStatsStepTest {
             );
 
             when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
-                .thenReturn(userStats)
                 .thenReturn(updatedStats);
 
             // when
@@ -132,8 +131,8 @@ class UpdateUserStatsStepTest {
         @DisplayName("통계 업데이트 실패 시 에러를 반환한다")
         void execute_failsWhenServiceThrowsException() {
             // given
-            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
-                .thenThrow(new RuntimeException("DB 오류"));
+            doThrow(new RuntimeException("DB 오류"))
+                .when(gamificationQueryFacadeService).recordMissionCompletion(anyString(), eq(false));
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -147,10 +146,8 @@ class UpdateUserStatsStepTest {
         @DisplayName("업적 체크 중 오류가 발생해도 실패로 처리한다")
         void execute_failsWhenAchievementCheckFails() {
             // given
-            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID))
-                .thenReturn(userStats);
             doThrow(new RuntimeException("업적 체크 오류"))
-                .when(gamificationQueryFacadeService).recordMissionCompletion(anyString(), eq(false));
+                .when(gamificationQueryFacadeService).checkAchievementsByDataSource(anyString(), eq("USER_STATS"));
 
             // when
             SagaStepResult result = updateUserStatsStep.execute(context);
@@ -165,33 +162,29 @@ class UpdateUserStatsStepTest {
     class CompensateTest {
 
         @Test
-        @DisplayName("스냅샷이 없으면 성공으로 처리한다")
-        void compensate_noSnapshot_success() {
+        @DisplayName("보상 시 undoMissionCompletion을 호출한다")
+        void compensate_callsUndoMissionCompletion() {
             // when
             SagaStepResult result = updateUserStatsStep.compensate(context);
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            verify(gamificationQueryFacadeService, never()).getOrCreateUserStats(anyString());
+            verify(gamificationQueryFacadeService).undoMissionCompletion(TEST_USER_ID, false);
         }
 
         @Test
-        @DisplayName("스냅샷이 있으면 로깅 후 성공으로 처리한다")
-        void compensate_restoresSnapshot() {
+        @DisplayName("보상 실패 시 에러를 반환한다")
+        void compensate_failsWhenServiceThrows() {
             // given
-            UpdateUserStatsStep.UserStatsSnapshot snapshot = new UpdateUserStatsStep.UserStatsSnapshot(
-                10, 2, 5, 10
-            );
-            context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.USER_STATS_BEFORE,
-                snapshot
-            );
+            doThrow(new RuntimeException("DB 오류"))
+                .when(gamificationQueryFacadeService).undoMissionCompletion(anyString(), eq(false));
 
             // when
             SagaStepResult result = updateUserStatsStep.compensate(context);
 
             // then
-            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.getMessage()).contains("통계 복원 실패");
         }
     }
 }
