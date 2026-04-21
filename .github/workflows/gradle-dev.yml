@@ -62,7 +62,7 @@ jobs:
       - name: Build with Gradle
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
-        run: ./gradlew clean build --no-daemon
+        run: ./gradlew clean build --no-daemon --refresh-dependencies
 
       # 8. 서버로 파일 전송
       - name: Deploy to Server
