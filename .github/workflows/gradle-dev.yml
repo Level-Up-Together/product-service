@@ -77,7 +77,8 @@ jobs:
           chmod 600 ~/.ssh/github_action
           ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts
           
-          # 빌드 파일 전송
+          # 이전 JAR 삭제 후 빌드 파일 전송
+          ssh -i ~/.ssh/github_action $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP "rm -f /home/$DEPLOY_SERVER_USER/levelUpTogether/backend/product-service-*-exec.jar"
           scp -i ~/.ssh/github_action app/build/libs/*.jar $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:/home/$DEPLOY_SERVER_USER/levelUpTogether/backend/
 
           # swagger rest doc json
