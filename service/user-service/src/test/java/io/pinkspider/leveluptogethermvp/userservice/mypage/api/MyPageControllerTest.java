@@ -108,6 +108,8 @@ class MyPageControllerTest {
             .rightTitle(rightTitle)
             .followerCount(10)
             .followingCount(10)
+            .email("test@example.com")
+            .provider("GOOGLE")
             .build();
 
         ExperienceInfo experienceInfo = ExperienceInfo.builder()
@@ -185,6 +187,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.profile.right_title.icon_url").type(JsonFieldType.STRING).description("아이콘 URL").optional(),
                             fieldWithPath("value.profile.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
                             fieldWithPath("value.profile.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수"),
+                            fieldWithPath("value.profile.email").type(JsonFieldType.STRING).description("이메일").optional(),
+                            fieldWithPath("value.profile.provider").type(JsonFieldType.STRING).description("소셜 프로바이더").optional(),
 
                             // Experience Info
                             fieldWithPath("value.experience").type(JsonFieldType.OBJECT).description("경험치 정보"),
@@ -229,6 +233,8 @@ class MyPageControllerTest {
             .bio("안녕하세요!")
             .followerCount(10)
             .followingCount(10)
+            .email("test@example.com")
+            .provider("GOOGLE")
             .build();
 
         when(myPageService.updateProfileImage(anyString(), any(ProfileUpdateRequest.class)))
@@ -262,7 +268,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
-                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수"),
+                            fieldWithPath("value.email").type(JsonFieldType.STRING).description("이메일").optional(),
+                            fieldWithPath("value.provider").type(JsonFieldType.STRING).description("소셜 프로바이더").optional()
                         )
                         .build()
                 )
@@ -291,6 +299,8 @@ class MyPageControllerTest {
             .bio("안녕하세요!")
             .followerCount(10)
             .followingCount(10)
+            .email("test@example.com")
+            .provider("GOOGLE")
             .build();
 
         when(myPageService.uploadProfileImage(anyString(), any(MultipartFile.class)))
@@ -320,7 +330,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
-                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수"),
+                            fieldWithPath("value.email").type(JsonFieldType.STRING).description("이메일").optional(),
+                            fieldWithPath("value.provider").type(JsonFieldType.STRING).description("소셜 프로바이더").optional()
                         )
                         .build()
                 )
@@ -887,6 +899,8 @@ class MyPageControllerTest {
             .bio("새로운 자기소개입니다.")
             .followerCount(10)
             .followingCount(10)
+            .email("test@example.com")
+            .provider("GOOGLE")
             .build();
 
         when(myPageService.updateBio(anyString(), anyString())).thenReturn(response);
@@ -919,7 +933,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
-                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수"),
+                            fieldWithPath("value.email").type(JsonFieldType.STRING).description("이메일").optional(),
+                            fieldWithPath("value.provider").type(JsonFieldType.STRING).description("소셜 프로바이더").optional()
                         )
                         .build()
                 )
@@ -988,6 +1004,8 @@ class MyPageControllerTest {
             .bio("안녕하세요!")
             .followerCount(10)
             .followingCount(10)
+            .email("test@example.com")
+            .provider("GOOGLE")
             .build();
 
         when(myPageService.updateNickname(anyString(), anyString())).thenReturn(response);
@@ -1020,7 +1038,9 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.follower_count").type(JsonFieldType.NUMBER).description("팔로워 수"),
-                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수")
+                            fieldWithPath("value.following_count").type(JsonFieldType.NUMBER).description("팔로잉 수"),
+                            fieldWithPath("value.email").type(JsonFieldType.STRING).description("이메일").optional(),
+                            fieldWithPath("value.provider").type(JsonFieldType.STRING).description("소셜 프로바이더").optional()
                         )
                         .build()
                 )
