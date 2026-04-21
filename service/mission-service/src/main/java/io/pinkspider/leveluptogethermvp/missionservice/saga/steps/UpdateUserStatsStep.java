@@ -41,18 +41,6 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
         log.debug("Updating user stats: userId={}, isGuildMission={}, pinned={}", userId, isGuildMission, context.isPinned());
 
         try {
-            // 현재 상태 저장 (보상용)
-            UserStatsDto currentStats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
-            UserStatsSnapshot snapshot = new UserStatsSnapshot(
-                currentStats.totalMissionCompletions(),
-                currentStats.totalGuildMissionCompletions(),
-                currentStats.currentStreak(),
-                currentStats.maxStreak()
-            );
-            context.addCompensationData(
-                MissionCompletionContext.CompensationKeys.USER_STATS_BEFORE,
-                snapshot);
-
             // 미션 완료 기록 (pinned 미션은 길드 미션이 아님 → isGuildMission()이 false 반환)
             gamificationQueryFacadeService.recordMissionCompletion(userId, isGuildMission);
 
@@ -79,16 +67,9 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
         log.debug("Compensating user stats: userId={}", userId);
 
         try {
-            UserStatsSnapshot snapshot = context.getCompensationData(
-                MissionCompletionContext.CompensationKeys.USER_STATS_BEFORE,
-                UserStatsSnapshot.class);
-
-            if (snapshot != null) {
-                // TODO: 통계 복원을 위한 facade 메서드 필요 (MSA 전환 시 추가)
-                // UserStatsDto는 immutable record이므로 직접 변경 불가
-                // 현재는 non-mandatory step이므로 스냅샷 기록만 로깅
-                log.info("User stats compensate requested: userId={}, snapshot={}", userId, snapshot);
-            }
+            boolean isGuildMission = context.isGuildMission();
+            gamificationQueryFacadeService.undoMissionCompletion(userId, isGuildMission);
+            log.info("User stats compensated: userId={}, isGuildMission={}", userId, isGuildMission);
 
             return SagaStepResult.success("사용자 통계 복원 완료");
 
@@ -97,14 +78,4 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
             return SagaStepResult.failure("통계 복원 실패", e);
         }
     }
-
-    /**
-     * 통계 스냅샷 (보상용)
-     */
-    public record UserStatsSnapshot(
-        int totalMissionCompletions,
-        int totalGuildMissionCompletions,
-        int currentStreak,
-        int maxStreak
-    ) {}
 }

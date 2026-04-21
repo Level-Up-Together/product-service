@@ -224,6 +224,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         userStatsService.recordMissionCompletion(userId, isGuildMission);
     }
 
+    @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void undoMissionCompletion(String userId, boolean isGuildMission) {
+        userStatsService.undoMissionCompletion(userId, isGuildMission);
+    }
+
     // ========== 업적 체크 (Saga step용) ==========
 
     @Override

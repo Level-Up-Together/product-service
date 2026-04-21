@@ -329,12 +329,4 @@ public class MissionExecutionService {
         }
     }
 
-    private FeedVisibility resolveFeedVisibility(String userId) {
-        try {
-            String preferred = userQueryFacadeService.getPreferredFeedVisibility(userId);
-            return FeedVisibility.valueOf(preferred);
-        } catch (Exception e) {
-            return FeedVisibility.PUBLIC;
-        }
-    }
 }

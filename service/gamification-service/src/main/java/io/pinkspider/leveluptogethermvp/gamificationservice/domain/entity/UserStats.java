@@ -133,6 +133,20 @@ public class UserStats extends LocalDateTimeBaseEntity {
         updateRankingPoints();
     }
 
+    public void decrementMissionCompletion() {
+        if (this.totalMissionCompletions > 0) {
+            this.totalMissionCompletions--;
+            updateRankingPoints();
+        }
+    }
+
+    public void decrementGuildMissionCompletion() {
+        if (this.totalGuildMissionCompletions > 0) {
+            this.totalGuildMissionCompletions--;
+            updateRankingPoints();
+        }
+    }
+
     public void updateStreak(LocalDate today) {
         if (lastActivityDate == null) {
             this.currentStreak = 1;
