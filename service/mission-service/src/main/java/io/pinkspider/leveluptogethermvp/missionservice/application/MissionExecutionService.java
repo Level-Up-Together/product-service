@@ -36,6 +36,7 @@ public class MissionExecutionService {
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final UserQueryFacade userQueryFacadeService;
+    private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
 
     /**
      * 미션 참여 시 실행 일정 생성
@@ -158,7 +159,12 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date, instanceId);
+        MissionExecutionResponse response = strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date, instanceId);
+        // 연결된 피드의 공개범위 조회
+        if (response.getId() != null) {
+            response.setFeedVisibility(feedQueryService.getFeedVisibilityByExecutionId(response.getId()));
+        }
+        return response;
     }
 
     // ============ 오늘 날짜 기준 편의 메서드 ============

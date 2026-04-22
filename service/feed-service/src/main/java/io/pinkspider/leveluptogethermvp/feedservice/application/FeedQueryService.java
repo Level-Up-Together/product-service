@@ -566,6 +566,15 @@ public class FeedQueryService {
         return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).isPresent();
     }
 
+    /**
+     * executionId로 피드 공개범위 조회 (피드 미생성 시 null)
+     */
+    public String getFeedVisibilityByExecutionId(Long executionId) {
+        return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId)
+            .map(feed -> feed.getVisibility().name())
+            .orElse(null);
+    }
+
     // ========== Helper Methods ==========
 
     private Set<Long> getLikedFeedIds(String userId, List<ActivityFeed> feeds) {

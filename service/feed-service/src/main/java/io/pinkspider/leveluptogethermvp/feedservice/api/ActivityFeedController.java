@@ -18,10 +18,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -170,6 +172,19 @@ public class ActivityFeedController {
         @Valid @RequestBody CreateFeedRequest request
     ) {
         ActivityFeedResponse feed = feedCommandService.createFeed(userId, request);
+        return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
+    }
+
+    /**
+     * 피드 공개범위 변경
+     */
+    @PutMapping("/{feedId}/visibility")
+    public ResponseEntity<ApiResult<ActivityFeedResponse>> updateFeedVisibility(
+        @PathVariable Long feedId,
+        @CurrentUser String userId,
+        @RequestParam FeedVisibility visibility
+    ) {
+        ActivityFeedResponse feed = feedCommandService.updateFeedVisibility(feedId, userId, visibility);
         return ResponseEntity.ok(ApiResult.<ActivityFeedResponse>builder().value(feed).build());
     }
 

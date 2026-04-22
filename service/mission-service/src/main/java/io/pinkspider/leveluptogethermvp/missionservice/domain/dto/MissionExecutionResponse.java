@@ -46,6 +46,9 @@ public class MissionExecutionResponse {
     private String imageUrl;
     private Boolean isSharedToFeed;
 
+    // 연결된 피드의 공개범위 (피드 미생성 시 null)
+    private String feedVisibility;
+
     // 자동 종료 여부 (2시간 초과 시 true, 프론트엔드에서 알림 모달 표시용)
     private Boolean isAutoCompleted;
 

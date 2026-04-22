@@ -256,6 +256,25 @@ public class FeedCommandService {
         log.info("Feed deleted: feedId={}, userId={}", feedId, userId);
     }
 
+    /**
+     * 피드 공개범위 변경
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public ActivityFeedResponse updateFeedVisibility(Long feedId, String userId, FeedVisibility visibility) {
+        ActivityFeed feed = activityFeedRepository.findById(feedId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+
+        if (!feed.getUserId().equals(userId)) {
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.not_owner");
+        }
+
+        feed.setVisibility(visibility);
+        activityFeedRepository.save(feed);
+        log.info("Feed visibility updated: feedId={}, userId={}, visibility={}", feedId, userId, visibility);
+
+        return ActivityFeedResponse.from(feed, false, true, null);
+    }
+
     // ========== 사용자 공유 피드 생성 ==========
 
     /**
