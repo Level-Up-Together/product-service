@@ -51,10 +51,15 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
            "AND f.visibility = 'FRIENDS' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findFriendsOnlyFeeds(@Param("friendIds") List<String> friendIds, Pageable pageable);
 
-    // 길드 피드 조회
+    // 길드 피드 조회 (멤버용: PUBLIC + GUILD)
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
            "AND f.visibility IN ('PUBLIC', 'GUILD') ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildFeeds(@Param("guildId") Long guildId, Pageable pageable);
+
+    // 길드 피드 조회 (비멤버용: PUBLIC만)
+    @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
+           "AND f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsByGuildId(@Param("guildId") Long guildId, Pageable pageable);
 
     // 내 타임라인 피드 조회 (내 피드 + 친구 피드)
     @Query("SELECT f FROM ActivityFeed f WHERE " +

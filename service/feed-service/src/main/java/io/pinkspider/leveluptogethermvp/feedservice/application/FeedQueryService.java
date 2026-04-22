@@ -114,7 +114,7 @@ public class FeedQueryService {
     }
 
     /**
-     * 친구 피드만 조회 (공개 + 친구공개)
+     * 친구 피드 조회 (PUBLIC + FRIENDS 공개범위)
      */
     private Page<ActivityFeedResponse> getFriendsOnlyFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
@@ -125,7 +125,7 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findFriendsOnlyFeeds(friendIds, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findFriendsFeeds(friendIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
@@ -323,9 +323,13 @@ public class FeedQueryService {
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
-        // 친구 여부에 따라 visibility 필터링
-        boolean isFriend = userQueryFacadeService.areFriends(currentUserId, targetUserId);
+        // 관계에 따라 visibility 필터링
         boolean isSelf = currentUserId.equals(targetUserId);
+        boolean isFriend = !isSelf && userQueryFacadeService.areFriends(currentUserId, targetUserId);
+
+        // 같은 길드 소속 여부 (GUILD 공개범위 피드 열람용)
+        Set<Long> myGuildIds = guildQueryFacadeService.getUserGuildMemberships(currentUserId)
+            .stream().map(GuildMembershipInfo::guildId).collect(java.util.stream.Collectors.toSet());
 
         // 신고 상태 일괄 조회
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
@@ -341,9 +345,14 @@ public class FeedQueryService {
                     response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
                     return response;
                 }
-                // 공개 피드만 표시 (친구면 FRIENDS까지)
-                if (feed.getVisibility() == FeedVisibility.PUBLIC ||
-                    (isFriend && feed.getVisibility() == FeedVisibility.FRIENDS)) {
+                // visibility별 접근 제어
+                boolean canView = switch (feed.getVisibility()) {
+                    case PUBLIC -> true;
+                    case FRIENDS -> isFriend;
+                    case GUILD -> feed.getGuildId() != null && myGuildIds.contains(feed.getGuildId());
+                    case PRIVATE -> false;
+                };
+                if (canView) {
                     response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
                     response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
                     return response;
@@ -364,6 +373,16 @@ public class FeedQueryService {
      */
     public Page<ActivityFeedResponse> getGuildFeeds(Long guildId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
+
+        // 길드 멤버만 GUILD 공개범위 피드 열람 가능
+        List<Long> myGuildIds = guildQueryFacadeService.getUserGuildMemberships(currentUserId)
+            .stream().map(GuildMembershipInfo::guildId).toList();
+        if (!myGuildIds.contains(guildId)) {
+            // 비멤버는 PUBLIC 피드만 조회
+            Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsByGuildId(guildId, pageable);
+            return enrichFeeds(feeds, currentUserId, SupportedLocale.extractLanguageCode(acceptLanguage));
+        }
+
         Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeeds(guildId, pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
