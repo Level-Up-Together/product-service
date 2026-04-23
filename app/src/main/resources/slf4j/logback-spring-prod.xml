@@ -17,6 +17,7 @@
       value="[%d{yyyy-MM-dd HH:mm:ss}:%-3relative] ${LOG_LEVEL_PATTERN:-%5p} ${PID:-} --- [%15.15thread] %-40.40logger{36} : %msg%n"/>
 
     <springProperty scope="context" name="SERVICE_NAME" source="spring.application.name"/>
+    <property name="HOST_NAME" value="${HOSTNAME:-${localHostName:-unknown}}"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
@@ -38,7 +39,7 @@
     </appender>
 
     <appender name="dailyRollingFileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_DIR}/${SERVICE_NAME}-${HOSTNAME}.log</file>
+        <file>${LOG_DIR}/${SERVICE_NAME}-${HOST_NAME}.log</file>
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
             <layout class="io.pinkspider.global.util.MaskingPatternLayout">
                 <maskPattern>\"ssn\"\s*:\s*\"(.*?)\"</maskPattern>
@@ -55,7 +56,7 @@
             </layout>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/${SERVICE_NAME}-${HOSTNAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <fileNamePattern>${LOG_DIR}/${SERVICE_NAME}-${HOST_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <maxFileSize>100MB</maxFileSize>
             <maxHistory>30</maxHistory>
             <totalSizeCap>3GB</totalSizeCap>
