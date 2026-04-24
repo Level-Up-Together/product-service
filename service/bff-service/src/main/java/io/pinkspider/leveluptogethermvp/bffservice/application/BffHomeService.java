@@ -109,23 +109,25 @@ public class BffHomeService {
                                          int feedPage, int feedSize, int publicGuildSize, String locale, String timezone) {
         log.info("BFF getHomeData called: userId={}, categoryId={}, feedPage={}, feedSize={}, locale={}, timezone={}", userId, categoryId, feedPage, feedSize, locale, timezone);
 
-        // 업적 동기화 - 비동기로 처리하여 홈 로딩을 차단하지 않음
-        CompletableFuture.runAsync(() -> {
-            try {
-                log.debug("업적 동기화 비동기 호출 시작: userId={}", userId);
-                achievementService.syncUserAchievements(userId);
-                log.debug("업적 동기화 비동기 호출 완료: userId={}", userId);
-            } catch (Exception e) {
-                log.error("업적 동기화 비동기 호출 중 오류: userId={}, error={}", userId, e.getMessage(), e);
-            }
-        }, bffExecutor);
+        // 업적 동기화 - 비동기로 처리하여 홈 로딩을 차단하지 않음 (비인증 시 스킵)
+        if (userId != null) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    log.debug("업적 동기화 비동기 호출 시작: userId={}", userId);
+                    achievementService.syncUserAchievements(userId);
+                    log.debug("업적 동기화 비동기 호출 완료: userId={}", userId);
+                } catch (Exception e) {
+                    log.error("업적 동기화 비동기 호출 중 오류: userId={}, error={}", userId, e.getMessage(), e);
+                }
+            }, bffExecutor);
+        }
 
         // 병렬로 모든 데이터 조회 (전용 Executor 사용으로 성능 최적화)
         CompletableFuture<FeedPageData> feedsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<ActivityFeedResponse> feedPage1;
-                if (feedSearchType != null && feedSearchType != FeedSearchType.ALL) {
-                    // 필터 타입별 피드 조회
+                if (feedSearchType != null && feedSearchType != FeedSearchType.ALL && userId != null) {
+                    // 필터 타입별 피드 조회 (인증 필요)
                     feedPage1 = feedQueryService.getFilteredFeeds(feedSearchType, userId, feedPage, feedSize, locale);
                 } else if (categoryId != null) {
                     // 카테고리별 피드 조회 (하이브리드)
@@ -186,14 +188,16 @@ public class BffHomeService {
             }
         }, bffExecutor);
 
-        CompletableFuture<List<GuildResponse>> myGuildsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return guildQueryService.getMyGuilds(userId);
-            } catch (Exception e) {
-                log.error("Failed to fetch my guilds", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
+        CompletableFuture<List<GuildResponse>> myGuildsFuture = userId != null
+            ? CompletableFuture.supplyAsync(() -> {
+                try {
+                    return guildQueryService.getMyGuilds(userId);
+                } catch (Exception e) {
+                    log.error("Failed to fetch my guilds", e);
+                    return Collections.<GuildResponse>emptyList();
+                }
+            }, bffExecutor)
+            : CompletableFuture.completedFuture(Collections.emptyList());
 
         CompletableFuture<GuildPageData> publicGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {

@@ -58,7 +58,7 @@ public class BffHomeController {
      */
     @GetMapping("/home")
     public ResponseEntity<ApiResult<HomeDataResponse>> getHomeData(
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @RequestParam(required = false) Long categoryId,
         @RequestParam(required = false) FeedSearchType feedSearchType,
         @RequestParam(defaultValue = "0") int feedPage,
@@ -88,7 +88,7 @@ public class BffHomeController {
      */
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<GuildDetailDataResponse>> getGuildDetail(
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @PathVariable Long guildId,
         @RequestParam(defaultValue = "0") int postPage,
         @RequestParam(defaultValue = "20") int postSize
@@ -113,7 +113,7 @@ public class BffHomeController {
      */
     @GetMapping("/guild/list")
     public ResponseEntity<ApiResult<GuildListDataResponse>> getGuildList(
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @RequestParam(defaultValue = "10") int recommendedGuildSize,
         @RequestParam(defaultValue = "10") int activityFeedSize
     ) {

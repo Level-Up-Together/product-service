@@ -5,6 +5,7 @@ import io.pinkspider.global.security.AuthEntryPointJwt;
 import io.pinkspider.global.security.JwtAuthenticationFilter;
 import io.pinkspider.global.security.OAuth2Properties;
 import java.util.Arrays;
+import org.springframework.http.HttpMethod;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,6 +101,20 @@ public class SecurityConfig {
 
                     // 내부 서비스 간 API (Admin Backend → MVP)
                     .requestMatchers("/api/internal/**").permitAll()
+
+                    // Browse-first: 비인증 열람 허용 API (GET만)
+                    .requestMatchers(HttpMethod.GET, "/api/v1/bff/home").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/list").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/{guildId}").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/feeds/public").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/feeds/{feedId}").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/feeds/{feedId}/comments").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/feeds/search").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/feeds/category/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/mypage/profile/{userId}").permitAll()
 
                     // 관리자 전용 API
                     .requestMatchers("/api/v1/users/experience/levels").hasRole("ADMIN")

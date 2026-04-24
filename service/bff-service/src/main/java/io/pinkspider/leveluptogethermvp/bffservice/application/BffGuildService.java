@@ -94,14 +94,14 @@ public class BffGuildService {
         GuildResponse guild = guildFuture.join();
         List<GuildMemberResponse> members = membersFuture.join();
 
-        // 멤버 여부 및 역할 확인
-        boolean isMember = members.stream()
+        // 멤버 여부 및 역할 확인 (비인증 시 비멤버)
+        boolean isMember = userId != null && members.stream()
             .anyMatch(m -> m.getUserId().equals(userId));
-        String memberRole = members.stream()
+        String memberRole = userId != null ? members.stream()
             .filter(m -> m.getUserId().equals(userId))
             .findFirst()
             .map(m -> m.getRole().name())
-            .orElse(null);
+            .orElse(null) : null;
 
         GuildDetailDataResponse response = GuildDetailDataResponse.builder()
             .guild(guild)
@@ -126,12 +126,16 @@ public class BffGuildService {
     public GuildListDataResponse getGuildList(String userId, int recommendedGuildSize, int activityFeedSize) {
         log.info("BFF getGuildList called: userId={}", userId);
 
-        // 먼저 내 길드 목록 조회
+        // 먼저 내 길드 목록 조회 (비인증 시 빈 리스트)
         List<GuildResponse> myGuilds;
-        try {
-            myGuilds = guildQueryService.getMyGuilds(userId);
-        } catch (Exception e) {
-            log.error("Failed to fetch my guilds", e);
+        if (userId != null) {
+            try {
+                myGuilds = guildQueryService.getMyGuilds(userId);
+            } catch (Exception e) {
+                log.error("Failed to fetch my guilds", e);
+                myGuilds = Collections.emptyList();
+            }
+        } else {
             myGuilds = Collections.emptyList();
         }
 
