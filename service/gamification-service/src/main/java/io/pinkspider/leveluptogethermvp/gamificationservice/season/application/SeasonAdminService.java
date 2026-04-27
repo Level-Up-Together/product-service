@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.Se
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.scheduler.SeasonScheduledTaskManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +27,7 @@ public class SeasonAdminService {
 
     private final SeasonRepository seasonRepository;
     private final RedisTemplate<String, Object> redisTemplateForObject;
+    private final SeasonScheduledTaskManager scheduledTaskManager;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<SeasonAdminResponse> getAllSeasons() {
@@ -93,6 +95,7 @@ public class SeasonAdminService {
         log.info("시즌 생성: {} (ID: {}) by {}", request.title(), saved.getId(), request.createdBy());
 
         evictAllSeasonCaches();
+        scheduledTaskManager.schedule(saved);
         return SeasonAdminResponse.from(saved);
     }
 
@@ -123,6 +126,8 @@ public class SeasonAdminService {
         log.info("시즌 수정: {} (ID: {}) by {}", request.title(), id, request.modifiedBy());
 
         evictAllSeasonCaches();
+        // 종료 시각 또는 활성 상태가 변경됐을 수 있으므로 재등록
+        scheduledTaskManager.schedule(updated);
         return SeasonAdminResponse.from(updated);
     }
 
@@ -134,6 +139,7 @@ public class SeasonAdminService {
         seasonRepository.delete(season);
 
         evictAllSeasonCaches();
+        scheduledTaskManager.cancel(id);
     }
 
     public SeasonAdminResponse toggleActive(Long id) {
@@ -149,6 +155,12 @@ public class SeasonAdminService {
         log.info("시즌 상태 변경: {} (ID: {}) -> {}", season.getTitle(), id, season.getIsActive());
 
         evictAllSeasonCaches();
+        // 활성화 시 작업 등록, 비활성화 시 작업 취소
+        if (Boolean.TRUE.equals(updated.getIsActive())) {
+            scheduledTaskManager.schedule(updated);
+        } else {
+            scheduledTaskManager.cancel(id);
+        }
         return SeasonAdminResponse.from(updated);
     }
 

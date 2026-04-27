@@ -19,6 +19,7 @@ import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankRewardAdminService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRewardProcessorService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.CreateSeasonRankRewardAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonRankRewardAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonRewardHistoryAdminPageResponse;
@@ -66,6 +67,9 @@ class SeasonRankRewardAdminInternalControllerTest {
 
     @MockitoBean
     private SeasonRankRewardAdminService rankRewardAdminService;
+
+    @MockitoBean
+    private SeasonRewardProcessorService rewardProcessorService;
 
     private SeasonRankRewardAdminResponse createRankRewardResponse(Long id, Long seasonId) {
         return new SeasonRankRewardAdminResponse(

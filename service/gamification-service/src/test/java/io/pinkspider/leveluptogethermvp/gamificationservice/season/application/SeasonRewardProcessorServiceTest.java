@@ -133,7 +133,7 @@ class SeasonRewardProcessorServiceTest {
 
             when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(Pageable.class)))
                 .thenReturn(topGainers);
-            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // when
@@ -143,7 +143,7 @@ class SeasonRewardProcessorServiceTest {
             assertThat(result.status()).isEqualTo("COMPLETED");
             assertThat(result.successCount()).isEqualTo(3);
             verify(titleService, times(3)).grantTitle(anyString(), anyLong());
-            verify(rewardHistoryRepository, times(3)).save(any(SeasonRewardHistory.class));
+            verify(rewardHistoryRepository, times(3)).saveAndFlush(any(SeasonRewardHistory.class));
         }
 
         @Test
@@ -193,7 +193,7 @@ class SeasonRewardProcessorServiceTest {
                 .thenReturn(topGainers);
             when(titleService.grantTitle("user1", 100L))
                 .thenThrow(new RuntimeException("칭호 부여 실패"));
-            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // when
@@ -221,7 +221,7 @@ class SeasonRewardProcessorServiceTest {
                 .thenReturn(topGainers);
             when(titleService.grantTitle("user1", 100L))
                 .thenThrow(new RuntimeException("이미 보유한 칭호입니다"));
-            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // when
@@ -271,7 +271,7 @@ class SeasonRewardProcessorServiceTest {
             when(experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(
                 any(), any(), any(), any(Pageable.class)))
                 .thenReturn(categoryGainers);
-            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // when
@@ -310,7 +310,7 @@ class SeasonRewardProcessorServiceTest {
                 any(), any(), any(), any(Pageable.class)))
                 .thenReturn(exerciseGainers)
                 .thenReturn(studyGainers);
-            when(rewardHistoryRepository.save(any(SeasonRewardHistory.class)))
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // when

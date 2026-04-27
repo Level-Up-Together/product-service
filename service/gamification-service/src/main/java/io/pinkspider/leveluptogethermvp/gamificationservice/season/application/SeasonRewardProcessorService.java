@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Exper
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -188,7 +189,14 @@ public class SeasonRewardProcessorService {
                 }
             }
 
-            rewardHistoryRepository.save(history);
+            // 다중 인스턴스 동시 실행으로 인한 history 중복 INSERT 방어
+            // (DB unique partial index: uk_season_reward_history_overall / _category)
+            try {
+                rewardHistoryRepository.saveAndFlush(history);
+            } catch (DataIntegrityViolationException dup) {
+                log.warn("시즌 보상 이력 중복 감지, 스킵: seasonId={}, userId={}, categoryId={}",
+                    seasonId, userId, categoryId);
+            }
         }
 
         return new int[]{successCount, failCount, skipCount};

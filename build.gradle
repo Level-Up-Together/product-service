@@ -19,7 +19,7 @@ plugins {
 
 ext {
     set('springCloudVersion', "2024.0.0")
-    lutPlatformVersion = findProperty('lutPlatformVersion') ?: '1.0.0-SNAPSHOT'
+    lutPlatformVersion = findProperty('lutPlatformVersion') ?: '0.0.2-SNAPSHOT'
 }
 
 subprojects {
@@ -27,7 +27,7 @@ subprojects {
     apply plugin: 'io.spring.dependency-management'
 
     group = 'io.pinkspider'
-    version = '0.0.1'
+    version = '0.0.2-SNAPSHOT'
 
     java {
         toolchain {

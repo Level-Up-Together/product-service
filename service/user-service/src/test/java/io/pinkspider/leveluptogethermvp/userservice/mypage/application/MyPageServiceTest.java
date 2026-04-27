@@ -119,8 +119,8 @@ class MyPageServiceTest {
 
     private UserTitleDto createTestUserTitleDto(Long id, String userId, Long titleId, String name, TitleRarity rarity, TitlePosition positionType, boolean isEquipped, TitlePosition equippedPosition) {
         return new UserTitleDto(
-            id, userId, titleId, name, null, null,
-            name + " 설명", null, null, rarity, positionType,
+            id, userId, titleId, name, null, null, null,
+            name + " 설명", null, null, null, rarity, positionType,
             null, null, isEquipped, equippedPosition, null
         );
     }
@@ -1223,7 +1223,8 @@ class MyPageServiceTest {
             // given
             UserTitleDto titleWithNullPosition = new UserTitleDto(
                 3L, TEST_USER_ID, 3L, "칭호", null, null,
-                "설명", null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                null,
+                "설명", null, null, null, TitleRarity.COMMON, TitlePosition.LEFT,
                 null, null, true, null, null  // equippedPosition = null
             );
 
@@ -1243,7 +1244,8 @@ class MyPageServiceTest {
             // given
             UserTitleDto notEquippedTitle = new UserTitleDto(
                 4L, TEST_USER_ID, 4L, "미장착칭호", null, null,
-                "설명", null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                null,
+                "설명", null, null, null, TitleRarity.COMMON, TitlePosition.LEFT,
                 null, null, false, TitlePosition.LEFT, null
             );
 
@@ -1261,8 +1263,8 @@ class MyPageServiceTest {
         void getUserTitles_rarityNull_rarityNameNull() {
             // given
             UserTitleDto titleNoRarity = new UserTitleDto(
-                5L, TEST_USER_ID, 5L, "무희귀칭호", null, null,
-                "설명", null, null, null, null,
+                5L, TEST_USER_ID, 5L, "무희귀칭호", null, null, null,
+                "설명", null, null, null, null, null,
                 null, null, false, null, null
             );
 

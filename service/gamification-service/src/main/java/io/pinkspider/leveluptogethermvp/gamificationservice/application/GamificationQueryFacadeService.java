@@ -341,8 +341,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         Title t = ut.getTitle();
         return new UserTitleDto(
             ut.getId(), ut.getUserId(), t.getId(),
-            t.getName(), t.getNameEn(), t.getNameAr(),
-            t.getDescription(), t.getDescriptionEn(), t.getDescriptionAr(),
+            t.getName(), t.getNameEn(), t.getNameAr(), t.getNameJa(),
+            t.getDescription(), t.getDescriptionEn(), t.getDescriptionAr(), t.getDescriptionJa(),
             t.getRarity(), t.getPositionType(), t.getColorCode(), t.getIconUrl(),
             ut.getIsEquipped(), ut.getEquippedPosition(), ut.getAcquiredAt()
         );

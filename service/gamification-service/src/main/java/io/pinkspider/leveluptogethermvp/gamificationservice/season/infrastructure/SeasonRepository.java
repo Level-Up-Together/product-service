@@ -33,6 +33,17 @@ public interface SeasonRepository extends JpaRepository<Season, Long> {
         """)
     List<Season> findEndedSeasonsWithoutRewards(@Param("now") LocalDateTime now);
 
+    /**
+     * 아직 종료되지 않은 활성 시즌 조회 (서버 시작 시 단발 작업 등록용)
+     */
+    @Query("""
+        SELECT s FROM Season s
+        WHERE s.isActive = true
+        AND s.endAt >= :now
+        ORDER BY s.endAt ASC
+        """)
+    List<Season> findFutureActiveSeasons(@Param("now") LocalDateTime now);
+
     // ===== Admin API용 쿼리 =====
 
     List<Season> findAllByOrderBySortOrderAscStartAtDesc();

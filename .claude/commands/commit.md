@@ -9,10 +9,12 @@ model: Sonnet
 
 규칙:
 
-- 형식: `type: 설명` (feat, fix, refactor, docs, test, chore)
-- in english
-- detail list
+- 형식: `type: 설명` (feat, fix, refactor, docs, test, chore 등)
+- JIRA 이슈 해결시에는 [JIRA 티켓 번호] 넣을 것
+- 한글로 작성
+- 50자 이내
 - with claude 필요 없음
+- sample: (fix: [QA-123] ~~~ 작업)
 
 변경된 파일들을 확인하고 커밋 메시지를 제안해줘.
 커밋은 직접 한다.

@@ -143,14 +143,16 @@ class HomeServiceTest {
             // LEFT 칭호 DTO (RARE 등급)
             UserTitleDto leftUserTitle = new UserTitleDto(
                 1L, testUserId, 1L, "용감한", null, null,
-                null, null, null, TitleRarity.RARE, TitlePosition.LEFT,
+                null,
+                null, null, null, null, TitleRarity.RARE, TitlePosition.LEFT,
                 null, null, true, TitlePosition.LEFT, null
             );
 
             // RIGHT 칭호 DTO (LEGENDARY 등급)
             UserTitleDto rightUserTitle = new UserTitleDto(
                 2L, testUserId, 2L, "전사", null, null,
-                null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
+                null,
+                null, null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
                 null, null, true, TitlePosition.RIGHT, null
             );
 
@@ -190,7 +192,8 @@ class HomeServiceTest {
 
             UserTitleDto leftUserTitle = new UserTitleDto(
                 1L, testUserId, 1L, "빠른", null, null,
-                null, null, null, TitleRarity.EPIC, TitlePosition.LEFT,
+                null,
+                null, null, null, null, TitleRarity.EPIC, TitlePosition.LEFT,
                 null, null, true, TitlePosition.LEFT, null
             );
 
@@ -569,7 +572,8 @@ class HomeServiceTest {
 
             UserTitleDto leftUserTitle = new UserTitleDto(
                 1L, testUserId, 1L, "용감한", "Brave", "شجاع",
-                null, null, null, TitleRarity.RARE, TitlePosition.LEFT,
+                null,
+                null, null, null, null, TitleRarity.RARE, TitlePosition.LEFT,
                 null, null, true, TitlePosition.LEFT, null
             );
 
@@ -604,7 +608,8 @@ class HomeServiceTest {
 
             UserTitleDto rightUserTitle = new UserTitleDto(
                 2L, testUserId, 2L, "전사", "Warrior", "محارب",
-                null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
+                null,
+                null, null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
                 null, null, true, TitlePosition.RIGHT, null
             );
 
@@ -639,7 +644,8 @@ class HomeServiceTest {
 
             UserTitleDto rightUserTitle = new UserTitleDto(
                 2L, testUserId, 2L, "전사", null, null,
-                null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT,
+                null,
+                null, null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT,
                 null, null, true, TitlePosition.RIGHT, null
             );
 
@@ -673,13 +679,15 @@ class HomeServiceTest {
 
             UserTitleDto leftUserTitle = new UserTitleDto(
                 1L, testUserId, 1L, "전설의", null, null,
-                null, null, null, TitleRarity.LEGENDARY, TitlePosition.LEFT,
+                null,
+                null, null, null, null, TitleRarity.LEGENDARY, TitlePosition.LEFT,
                 "#FF0000", null, true, TitlePosition.LEFT, null
             );
 
             UserTitleDto rightUserTitle = new UserTitleDto(
                 2L, testUserId, 2L, "전사", null, null,
-                null, null, null, TitleRarity.COMMON, TitlePosition.RIGHT,
+                null,
+                null, null, null, null, TitleRarity.COMMON, TitlePosition.RIGHT,
                 "#00FF00", null, true, TitlePosition.RIGHT, null
             );
 
@@ -710,13 +718,15 @@ class HomeServiceTest {
 
             UserTitleDto leftUserTitle = new UserTitleDto(
                 1L, testUserId, 1L, "용감한", null, null,
-                null, null, null, TitleRarity.COMMON, TitlePosition.LEFT,
+                null,
+                null, null, null, null, TitleRarity.COMMON, TitlePosition.LEFT,
                 "#AAAAAA", null, true, TitlePosition.LEFT, null
             );
 
             UserTitleDto rightUserTitle = new UserTitleDto(
                 2L, testUserId, 2L, "용의 심장", null, null,
-                null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
+                null,
+                null, null, null, null, TitleRarity.LEGENDARY, TitlePosition.RIGHT,
                 "#FFD700", null, true, TitlePosition.RIGHT, null
             );
 
@@ -776,7 +786,8 @@ class HomeServiceTest {
             // BOTH 포지션 등 LEFT/RIGHT 아닌 경우
             UserTitleDto otherTitle = new UserTitleDto(
                 1L, testUserId, 1L, "기타칭호", null, null,
-                null, null, null, TitleRarity.RARE, null,  // equippedPosition = null
+                null,
+                null, null, null, null, TitleRarity.RARE, null,  // equippedPosition = null
                 null, null, true, null, null
             );
 

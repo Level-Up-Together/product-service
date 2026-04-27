@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.Se
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.scheduler.SeasonScheduledTaskManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +41,9 @@ class SeasonAdminServiceTest {
 
     @Mock
     private RedisTemplate<String, Object> redisTemplateForObject;
+
+    @Mock
+    private SeasonScheduledTaskManager scheduledTaskManager;
 
     @InjectMocks
     private SeasonAdminService seasonAdminService;

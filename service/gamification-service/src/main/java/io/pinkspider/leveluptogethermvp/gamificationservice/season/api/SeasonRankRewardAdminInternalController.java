@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.api;
 
 import io.pinkspider.global.api.ApiResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRewardProcessResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankRewardAdminService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRewardProcessorService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.CreateSeasonRankRewardAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonRankRewardAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonRewardHistoryAdminPageResponse;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SeasonRankRewardAdminInternalController {
 
     private final SeasonRankRewardAdminService rankRewardAdminService;
+    private final SeasonRewardProcessorService rewardProcessorService;
 
     @GetMapping
     public ApiResult<List<SeasonRankRewardAdminResponse>> getRankRewards(@PathVariable Long seasonId) {
@@ -92,6 +95,27 @@ public class SeasonRankRewardAdminInternalController {
     public ApiResult<SeasonRewardStatsAdminResponse> getRewardStats(@PathVariable Long seasonId) {
         return ApiResult.<SeasonRewardStatsAdminResponse>builder()
             .value(rankRewardAdminService.getRewardStats(seasonId))
+            .build();
+    }
+
+    /**
+     * 시즌 보상 즉시 처리 (어드민 수동 트리거)
+     * 시즌이 종료된 직후 즉시 보상을 부여하고 싶을 때 사용.
+     */
+    @PostMapping("/process")
+    public ApiResult<SeasonRewardProcessResult> processRewards(@PathVariable Long seasonId) {
+        return ApiResult.<SeasonRewardProcessResult>builder()
+            .value(rewardProcessorService.processSeasonRewards(seasonId))
+            .build();
+    }
+
+    /**
+     * 시즌 보상 실패분 재처리
+     */
+    @PostMapping("/retry")
+    public ApiResult<Integer> retryFailedRewards(@PathVariable Long seasonId) {
+        return ApiResult.<Integer>builder()
+            .value(rewardProcessorService.retryFailedRewards(seasonId))
             .build();
     }
 }
