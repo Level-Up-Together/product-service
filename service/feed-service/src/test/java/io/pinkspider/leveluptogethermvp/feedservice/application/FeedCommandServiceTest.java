@@ -63,6 +63,9 @@ class FeedCommandServiceTest {
     @Mock
     private GamificationQueryFacade gamificationQueryFacadeService;
 
+    @Mock
+    private FeedAccessChecker feedAccessChecker;
+
     @InjectMocks
     private FeedCommandService feedCommandService;
 

@@ -72,6 +72,9 @@ class FeedQueryServiceTest {
     @Mock
     private GuildQueryFacade guildQueryFacadeService;
 
+    @Mock
+    private FeedAccessChecker feedAccessChecker;
+
     @InjectMocks
     private FeedQueryService feedQueryService;
 
@@ -276,6 +279,7 @@ class FeedQueryServiceTest {
             setId(comment, 1L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
 
             // when
@@ -547,6 +551,7 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             String acceptLanguage = "es";
 
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
@@ -984,6 +989,7 @@ class FeedQueryServiceTest {
             setId(comment, 1L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
@@ -1064,6 +1070,7 @@ class FeedQueryServiceTest {
             setId(deletedComment, 1L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
@@ -1094,6 +1101,7 @@ class FeedQueryServiceTest {
             setId(comment, 2L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
@@ -1130,6 +1138,7 @@ class FeedQueryServiceTest {
             setId(comment, 3L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));
@@ -1161,6 +1170,7 @@ class FeedQueryServiceTest {
             setId(comment, 4L);
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));

@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +49,6 @@ class FeedProjectionEventListenerTest {
     private static final String TEST_USER_ID = "test-user-123";
     private static final String REQUESTER_USER_ID = "requester-user-456";
     private UserProfileInfo testProfile;
-    private UserProfileInfo requesterProfile;
 
     @BeforeEach
     void setUp() {
@@ -58,44 +56,17 @@ class FeedProjectionEventListenerTest {
             TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
             10, "초보 모험가", TitleRarity.COMMON, "#FFFFFF"
         );
-        requesterProfile = new UserProfileInfo(
-            REQUESTER_USER_ID, "요청자유저", "https://example.com/requester.jpg",
-            5, "견습생", TitleRarity.COMMON, "#CCCCCC"
-        );
     }
 
     @Nested
-    @DisplayName("handleTitleAcquired 테스트")
+    @DisplayName("handleTitleAcquired 테스트 (QA-35 비활성화)")
     class HandleTitleAcquiredTest {
 
         @Test
-        @DisplayName("칭호 획득 이벤트를 수신하면 피드를 생성한다")
-        void handleTitleAcquired_success() {
+        @DisplayName("칭호 획득 이벤트를 수신해도 피드를 생성하지 않는다")
+        void handleTitleAcquired_disabled() {
             // given
             TitleAcquiredEvent event = new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
-
-            // when
-            feedProjectionEventListener.handleTitleAcquired(event);
-
-            // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.TITLE_ACQUIRED),
-                eq("칭호 획득: 전설의 모험가"), eq("LEGENDARY 등급 칭호를 획득했습니다!"),
-                eq("TITLE"), eq(1L), eq("전설의 모험가"),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
-        }
-
-        @Test
-        @DisplayName("프로필 조회 실패 시 예외를 삼키고 피드를 생성하지 않는다")
-        void handleTitleAcquired_profileFetchFails() {
-            // given
-            TitleAcquiredEvent event = new TitleAcquiredEvent(TEST_USER_ID, 1L, "전설의 모험가", "LEGENDARY");
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenThrow(new RuntimeException("프로필 조회 실패"));
 
             // when
             feedProjectionEventListener.handleTitleAcquired(event);
@@ -104,85 +75,54 @@ class FeedProjectionEventListenerTest {
             verify(feedCommandService, never()).createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(),
                 any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), anyString(), anyLong(), anyString(),
-                any(FeedVisibility.class), any(), anyString(), anyString()
+                anyString(), anyString(), any(), any(), any(),
+                any(FeedVisibility.class), any(), any(), any()
             );
         }
     }
 
     @Nested
-    @DisplayName("handleAchievementCompleted 테스트")
+    @DisplayName("handleAchievementCompleted 테스트 (QA-35 비활성화)")
     class HandleAchievementCompletedTest {
 
         @Test
-        @DisplayName("업적 달성 이벤트를 수신하면 피드를 생성한다")
-        void handleAchievementCompleted_success() {
+        @DisplayName("업적 달성 이벤트를 수신해도 피드를 생성하지 않는다")
+        void handleAchievementCompleted_disabled() {
             // given
             AchievementCompletedEvent event = new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleAchievementCompleted(event);
 
             // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.ACHIEVEMENT_UNLOCKED),
-                eq("업적 달성: 첫 걸음"), eq("업적을 달성했습니다!"),
-                eq("ACHIEVEMENT"), eq(10L), eq("첫 걸음"),
-                eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
-            );
-        }
-
-        @Test
-        @DisplayName("피드 생성 실패 시 예외를 삼킨다")
-        void handleAchievementCompleted_feedCreationFails() {
-            // given
-            AchievementCompletedEvent event = new AchievementCompletedEvent(TEST_USER_ID, 10L, "첫 걸음");
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
-            when(feedCommandService.createActivityFeed(
+            verify(feedCommandService, never()).createActivityFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(),
                 any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), anyString(), anyLong(), anyString(),
-                any(FeedVisibility.class), any(), any(), any()
-            )).thenThrow(new RuntimeException("DB 저장 실패"));
-
-            // when - should not throw
-            feedProjectionEventListener.handleAchievementCompleted(event);
-
-            // then - verify it was attempted
-            verify(feedCommandService).createActivityFeed(
-                anyString(), anyString(), anyString(), anyInt(), anyString(),
-                any(TitleRarity.class), anyString(), any(ActivityType.class),
-                anyString(), anyString(), anyString(), anyLong(), anyString(),
+                anyString(), anyString(), any(), any(), any(),
                 any(FeedVisibility.class), any(), any(), any()
             );
         }
     }
 
     @Nested
-    @DisplayName("handleGuildJoined 테스트")
+    @DisplayName("handleGuildJoined 테스트 (QA-35 비활성화)")
     class HandleGuildJoinedTest {
 
         @Test
-        @DisplayName("길드 가입 이벤트를 수신하면 피드를 생성한다")
-        void handleGuildJoined_success() {
+        @DisplayName("길드 가입 이벤트를 수신해도 피드를 생성하지 않는다")
+        void handleGuildJoined_disabled() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(TEST_USER_ID, 5L, "최강 길드");
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
             feedProjectionEventListener.handleGuildJoined(event);
 
             // then
-            verify(feedCommandService).createActivityFeed(
-                eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
-                eq(ActivityType.GUILD_JOINED),
-                eq("길드 가입: 최강 길드"), eq("길드에 가입했습니다!"),
-                eq("GUILD"), eq(5L), eq("최강 길드"),
-                eq(FeedVisibility.PUBLIC), eq(5L), isNull(), isNull()
+            verify(feedCommandService, never()).createActivityFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(),
+                any(TitleRarity.class), anyString(), any(ActivityType.class),
+                anyString(), anyString(), any(), any(), any(),
+                any(FeedVisibility.class), any(), any(), any()
             );
         }
     }
@@ -217,7 +157,7 @@ class FeedProjectionEventListenerTest {
     class HandleUserLevelUpTest {
 
         @Test
-        @DisplayName("마일스톤 레벨(50, 100)이 아니면 피드를 생성하지 않는다 (QA-35)")
+        @DisplayName("10단위 마일스톤이 아니면 피드를 생성하지 않는다 (QA-35)")
         void handleUserLevelUp_nonMilestone_skips() {
             // given
             UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 15, 5000L);
@@ -235,10 +175,10 @@ class FeedProjectionEventListenerTest {
         }
 
         @Test
-        @DisplayName("레벨 50 달성 시 피드를 생성한다")
-        void handleUserLevelUp_milestone50_success() {
+        @DisplayName("레벨 10 달성 시 피드를 생성한다")
+        void handleUserLevelUp_milestone10_success() {
             // given
-            UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 50, 50000L);
+            UserLevelUpEvent event = new UserLevelUpEvent(TEST_USER_ID, 10, 1000L);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
@@ -247,9 +187,9 @@ class FeedProjectionEventListenerTest {
             // then
             verify(feedCommandService).createActivityFeed(
                 eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
-                eq(50), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
+                eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
                 eq(ActivityType.LEVEL_UP),
-                eq("레벨 50 달성!"), eq("레벨 50에 도달했습니다!"),
+                eq("레벨 10 달성!"), eq("레벨 10에 도달했습니다!"),
                 isNull(), isNull(), isNull(),
                 eq(FeedVisibility.PUBLIC), isNull(), isNull(), isNull()
             );
@@ -287,10 +227,28 @@ class FeedProjectionEventListenerTest {
     class HandleGuildLevelUpTest {
 
         @Test
-        @DisplayName("길드 레벨업 이벤트를 수신하면 피드를 생성한다")
-        void handleGuildLevelUp_success() {
+        @DisplayName("10단위 마일스톤이 아니면 피드를 생성하지 않는다 (QA-35)")
+        void handleGuildLevelUp_nonMilestone_skips() {
             // given
             GuildLevelUpEvent event = new GuildLevelUpEvent(TEST_USER_ID, 5L, "최강 길드", 3);
+
+            // when
+            feedProjectionEventListener.handleGuildLevelUp(event);
+
+            // then
+            verify(feedCommandService, never()).createActivityFeed(
+                anyString(), anyString(), anyString(), anyInt(), anyString(),
+                any(TitleRarity.class), anyString(), any(ActivityType.class),
+                anyString(), anyString(), any(), any(), any(),
+                any(FeedVisibility.class), any(), any(), any()
+            );
+        }
+
+        @Test
+        @DisplayName("길드 레벨 10 달성 시 피드를 생성한다")
+        void handleGuildLevelUp_milestone10_success() {
+            // given
+            GuildLevelUpEvent event = new GuildLevelUpEvent(TEST_USER_ID, 5L, "최강 길드", 10);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
@@ -301,7 +259,7 @@ class FeedProjectionEventListenerTest {
                 eq(TEST_USER_ID), eq("테스트유저"), eq("https://example.com/profile.jpg"),
                 eq(10), eq("초보 모험가"), eq(TitleRarity.COMMON), eq("#FFFFFF"),
                 eq(ActivityType.GUILD_LEVEL_UP),
-                eq("길드 레벨업!"), eq("최강 길드 길드가 레벨 3에 도달했습니다!"),
+                eq("길드 레벨업!"), eq("최강 길드 길드가 레벨 10에 도달했습니다!"),
                 eq("GUILD"), eq(5L), eq("최강 길드"),
                 eq(FeedVisibility.PUBLIC), eq(5L), isNull(), isNull()
             );
