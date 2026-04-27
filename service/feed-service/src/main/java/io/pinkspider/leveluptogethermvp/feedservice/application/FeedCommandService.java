@@ -42,6 +42,7 @@ public class FeedCommandService {
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final GamificationQueryFacade gamificationQueryFacadeService;
+    private final FeedAccessChecker feedAccessChecker;
 
     /**
      * 시스템에서 자동 생성되는 활동 피드
@@ -142,6 +143,8 @@ public class FeedCommandService {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
+        feedAccessChecker.assertAccessible(feed, userId);
+
         // 작성자는 자신의 피드에 좋아요를 할 수 없음
         if (feed.getUserId().equals(userId)) {
             throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.self_like");
@@ -181,6 +184,8 @@ public class FeedCommandService {
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+
+        feedAccessChecker.assertAccessible(feed, userId);
 
         // 사용자 프로필 정보 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);

@@ -58,6 +58,7 @@ public class FeedQueryService {
     private final GuildQueryFacade guildQueryFacadeService;
     private final TranslationService translationService;
     private final ReportService reportService;
+    private final FeedAccessChecker feedAccessChecker;
 
     /**
      * 전체 공개 피드 조회
@@ -510,6 +511,7 @@ public class FeedQueryService {
     public ActivityFeedResponse getFeed(Long feedId, String currentUserId, String acceptLanguage) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+        feedAccessChecker.assertAccessible(feed, currentUserId);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         boolean likedByMe = currentUserId != null && feedLikeRepository.existsByFeedIdAndUserId(feedId, currentUserId);
@@ -534,6 +536,10 @@ public class FeedQueryService {
      * - 모든 댓글에 대해 현재 유저 레벨을 표시 (작성 시점 레벨이 아닌 현재 레벨)
      */
     public Page<FeedCommentResponse> getComments(Long feedId, String currentUserId, int page, int size, String acceptLanguage) {
+        ActivityFeed feed = activityFeedRepository.findById(feedId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
+        feedAccessChecker.assertAccessible(feed, currentUserId);
+
         Pageable pageable = PageRequest.of(page, size);
         Page<FeedComment> comments = feedCommentRepository.findByFeedId(feedId, pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
