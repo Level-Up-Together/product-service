@@ -18,8 +18,10 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.Oauth2Service;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.application.SignupTokenService;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
 import io.pinkspider.util.MockUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,6 +63,9 @@ class Oauth2ControllerTest {
 
     @MockitoBean
     Oauth2Service oauth2Service;
+
+    @MockitoBean
+    SignupTokenService signupTokenService;
 
     @Test
     @DisplayName("GET /oauth/uri/{provider} : 소셜로그인사의 로그인 페이지 uri 얻기")
@@ -114,9 +119,10 @@ class Oauth2ControllerTest {
         String mockProvider = "kakao";
         CreateJwtResponseDto mockCreateJwtResponseDto = MockUtil.readJsonFileToClass("fixture/userservice/oauth/mockCreateJwtResponseDto.json",
             CreateJwtResponseDto.class);
+        SocialLoginResponseDto mockResponse = SocialLoginResponseDto.existingUser(mockCreateJwtResponseDto);
 
         when(oauth2Service.createJwt(any(), any(), any(), any(), any(), any()))
-            .thenReturn(mockCreateJwtResponseDto);
+            .thenReturn(mockResponse);
 
         // then
         ResultActions resultActions = mockMvc.perform(
@@ -146,13 +152,15 @@ class Oauth2ControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("code"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("message"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("value"),
-                            fieldWithPath("value.access_token").type(JsonFieldType.STRING).description("access_token"),
-                            fieldWithPath("value.refresh_token").type(JsonFieldType.STRING).description("refresh_token"),
-                            fieldWithPath("value.token_type").type(JsonFieldType.STRING).description("token_type"),
-                            fieldWithPath("value.expired_time").type(JsonFieldType.STRING).description("expired_time"),
+                            fieldWithPath("value.new_user").type(JsonFieldType.BOOLEAN).description("신규 사용자 여부 (true면 signup_token으로 complete-signup 호출 필요)"),
+                            fieldWithPath("value.signup_token").type(JsonFieldType.STRING).optional().description("신규 사용자 가입용 임시 토큰"),
+                            fieldWithPath("value.suggested_nickname").type(JsonFieldType.STRING).optional().description("OAuth provider에서 받은 추천 닉네임"),
+                            fieldWithPath("value.access_token").type(JsonFieldType.STRING).optional().description("기존 사용자 JWT access token"),
+                            fieldWithPath("value.refresh_token").type(JsonFieldType.STRING).optional().description("기존 사용자 JWT refresh token"),
+                            fieldWithPath("value.token_type").type(JsonFieldType.STRING).optional().description("token_type"),
                             fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("expires_in"),
-                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("user_id"),
-                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("device_id"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).optional().description("user_id"),
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).optional().description("device_id"),
                             fieldWithPath("value.nickname_set").type(JsonFieldType.BOOLEAN).description("닉네임 설정 여부")
                         )
                         .build()
@@ -178,9 +186,10 @@ class Oauth2ControllerTest {
         CreateJwtResponseDto mockCreateJwtResponseDto = MockUtil.readJsonFileToClass(
             "fixture/userservice/oauth/mockCreateJwtResponseDto.json",
             CreateJwtResponseDto.class);
+        SocialLoginResponseDto mockResponse = SocialLoginResponseDto.existingUser(mockCreateJwtResponseDto);
 
         when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345"), any(), any()))
-            .thenReturn(mockCreateJwtResponseDto);
+            .thenReturn(mockResponse);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -209,13 +218,15 @@ class Oauth2ControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("응답 데이터"),
-                            fieldWithPath("value.access_token").type(JsonFieldType.STRING).description("JWT Access Token"),
-                            fieldWithPath("value.refresh_token").type(JsonFieldType.STRING).description("JWT Refresh Token"),
-                            fieldWithPath("value.token_type").type(JsonFieldType.STRING).description("토큰 타입 (Bearer)"),
-                            fieldWithPath("value.expired_time").type(JsonFieldType.STRING).description("만료 시간"),
+                            fieldWithPath("value.new_user").type(JsonFieldType.BOOLEAN).description("신규 사용자 여부 (true면 signup_token으로 complete-signup 호출 필요)"),
+                            fieldWithPath("value.signup_token").type(JsonFieldType.STRING).optional().description("신규 사용자 가입용 임시 토큰"),
+                            fieldWithPath("value.suggested_nickname").type(JsonFieldType.STRING).optional().description("OAuth provider에서 받은 추천 닉네임"),
+                            fieldWithPath("value.access_token").type(JsonFieldType.STRING).optional().description("JWT Access Token (기존 사용자)"),
+                            fieldWithPath("value.refresh_token").type(JsonFieldType.STRING).optional().description("JWT Refresh Token (기존 사용자)"),
+                            fieldWithPath("value.token_type").type(JsonFieldType.STRING).optional().description("토큰 타입 (Bearer)"),
                             fieldWithPath("value.expires_in").type(JsonFieldType.NUMBER).description("만료까지 남은 시간 (초)"),
-                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
-                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).description("디바이스 ID"),
+                            fieldWithPath("value.user_id").type(JsonFieldType.STRING).optional().description("사용자 ID"),
+                            fieldWithPath("value.device_id").type(JsonFieldType.STRING).optional().description("디바이스 ID"),
                             fieldWithPath("value.nickname_set").type(JsonFieldType.BOOLEAN).description("닉네임 설정 여부")
                         )
                         .build()

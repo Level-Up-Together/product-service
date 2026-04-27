@@ -25,6 +25,8 @@ import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResu
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
+import io.pinkspider.leveluptogethermvp.userservice.terms.application.UserTermsService;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -88,6 +90,12 @@ class Oauth2ServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private SignupTokenService signupTokenService;
+
+    @Mock
+    private UserTermsService userTermsService;
 
     @Mock
     private HttpServletRequest httpRequest;
@@ -254,11 +262,11 @@ class Oauth2ServiceTest {
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo);
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, null);
 
                 // then
-                assertThat(result).isNotNull();
-                assertThat(result.getId()).isEqualTo(TEST_USER_ID);
+                assertThat(result).isPresent();
+                assertThat(result.get().getId()).isEqualTo(TEST_USER_ID);
                 verify(userRepository, never()).save(any(Users.class));
                 verify(eventPublisher, never()).publishEvent(any());
             }
@@ -285,151 +293,31 @@ class Oauth2ServiceTest {
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when & then
-                assertThatThrownBy(() -> oauth2Service.dbProcessOAuth2User(userInfo))
+                assertThatThrownBy(() -> oauth2Service.findExistingUser(userInfo, null, null))
                     .isInstanceOf(CustomException.class)
                     .hasMessageContaining("탈퇴한 계정");
             }
         }
 
         @Test
-        @DisplayName("신규 사용자는 저장하고 회원가입 이벤트를 발행한다")
-        void dbProcessOAuth2User_newUser_savesAndPublishesEvent() {
+        @DisplayName("신규 사용자는 INSERT하지 않고 빈 Optional을 반환한다 (QA-108)")
+        void findExistingUser_newUser_returnsEmptyOptional() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(TEST_NICKNAME)
-                    .provider("google")
-                    .nicknameSet(false)
-                    .build();
-
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.empty());
-                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo);
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, null);
 
                 // then
-                assertThat(result).isNotNull();
-                assertThat(result.getId()).isEqualTo(TEST_USER_ID);
-                assertThat(result.isNicknameSet()).isFalse();
-                verify(userRepository).save(any(Users.class));
-                verify(eventPublisher).publishEvent((Object) any());
-            }
-        }
-
-        @Test
-        @DisplayName("신규 사용자 닉네임이 중복되면 유니크한 닉네임으로 생성한다")
-        void dbProcessOAuth2User_duplicateNickname_generatesUniqueNickname() {
-            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(TEST_NICKNAME + "1234")
-                    .provider("google")
-                    .nicknameSet(false)
-                    .build();
-
-                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
-                    .thenReturn(Optional.empty());
-                // TEST_NICKNAME은 중복, 그 외의 닉네임(랜덤 생성된 것)은 중복 없음
-                when(userRepository.existsByNickname(anyString()))
-                    .thenAnswer(invocation -> {
-                        String nickname = invocation.getArgument(0);
-                        return TEST_NICKNAME.equals(nickname);
-                    });
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
-
-                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
-                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
-
-                // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo);
-
-                // then
-                assertThat(result).isNotNull();
-                verify(userRepository).save(any(Users.class));
-            }
-        }
-
-        @Test
-        @DisplayName("닉네임이 null인 신규 사용자도 정상적으로 가입한다")
-        void dbProcessOAuth2User_nullNickname_savesUser() {
-            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(null)
-                    .provider("kakao")
-                    .nicknameSet(false)
-                    .build();
-
-                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "kakao"))
-                    .thenReturn(Optional.empty());
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
-
-                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
-                    createMockUserInfo(TEST_EMAIL, null, "kakao");
-
-                // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo);
-
-                // then
-                assertThat(result).isNotNull();
-                verify(userRepository).save(any(Users.class));
-                verify(eventPublisher).publishEvent((Object) any());
-            }
-        }
-
-        @Test
-        @DisplayName("환영 알림 발송이 실패해도 회원가입은 성공한다")
-        void dbProcessOAuth2User_notificationFails_signupSucceeds() {
-            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(TEST_NICKNAME)
-                    .provider("google")
-                    .nicknameSet(false)
-                    .build();
-
-                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
-                    .thenReturn(Optional.empty());
-                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
-
-                // 알림 발송 실패 시뮬레이션
-                try {
-                    org.mockito.Mockito.doThrow(new RuntimeException("알림 서버 오류"))
-                        .when(notificationService).sendNotification(
-                            anyString(), any(NotificationType.class), any(), any(), anyString());
-                } catch (Exception e) {
-                    // ignore - just setup
-                }
-
-                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
-                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
-
-                // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo);
-
-                // then - 알림 실패에도 회원가입은 성공
-                assertThat(result).isNotNull();
-                assertThat(result.getId()).isEqualTo(TEST_USER_ID);
-                verify(eventPublisher).publishEvent((Object) any());
+                assertThat(result).isEmpty();
+                verify(userRepository, never()).save(any(Users.class));
+                verify(eventPublisher, never()).publishEvent(any());
             }
         }
     }
@@ -469,7 +357,7 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_REFRESH_TOKEN);
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
                     httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID, null, null);
 
                 // then
@@ -520,7 +408,7 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_REFRESH_TOKEN);
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
                     httpRequest, "google", "google-provider-token", "mobile", null, null, null);
 
                 // then
@@ -561,7 +449,7 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_REFRESH_TOKEN);
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwtFromMobileToken(
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
                     httpRequest, "google", "google-provider-token", null, null, null, null);
 
                 // then
@@ -639,12 +527,12 @@ class Oauth2ServiceTest {
     }
 
     @Nested
-    @DisplayName("dbProcessOAuth2User locale/timezone 업데이트 테스트")
-    class DbProcessOAuth2UserLocaleTimezoneTest {
+    @DisplayName("findExistingUser locale/timezone 업데이트 테스트")
+    class FindExistingUserLocaleTimezoneTest {
 
         @Test
         @DisplayName("기존 사용자의 locale이 en이고 다른 locale이 전달되면 locale을 업데이트한다")
-        void dbProcessOAuth2User_existingUser_updatesLocale() {
+        void findExistingUser_existingUser_updatesLocale() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 Users existingUser = Users.builder()
@@ -665,17 +553,17 @@ class Oauth2ServiceTest {
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo, "ko", null);
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, "ko", null);
 
                 // then
-                assertThat(result).isNotNull();
+                assertThat(result).isPresent();
                 verify(userRepository).save(any(Users.class));
             }
         }
 
         @Test
         @DisplayName("기존 사용자의 timezone이 기본값이고 다른 timezone이 전달되면 timezone을 업데이트한다")
-        void dbProcessOAuth2User_existingUser_updatesTimezone() {
+        void findExistingUser_existingUser_updatesTimezone() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 Users existingUser = Users.builder()
@@ -696,17 +584,17 @@ class Oauth2ServiceTest {
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo, null, "America/New_York");
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, "America/New_York");
 
                 // then
-                assertThat(result).isNotNull();
+                assertThat(result).isPresent();
                 verify(userRepository).save(any(Users.class));
             }
         }
 
         @Test
         @DisplayName("기존 사용자이고 locale/timezone 변경 불필요하면 save를 호출하지 않는다")
-        void dbProcessOAuth2User_existingUser_noUpdate_doesNotSave() {
+        void findExistingUser_existingUser_noUpdate_doesNotSave() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 Users existingUser = Users.builder()
@@ -726,76 +614,33 @@ class Oauth2ServiceTest {
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when - locale이 이미 ko로 설정됨 → 업데이트 불필요
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo, "ko", null);
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, "ko", null);
 
                 // then
-                assertThat(result).isNotNull();
+                assertThat(result).isPresent();
                 verify(userRepository, never()).save(any(Users.class));
             }
         }
 
         @Test
-        @DisplayName("신규 사용자에게 preferredLocale이 전달되면 해당 locale로 저장한다")
-        void dbProcessOAuth2User_newUser_withPreferredLocale() {
+        @DisplayName("신규 사용자는 INSERT하지 않고 signup token을 발급한다 (QA-108)")
+        void newUser_returnsSignupToken() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(TEST_NICKNAME)
-                    .provider("google")
-                    .preferredLocale("ja")
-                    .nicknameSet(false)
-                    .build();
-
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.empty());
-                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
                 // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo, "ja", "Asia/Tokyo");
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, "ja", "Asia/Tokyo");
 
-                // then
-                assertThat(result).isNotNull();
-                verify(userRepository).save(any(Users.class));
-                verify(eventPublisher).publishEvent((Object) any());
-            }
-        }
-
-        @Test
-        @DisplayName("신규 사용자에게 지원하지 않는 locale이 전달되면 기본 locale(en)로 저장한다")
-        void dbProcessOAuth2User_newUser_unsupportedLocale_usesDefault() {
-            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
-                Users savedUser = Users.builder()
-                    .id(TEST_USER_ID)
-                    .email(TEST_EMAIL)
-                    .nickname(TEST_NICKNAME)
-                    .provider("google")
-                    .preferredLocale("en")
-                    .nicknameSet(false)
-                    .build();
-
-                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
-                    .thenReturn(Optional.empty());
-                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
-                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
-
-                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
-                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
-
-                // when
-                Users result = oauth2Service.dbProcessOAuth2User(userInfo, "xx-INVALID", null);
-
-                // then
-                assertThat(result).isNotNull();
-                verify(userRepository).save(any(Users.class));
+                // then - 신규 사용자는 빈 Optional, INSERT/이벤트 없음
+                assertThat(result).isEmpty();
+                verify(userRepository, never()).save(any(Users.class));
+                verify(eventPublisher, never()).publishEvent(any());
             }
         }
     }
@@ -965,10 +810,9 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
                     .thenReturn(TEST_REFRESH_TOKEN);
-                when(jwtUtil.getAccessTokenExpiredTime(TEST_ACCESS_TOKEN)).thenReturn(new java.util.Date());
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwt(
+                SocialLoginResponseDto result = oauth2Service.createJwt(
                     httpRequest, "kakao", "auth-code-123", "web", TEST_DEVICE_ID);
 
                 // then
@@ -1007,10 +851,9 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
                     .thenReturn(TEST_REFRESH_TOKEN);
-                when(jwtUtil.getAccessTokenExpiredTime(TEST_ACCESS_TOKEN)).thenReturn(new java.util.Date());
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwt(
+                SocialLoginResponseDto result = oauth2Service.createJwt(
                     httpRequest, "apple", "auth-code-123", "web", TEST_DEVICE_ID, "apple-id-token");
 
                 // then
@@ -1059,10 +902,9 @@ class Oauth2ServiceTest {
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
                     .thenReturn(TEST_REFRESH_TOKEN);
-                when(jwtUtil.getAccessTokenExpiredTime(TEST_ACCESS_TOKEN)).thenReturn(new java.util.Date());
 
                 // when
-                CreateJwtResponseDto result = oauth2Service.createJwt(
+                SocialLoginResponseDto result = oauth2Service.createJwt(
                     httpRequest, "google", "auth-code-123", null, null);
 
                 // then
