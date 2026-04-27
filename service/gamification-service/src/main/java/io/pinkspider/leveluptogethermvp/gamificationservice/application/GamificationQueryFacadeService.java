@@ -177,6 +177,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     // ========== 스탯 조회 ==========
 
     @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public UserStatsDto getOrCreateUserStats(String userId) {
         UserStats us = userStatsService.getOrCreateUserStats(userId);
         return toStatsDto(us);
