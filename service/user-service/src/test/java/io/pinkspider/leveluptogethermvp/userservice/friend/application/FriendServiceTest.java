@@ -16,7 +16,10 @@ import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -406,14 +409,19 @@ class FriendServiceTest {
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
             when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedLeftTitleNameMap(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, "테스트 칭호"));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
+                    titleDto(FRIEND_USER_ID, "우측 칭호", TitlePosition.RIGHT)
+                )));
 
             // when
             Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getFriendTitleLeft()).isEqualTo("테스트 칭호");
+            assertThat(result.getContent().get(0).getFriendTitleRight()).isEqualTo("우측 칭호");
         }
 
         @Test
@@ -428,7 +436,7 @@ class FriendServiceTest {
             when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
             when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedLeftTitleNameMap(List.of(FRIEND_USER_ID)))
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
                 .thenReturn(Map.of()); // 칭호 없음
 
             // when
@@ -437,6 +445,20 @@ class FriendServiceTest {
             // then
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getFriendTitle()).isNull();
+            assertThat(result.getContent().get(0).getFriendTitleLeft()).isNull();
+            assertThat(result.getContent().get(0).getFriendTitleRight()).isNull();
+        }
+
+        private UserTitleDto titleDto(String userId, String name, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, null, null, null,
+                null, null, null, null,
+                TitleRarity.COMMON,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
         }
     }
 
@@ -549,14 +571,19 @@ class FriendServiceTest {
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
             when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedLeftTitleNameMap(List.of(FRIEND_USER_ID)))
-                .thenReturn(Map.of(FRIEND_USER_ID, "테스트 칭호"));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDto(FRIEND_USER_ID, "테스트 칭호", TitlePosition.LEFT),
+                    titleDto(FRIEND_USER_ID, "우측 칭호", TitlePosition.RIGHT)
+                )));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFriendTitleLeft()).isEqualTo("테스트 칭호");
+            assertThat(result.get(0).getFriendTitleRight()).isEqualTo("우측 칭호");
         }
 
         @Test
@@ -569,7 +596,7 @@ class FriendServiceTest {
             when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
             when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
             when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedLeftTitleNameMap(List.of(FRIEND_USER_ID)))
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
                 .thenReturn(Map.of()); // 칭호 없음
 
             // when
@@ -578,6 +605,55 @@ class FriendServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getFriendTitle()).isNull();
+            assertThat(result.get(0).getFriendTitleRight()).isNull();
+        }
+
+        @Test
+        @DisplayName("좌측만 있는 친구는 우측이 null로 반환된다 (QA-93 회귀 방지)")
+        void getAllFriends_onlyLeftTitle_rightIsNull() {
+            // given
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDto(FRIEND_USER_ID, "좌측만", TitlePosition.LEFT)
+                )));
+
+            // when
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFriendTitleLeft()).isEqualTo("좌측만");
+            assertThat(result.get(0).getFriendTitleRight()).isNull();
+        }
+
+        @Test
+        @DisplayName("우측만 있는 친구는 좌측이 null로 반환된다 (QA-93 회귀 방지)")
+        void getAllFriends_onlyRightTitle_leftIsNull() {
+            // given
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findAllFriends(TEST_USER_ID)).thenReturn(List.of(friendship));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDto(FRIEND_USER_ID, "우측만", TitlePosition.RIGHT)
+                )));
+
+            // when
+            List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFriendTitleLeft()).isNull();
+            assertThat(result.get(0).getFriendTitleRight()).isEqualTo("우측만");
         }
 
         @Test
@@ -599,14 +675,29 @@ class FriendServiceTest {
                 .thenReturn(List.of(friendWithTitle, friendWithoutTitle));
             when(gamificationQueryFacadeService.getUserLevelMap(List.of(friendWithTitleId, friendWithoutTitleId)))
                 .thenReturn(Map.of());
-            when(gamificationQueryFacadeService.getEquippedLeftTitleNameMap(List.of(friendWithTitleId, friendWithoutTitleId)))
-                .thenReturn(Map.of(friendWithTitleId, "테스트 칭호")); // friendWithoutTitleId has no title
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(friendWithTitleId, friendWithoutTitleId)))
+                .thenReturn(Map.of(friendWithTitleId, List.of(
+                    titleDto(friendWithTitleId, "테스트 칭호", TitlePosition.LEFT),
+                    titleDto(friendWithTitleId, "우측 칭호", TitlePosition.RIGHT)
+                )));
 
             // when
             List<FriendResponse> result = friendService.getAllFriends(TEST_USER_ID);
 
             // then
             assertThat(result).hasSize(2);
+        }
+
+        private UserTitleDto titleDto(String userId, String name, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, null, null, null,
+                null, null, null, null,
+                TitleRarity.COMMON,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
         }
     }
 

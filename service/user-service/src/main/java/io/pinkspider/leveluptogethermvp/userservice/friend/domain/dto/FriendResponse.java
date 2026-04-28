@@ -21,14 +21,19 @@ public class FriendResponse {
     private String friendNickname;
     private String friendProfileImageUrl;
     private Integer friendLevel;
+    /** 좌측 칭호 (형용사형). 기존 호환을 위해 friendTitle과 동일값 유지. */
     private String friendTitle;
+    /** 좌측 칭호 (QA-93: 명시적으로 분리). */
+    private String friendTitleLeft;
+    /** 우측 칭호 (QA-93). */
+    private String friendTitleRight;
     private FriendshipStatus status;
     private LocalDateTime friendsSince;
     private Boolean isOnline;
 
     public static FriendResponse from(Friendship friendship, String currentUserId,
                                        String friendNickname, String profileImageUrl,
-                                       Integer level, String title) {
+                                       Integer level, String leftTitle, String rightTitle) {
         String friendId = friendship.getUserId().equals(currentUserId)
             ? friendship.getFriendId()
             : friendship.getUserId();
@@ -39,7 +44,9 @@ public class FriendResponse {
             .friendNickname(friendNickname)
             .friendProfileImageUrl(profileImageUrl)
             .friendLevel(level)
-            .friendTitle(title)
+            .friendTitle(leftTitle)
+            .friendTitleLeft(leftTitle)
+            .friendTitleRight(rightTitle)
             .status(friendship.getStatus())
             .friendsSince(friendship.getAcceptedAt())
             .build();

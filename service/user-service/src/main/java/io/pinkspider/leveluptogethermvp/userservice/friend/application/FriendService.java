@@ -5,7 +5,9 @@ import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
+import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -218,23 +220,25 @@ public class FriendService {
             .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
             .toList();
 
-        // 사용자 정보, 레벨, 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, String> titleMap = getTitleMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
 
         return friendships.map(friendship -> {
             String friendId = friendship.getUserId().equals(userId)
                 ? friendship.getFriendId()
                 : friendship.getUserId();
             Users friend = userMap.get(friendId);
+            EquippedTitlePair titlePair = titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
             return FriendResponse.from(
                 friendship,
                 userId,
                 friend != null ? friend.getNickname() : null,
                 friend != null ? friend.getPicture() : null,
                 levelMap.getOrDefault(friendId, 1),
-                titleMap.get(friendId)
+                titlePair.left(),
+                titlePair.right()
             );
         });
     }
@@ -248,10 +252,10 @@ public class FriendService {
             .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
             .toList();
 
-        // 사용자 정보, 레벨, 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, String> titleMap = getTitleMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
 
         return friendships.stream()
             .map(friendship -> {
@@ -259,13 +263,15 @@ public class FriendService {
                     ? friendship.getFriendId()
                     : friendship.getUserId();
                 Users friend = userMap.get(friendId);
+                EquippedTitlePair titlePair = titlePairMap.getOrDefault(friendId, EquippedTitlePair.EMPTY);
                 return FriendResponse.from(
                     friendship,
                     userId,
                     friend != null ? friend.getNickname() : null,
                     friend != null ? friend.getPicture() : null,
                     levelMap.getOrDefault(friendId, 1),
-                    titleMap.get(friendId)
+                    titlePair.left(),
+                    titlePair.right()
                 );
             })
             .toList();
@@ -282,9 +288,41 @@ public class FriendService {
         return gamificationQueryFacadeService.getUserLevelMap(userIds);
     }
 
-    // 칭호 정보 조회 헬퍼 메서드 (LEFT 포지션의 칭호를 대표 칭호로 사용, 배치 조회)
-    private Map<String, String> getTitleMap(List<String> userIds) {
-        return gamificationQueryFacadeService.getEquippedLeftTitleNameMap(userIds);
+    // 좌/우 칭호 모두 배치 조회 (QA-93)
+    private Map<String, EquippedTitlePair> getEquippedTitlePairMap(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<UserTitleDto>> titlesByUser =
+            gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
+
+        return titlesByUser.entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                e -> EquippedTitlePair.from(e.getValue())
+            ));
+    }
+
+    /**
+     * 좌/우 장착 칭호 이름 페어.
+     */
+    private record EquippedTitlePair(String left, String right) {
+        static final EquippedTitlePair EMPTY = new EquippedTitlePair(null, null);
+
+        static EquippedTitlePair from(List<UserTitleDto> titles) {
+            String left = null;
+            String right = null;
+            if (titles != null) {
+                for (UserTitleDto t : titles) {
+                    if (t.equippedPosition() == TitlePosition.LEFT) {
+                        left = t.titleName();
+                    } else if (t.equippedPosition() == TitlePosition.RIGHT) {
+                        right = t.titleName();
+                    }
+                }
+            }
+            return new EquippedTitlePair(left, right);
+        }
     }
 
     // 받은 친구 요청 목록
