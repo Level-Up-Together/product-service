@@ -208,6 +208,89 @@ class MissionServiceTest {
         }
 
         @Test
+        @DisplayName("[QA-112] 미션의 daily_instance가 IN_PROGRESS이면 생성자도 삭제할 수 없다")
+        void deleteMission_byCreator_dailyInstanceInProgress_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("옷개키기")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionId(missionId)).thenReturn(false);
+            when(dailyMissionInstanceRepository.existsInProgressByMissionId(missionId)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_delete_in_progress");
+
+            verify(missionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[QA-112] 미션의 execution이 IN_PROGRESS이면 생성자도 삭제할 수 없다")
+        void deleteMission_byCreator_executionInProgress_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("옷개키기")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionId(missionId)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_delete_in_progress");
+
+            verify(missionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[QA-112] 시스템 미션 참여자에게 IN_PROGRESS 인스턴스가 있으면 철회되지 않는다")
+        void deleteMission_systemMission_userInProgress_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("시스템 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(ADMIN_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.SYSTEM);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(false);
+            when(dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.deleteMission(missionId, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
+
+            verify(missionParticipantService, never()).withdrawFromMission(anyLong(), anyString());
+        }
+
+        @Test
         @DisplayName("시스템 미션의 생성자(어드민)가 삭제하면 미션 자체가 삭제된다")
         void deleteMission_systemMissionCreator_deletesMission() {
             // given

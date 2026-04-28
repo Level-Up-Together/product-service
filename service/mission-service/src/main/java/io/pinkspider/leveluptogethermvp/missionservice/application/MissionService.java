@@ -501,8 +501,9 @@ public class MissionService {
     public void deleteMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
 
-        // 시스템 미션의 참여자인 경우: 참여 철회로 처리
+        // 시스템 미션의 참여자인 경우: 참여 철회로 처리 (이 사용자의 진행중 인스턴스 검사)
         if (mission.getSource() == MissionSource.SYSTEM && !mission.getCreatorId().equals(userId)) {
+            validateNoInProgressForUser(missionId, userId);
             missionParticipantService.withdrawFromMission(missionId, userId);
             log.info("시스템 미션 참여 철회: missionId={}, userId={}", missionId, userId);
             return;
@@ -523,6 +524,7 @@ public class MissionService {
             if (!mission.getStatus().isDeletable()) {
                 throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
             }
+            validateNoInProgressForMission(missionId);
             mission.delete();
             missionRepository.save(mission);
             log.info("미션 소프트 삭제: id={}, deletedBy={}", missionId, userId);
@@ -533,6 +535,27 @@ public class MissionService {
 
         // 그 외의 경우: 권한 없음
         throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
+    }
+
+    /**
+     * 미션에 진행 중(IN_PROGRESS) 수행/인스턴스가 존재하면 차단.
+     * QA-112: 수행중 인스턴스가 있는 부모 미션 삭제 시 orphan IN_PROGRESS row가 남아
+     * 이후 새 미션 시작이 영구 차단되는 문제 방지.
+     */
+    private void validateNoInProgressForMission(Long missionId) {
+        if (executionRepository.existsInProgressByMissionId(missionId)
+            || dailyMissionInstanceRepository.existsInProgressByMissionId(missionId)) {
+            throw new io.pinkspider.global.exception.CustomException(
+                "050102", "error.mission.cannot_delete_in_progress");
+        }
+    }
+
+    private void validateNoInProgressForUser(Long missionId, String userId) {
+        if (executionRepository.existsInProgressByMissionIdAndUserId(missionId, userId)
+            || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, userId)) {
+            throw new io.pinkspider.global.exception.CustomException(
+                "050103", "error.mission.cannot_withdraw_in_progress");
+        }
     }
 
     private Mission findMissionById(Long missionId) {

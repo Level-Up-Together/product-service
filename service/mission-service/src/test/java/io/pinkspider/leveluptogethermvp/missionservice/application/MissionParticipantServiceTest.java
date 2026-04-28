@@ -20,6 +20,8 @@ import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.time.LocalDateTime;
@@ -45,6 +47,12 @@ class MissionParticipantServiceTest {
 
     @Mock
     private MissionExecutionService missionExecutionService;
+
+    @Mock
+    private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @InjectMocks
     private MissionParticipantService missionParticipantService;
@@ -285,6 +293,61 @@ class MissionParticipantServiceTest {
             assertThatThrownBy(() -> missionParticipantService.withdrawFromMission(missionId, TEST_USER_ID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("미션 참여 정보를 찾을 수 없습니다.");
+        }
+
+        @Test
+        @DisplayName("[QA-112] IN_PROGRESS daily_instance가 있으면 철회할 수 없다")
+        void withdrawFromMission_dailyInstanceInProgress_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(executionRepository.existsInProgressByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(false);
+            when(dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionParticipantService.withdrawFromMission(missionId, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
+
+            assertThat(participant.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+        }
+
+        @Test
+        @DisplayName("[QA-112] IN_PROGRESS execution이 있으면 철회할 수 없다")
+        void withdrawFromMission_executionInProgress_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(participant, 1L);
+
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(executionRepository.existsInProgressByMissionIdAndUserId(missionId, TEST_USER_ID)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> missionParticipantService.withdrawFromMission(missionId, TEST_USER_ID))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.cannot_withdraw_in_progress");
+
+            assertThat(participant.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
         }
     }
 

@@ -94,6 +94,25 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     Optional<MissionExecution> findInProgressByUserId(@Param("userId") String userId);
 
     /**
+     * 미션의 IN_PROGRESS execution 존재 여부 (전체 참여자 대상, 삭제 차단 검사용)
+     */
+    @Query("SELECT COUNT(me) > 0 FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "WHERE p.mission.id = :missionId AND me.status = 'IN_PROGRESS'")
+    boolean existsInProgressByMissionId(@Param("missionId") Long missionId);
+
+    /**
+     * 특정 사용자의 미션 IN_PROGRESS execution 존재 여부 (참여 철회 차단 검사용)
+     */
+    @Query("SELECT COUNT(me) > 0 FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "WHERE p.mission.id = :missionId AND p.userId = :userId AND me.status = 'IN_PROGRESS'")
+    boolean existsInProgressByMissionIdAndUserId(
+        @Param("missionId") Long missionId,
+        @Param("userId") String userId
+    );
+
+    /**
      * 수행 기록 조회 (Participant, Mission, Category 함께 로드)
      * Saga 패턴에서 LazyInitializationException 방지를 위해 사용
      */

@@ -108,6 +108,25 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     Optional<DailyMissionInstance> findInProgressByUserId(@Param("userId") String userId);
 
     /**
+     * 미션의 IN_PROGRESS 인스턴스 존재 여부 (전체 참여자 대상, 삭제 차단 검사용)
+     */
+    @Query("SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "WHERE p.mission.id = :missionId AND dmi.status = 'IN_PROGRESS'")
+    boolean existsInProgressByMissionId(@Param("missionId") Long missionId);
+
+    /**
+     * 특정 사용자의 미션 IN_PROGRESS 인스턴스 존재 여부 (참여 철회 차단 검사용)
+     */
+    @Query("SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "WHERE p.mission.id = :missionId AND p.userId = :userId AND dmi.status = 'IN_PROGRESS'")
+    boolean existsInProgressByMissionIdAndUserId(
+        @Param("missionId") Long missionId,
+        @Param("userId") String userId
+    );
+
+    /**
      * 사용자의 특정 기간 인스턴스 조회
      */
     @Query("SELECT dmi FROM DailyMissionInstance dmi " +

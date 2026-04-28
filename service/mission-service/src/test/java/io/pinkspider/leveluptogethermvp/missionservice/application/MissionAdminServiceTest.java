@@ -18,6 +18,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParti
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +40,12 @@ class MissionAdminServiceTest {
 
     @Mock
     private MissionRepository missionRepository;
+
+    @Mock
+    private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @InjectMocks
     private MissionAdminService service;
@@ -226,6 +234,31 @@ class MissionAdminServiceTest {
 
             assertThatThrownBy(() -> service.deleteMission(999L))
                 .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName("[QA-112] IN_PROGRESS daily_instance가 있으면 어드민도 삭제할 수 없다")
+        void throwsWhenDailyInstanceInProgress() {
+            Mission mission = createTestMission(1L);
+            when(missionRepository.findById(1L)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionId(1L)).thenReturn(false);
+            when(dailyMissionInstanceRepository.existsInProgressByMissionId(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> service.deleteMission(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.cannot_delete_in_progress");
+        }
+
+        @Test
+        @DisplayName("[QA-112] IN_PROGRESS execution이 있으면 어드민도 삭제할 수 없다")
+        void throwsWhenExecutionInProgress() {
+            Mission mission = createTestMission(1L);
+            when(missionRepository.findById(1L)).thenReturn(Optional.of(mission));
+            when(executionRepository.existsInProgressByMissionId(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> service.deleteMission(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.cannot_delete_in_progress");
         }
     }
 

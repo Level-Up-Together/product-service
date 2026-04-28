@@ -5,6 +5,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.time.LocalDateTime;
@@ -23,6 +25,8 @@ public class MissionParticipantService {
     private final MissionRepository missionRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionExecutionService missionExecutionService;
+    private final MissionExecutionRepository executionRepository;
+    private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse joinMission(Long missionId, String userId) {
@@ -162,6 +166,14 @@ public class MissionParticipantService {
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionParticipantResponse withdrawFromMission(Long missionId, String userId) {
         MissionParticipant participant = findParticipantByMissionAndUser(missionId, userId);
+
+        // QA-112: 진행 중(IN_PROGRESS) 인스턴스/수행이 남아있으면 철회 차단
+        // (MissionService.deleteMission이 호출 전 검사하지만, 직접 호출 경로 보호용)
+        if (executionRepository.existsInProgressByMissionIdAndUserId(missionId, userId)
+            || dailyMissionInstanceRepository.existsInProgressByMissionIdAndUserId(missionId, userId)) {
+            throw new io.pinkspider.global.exception.CustomException(
+                "050103", "error.mission.cannot_withdraw_in_progress");
+        }
 
         participant.withdraw();
         log.info("미션 철회: missionId={}, userId={}", missionId, userId);

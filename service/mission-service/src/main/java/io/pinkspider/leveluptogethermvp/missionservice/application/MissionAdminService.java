@@ -11,6 +11,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionParti
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionAdminService {
 
     private final MissionRepository missionRepository;
+    private final MissionExecutionRepository executionRepository;
+    private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public MissionAdminPageResponse searchMissions(
@@ -184,6 +188,13 @@ public class MissionAdminService {
     public void deleteMission(Long id) {
         Mission mission = missionRepository.findById(id)
             .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+
+        // QA-112: 진행 중(IN_PROGRESS) 인스턴스/수행이 있으면 orphan 방지를 위해 차단
+        if (executionRepository.existsInProgressByMissionId(id)
+            || dailyMissionInstanceRepository.existsInProgressByMissionId(id)) {
+            throw new CustomException("050102", "error.mission.cannot_delete_in_progress");
+        }
+
         mission.delete();
         missionRepository.save(mission);
         log.info("미션 소프트 삭제 (Admin): ID={}", id);
