@@ -36,9 +36,16 @@ public class CustomerInquiryService {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
             String email = userQueryFacadeService.getUserEmail(userId);
 
+            // QA-94: HTTP 헤더 ISO-8859-1 한계 → 한글 닉네임은 Base64(UTF-8)로 별도 전달
+            String nickname = profile.nickname();
+            String nicknameB64 = nickname != null
+                ? java.util.Base64.getEncoder().encodeToString(nickname.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                : null;
+
             AdminInquiryApiResponse response = adminInquiryFeignClient.createInquiry(
                 userId,
-                profile.nickname(),
+                nickname,
+                nicknameB64,
                 email,
                 request
             );

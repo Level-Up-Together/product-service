@@ -85,7 +85,7 @@ class CustomerInquiryServiceTest {
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
             when(adminInquiryFeignClient.createInquiry(
-                eq(TEST_USER_ID), eq(profile.nickname()), eq(TEST_EMAIL), any(InquiryCreateRequest.class)
+                eq(TEST_USER_ID), eq(profile.nickname()), anyString(), eq(TEST_EMAIL), any(InquiryCreateRequest.class)
             )).thenReturn(apiResponse);
 
             // when
@@ -121,7 +121,7 @@ class CustomerInquiryServiceTest {
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
-            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), any()))
+            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), anyString(), any()))
                 .thenReturn(null);
 
             // when & then
@@ -140,7 +140,7 @@ class CustomerInquiryServiceTest {
             when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(profile);
             when(userQueryFacadeService.getUserEmail(TEST_USER_ID)).thenReturn(TEST_EMAIL);
-            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), any()))
+            when(adminInquiryFeignClient.createInquiry(anyString(), anyString(), anyString(), anyString(), any()))
                 .thenThrow(new RuntimeException("API 연결 실패"));
 
             // when & then
