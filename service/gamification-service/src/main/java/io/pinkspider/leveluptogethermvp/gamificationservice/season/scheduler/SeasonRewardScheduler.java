@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ public class SeasonRewardScheduler {
      * 시즌 종료 후 다음 날 새벽에 처리되도록 설정
      */
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
+    @SchedulerLock(name = "SeasonRewardScheduler_processEndedSeasonRewards", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void processEndedSeasonRewards() {
         log.info("시즌 종료 보상 처리 스케줄러 시작");
 

@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDevic
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +23,7 @@ public class TokenMaintenanceScheduler {
 
     // 매일 새벽 2시(KST)에 만료된 세션 정리
     @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
+    @SchedulerLock(name = "TokenMaintenanceScheduler_cleanupExpiredSessions", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     public void cleanupExpiredSessions() {
         try {
             Set<String> sessionKeys = redisTemplate.keys("session:*");
@@ -57,6 +59,7 @@ public class TokenMaintenanceScheduler {
     // 블랙리스트는 TTL로 자동 만료되므로 별도 정리 불필요
     // 대신 고아 세션(user_sessions에만 남아있는 세션) 정리
     @Scheduled(cron = "0 30 2 * * *", zone = "Asia/Seoul") // 매일 새벽 2시 30분(KST)
+    @SchedulerLock(name = "TokenMaintenanceScheduler_cleanupOrphanedUserSessions", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     public void cleanupOrphanedUserSessions() {
         try {
             Set<String> userSessionKeys = redisTemplate.keys("userSessions:*");

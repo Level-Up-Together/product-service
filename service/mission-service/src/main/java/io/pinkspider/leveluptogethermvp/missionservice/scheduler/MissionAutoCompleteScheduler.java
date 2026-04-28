@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissi
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -51,6 +52,7 @@ public class MissionAutoCompleteScheduler {
      * 5분마다 실행: 미션 자동 종료
      */
     @Scheduled(fixedRate = 300000) // 5분 = 300,000ms
+    @SchedulerLock(name = "MissionAutoCompleteScheduler_autoCompleteExpiredMissions", lockAtMostFor = "PT4M", lockAtLeastFor = "PT30S")
     @Transactional(transactionManager = "missionTransactionManager")
     public void autoCompleteExpiredMissions() {
         log.debug("=== 미션 자동 종료 스케줄러 시작 ===");

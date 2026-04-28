@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class DailyMissionInstanceScheduler {
      * - 오늘 인스턴스 생성
      */
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+    @SchedulerLock(name = "DailyMissionInstanceScheduler_generateDailyInstances", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     @Transactional(transactionManager = "missionTransactionManager")
     public void generateDailyInstances() {
         log.info("=== 고정 미션 일일 인스턴스 생성 스케줄러 시작 ===");

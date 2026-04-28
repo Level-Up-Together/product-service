@@ -103,6 +103,10 @@ dependencies {
     // GeoIP (user-service)
     implementation 'com.maxmind.geoip2:geoip2:4.2.0'
 
+    // ShedLock (멀티 인스턴스 스케줄러 분산 락)
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:5.16.0'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-redis-spring:5.16.0'
+
     // Test
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
