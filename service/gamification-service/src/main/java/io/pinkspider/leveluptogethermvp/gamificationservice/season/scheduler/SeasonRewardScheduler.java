@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Component
@@ -31,8 +31,8 @@ public class SeasonRewardScheduler {
         log.info("시즌 종료 보상 처리 스케줄러 시작");
 
         try {
-            // 종료된 시즌 중 보상 미처리 시즌 조회
-            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+            // 종료된 시즌 중 보상 미처리 시즌 조회 (DB의 end_at은 UTC로 저장됨)
+            LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             List<Season> endedSeasons = seasonRepository.findEndedSeasonsWithoutRewards(now);
 
             if (endedSeasons.isEmpty()) {

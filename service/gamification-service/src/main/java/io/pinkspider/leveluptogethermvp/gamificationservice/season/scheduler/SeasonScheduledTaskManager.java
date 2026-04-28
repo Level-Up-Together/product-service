@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,7 +36,9 @@ import java.util.concurrent.ScheduledFuture;
 @Slf4j
 public class SeasonScheduledTaskManager {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    // DB의 start_at/end_at은 UTC로 저장됨 (JVM/Hibernate UTC 설정).
+    // KST 기반으로 atZone() 하면 9시간 어긋나므로 반드시 UTC로 해석해야 함.
+    private static final ZoneOffset DB_ZONE = ZoneOffset.UTC;
 
     private final SeasonRepository seasonRepository;
     private final SeasonRewardHistoryRepository rewardHistoryRepository;
@@ -61,7 +63,7 @@ public class SeasonScheduledTaskManager {
     @EventListener(ApplicationReadyEvent.class)
     public void restorePendingSeasonTasks() {
         log.info("시즌 보상 작업 복원 시작");
-        LocalDateTime now = LocalDateTime.now(KST);
+        LocalDateTime now = LocalDateTime.now(DB_ZONE);
 
         // 활성 시즌 중 보상 미처리 + 미래 종료 또는 이미 종료된 시즌
         List<Season> seasons = seasonRepository.findEndedSeasonsWithoutRewards(now);
@@ -89,7 +91,8 @@ public class SeasonScheduledTaskManager {
         Long seasonId = season.getId();
         cancel(seasonId);
 
-        Instant endInstant = season.getEndAt().atZone(KST).toInstant();
+        // end_at은 UTC LocalDateTime이므로 UTC offset으로 Instant 변환
+        Instant endInstant = season.getEndAt().toInstant(DB_ZONE);
         Instant now = Instant.now();
 
         if (endInstant.isBefore(now)) {
@@ -105,7 +108,7 @@ public class SeasonScheduledTaskManager {
             endInstant
         );
         scheduledTasks.put(seasonId, future);
-        log.info("시즌 보상 작업 등록: seasonId={}, endAt={} (KST)", seasonId, season.getEndAt());
+        log.info("시즌 보상 작업 등록: seasonId={}, endAt={} (UTC)", seasonId, season.getEndAt());
     }
 
     /**

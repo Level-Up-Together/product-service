@@ -71,3 +71,4 @@ firebase-service-account.json
 /docs/keystore-prod-base64.txt
 /docs/prod-logs/
 /app/test-logs/
+/service/src/test/java/io/pinkspider/leveluptogethermvp/util/EmailDecryptionDebugTest.java
