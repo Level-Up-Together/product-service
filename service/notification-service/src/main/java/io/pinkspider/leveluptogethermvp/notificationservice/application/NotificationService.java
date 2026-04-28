@@ -286,6 +286,18 @@ public class NotificationService {
     // ==================== 편의 메서드 (특수 케이스) ====================
 
     /**
+     * 외부에서 들어온 push 메시지를 사용자 locale로 i18n 재구성 (QA-94).
+     * 결과 [title, message] 반환. 사용자 locale 조회 실패 시 default locale 사용.
+     */
+    @Transactional(readOnly = true, transactionManager = "notificationTransactionManager")
+    public String[] localizePushText(String userId, NotificationType type, Object... args) {
+        Locale userLocale = resolveUserLocale(userId);
+        String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale, args);
+        String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale, args);
+        return new String[] { title, message };
+    }
+
+    /**
      * 외부(예: admin-service)에서 Redis Stream으로 들어온 INQUIRY_REPLIED 알림을 in-app DB에 저장한다.
      * 푸시 알림은 이미 stream으로 발행되어 별도 Consumer가 FCM 처리하므로 여기서는 push 재발행하지 않는다.
      * 사용자 locale로 i18n 메시지 lookup. (QA-94)
@@ -293,26 +305,26 @@ public class NotificationService {
     @Transactional(transactionManager = "notificationTransactionManager")
     public void saveInquiryRepliedInApp(String userId, Long inquiryId, String inquiryTitle) {
         if (userId == null || userId.isBlank()) return;
+        NotificationType type = NotificationType.INQUIRY_REPLIED;
         Locale userLocale = resolveUserLocale(userId);
-        String title = resolveNotificationMessage("notification.inquiry_replied.title", userLocale);
-        String message = resolveNotificationMessage("notification.inquiry_replied.message", userLocale,
+        String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale);
+        String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale,
             inquiryTitle != null ? inquiryTitle : "");
 
         NotificationPreference pref = getOrCreatePreference(userId);
-        // SYSTEM 카테고리로 저장 (NotificationType enum에 INQUIRY_REPLIED를 추가하지 않은 상태에서의 차선)
-        if (!pref.isCategoryEnabled(NotificationType.SYSTEM.getCategory())) {
+        if (!pref.isCategoryEnabled(type.getCategory())) {
             log.debug("INQUIRY_REPLIED 알림 비활성화: userId={}", userId);
             return;
         }
 
         Notification notification = Notification.builder()
             .userId(userId)
-            .notificationType(NotificationType.SYSTEM)
+            .notificationType(type)
             .title(title)
             .message(message)
-            .referenceType("INQUIRY")
+            .referenceType(type.getReferenceType())
             .referenceId(inquiryId)
-            .actionUrl("/support/" + inquiryId)
+            .actionUrl(type.resolveActionUrl(inquiryId))
             .build();
         notificationRepository.save(notification);
         log.info("INQUIRY_REPLIED in-app 알림 저장: userId={}, inquiryId={}", userId, inquiryId);

@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.messaging.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.global.messaging.dto.AppPushMessageDto;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -42,9 +43,14 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
             // 외부 서비스(admin-service)에서 들어온 type별 후속 처리 (QA-94: in-app DB 저장)
             handleExternalNotificationType(message);
 
+            // QA-94: 일부 type은 사용자 locale로 push 텍스트 i18n 재구성
+            String[] localizedText = localizePushTextIfNeeded(message);
+            String title = localizedText != null ? localizedText[0] : message.getTitle();
+            String body = localizedText != null ? localizedText[1] : message.getBody();
+
             PushMessageRequest pushRequest = PushMessageRequest.full(
-                    message.getTitle(),
-                    message.getBody(),
+                    title,
+                    body,
                     message.getImageUrl(),
                     message.getClickAction(),
                     message.getData()
@@ -98,6 +104,37 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
             }
         } catch (Exception e) {
             log.error("외부 알림 type 처리 실패: type={}, error={}", type, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * INQUIRY_REPLIED 등 외부에서 발행된 알림의 push 텍스트를 사용자 locale로 i18n 재구성.
+     * NotificationType이 매핑되지 않거나 단일 사용자 대상이 아니면 null 반환 (원본 사용).
+     */
+    private String[] localizePushTextIfNeeded(AppPushMessageDto message) {
+        String typeStr = message.getNotificationType();
+        String userId = message.getUserId();
+        if (typeStr == null || userId == null || userId.isBlank()) return null;
+
+        NotificationType type;
+        try {
+            type = NotificationType.valueOf(typeStr);
+        } catch (IllegalArgumentException e) {
+            return null; // 알 수 없는 type은 원본 텍스트 사용
+        }
+
+        // 메시지 템플릿이 정의된 type만 i18n 재구성 대상
+        if (type.getDefaultTitle() == null || type.getMessageTemplate() == null) return null;
+
+        try {
+            // INQUIRY_REPLIED의 경우 body에 inquiry_title이 들어있음 → message arg로 사용
+            String[] result = notificationService.localizePushText(userId, type, message.getBody());
+            log.debug("Push 텍스트 i18n 재구성: userId={}, type={}", userId, type);
+            return result;
+        } catch (Exception e) {
+            log.warn("Push 텍스트 i18n 재구성 실패, 원본 사용: userId={}, type={}, error={}",
+                userId, type, e.getMessage());
+            return null;
         }
     }
 
