@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserDetailAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserGuildInfoAdminResponse;
@@ -254,6 +255,45 @@ public class UserAdminInternalService {
 
         log.info("사용자 블랙리스트 추가 - userId: {}, type: {}, reason: {}, adminId: {}",
             userId, type, request.reason(), request.adminId());
+        return UserBlacklistAdminResponse.from(blacklist);
+    }
+
+    /**
+     * 신고 처리(USER_SUSPENDED 액션)로 사용자를 정지시킨다.
+     * - suspension_count 증가
+     * - 누적이 permanentBanThreshold 이상이면 PERMANENT_BAN, 아니면 SUSPENSION(durationDays일)
+     */
+    @Transactional(transactionManager = "userTransactionManager")
+    public UserBlacklistAdminResponse suspendFromReport(String userId, UserSuspendFromReportRequest request) {
+        Users user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+
+        int newCount = user.incrementSuspensionCount();
+        userRepository.save(user);
+
+        boolean isPermanent = newCount >= request.permanentBanThreshold();
+        BlacklistType type = isPermanent ? BlacklistType.PERMANENT_BAN : BlacklistType.SUSPENSION;
+        LocalDateTime endedAt = isPermanent
+            ? null
+            : LocalDateTime.now().plusDays(request.durationDays());
+
+        userBlacklistRepository.deactivateAllByUserId(userId);
+        UserBlacklist blacklist = UserBlacklist.builder()
+            .userId(userId)
+            .blacklistType(type)
+            .reason(request.reason())
+            .adminId(request.adminId())
+            .startedAt(LocalDateTime.now())
+            .endedAt(endedAt)
+            .isActive(true)
+            .build();
+        userBlacklistRepository.save(blacklist);
+
+        user.updateStatus(isPermanent ? UserStatus.PERMANENTLY_BANNED : UserStatus.SUSPENDED);
+        userRepository.save(user);
+
+        log.info("신고 처리: 사용자 정지 - userId={}, type={}, suspensionCount={}, adminId={}",
+            userId, type, newCount, request.adminId());
         return UserBlacklistAdminResponse.from(blacklist);
     }
 

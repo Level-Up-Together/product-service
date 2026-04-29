@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
@@ -111,6 +112,15 @@ public class UserAdminInternalController {
             @RequestBody UserBlacklistAdminRequest request) {
         return ApiResult.<UserBlacklistAdminResponse>builder()
             .value(userAdminInternalService.addToBlacklist(userId, request))
+            .build();
+    }
+
+    @PostMapping("/{userId}/suspend-from-report")
+    public ApiResult<UserBlacklistAdminResponse> suspendFromReport(
+            @PathVariable String userId,
+            @RequestBody UserSuspendFromReportRequest request) {
+        return ApiResult.<UserBlacklistAdminResponse>builder()
+            .value(userAdminInternalService.suspendFromReport(userId, request))
             .build();
     }
 

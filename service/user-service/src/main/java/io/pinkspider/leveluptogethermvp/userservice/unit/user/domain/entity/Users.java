@@ -86,6 +86,20 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "preferred_feed_visibility", length = 20, nullable = false)
     private String preferredFeedVisibility = "PUBLIC";
 
+    /**
+     * 신고 처리로 정지된 누적 횟수. 영구강퇴 자동 전환 임계값 판정에 사용.
+     */
+    @lombok.Builder.Default
+    @Column(name = "suspension_count", nullable = false)
+    private Integer suspensionCount = 0;
+
+    /**
+     * 신고 처리로 받은 경고 누적 횟수. 자동 정지 임계값 판정에 사용.
+     */
+    @lombok.Builder.Default
+    @Column(name = "warning_count", nullable = false)
+    private Integer warningCount = 0;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -138,6 +152,28 @@ public class Users extends LocalDateTimeBaseEntity {
      */
     public void updateStatus(UserStatus status) {
         this.status = status;
+    }
+
+    /**
+     * 정지 카운트 증가 후 새 카운트 반환 (신고 처리 후크용)
+     */
+    public int incrementSuspensionCount() {
+        if (this.suspensionCount == null) {
+            this.suspensionCount = 0;
+        }
+        this.suspensionCount += 1;
+        return this.suspensionCount;
+    }
+
+    /**
+     * 경고 카운트 증가 후 새 카운트 반환 (신고 처리 후크용)
+     */
+    public int incrementWarningCount() {
+        if (this.warningCount == null) {
+            this.warningCount = 0;
+        }
+        this.warningCount += 1;
+        return this.warningCount;
     }
 
     /**
