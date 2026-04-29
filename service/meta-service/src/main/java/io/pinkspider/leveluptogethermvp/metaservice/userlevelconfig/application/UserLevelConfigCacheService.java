@@ -101,11 +101,14 @@ public class UserLevelConfigCacheService {
 
     /**
      * 레벨 설정 검색 (페이징)
+     * QA-99: keyword가 비어있을 때 searchByKeyword를 호출하면 Hibernate가 NULL을 bytea로
+     * binding하여 PostgreSQL grammar 에러 발생 → null/blank는 findAll로 분기.
      */
     public UserLevelConfigPageResponse searchLevelConfigs(String keyword, Pageable pageable) {
-        return UserLevelConfigPageResponse.from(
-            userLevelConfigRepository.searchByKeyword(keyword, pageable)
-                .map(UserLevelConfigResponse::from));
+        var page = (keyword == null || keyword.isBlank())
+            ? userLevelConfigRepository.findAll(pageable)
+            : userLevelConfigRepository.searchByKeyword(keyword, pageable);
+        return UserLevelConfigPageResponse.from(page.map(UserLevelConfigResponse::from));
     }
 
     /**

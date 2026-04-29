@@ -276,7 +276,8 @@ class GuildLevelConfigCacheServiceTest {
             GuildLevelConfig config2 = createGuildLevelConfig(2L, 2, 2000, 3000, 15);
             Pageable pageable = PageRequest.of(0, 10);
             Page<GuildLevelConfig> page = new PageImpl<>(List.of(config1, config2), pageable, 2);
-            when(guildLevelConfigRepository.searchByKeyword(null, pageable)).thenReturn(page);
+            // QA-99: keyword가 null이면 findAll로 분기 (Hibernate NULL bytea binding 이슈 회피)
+            when(guildLevelConfigRepository.findAll(pageable)).thenReturn(page);
 
             // when
             var result = guildLevelConfigCacheService.searchLevelConfigs(null, pageable);

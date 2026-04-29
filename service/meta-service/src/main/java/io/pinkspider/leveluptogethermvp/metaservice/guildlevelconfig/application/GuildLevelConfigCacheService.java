@@ -95,11 +95,14 @@ public class GuildLevelConfigCacheService {
 
     /**
      * 길드 레벨 설정 검색 (페이징)
+     * QA-99: keyword가 비어있을 때 searchByKeyword를 호출하면 Hibernate가 NULL을 bytea로
+     * binding하여 PostgreSQL grammar 에러 발생 → null/blank는 findAll로 분기.
      */
     public GuildLevelConfigPageResponse searchLevelConfigs(String keyword, Pageable pageable) {
-        return GuildLevelConfigPageResponse.from(
-            guildLevelConfigRepository.searchByKeyword(keyword, pageable)
-                .map(GuildLevelConfigResponse::from));
+        var page = (keyword == null || keyword.isBlank())
+            ? guildLevelConfigRepository.findAll(pageable)
+            : guildLevelConfigRepository.searchByKeyword(keyword, pageable);
+        return GuildLevelConfigPageResponse.from(page.map(GuildLevelConfigResponse::from));
     }
 
     /**
