@@ -11,10 +11,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
@@ -47,6 +49,12 @@ class AttendanceServiceTest {
 
     @Mock
     private UserExperienceService userExperienceService;
+
+    @Mock
+    private UserStatsService userStatsService;
+
+    @Mock
+    private AchievementService achievementService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -108,6 +116,9 @@ class AttendanceServiceTest {
             verify(attendanceRecordRepository).saveAndFlush(any(AttendanceRecord.class));
             verify(userExperienceService).addExperience(
                 eq(TEST_USER_ID), anyInt(), eq(ExpSourceType.EVENT), anyLong(), anyString(), eq("기타"));
+            // QA-113 / B11: 출석 시 user_stats streak 갱신 + 업적 체크가 트리거되어야 한다
+            verify(userStatsService).recordAttendance(TEST_USER_ID, today);
+            verify(achievementService).checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
         }
 
         @Test

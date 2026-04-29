@@ -127,9 +127,10 @@ public class AchievementService {
      * 유저의 모든 업적을 체크하고 완료된 업적의 보상을 자동으로 수령합니다.
      * 홈 화면 접근 시 호출되어 기존 유저들의 업적을 소급 적용합니다.
      * @param userId 사용자 ID
+     * @return 동기화 성공 여부 (false 면 부분 또는 전체 실패)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void syncUserAchievements(String userId) {
+    public boolean syncUserAchievements(String userId) {
         log.info("업적 동기화 시작: userId={}", userId);
 
         try {
@@ -140,8 +141,10 @@ public class AchievementService {
             autoClaimRewards(userId);
 
             log.info("업적 동기화 완료: userId={}", userId);
+            return true;
         } catch (Exception e) {
             log.error("업적 동기화 실패: userId={}, error={}", userId, e.getMessage(), e);
+            return false;
         }
     }
 
@@ -249,56 +252,63 @@ public class AchievementService {
 
     /**
      * Strategy를 사용하여 동적으로 업적 조건을 체크하고 진행도를 업데이트합니다.
+     *
+     * QA-113 / B10:
+     *   기존 구현은 isCompleted=true 인 경우 곧바로 return 하여 currentCount가 stale 상태로 남았다.
+     *   현재 구현은 isCompleted=true 인 경우에도 currentCount 만 최신 값으로 갱신해 stale 표시를 막는다.
+     *   완료 트리거(이벤트 + recordAchievementCompleted) 는 신규 완료 시 1회만 발생하며,
+     *   이미 보상을 받은(isRewardClaimed=true) 행은 절대 재수령되지 않는다.
      */
     private void checkAndUpdateAchievementDynamic(String userId, Achievement achievement, AchievementCheckStrategy strategy) {
         if (!achievement.getIsActive()) {
             return;
         }
 
-        // 이미 완료된 업적은 스킵
         Optional<UserAchievement> existingOpt = userAchievementRepository.findByUserIdAndAchievementId(userId, achievement.getId());
-        if (existingOpt.isPresent() && existingOpt.get().getIsCompleted()) {
+        boolean alreadyCompleted = existingOpt.isPresent() && Boolean.TRUE.equals(existingOpt.get().getIsCompleted());
+
+        // 이미 완료된 행은 currentCount 만 stale 보정하고 종료 (보상 재수령 금지)
+        if (alreadyCompleted) {
+            Object currentValue = strategy.fetchCurrentValue(userId, achievement);
+            if (currentValue instanceof Number n) {
+                UserAchievement existing = existingOpt.get();
+                int latest = n.intValue();
+                if (existing.getCurrentCount() == null || existing.getCurrentCount() != latest) {
+                    existing.setCount(latest); // setCount 는 isCompleted=true 인 경우 재트리거하지 않음
+                }
+            }
             return;
         }
 
-        // Strategy를 통해 조건 체크
+        // 미완료 행: Strategy 기반 조건 체크 + 진행도 갱신
         boolean conditionMet = strategy.checkCondition(userId, achievement);
 
         if (conditionMet) {
-            // 조건 충족 시 업적 완료 처리
             UserAchievement userAchievement = existingOpt.orElseGet(() -> getOrCreateUserAchievement(userId, achievement));
 
-            if (!userAchievement.getIsCompleted()) {
-                // 현재 값을 가져와서 count 업데이트
-                Object currentValue = strategy.fetchCurrentValue(userId, achievement.getCheckLogicDataField());
-                if (currentValue instanceof Number) {
-                    userAchievement.setCount(((Number) currentValue).intValue());
-                } else if (currentValue instanceof Boolean && (Boolean) currentValue) {
-                    userAchievement.setCount(1);
-                }
+            Object currentValue = strategy.fetchCurrentValue(userId, achievement);
+            if (currentValue instanceof Number n) {
+                userAchievement.setCount(n.intValue());
+            } else if (currentValue instanceof Boolean b && Boolean.TRUE.equals(b)) {
+                userAchievement.setCount(1);
+            }
 
-                if (userAchievement.getIsCompleted()) {
-                    userStatsService.recordAchievementCompleted(userId);
-                    log.info("동적 업적 달성! userId={}, achievement={}", userId, achievement.getName());
-
-                    // 숨김 업적은 알림을 보내지 않음
-                    if (!Boolean.TRUE.equals(achievement.getIsHidden())) {
-                        eventPublisher.publishEvent(new AchievementCompletedEvent(
-                            userId,
-                            achievement.getId(),
-                            achievement.getName()
-                        ));
-                    }
+            if (Boolean.TRUE.equals(userAchievement.getIsCompleted())) {
+                userStatsService.recordAchievementCompleted(userId);
+                log.info("동적 업적 달성! userId={}, achievement={}", userId, achievement.getName());
+                if (!Boolean.TRUE.equals(achievement.getIsHidden())) {
+                    eventPublisher.publishEvent(new AchievementCompletedEvent(
+                        userId,
+                        achievement.getId(),
+                        achievement.getName()
+                    ));
                 }
             }
         } else {
-            // 조건 미충족이더라도 진행도 업데이트
-            Object currentValue = strategy.fetchCurrentValue(userId, achievement.getCheckLogicDataField());
-            if (currentValue instanceof Number) {
+            Object currentValue = strategy.fetchCurrentValue(userId, achievement);
+            if (currentValue instanceof Number n) {
                 UserAchievement userAchievement = existingOpt.orElseGet(() -> getOrCreateUserAchievement(userId, achievement));
-                if (!userAchievement.getIsCompleted()) {
-                    userAchievement.setCount(((Number) currentValue).intValue());
-                }
+                userAchievement.setCount(n.intValue());
             }
         }
     }

@@ -3,10 +3,12 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.attendance.applicat
 import static io.pinkspider.leveluptogethermvp.metaservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
 import io.pinkspider.global.event.AttendanceStreakEvent;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AttendanceRecordRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.entity.AttendanceRewardConfig;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.domain.enums.AttendanceRewardType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.domain.dto.AttendanceCheckInResponse;
@@ -39,6 +41,8 @@ public class AttendanceService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceRewardConfigCacheService rewardConfigCacheService;
     private final UserExperienceService userExperienceService;
+    private final UserStatsService userStatsService;
+    private final AchievementService achievementService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
 
@@ -96,6 +100,14 @@ public class AttendanceService {
                 "출석 체크 보상" + (consecutiveDays > 1 ? " (" + consecutiveDays + "일 연속)" : ""),
                 DEFAULT_CATEGORY_NAME
             );
+        }
+
+        // QA-113 / B11: user_stats streak 갱신 + USER_STATS 기반 업적 체크
+        userStatsService.recordAttendance(userId, today);
+        try {
+            achievementService.checkAchievementsByDataSource(userId, "USER_STATS");
+        } catch (Exception e) {
+            log.error("출석 후 업적 체크 실패: userId={}, error={}", userId, e.getMessage(), e);
         }
 
         // 연속 출석 마일스톤 달성 시 피드 프로젝션 이벤트 발행

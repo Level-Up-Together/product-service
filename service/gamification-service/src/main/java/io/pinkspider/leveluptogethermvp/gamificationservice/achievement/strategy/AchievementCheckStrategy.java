@@ -25,6 +25,15 @@ public interface AchievementCheckStrategy {
     Object fetchCurrentValue(String userId, String dataField);
 
     /**
+     * Achievement 컨텍스트 기반으로 현재 값을 조회합니다.
+     * 일반 Strategy는 dataField만 사용하지만, USER_CATEGORY_EXPERIENCE 처럼 추가 컨텍스트(missionCategoryId)가
+     * 필요한 경우 이 메서드를 오버라이드해서 Achievement 정보를 사용합니다.
+     */
+    default Object fetchCurrentValue(String userId, Achievement achievement) {
+        return fetchCurrentValue(userId, achievement.getCheckLogicDataField());
+    }
+
+    /**
      * 업적 달성 조건을 체크합니다.
      *
      * @param userId      사용자 ID

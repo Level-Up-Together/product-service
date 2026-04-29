@@ -91,6 +91,10 @@ public class UserAdminInternalService {
         Users user = userRepository.findById(userId)
             .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
+        // QA-113: 어드민 상세 조회 시 stale 데이터 방지를 위해 업적 동기화
+        LocalDateTime achievementSyncedAt = LocalDateTime.now();
+        boolean achievementSyncSucceeded = gamificationQueryFacadeService.syncUserAchievements(userId);
+
         List<UserTitleAdminResponse> titles = buildTitleResponses(userId);
         List<UserAchievementAdminResponse> achievements = buildAchievementResponses(userId);
         List<UserBlacklistAdminResponse> blacklistHistory = userBlacklistRepository
@@ -118,6 +122,8 @@ public class UserAdminInternalService {
             .modifiedAt(user.getModifiedAt())
             .titles(titles)
             .achievements(achievements)
+            .achievementSyncedAt(achievementSyncedAt)
+            .achievementSyncSucceeded(achievementSyncSucceeded)
             .blacklistHistory(blacklistHistory)
             .activeBlacklist(activeBlacklist)
             .build();
@@ -136,6 +142,8 @@ public class UserAdminInternalService {
         if (!userRepository.existsById(userId)) {
             throw new CustomException("404", "error.user.not_found");
         }
+        // QA-113: 어드민 조회 시 stale 데이터 방지를 위해 동기화 후 반환
+        gamificationQueryFacadeService.syncUserAchievements(userId);
         return buildAchievementResponses(userId);
     }
 

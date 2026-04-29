@@ -238,7 +238,7 @@ class AchievementServiceTest {
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(anyString(), any(Achievement.class))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(anyString(), anyString())).thenReturn(5);
+            when(mockStrategy.fetchCurrentValue(anyString(), any(Achievement.class))).thenReturn(5);
             when(userAchievementRepository.findByUserIdAndAchievementId(anyString(), anyLong()))
                 .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
@@ -272,7 +272,7 @@ class AchievementServiceTest {
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
             // fetchCurrentValue가 10 이상 반환하면 setCount 후 completion이 트리거됨
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, "totalMissionCompletions")).thenReturn(15);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(15);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
                 .thenReturn(Optional.of(userAchievement));
 
@@ -486,7 +486,7 @@ class AchievementServiceTest {
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
             when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, "totalMissionCompletions")).thenReturn(10);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
                 .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))

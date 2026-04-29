@@ -115,6 +115,11 @@ public class UserStats extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer guildJoinCount = 0;
 
+    @Column(name = "total_comments_received", nullable = false)
+    @Comment("받은 총 댓글 수 (피드+미션)")
+    @Builder.Default
+    private Long totalCommentsReceived = 0L;
+
     public void incrementMissionCompletion() {
         this.totalMissionCompletions++;
         updateRankingPoints();
@@ -199,6 +204,16 @@ public class UserStats extends LocalDateTimeBaseEntity {
 
     public void incrementGuildJoinCount() {
         this.guildJoinCount++;
+    }
+
+    public void incrementCommentsReceived() {
+        this.totalCommentsReceived++;
+    }
+
+    public void decrementCommentsReceived() {
+        if (this.totalCommentsReceived > 0) {
+            this.totalCommentsReceived--;
+        }
     }
 
     private void updateRankingPoints() {

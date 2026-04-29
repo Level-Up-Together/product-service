@@ -4,6 +4,7 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
@@ -21,6 +22,9 @@ class UserStatsCheckStrategyTest {
 
     @Mock
     private UserStatsRepository userStatsRepository;
+
+    @Mock
+    private GuildQueryFacade guildQueryFacade;
 
     @InjectMocks
     private UserStatsCheckStrategy strategy;
@@ -199,6 +203,63 @@ class UserStatsCheckStrategyTest {
 
             // then
             assertThat(result).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("friendCount alias 값을 반환한다")
+        void fetchCurrentValue_friendCount() {
+            UserStats stats = UserStats.builder().userId(TEST_USER_ID).friendCount(11).build();
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "friendCount")).isEqualTo(11);
+        }
+
+        @Test
+        @DisplayName("receivedLikeCount alias는 totalLikesReceived 값을 반환한다")
+        void fetchCurrentValue_receivedLikeCount_alias() {
+            UserStats stats = UserStats.builder().userId(TEST_USER_ID).totalLikesReceived(42L).build();
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "receivedLikeCount")).isEqualTo(42L);
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "totalLikesReceived")).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("maxStreakDays alias는 maxStreak 값을 반환한다")
+        void fetchCurrentValue_maxStreakDays_alias() {
+            UserStats stats = createTestUserStats(0, 0, 9);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "maxStreakDays")).isEqualTo(9);
+        }
+
+        @Test
+        @DisplayName("guildMissionCount alias는 totalGuildMissionCompletions 값을 반환한다")
+        void fetchCurrentValue_guildMissionCount_alias() {
+            UserStats stats = createTestUserStats(0, 0, 0);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "guildMissionCount")).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("isGuildMaster: 길드 마스터인 멤버십이 있으면 1을 반환한다")
+        void fetchCurrentValue_isGuildMaster_true() {
+            io.pinkspider.global.facade.dto.GuildMembershipInfo m1 =
+                new io.pinkspider.global.facade.dto.GuildMembershipInfo(1L, "g1", null, 1, true, false);
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(java.util.List.of(m1));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster")).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("isGuildMaster: 마스터 멤버십이 없으면 0을 반환한다")
+        void fetchCurrentValue_isGuildMaster_false() {
+            io.pinkspider.global.facade.dto.GuildMembershipInfo m1 =
+                new io.pinkspider.global.facade.dto.GuildMembershipInfo(1L, "g1", null, 1, false, true);
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(java.util.List.of(m1));
+
+            assertThat(strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster")).isEqualTo(0);
         }
 
         @Test

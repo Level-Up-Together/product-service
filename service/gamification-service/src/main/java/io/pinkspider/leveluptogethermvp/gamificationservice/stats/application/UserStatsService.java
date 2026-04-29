@@ -44,6 +44,19 @@ public class UserStatsService {
         log.debug("미션 완료 기록: userId={}, totalCompletions={}", userId, stats.getTotalMissionCompletions());
     }
 
+    /**
+     * 출석 체크 시 호출. user_stats의 currentStreak/maxStreak/lastActivityDate를 갱신한다.
+     * QA-113 / B11: 기존에는 attendance_record만 갱신되어 USER_STATS 기반 streak 업적이
+     * 트리거되지 않던 문제 해결.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void recordAttendance(String userId, LocalDate attendanceDate) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.updateStreak(attendanceDate);
+        log.debug("출석 streak 갱신: userId={}, currentStreak={}, maxStreak={}",
+            userId, stats.getCurrentStreak(), stats.getMaxStreak());
+    }
+
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void undoMissionCompletion(String userId, boolean isGuildMission) {
         UserStats stats = getOrCreateUserStats(userId);
@@ -114,6 +127,18 @@ public class UserStatsService {
     public void decrementFriendCount(String userId) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.decrementFriendCount();
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void incrementCommentsReceived(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.incrementCommentsReceived();
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void decrementCommentsReceived(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.decrementCommentsReceived();
     }
 
     /**

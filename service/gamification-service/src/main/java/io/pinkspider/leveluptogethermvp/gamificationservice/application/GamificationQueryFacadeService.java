@@ -197,6 +197,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             .toList();
     }
 
+    @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public boolean syncUserAchievements(String userId) {
+        return achievementService.syncUserAchievements(userId);
+    }
+
     // ========== 경험치 WRITE (Saga step용) ==========
 
     @Override

@@ -27,40 +27,67 @@ public class UserCategoryExperienceCheckStrategy implements AchievementCheckStra
 
     @Override
     public Object fetchCurrentValue(String userId, String dataField) {
+        // dataField가 'category_{id}' 형식인 경우만 처리. 'categoryExp' 형식은 Achievement 컨텍스트가 필요하므로
+        // fetchCurrentValue(userId, achievement) 오버라이드 경로를 사용해야 한다.
         Long categoryId = extractCategoryId(dataField);
         if (categoryId == null) {
-            log.warn("잘못된 dataField 형식: {}. 'category_{{id}}' 형식이어야 합니다.", dataField);
+            log.warn("dataField={}만으로 카테고리 ID를 결정할 수 없습니다. " +
+                "'category_{{id}}' 형식을 사용하거나 fetchCurrentValue(userId, achievement) 경로로 호출하세요.", dataField);
             return 0L;
         }
+        return loadCategoryExp(userId, categoryId);
+    }
 
-        Long totalExp = userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
-            .map(exp -> exp.getTotalExp())
-            .orElse(0L);
-
-        log.debug("카테고리별 경험치 조회: userId={}, categoryId={}, totalExp={}", userId, categoryId, totalExp);
-        return totalExp;
+    @Override
+    public Object fetchCurrentValue(String userId, Achievement achievement) {
+        Long categoryId = resolveCategoryId(achievement);
+        if (categoryId == null) {
+            log.warn("USER_CATEGORY_EXPERIENCE: 카테고리 ID 결정 실패. achievementId={}, dataField={}, missionCategoryId={}",
+                achievement.getId(), achievement.getCheckLogicDataField(), achievement.getMissionCategoryId());
+            return 0L;
+        }
+        return loadCategoryExp(userId, categoryId);
     }
 
     @Override
     public boolean checkCondition(String userId, Achievement achievement) {
-        String dataField = achievement.getCheckLogicDataField();
-        if (dataField == null) {
+        Long categoryId = resolveCategoryId(achievement);
+        if (categoryId == null) {
             return false;
         }
 
-        Object currentValue = fetchCurrentValue(userId, dataField);
-        if (!(currentValue instanceof Number)) {
-            return false;
-        }
+        Long currentValue = loadCategoryExp(userId, categoryId);
 
         ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
         int requiredCount = achievement.getRequiredCount();
 
-        boolean result = operator.compare((Number) currentValue, requiredCount);
-        log.debug("UserCategoryExperience 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
-            userId, dataField, currentValue, requiredCount, operator, result);
+        boolean result = operator.compare(currentValue, requiredCount);
+        log.debug("UserCategoryExperience 조건 체크: userId={}, categoryId={}, current={}, required={}, operator={}, result={}",
+            userId, categoryId, currentValue, requiredCount, operator, result);
 
         return result;
+    }
+
+    private Long loadCategoryExp(String userId, Long categoryId) {
+        Long totalExp = userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
+            .map(exp -> exp.getTotalExp())
+            .orElse(0L);
+        log.debug("카테고리별 경험치 조회: userId={}, categoryId={}, totalExp={}", userId, categoryId, totalExp);
+        return totalExp;
+    }
+
+    /**
+     * Achievement 컨텍스트에서 카테고리 ID를 결정.
+     * 1) dataField='category_{id}' 형식이면 dataField에서 추출
+     * 2) dataField='categoryExp' 또는 그 외 일반 키워드면 Achievement.missionCategoryId 사용
+     */
+    private Long resolveCategoryId(Achievement achievement) {
+        String dataField = achievement.getCheckLogicDataField();
+        Long fromDataField = extractCategoryId(dataField);
+        if (fromDataField != null) {
+            return fromDataField;
+        }
+        return achievement.getMissionCategoryId();
     }
 
     /**

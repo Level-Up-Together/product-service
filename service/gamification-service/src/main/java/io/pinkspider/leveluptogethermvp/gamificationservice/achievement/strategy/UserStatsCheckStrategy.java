@@ -1,9 +1,12 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.ComparisonOperator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Component;
 public class UserStatsCheckStrategy implements AchievementCheckStrategy {
 
     private final UserStatsRepository userStatsRepository;
+    private final GuildQueryFacade guildQueryFacade;
 
     @Override
     public String getDataSource() {
@@ -26,6 +30,11 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
 
     @Override
     public Object fetchCurrentValue(String userId, String dataField) {
+        // 길드 마스터 여부는 user_stats 컬럼이 아니므로 별도 처리
+        if ("isGuildMaster".equals(dataField)) {
+            return isGuildMaster(userId) ? 1 : 0;
+        }
+
         UserStats userStats = userStatsRepository.findByUserId(userId).orElse(null);
         if (userStats == null) {
             return 0;
@@ -34,18 +43,36 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
         return switch (dataField) {
             case "totalMissionCompletions" -> userStats.getTotalMissionCompletions();
             case "totalMissionFullCompletions" -> userStats.getTotalMissionFullCompletions();
-            case "totalGuildMissionCompletions" -> userStats.getTotalGuildMissionCompletions();
+            // 길드 미션 카운트: 마스터 데이터의 alias("guildMissionCount") + 표준 필드명 모두 지원
+            case "totalGuildMissionCompletions", "guildMissionCount" -> userStats.getTotalGuildMissionCompletions();
             case "currentStreak" -> userStats.getCurrentStreak();
-            case "maxStreak" -> userStats.getMaxStreak();
+            // 최대 연속일: alias("maxStreakDays") + 표준 필드명 모두 지원
+            case "maxStreak", "maxStreakDays" -> userStats.getMaxStreak();
             case "totalAchievementsCompleted" -> userStats.getTotalAchievementsCompleted();
             case "totalTitlesAcquired" -> userStats.getTotalTitlesAcquired();
             case "maxCompletedMissionDuration" -> userStats.getMaxCompletedMissionDuration();
             case "guildJoinCount" -> userStats.getGuildJoinCount();
+            case "friendCount" -> userStats.getFriendCount();
+            // 받은 좋아요 수: alias("receivedLikeCount") + 표준 필드명 모두 지원
+            case "totalLikesReceived", "receivedLikeCount" -> userStats.getTotalLikesReceived();
+            // 받은 댓글 수: alias("receivedCommentCount") + 표준 필드명 모두 지원
+            case "totalCommentsReceived", "receivedCommentCount", "commentsReceived" ->
+                userStats.getTotalCommentsReceived();
             default -> {
                 log.warn("알 수 없는 dataField: {}", dataField);
                 yield 0;
             }
         };
+    }
+
+    private boolean isGuildMaster(String userId) {
+        try {
+            List<GuildMembershipInfo> memberships = guildQueryFacade.getUserGuildMemberships(userId);
+            return memberships != null && memberships.stream().anyMatch(GuildMembershipInfo::isMaster);
+        } catch (Exception e) {
+            log.warn("길드 마스터 여부 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
     }
 
     @Override

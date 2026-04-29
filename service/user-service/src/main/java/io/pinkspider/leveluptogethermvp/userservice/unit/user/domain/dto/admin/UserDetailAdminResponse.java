@@ -23,6 +23,8 @@ public record UserDetailAdminResponse(
     LocalDateTime modifiedAt,
     List<UserTitleAdminResponse> titles,
     List<UserAchievementAdminResponse> achievements,
+    LocalDateTime achievementSyncedAt,
+    boolean achievementSyncSucceeded,
     List<UserBlacklistAdminResponse> blacklistHistory,
     UserBlacklistAdminResponse activeBlacklist
 ) {
