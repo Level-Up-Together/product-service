@@ -111,6 +111,8 @@ class UserAdminInternalControllerTest {
                                 fieldWithPath("value.content[].last_login_country").type(JsonFieldType.STRING).description("마지막 로그인 국가").optional(),
                                 fieldWithPath("value.content[].last_login_country_code").type(JsonFieldType.STRING).description("국가 코드").optional(),
                                 fieldWithPath("value.content[].last_login_at").type(JsonFieldType.STRING).description("마지막 로그인 시각").optional(),
+                                fieldWithPath("value.content[].warning_count").type(JsonFieldType.NUMBER).description("신고 처리 경고 누적 횟수").optional(),
+                                fieldWithPath("value.content[].suspension_count").type(JsonFieldType.NUMBER).description("신고 처리 정지 누적 횟수").optional(),
                                 fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("생성 시각").optional(),
                                 fieldWithPath("value.content[].modified_at").type(JsonFieldType.STRING).description("수정 시각").optional(),
                                 fieldWithPath("value.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
@@ -172,6 +174,8 @@ class UserAdminInternalControllerTest {
                                 fieldWithPath("value.last_login_country").type(JsonFieldType.STRING).description("국가").optional(),
                                 fieldWithPath("value.last_login_country_code").type(JsonFieldType.STRING).description("국가 코드").optional(),
                                 fieldWithPath("value.last_login_at").type(JsonFieldType.STRING).description("마지막 로그인 시각").optional(),
+                                fieldWithPath("value.warning_count").type(JsonFieldType.NUMBER).description("신고 처리 경고 누적 횟수").optional(),
+                                fieldWithPath("value.suspension_count").type(JsonFieldType.NUMBER).description("신고 처리 정지 누적 횟수").optional(),
                                 fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성 시각").optional(),
                                 fieldWithPath("value.modified_at").type(JsonFieldType.STRING).description("수정 시각").optional()
                             )
