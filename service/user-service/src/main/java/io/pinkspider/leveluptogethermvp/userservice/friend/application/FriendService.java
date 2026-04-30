@@ -238,7 +238,9 @@ public class FriendService {
                 friend != null ? friend.getPicture() : null,
                 levelMap.getOrDefault(friendId, 1),
                 titlePair.left(),
-                titlePair.right()
+                titlePair.leftRarity(),
+                titlePair.right(),
+                titlePair.rightRarity()
             );
         });
     }
@@ -271,7 +273,9 @@ public class FriendService {
                     friend != null ? friend.getPicture() : null,
                     levelMap.getOrDefault(friendId, 1),
                     titlePair.left(),
-                    titlePair.right()
+                    titlePair.leftRarity(),
+                    titlePair.right(),
+                    titlePair.rightRarity()
                 );
             })
             .toList();
@@ -304,24 +308,34 @@ public class FriendService {
     }
 
     /**
-     * 좌/우 장착 칭호 이름 페어.
+     * 좌/우 장착 칭호 이름 + 등급 페어.
+     * QA-114: 칭호 등급(rarity)도 함께 내려줘서 프론트가 등급별 색상을 적용할 수 있게 함.
      */
-    private record EquippedTitlePair(String left, String right) {
-        static final EquippedTitlePair EMPTY = new EquippedTitlePair(null, null);
+    private record EquippedTitlePair(
+        String left,
+        String leftRarity,
+        String right,
+        String rightRarity
+    ) {
+        static final EquippedTitlePair EMPTY = new EquippedTitlePair(null, null, null, null);
 
         static EquippedTitlePair from(List<UserTitleDto> titles) {
             String left = null;
+            String leftRarity = null;
             String right = null;
+            String rightRarity = null;
             if (titles != null) {
                 for (UserTitleDto t : titles) {
                     if (t.equippedPosition() == TitlePosition.LEFT) {
                         left = t.titleName();
+                        leftRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     } else if (t.equippedPosition() == TitlePosition.RIGHT) {
                         right = t.titleName();
+                        rightRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     }
                 }
             }
-            return new EquippedTitlePair(left, right);
+            return new EquippedTitlePair(left, leftRarity, right, rightRarity);
         }
     }
 

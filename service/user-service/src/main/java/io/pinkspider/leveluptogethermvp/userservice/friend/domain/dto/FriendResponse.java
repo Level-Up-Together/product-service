@@ -25,15 +25,21 @@ public class FriendResponse {
     private String friendTitle;
     /** 좌측 칭호 (QA-93: 명시적으로 분리). */
     private String friendTitleLeft;
+    /** 좌측 칭호 등급 (QA-114: 등급별 색상 적용용). 예: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY */
+    private String friendTitleLeftRarity;
     /** 우측 칭호 (QA-93). */
     private String friendTitleRight;
+    /** 우측 칭호 등급 (QA-114). */
+    private String friendTitleRightRarity;
     private FriendshipStatus status;
     private LocalDateTime friendsSince;
     private Boolean isOnline;
 
     public static FriendResponse from(Friendship friendship, String currentUserId,
                                        String friendNickname, String profileImageUrl,
-                                       Integer level, String leftTitle, String rightTitle) {
+                                       Integer level,
+                                       String leftTitle, String leftTitleRarity,
+                                       String rightTitle, String rightTitleRarity) {
         String friendId = friendship.getUserId().equals(currentUserId)
             ? friendship.getFriendId()
             : friendship.getUserId();
@@ -46,7 +52,9 @@ public class FriendResponse {
             .friendLevel(level)
             .friendTitle(leftTitle)
             .friendTitleLeft(leftTitle)
+            .friendTitleLeftRarity(leftTitleRarity)
             .friendTitleRight(rightTitle)
+            .friendTitleRightRarity(rightTitleRarity)
             .status(friendship.getStatus())
             .friendsSince(friendship.getAcceptedAt())
             .build();
