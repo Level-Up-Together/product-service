@@ -116,6 +116,8 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/mypage/profile/{userId}").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/mypage/nickname/check").permitAll()  // QA-108: 신규 가입 닉네임 중복 체크
+                    .requestMatchers(HttpMethod.GET, "/api/v1/notices").permitAll()                 // QA-117: 비로그인 공지사항 목록
+                    .requestMatchers(HttpMethod.GET, "/api/v1/notices/{id}").permitAll()            // QA-117: 비로그인 공지사항 상세
 
                     // 관리자 전용 API
                     .requestMatchers("/api/v1/users/experience/levels").hasRole("ADMIN")
