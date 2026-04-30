@@ -82,6 +82,19 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "is_banned", nullable = false)
+    @Comment("신고 처리로 차단 여부")
+    @Builder.Default
+    private Boolean isBanned = false;
+
+    @Column(name = "banned_at")
+    @Comment("차단 시각")
+    private java.time.LocalDateTime bannedAt;
+
+    @Column(name = "banned_reason", length = 500)
+    @Comment("차단 사유")
+    private String bannedReason;
+
     @Column(name = "current_level", nullable = false)
     @Comment("현재 길드 레벨")
     @Builder.Default
@@ -140,6 +153,15 @@ public class Guild extends LocalDateTimeBaseEntity {
 
     public void transferMaster(String newMasterId) {
         this.masterId = newMasterId;
+    }
+
+    /**
+     * 신고 처리로 길드 차단. 후속 멤버/콘텐츠 처리는 운영자 수동.
+     */
+    public void banFromReport(String reason) {
+        this.isBanned = true;
+        this.bannedAt = java.time.LocalDateTime.now();
+        this.bannedReason = reason;
     }
 
     public void deactivate() {

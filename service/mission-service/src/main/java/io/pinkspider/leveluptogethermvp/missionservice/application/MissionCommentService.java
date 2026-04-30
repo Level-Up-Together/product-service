@@ -87,6 +87,21 @@ public class MissionCommentService {
     }
 
     /**
+     * 어드민 댓글 강제 삭제 (신고 처리용).
+     * 본인 검증 없이 삭제하며, missionId 검증도 생략 (commentId만으로 식별).
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void deleteCommentByAdmin(Long commentId, String reason) {
+        MissionComment comment = missionCommentRepository.findByIdAndIsDeletedFalse(commentId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.mission.comment.not_found"));
+
+        comment.delete();
+        missionCommentRepository.save(comment);
+
+        log.info("미션 댓글 어드민 삭제: commentId={}, reason={}", commentId, reason);
+    }
+
+    /**
      * 댓글 삭제 (본인만 가능)
      */
     @Transactional(transactionManager = "missionTransactionManager")

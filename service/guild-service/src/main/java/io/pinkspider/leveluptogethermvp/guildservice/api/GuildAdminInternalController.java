@@ -84,4 +84,12 @@ public class GuildAdminInternalController {
             .value(guildAdminInternalService.getGuildNamesByIds(guildIds))
             .build();
     }
+
+    @PostMapping("/{guildId}/ban-from-report")
+    public ApiResult<Void> banFromReport(
+            @PathVariable Long guildId,
+            @RequestParam(required = false) String reason) {
+        guildAdminInternalService.banFromReport(guildId, reason);
+        return ApiResult.<Void>builder().build();
+    }
 }

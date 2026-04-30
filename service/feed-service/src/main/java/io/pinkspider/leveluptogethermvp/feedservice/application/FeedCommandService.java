@@ -220,6 +220,25 @@ public class FeedCommandService {
     }
 
     /**
+     * 어드민 댓글 강제 삭제 (신고 처리용).
+     * 본인 검증 없이 삭제. feedId 검증도 생략 (commentId만으로 식별).
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public void deleteCommentByAdmin(Long commentId, String reason) {
+        FeedComment comment = feedCommentRepository.findById(commentId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.comment.not_found"));
+
+        comment.delete();
+        feedCommentRepository.save(comment);
+
+        ActivityFeed feed = comment.getFeed();
+        feed.decrementCommentCount();
+        activityFeedRepository.save(feed);
+
+        log.info("Feed comment admin deleted: commentId={}, reason={}", commentId, reason);
+    }
+
+    /**
      * 댓글 삭제
      */
     @Transactional(transactionManager = "feedTransactionManager")

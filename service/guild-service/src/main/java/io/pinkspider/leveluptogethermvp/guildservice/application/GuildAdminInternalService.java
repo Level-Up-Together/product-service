@@ -85,6 +85,19 @@ public class GuildAdminInternalService {
             masterNickname);
     }
 
+    /**
+     * 신고 처리(CONTENT_DELETED on GUILD)로 길드 차단.
+     * 후속 멤버/콘텐츠 정리는 운영자가 수동.
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void banFromReport(Long guildId, String reason) {
+        Guild guild = guildRepository.findById(guildId)
+            .orElseThrow(() -> new CustomException("404", "error.guild.not_found"));
+        guild.banFromReport(reason);
+        guildRepository.save(guild);
+        log.info("길드 차단 (신고 처리): guildId={}, reason={}", guildId, reason);
+    }
+
     public GuildStatisticsAdminResponse getStatistics() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
