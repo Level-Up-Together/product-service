@@ -177,6 +177,14 @@ public class Users extends LocalDateTimeBaseEntity {
     }
 
     /**
+     * 경고 카운트 초기화 (자동 정지 전환 시 호출).
+     * 정지 후에는 0부터 다시 누적되어 사용자에게 회복 기회를 부여.
+     */
+    public void resetWarningCount() {
+        this.warningCount = 0;
+    }
+
+    /**
      * 회원 탈퇴 처리
      */
     public void withdraw() {

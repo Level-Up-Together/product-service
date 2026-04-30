@@ -7,6 +7,8 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminRequest;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
@@ -121,6 +123,15 @@ public class UserAdminInternalController {
             @RequestBody UserSuspendFromReportRequest request) {
         return ApiResult.<UserBlacklistAdminResponse>builder()
             .value(userAdminInternalService.suspendFromReport(userId, request))
+            .build();
+    }
+
+    @PostMapping("/{userId}/warn-from-report")
+    public ApiResult<UserWarnFromReportResponse> warnFromReport(
+            @PathVariable String userId,
+            @RequestBody UserWarnFromReportRequest request) {
+        return ApiResult.<UserWarnFromReportResponse>builder()
+            .value(userAdminInternalService.warnFromReport(userId, request))
             .build();
     }
 

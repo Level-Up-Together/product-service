@@ -15,6 +15,10 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.U
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBlacklistPageAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserSuspendFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportRequest;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserWarnFromReportResponse;
+import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
+import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserBriefAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserDetailAdminResponse;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.dto.admin.UserGuildInfoAdminResponse;
@@ -53,6 +57,7 @@ public class UserAdminInternalService {
     private final UserBlacklistRepository userBlacklistRepository;
     private final GamificationQueryFacade gamificationQueryFacadeService;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final NotificationService notificationService;
 
     // ========== 유저 검색/조회 ==========
 
@@ -119,6 +124,8 @@ public class UserAdminInternalService {
             .lastLoginCountry(user.getLastLoginCountry())
             .lastLoginCountryCode(user.getLastLoginCountryCode())
             .lastLoginAt(user.getLastLoginAt())
+            .warningCount(user.getWarningCount())
+            .suspensionCount(user.getSuspensionCount())
             .createdAt(user.getCreatedAt())
             .modifiedAt(user.getModifiedAt())
             .titles(titles)
@@ -294,7 +301,58 @@ public class UserAdminInternalService {
 
         log.info("신고 처리: 사용자 정지 - userId={}, type={}, suspensionCount={}, adminId={}",
             userId, type, newCount, request.adminId());
+
+        // 사용자 알림 발송 (영구강퇴/일시정지 분기)
+        notificationService.sendNotification(
+            userId,
+            isPermanent ? NotificationType.REPORT_PERMANENTLY_BANNED : NotificationType.REPORT_SUSPENDED,
+            null, null, newCount
+        );
+
         return UserBlacklistAdminResponse.from(blacklist);
+    }
+
+    /**
+     * 신고 처리(WARNING 액션)로 사용자에게 경고를 부여한다.
+     * - warning_count 증가
+     * - 누적이 suspensionThreshold 이상이면 자동으로 USER_SUSPENDED로 전환 (warning_count 리셋)
+     * - 외 경우는 경고 알림만 발송
+     */
+    @Transactional(transactionManager = "userTransactionManager")
+    public UserWarnFromReportResponse warnFromReport(String userId, UserWarnFromReportRequest request) {
+        Users user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
+
+        int newWarningCount = user.incrementWarningCount();
+
+        if (newWarningCount >= request.suspensionThreshold()) {
+            // 임계값 도달 → 카운트 리셋 후 자동 정지로 전환
+            user.resetWarningCount();
+            userRepository.save(user);
+
+            UserBlacklistAdminResponse blacklist = suspendFromReport(userId,
+                new UserSuspendFromReportRequest(
+                    request.reason(),
+                    request.adminId(),
+                    request.suspensionDays(),
+                    request.permanentBanThreshold()
+                )
+            );
+            log.info("신고 처리: 경고 누적 → 자동 정지 전환 - userId={}, adminId={}", userId, request.adminId());
+            return UserWarnFromReportResponse.escalated(blacklist);
+        }
+
+        userRepository.save(user);
+
+        notificationService.sendNotification(
+            userId,
+            NotificationType.REPORT_WARNING_RECEIVED,
+            null, null, newWarningCount
+        );
+
+        log.info("신고 처리: 사용자 경고 - userId={}, warningCount={}, adminId={}",
+            userId, newWarningCount, request.adminId());
+        return UserWarnFromReportResponse.warningOnly(newWarningCount);
     }
 
     @Transactional(transactionManager = "userTransactionManager")
