@@ -1,10 +1,13 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -42,6 +45,7 @@ public class MissionAutoCompleteScheduler {
     private final MissionExecutionService missionExecutionService;
     private final MissionExecutionProperties missionExecutionProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final GamificationQueryFacade gamificationQueryFacade;
 
     /**
      * 최대 미션 수행 시간 (분) - 2시간
@@ -152,7 +156,8 @@ public class MissionAutoCompleteScheduler {
                 continue;
             }
 
-            if (execution.autoCompleteIfExpired(missionExecutionProperties.getBaseExp())) {
+            int baseExp = missionExecutionProperties.getBaseExp();
+            if (execution.autoCompleteIfExpired(baseExp)) {
                 // 일반 미션 participant를 COMPLETED로 변경하여 미션 목록에서 제외
                 MissionParticipant participant = execution.getParticipant();
                 if (participant != null && !Boolean.TRUE.equals(participant.getMission().getIsPinned())
@@ -161,6 +166,8 @@ public class MissionAutoCompleteScheduler {
                     participant.setProgress(100);
                     participant.setCompletedAt(LocalDateTime.now(ZoneId.of("UTC")));
                 }
+                // QA-119: 자동 종료 시 user_experience / experience_history 에도 EXP 반영
+                grantAutoCompleteExp(participant, baseExp, execution.getId());
                 count++;
                 log.info("일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
                     execution.getId(),
@@ -179,8 +186,11 @@ public class MissionAutoCompleteScheduler {
         List<DailyMissionInstance> expiredInstances = instanceRepository.findExpiredInProgressInstances(expireThreshold);
 
         int count = 0;
+        int baseExp = missionExecutionProperties.getBaseExp();
         for (DailyMissionInstance instance : expiredInstances) {
-            if (instance.autoCompleteIfExpired(missionExecutionProperties.getBaseExp())) {
+            if (instance.autoCompleteIfExpired(baseExp)) {
+                // QA-119: 고정 미션 자동 종료도 동일하게 EXP 지급 (categoryName 포함하여 MVP 집계 반영)
+                grantAutoCompleteExp(instance.getParticipant(), baseExp, instance.getId());
                 count++;
                 log.info("고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
                     instance.getId(),
@@ -190,6 +200,37 @@ public class MissionAutoCompleteScheduler {
             }
         }
         return count;
+    }
+
+    /**
+     * QA-119: 2시간 초과 자동 종료 미션의 baseExp 를 user_experience / experience_history 에 반영.
+     *
+     * 기존에는 entity 의 expEarned 만 갱신되어 "오늘의 MVP" 집계 쿼리
+     * (findTopExpGainersByPeriod, categoryName IS NOT NULL 조건) 에서 누락되었다.
+     * 정상 완료 / 목표시간 자동 종료(Saga) 와 동일하게 categoryName 을 포함해 history 행을 만든다.
+     */
+    private void grantAutoCompleteExp(MissionParticipant participant, int baseExp, Long sourceId) {
+        if (participant == null || baseExp <= 0) {
+            return;
+        }
+        Mission mission = participant.getMission();
+        if (mission == null) {
+            return;
+        }
+        try {
+            gamificationQueryFacade.addExperience(
+                participant.getUserId(),
+                baseExp,
+                ExpSourceType.MISSION_EXECUTION,
+                mission.getId(),
+                "미션 자동 종료 보상: " + mission.getTitle(),
+                mission.getCategoryId(),
+                mission.getCategoryName()
+            );
+        } catch (Exception e) {
+            log.error("자동 종료 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
+                participant.getUserId(), mission.getId(), sourceId, e.getMessage(), e);
+        }
     }
 
     /**
