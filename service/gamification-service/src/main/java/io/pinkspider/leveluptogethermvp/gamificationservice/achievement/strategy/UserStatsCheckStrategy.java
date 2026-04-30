@@ -76,6 +76,47 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
     }
 
     @Override
+    public Object fetchCurrentValue(AchievementSyncContext ctx, Achievement achievement) {
+        String dataField = achievement.getCheckLogicDataField();
+        if (dataField == null) {
+            return 0;
+        }
+        if ("isGuildMaster".equals(dataField)) {
+            return ctx.isGuildMaster() ? 1 : 0;
+        }
+        UserStats userStats = ctx.getUserStats();
+        if (userStats == null) {
+            return 0;
+        }
+        return switch (dataField) {
+            case "totalMissionCompletions" -> userStats.getTotalMissionCompletions();
+            case "totalMissionFullCompletions" -> userStats.getTotalMissionFullCompletions();
+            case "totalGuildMissionCompletions", "guildMissionCount" -> userStats.getTotalGuildMissionCompletions();
+            case "currentStreak" -> userStats.getCurrentStreak();
+            case "maxStreak", "maxStreakDays" -> userStats.getMaxStreak();
+            case "totalAchievementsCompleted" -> userStats.getTotalAchievementsCompleted();
+            case "totalTitlesAcquired" -> userStats.getTotalTitlesAcquired();
+            case "maxCompletedMissionDuration" -> userStats.getMaxCompletedMissionDuration();
+            case "guildJoinCount" -> userStats.getGuildJoinCount();
+            case "friendCount" -> userStats.getFriendCount();
+            case "totalLikesReceived", "receivedLikeCount" -> userStats.getTotalLikesReceived();
+            case "totalCommentsReceived", "receivedCommentCount", "commentsReceived" ->
+                userStats.getTotalCommentsReceived();
+            default -> 0;
+        };
+    }
+
+    @Override
+    public boolean checkCondition(AchievementSyncContext ctx, Achievement achievement) {
+        Object currentValue = fetchCurrentValue(ctx, achievement);
+        if (!(currentValue instanceof Number)) {
+            return false;
+        }
+        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        return operator.compare((Number) currentValue, achievement.getRequiredCount());
+    }
+
+    @Override
     public boolean checkCondition(String userId, Achievement achievement) {
         String dataField = achievement.getCheckLogicDataField();
         if (dataField == null) {

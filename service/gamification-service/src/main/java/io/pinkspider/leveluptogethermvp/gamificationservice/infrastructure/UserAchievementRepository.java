@@ -26,6 +26,13 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement WHERE ua.userId = :userId AND ua.achievement.id = :achievementId")
     Optional<UserAchievement> findByUserIdAndAchievementId(@Param("userId") String userId, @Param("achievementId") Long achievementId);
 
+    /**
+     * 사용자의 모든 user_achievement 행을 일괄 조회 (sync 배치용; is_active 무관).
+     * QA-116: syncUserAchievements 의 N+1 쿼리 제거 목적.
+     */
+    @Query("SELECT ua FROM UserAchievement ua WHERE ua.userId = :userId")
+    List<UserAchievement> findAllByUserIdForSync(@Param("userId") String userId);
+
     // 보상 수령 가능 목록도 비활성 업적은 숨김 (자동 보상도 비활성 업적에는 지급되지 않음).
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false AND a.isActive = true")
     List<UserAchievement> findClaimableByUserId(@Param("userId") String userId);

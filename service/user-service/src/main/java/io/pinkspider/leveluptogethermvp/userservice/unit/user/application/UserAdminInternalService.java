@@ -97,9 +97,19 @@ public class UserAdminInternalService {
         Users user = userRepository.findById(userId)
             .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
 
-        // QA-113: 어드민 상세 조회 시 stale 데이터 방지를 위해 업적 동기화
+        // QA-113 / QA-116: 업적 동기화는 호출 비용이 크므로(전체 Strategy 평가 + autoClaim) 비동기로 트리거.
+        // 어드민 화면은 첫 로딩 시 stale 데이터를 보여줄 수 있으나, 잠시 후 새로고침하면 갱신된 값을 본다.
+        // achievement_sync_succeeded=false 는 "이번 요청은 stale 가능성이 있고 백그라운드에서 sync가
+        // 진행됨"을 의미한다. 동기 호출은 admin-service Feign read-timeout(5s) 를 초과해 500을 유발.
         LocalDateTime achievementSyncedAt = LocalDateTime.now();
-        boolean achievementSyncSucceeded = gamificationQueryFacadeService.syncUserAchievements(userId);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                gamificationQueryFacadeService.syncUserAchievements(userId);
+            } catch (Exception e) {
+                log.warn("어드민 상세 조회 비동기 sync 실패: userId={}, error={}", userId, e.getMessage(), e);
+            }
+        });
+        boolean achievementSyncSucceeded = false;
 
         List<UserTitleAdminResponse> titles = buildTitleResponses(userId);
         List<UserAchievementAdminResponse> achievements = buildAchievementResponses(userId);
@@ -150,8 +160,14 @@ public class UserAdminInternalService {
         if (!userRepository.existsById(userId)) {
             throw new CustomException("404", "error.user.not_found");
         }
-        // QA-113: 어드민 조회 시 stale 데이터 방지를 위해 동기화 후 반환
-        gamificationQueryFacadeService.syncUserAchievements(userId);
+        // QA-113 / QA-116: sync 는 비동기로 트리거하고 즉시 현재 값 반환 (호출 비용 큼).
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                gamificationQueryFacadeService.syncUserAchievements(userId);
+            } catch (Exception e) {
+                log.warn("어드민 업적 조회 비동기 sync 실패: userId={}, error={}", userId, e.getMessage(), e);
+            }
+        });
         return buildAchievementResponses(userId);
     }
 

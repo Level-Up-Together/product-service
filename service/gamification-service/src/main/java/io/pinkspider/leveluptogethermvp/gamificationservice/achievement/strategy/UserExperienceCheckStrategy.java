@@ -63,4 +63,32 @@ public class UserExperienceCheckStrategy implements AchievementCheckStrategy {
 
         return result;
     }
+
+    @Override
+    public Object fetchCurrentValue(AchievementSyncContext ctx, Achievement achievement) {
+        UserExperience userExp = ctx.getUserExperience();
+        if (userExp == null) {
+            return 0;
+        }
+        String dataField = achievement.getCheckLogicDataField();
+        if (dataField == null) {
+            return 0;
+        }
+        return switch (dataField) {
+            case "currentLevel" -> userExp.getCurrentLevel();
+            case "totalExp" -> userExp.getTotalExp();
+            case "currentExp" -> userExp.getCurrentExp();
+            default -> 0;
+        };
+    }
+
+    @Override
+    public boolean checkCondition(AchievementSyncContext ctx, Achievement achievement) {
+        Object currentValue = fetchCurrentValue(ctx, achievement);
+        if (!(currentValue instanceof Number)) {
+            return false;
+        }
+        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        return operator.compare((Number) currentValue, achievement.getRequiredCount());
+    }
 }

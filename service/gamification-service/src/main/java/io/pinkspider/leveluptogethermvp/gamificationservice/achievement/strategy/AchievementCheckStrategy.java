@@ -41,4 +41,20 @@ public interface AchievementCheckStrategy {
      * @return 조건 충족 여부
      */
     boolean checkCondition(String userId, Achievement achievement);
+
+    /**
+     * AchievementSyncContext 의 사전 로드 데이터로 현재 값을 조회합니다 (배치 sync 최적화 경로).
+     * 기본 구현은 컨텍스트를 무시하고 기존 DB 조회 경로로 폴백한다.
+     */
+    default Object fetchCurrentValue(AchievementSyncContext ctx, Achievement achievement) {
+        return fetchCurrentValue(ctx.getUserId(), achievement);
+    }
+
+    /**
+     * AchievementSyncContext 기반 조건 체크 (배치 sync 최적화 경로).
+     * 기본 구현은 컨텍스트를 무시하고 기존 DB 조회 경로로 폴백한다.
+     */
+    default boolean checkCondition(AchievementSyncContext ctx, Achievement achievement) {
+        return checkCondition(ctx.getUserId(), achievement);
+    }
 }

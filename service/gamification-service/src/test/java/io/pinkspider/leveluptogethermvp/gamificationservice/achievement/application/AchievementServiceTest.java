@@ -11,13 +11,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategy;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementSyncContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
@@ -62,6 +67,18 @@ class AchievementServiceTest {
 
     @Mock
     private AchievementCacheService achievementCacheService;
+
+    @Mock
+    private UserStatsRepository userStatsRepository;
+
+    @Mock
+    private UserExperienceRepository userExperienceRepository;
+
+    @Mock
+    private UserCategoryExperienceRepository userCategoryExperienceRepository;
+
+    @Mock
+    private GuildQueryFacade guildQueryFacade;
 
     @InjectMocks
     private AchievementService achievementService;
@@ -237,8 +254,9 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(anyString(), any(Achievement.class))).thenReturn(false);
-            when(mockStrategy.fetchCurrentValue(anyString(), any(Achievement.class))).thenReturn(5);
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), any(Achievement.class))).thenReturn(false);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), any(Achievement.class))).thenReturn(5);
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
             when(userAchievementRepository.findByUserIdAndAchievementId(anyString(), anyLong()))
                 .thenReturn(Optional.empty());
             when(userAchievementRepository.saveAndFlush(any(UserAchievement.class)))
@@ -264,24 +282,21 @@ class AchievementServiceTest {
         void checkAllDynamicAchievements_completesAchievement() {
             // given
             Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
-            // 진행 중인 업적 (currentCount=5, 아직 미완료)
             UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
 
             when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
-            // fetchCurrentValue가 10 이상 반환하면 setCount 후 completion이 트리거됨
-            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(15);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(userAchievement));
+            when(mockStrategy.checkCondition(any(AchievementSyncContext.class), eq(achievement))).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(15);
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                .thenReturn(List.of(userAchievement));
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);
 
             // then
-            verify(mockStrategy).checkCondition(TEST_USER_ID, achievement);
-            // setCount(15) 호출 후 userAchievement.currentCount == 15 >= requiredCount(10)이므로 완료됨
+            verify(mockStrategy).checkCondition(any(AchievementSyncContext.class), eq(achievement));
             assertThat(userAchievement.getCurrentCount()).isEqualTo(15);
             assertThat(userAchievement.getIsCompleted()).isTrue();
         }
@@ -296,14 +311,16 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
-            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
-                .thenReturn(Optional.of(completedAchievement));
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID))
+                .thenReturn(List.of(completedAchievement));
+            // 이미 완료된 행은 currentCount stale 보정만 수행 — fetchCurrentValue 호출은 OK, checkCondition 은 호출되지 않아야 함
+            when(mockStrategy.fetchCurrentValue(any(AchievementSyncContext.class), eq(achievement))).thenReturn(1);
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);
 
             // then
-            verify(mockStrategy, never()).checkCondition(anyString(), any());
+            verify(mockStrategy, never()).checkCondition(any(AchievementSyncContext.class), any(Achievement.class));
         }
 
         @Test
@@ -315,6 +332,7 @@ class AchievementServiceTest {
             when(achievementCacheService.getAchievementsWithCheckLogic())
                 .thenReturn(List.of(achievement));
             when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(null);
+            when(userAchievementRepository.findAllByUserIdForSync(TEST_USER_ID)).thenReturn(List.of());
 
             // when
             achievementService.checkAllDynamicAchievements(TEST_USER_ID);

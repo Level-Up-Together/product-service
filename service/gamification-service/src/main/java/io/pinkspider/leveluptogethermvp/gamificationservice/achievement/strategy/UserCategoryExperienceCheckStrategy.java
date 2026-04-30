@@ -68,6 +68,26 @@ public class UserCategoryExperienceCheckStrategy implements AchievementCheckStra
         return result;
     }
 
+    @Override
+    public Object fetchCurrentValue(AchievementSyncContext ctx, Achievement achievement) {
+        Long categoryId = resolveCategoryId(achievement);
+        if (categoryId == null) {
+            return 0L;
+        }
+        return ctx.getCategoryExp(categoryId);
+    }
+
+    @Override
+    public boolean checkCondition(AchievementSyncContext ctx, Achievement achievement) {
+        Long categoryId = resolveCategoryId(achievement);
+        if (categoryId == null) {
+            return false;
+        }
+        long currentValue = ctx.getCategoryExp(categoryId);
+        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
+        return operator.compare(currentValue, achievement.getRequiredCount());
+    }
+
     private Long loadCategoryExp(String userId, Long categoryId) {
         Long totalExp = userCategoryExperienceRepository.findByUserIdAndCategoryId(userId, categoryId)
             .map(exp -> exp.getTotalExp())

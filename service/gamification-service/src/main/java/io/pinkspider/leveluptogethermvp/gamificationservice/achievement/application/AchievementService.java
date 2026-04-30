@@ -3,17 +3,27 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applica
 import static io.pinkspider.leveluptogethermvp.metaservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
 import io.pinkspider.global.event.AchievementCompletedEvent;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.AchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategy;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementSyncContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import io.pinkspider.global.enums.ExpSourceType;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
@@ -40,6 +50,10 @@ public class AchievementService {
     private final ApplicationEventPublisher eventPublisher;
     private final AchievementCheckStrategyRegistry strategyRegistry;
     private final AchievementCacheService achievementCacheService;
+    private final UserStatsRepository userStatsRepository;
+    private final UserExperienceRepository userExperienceRepository;
+    private final UserCategoryExperienceRepository userCategoryExperienceRepository;
+    private final GuildQueryFacade guildQueryFacade;
 
     // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
@@ -234,10 +248,14 @@ public class AchievementService {
      * 체크 로직이 설정된 모든 활성 업적을 체크합니다.
      * 이벤트 발생 시 전체 업적을 체크하는 용도로 사용합니다.
      * @param userId 사용자 ID
+     *
+     * QA-116 최적화: source 데이터를 1회 사전 로드하여 전달 (AchievementSyncContext).
+     *   기존: 316 업적 × Strategy 호출당 2 DB 쿼리 + per-achievement findByUserIdAndAchievementId.
+     *   개선: UserStats / UserExperience / UserCategoryExperience / UserAchievement 각 1쿼리 일괄 로드.
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void checkAllDynamicAchievements(String userId) {
-        // 캐시 사용
+        AchievementSyncContext ctx = buildSyncContext(userId);
         List<Achievement> achievements = achievementCacheService.getAchievementsWithCheckLogic();
 
         for (Achievement achievement : achievements) {
@@ -245,9 +263,123 @@ public class AchievementService {
             AchievementCheckStrategy strategy = strategyRegistry.getStrategy(dataSource);
 
             if (strategy != null) {
-                checkAndUpdateAchievementDynamic(userId, achievement, strategy);
+                checkAndUpdateAchievementWithContext(ctx, achievement, strategy);
             }
         }
+    }
+
+    /**
+     * sync 1회분 source 데이터를 사전 로드한다 (~5쿼리).
+     */
+    private AchievementSyncContext buildSyncContext(String userId) {
+        UserStats userStats = userStatsRepository.findByUserId(userId).orElse(null);
+        UserExperience userExperience = userExperienceRepository.findByUserId(userId).orElse(null);
+        List<UserCategoryExperience> categoryExperiences =
+            userCategoryExperienceRepository.findByUserIdOrderByTotalExpDesc(userId);
+        List<UserAchievement> userAchievements = userAchievementRepository.findAllByUserIdForSync(userId);
+
+        boolean guildMaster = false;
+        try {
+            List<GuildMembershipInfo> memberships = guildQueryFacade.getUserGuildMemberships(userId);
+            if (memberships != null) {
+                guildMaster = memberships.stream().anyMatch(GuildMembershipInfo::isMaster);
+            }
+        } catch (Exception e) {
+            log.warn("길드 마스터 여부 조회 실패: userId={}, error={}", userId, e.getMessage());
+        }
+
+        return new AchievementSyncContext(
+            userId,
+            userStats,
+            userExperience,
+            categoryExperiences != null ? categoryExperiences : Collections.emptyList(),
+            guildMaster,
+            userAchievements != null ? userAchievements : Collections.emptyList()
+        );
+    }
+
+    /**
+     * 사전 로드된 컨텍스트를 사용해 단일 업적의 진행도/완료 여부를 갱신한다.
+     * 핵심 차이점: DB 조회 대신 ctx 로 in-memory 평가, getOrCreateUserAchievement 도 ctx 캐시 우선.
+     */
+    private void checkAndUpdateAchievementWithContext(
+        AchievementSyncContext ctx,
+        Achievement achievement,
+        AchievementCheckStrategy strategy
+    ) {
+        if (!Boolean.TRUE.equals(achievement.getIsActive())) {
+            return;
+        }
+
+        UserAchievement existing = ctx.findUserAchievement(achievement.getId());
+        boolean alreadyCompleted = existing != null && Boolean.TRUE.equals(existing.getIsCompleted());
+
+        // 이미 완료된 행: currentCount 만 stale 보정 (보상 재수령 금지)
+        if (alreadyCompleted) {
+            Object currentValue = strategy.fetchCurrentValue(ctx, achievement);
+            if (currentValue instanceof Number n) {
+                int latest = n.intValue();
+                if (existing.getCurrentCount() == null || existing.getCurrentCount() != latest) {
+                    existing.setCount(latest); // 변경된 경우만 dirty 처리
+                }
+            }
+            return;
+        }
+
+        boolean conditionMet = strategy.checkCondition(ctx, achievement);
+
+        if (conditionMet) {
+            UserAchievement userAchievement = existing != null
+                ? existing
+                : getOrCreateUserAchievementWithCtx(ctx, achievement);
+
+            Object currentValue = strategy.fetchCurrentValue(ctx, achievement);
+            int newCount;
+            if (currentValue instanceof Number n) {
+                newCount = n.intValue();
+            } else if (currentValue instanceof Boolean b && Boolean.TRUE.equals(b)) {
+                newCount = 1;
+            } else {
+                return;
+            }
+
+            // no-op skip: 변경 없으면 setCount 호출 안 함 (불필요한 dirty 표시 방지)
+            if (userAchievement.getCurrentCount() == null || userAchievement.getCurrentCount() != newCount) {
+                userAchievement.setCount(newCount);
+            }
+
+            if (Boolean.TRUE.equals(userAchievement.getIsCompleted())) {
+                userStatsService.recordAchievementCompleted(ctx.getUserId());
+                log.info("동적 업적 달성! userId={}, achievement={}", ctx.getUserId(), achievement.getName());
+                if (!Boolean.TRUE.equals(achievement.getIsHidden())) {
+                    eventPublisher.publishEvent(new AchievementCompletedEvent(
+                        ctx.getUserId(),
+                        achievement.getId(),
+                        achievement.getName()
+                    ));
+                }
+            }
+        } else {
+            Object currentValue = strategy.fetchCurrentValue(ctx, achievement);
+            if (currentValue instanceof Number n) {
+                int newCount = n.intValue();
+                UserAchievement userAchievement = existing != null
+                    ? existing
+                    : getOrCreateUserAchievementWithCtx(ctx, achievement);
+                if (userAchievement.getCurrentCount() == null || userAchievement.getCurrentCount() != newCount) {
+                    userAchievement.setCount(newCount);
+                }
+            }
+        }
+    }
+
+    /**
+     * 컨텍스트에 캐시되어 있지 않은 경우만 INSERT, 캐시도 갱신.
+     */
+    private UserAchievement getOrCreateUserAchievementWithCtx(AchievementSyncContext ctx, Achievement achievement) {
+        UserAchievement created = getOrCreateUserAchievement(ctx.getUserId(), achievement);
+        ctx.registerUserAchievement(created);
+        return created;
     }
 
     /**
