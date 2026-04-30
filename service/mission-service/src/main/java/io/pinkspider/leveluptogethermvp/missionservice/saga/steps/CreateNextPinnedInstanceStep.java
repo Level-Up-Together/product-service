@@ -48,10 +48,13 @@ public class CreateNextPinnedInstanceStep implements SagaStep<MissionCompletionC
 
         try {
             // 일일 수행 제한 체크
+            // QA-120: 동일 템플릿(baseMissionId) 합산으로 미션 삭제 후 재추가 우회 방지
             Mission mission = participant.getMission();
             if (mission.getDailyExecutionLimit() != null) {
-                long todayCompleted = instanceRepository
-                    .countCompletedByParticipantIdAndDate(participant.getId(), instanceDate);
+                long todayCompleted = mission.getBaseMissionId() != null
+                    ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
+                        participant.getUserId(), mission.getBaseMissionId(), instanceDate)
+                    : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), instanceDate);
                 if (todayCompleted >= mission.getDailyExecutionLimit()) {
                     log.info("Daily limit reached, skipping next instance creation: participantId={}, limit={}",
                         participant.getId(), mission.getDailyExecutionLimit());

@@ -152,10 +152,14 @@ public class DailyMissionInstanceService {
         MissionParticipant participant = findParticipant(missionId, userId);
 
         // 일일 수행 제한 체크
+        // QA-120: 동일 템플릿(baseMissionId)에서 파생된 모든 미션 instance 를 합산해 우회 방지.
+        //   기존 participant_id 기준 카운트는 미션 삭제 후 재추가 시 새 participant_id 로 0이 되어 무한 수행 가능.
         Mission mission = participant.getMission();
         if (mission.getDailyExecutionLimit() != null) {
-            long todayCompleted = instanceRepository
-                .countCompletedByParticipantIdAndDate(participant.getId(), date);
+            long todayCompleted = mission.getBaseMissionId() != null
+                ? instanceRepository.countCompletedByUserIdAndBaseMissionIdAndDate(
+                    userId, mission.getBaseMissionId(), date)
+                : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), date);
             if (todayCompleted >= mission.getDailyExecutionLimit()) {
                 throw new IllegalStateException(
                     "오늘 수행 가능한 횟수를 초과했습니다. (최대 " + mission.getDailyExecutionLimit() + "회)");

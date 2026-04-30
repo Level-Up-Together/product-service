@@ -328,6 +328,23 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
         @Param("date") LocalDate date
     );
 
+    /**
+     * 동일 템플릿(baseMissionId) 에서 파생된 모든 미션의 당일 완료 횟수 (QA-120 일일 제한 우회 방지)
+     * 미션북에서 미션 삭제 후 재추가 시 새 mission_id 가 생성되더라도 합산해 일일 제한을 적용한다.
+     */
+    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.baseMissionId = :baseMissionId " +
+           "AND dmi.instanceDate = :date " +
+           "AND dmi.status = 'COMPLETED'")
+    long countCompletedByUserIdAndBaseMissionIdAndDate(
+        @Param("userId") String userId,
+        @Param("baseMissionId") Long baseMissionId,
+        @Param("date") LocalDate date
+    );
+
     // SIMPLE 모드 고정 미션의 오늘 완료 횟수
     @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi JOIN dmi.participant p JOIN p.mission m " +
            "WHERE p.userId = :userId AND dmi.instanceDate = :date AND dmi.status = 'COMPLETED' " +
