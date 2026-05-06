@@ -99,7 +99,7 @@ public class MissionExecutionService {
         return completeExecution(missionId, userId, executionDate, note, visibility);
     }
 
-    @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
+    @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
         // SIMPLE 모드 하루 제한 체크
         validateSimpleDailyLimit(missionId, userId, executionDate);
