@@ -90,7 +90,7 @@ one unit via `sourceSets.main.java.srcDirs`.
 | `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons                          |
 | `bffservice`          | -               | Backend-for-Frontend API aggregation, unified search                                                               |
 | `noticeservice`       | -               | Notice/announcement management (layered: api, application, core, domain)                                           |
-| `supportservice`      | -               | Customer support and report handling (api, application, core, report)                                              |
+| `supportservice`      | -               | Customer support (1:1 inquiry) + Report handling (`/api/v1/reports`, ReportService → Admin Backend Feign)         |
 
 ### Global Infrastructure (`service/src/main/java/io/pinkspider/global/`)
 
@@ -98,16 +98,17 @@ MVP 전용 인프라 코드 (platform 공유 라이브러리와 별도):
 
 - **Multi-datasource**: All 9 DataSourceProperties + DataSourceConfigs (`global.config.datasource`)
 - **Security**: SecurityConfig, OAuth2Properties, CurrentUserArgumentResolver
-- **Config**: HibernateConfig, RateLimiterConfig, WebMvcConfig, WebSocketConfig, FirebaseConfig
-- **i18n**: MessageConfig, LocaleInterceptor, i18n properties (errors/notifications ko/en)
+- **Config**: HibernateConfig, RateLimiterConfig, WebMvcConfig, WebSocketConfig, FirebaseConfig, **ShedLockConfig**
+- **i18n**: MessageConfig, LocaleInterceptor, i18n properties (errors/notifications ko/en/ja)
 - **Translation**: Google Translation API integration (`global.translation`)
 - **Profanity**: Profanity detection and validation with locale support (`leveluptogethermvp/profanity/`)
 - **Image Moderation**: ONNX-based NSFW 이미지 검증 + AOP (`global.moderation`)
 - **Image Storage**: S3 + CloudFront CDN (`global.config.s3`) — prod에서 S3 업로드, dev/test에서 로컬 파일시스템
-- **Messaging**: AppPushMessageProducer (Redis Streams)
+- **Messaging**: AppPushMessageProducer (Redis Streams) — 인앱 알림 비동기 발행
 - **Rate Limiting**: PerUserRateLimit + PerUserRateLimitAspect
 - **GraphQL**: DGS context, scalars, fetchers
 - **Feign**: AdminInternalFeignClient (Admin Backend 연동)
+- **Distributed Lock**: ShedLock + Redis (`@SchedulerLock`) — 멀티 EC2 인스턴스 스케줄러 동시 실행 방지
 
 ### Platform Shared Library (`level-up-together-platform` 별도 레포)
 
@@ -454,6 +455,8 @@ public class YourEventListener {
 | MissionCompletionSaga  | `GuildMissionCompletedCountEvent`  | `UserStatsCounterEventListener`      | totalGuildMissionCompletions 증가 + 업적 체크 |
 | MissionAutoCompleteScheduler | `MissionAutoEndWarningEvent` | `NotificationEventListener`          | 미션 자동 종료 10분 전 경고 알림                  |
 
+> **자동 피드 생성 축소 (QA-35)**: 칭호 획득/업적 달성/길드 가입/친구 추가 피드는 비활성화. 레벨업/길드 레벨업 피드는 **10단위 마일스톤**(Lv 10, 20, 30…)에서만 생성.
+
 ## Redis Caching
 
 | 캐시 서비스                    | 캐시 키                             | TTL |
@@ -462,6 +465,25 @@ public class YourEventListener {
 | `FriendCacheService`      | `friendIds:{userId}`             | 10분 |
 | `TitleService`            | `userTitleInfo:{userId}`         | 5분  |
 | `MissionCategoryService`  | `missionCategories:{categoryId}` | 1시간 |
+
+## Scheduler & Distributed Lock (ShedLock)
+
+멀티 EC2 인스턴스 환경에서 `@Scheduled` 메서드의 동시 실행을 막기 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반 LockProvider를 등록 (`prefix=lut`). `SchedulerLockCoverageTest`가 누락된 락을 컴파일 타임에 잡아낸다.
+
+```java
+@Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+@SchedulerLock(name = "MyScheduler_method", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
+public void run() { ... }
+```
+
+| 스케줄러 | 주기/Zone | Lock 이름 | 비고 |
+|--------|---------|---------|------|
+| `DailyMissionInstanceScheduler.generateDailyInstances` | `0 0 0 * * *` KST | `DailyMissionInstanceScheduler_generateDailyInstances` | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
+| `MissionAutoCompleteScheduler.autoCompleteExpiredMissions` | 5분 fixedRate | `MissionAutoCompleteScheduler_autoCompleteExpiredMissions` | 만료 미션 자동 종료 + 10분 전 경고 알림 |
+| `TokenMaintenanceScheduler.cleanupExpiredSessions` | `0 0 2 * * *` KST | `TokenMaintenanceScheduler_cleanupExpiredSessions` | 만료된 OAuth 세션 정리 |
+| `TokenMaintenanceScheduler.cleanupOrphanedUserSessions` | `0 30 2 * * *` KST | `TokenMaintenanceScheduler_cleanupOrphanedUserSessions` | 고아 user_sessions 참조 정리 |
+| `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (3 zones: KST/AST/UTC) | `DailyMvpHistoryScheduler_{kst,ast,utc}` | 타임존별 일간 MVP 기록 |
+| `SeasonRewardScheduler.processEndedSeasonRewards` | `0 0 3 * * *` KST | `SeasonRewardScheduler_processEndedSeasonRewards` | 종료된 시즌 보상 자동 부여 |
 
 ## Saga Pattern (Mission Completion 예시)
 
@@ -818,3 +840,59 @@ POST   /api/v1/guild-invitations/{id}/accept        - 초대 수락
 POST   /api/v1/guild-invitations/{id}/reject        - 초대 거절
 DELETE /api/v1/guild-invitations/{id}               - 초대 취소 (마스터)
 ```
+
+### Browse-First (비로그인 열람) — QA-110/QA-111
+
+비로그인 상태에서도 홈/피드/길드의 GET 요청을 허용 (작성/수정/삭제는 인증 필요). `SecurityConfig`에서 `HttpMethod.GET`만 `permitAll`로 화이트리스트:
+
+```
+/api/v1/bff/home, /api/v1/bff/guild/list, /api/v1/bff/guild/{guildId}
+/api/v1/feeds/public, /api/v1/feeds/{feedId}, /api/v1/feeds/{feedId}/comments
+/api/v1/feeds/search, /api/v1/feeds/category/**
+/api/v1/guilds/public, /api/v1/guilds/search, /api/v1/guilds/{guildId}
+/api/v1/mypage/profile/{userId}, /api/v1/mypage/nickname/check
+```
+
+비인증 요청은 `Principal == null`이므로 컨트롤러/서비스에서 `currentUserId` Optional 처리 필요. 친구/좋아요/내 활동 등은 비로그인에서 빈 결과 또는 404 반환.
+
+### Signup Token Flow (QA-108) — 회원가입 흐름
+
+OAuth 콜백 시점에 `Users` row를 곧바로 INSERT하지 않고 **임시 signup token**으로 Redis 세션을 만든다. 닉네임/약관 동의가 모두 완료된 시점에 비로소 INSERT → 중도 이탈 시 잔여 row가 남지 않는다.
+
+- `SignupTokenService` (TTL 30분, Redis)
+  - `signup:{provider}:{emailHash}` → `SignupSessionData` JSON
+  - `signup-token:{token}` → `{provider}:{emailHash}` 인덱스 (양방향)
+- 클라이언트 흐름: OAuth 콜백 → `signup_token` 수신 → `POST /api/v1/auth/signup` (닉네임 + 약관 동의) → 정식 가입 + JWT 발급
+- 신규/기존 사용자 응답 형태가 다름 (`SocialLoginResponseDto` 분기)
+- 닉네임 중복 체크: `GET /api/v1/mypage/nickname/check` (비인증 허용)
+
+### 신고 처리 워크플로우 (Report Processing)
+
+`supportservice/report` — 사용자 신고 생성/조회 + 어드민 처리 결과 적용:
+
+| 단계 | 엔드포인트 | 처리 |
+|----|----------|----|
+| 신고 접수 | `POST /api/v1/reports` | `ReportService.createReport()` (Admin Backend로 전달) |
+| 신고 상태 확인 | `GET /api/v1/reports/check?targetType=&targetId=` | 처리 대기 중 여부 |
+| **WARNING (PR3)** | (Admin → MVP) `POST /api/internal/users/{userId}/warn-from-report` | 누적 경고 +1, 임계치 도달 시 자동 USER_SUSPENDED |
+| **USER_SUSPENDED (PR2)** | (Admin → MVP) `POST /api/internal/users/{userId}/suspend-from-report` | 30일 정지, 누적 3회면 영구강퇴 |
+| **GUILD_BANNED (PR1c)** | (Admin → MVP) `POST /api/internal/guilds/{guildId}/ban-from-report` | 길드 차단 처리 |
+
+처리 결과는 `notification-service`의 Redis Streams (`AppPushMessageProducer`)를 통해 사용자에게 푸시 + in-app 알림 발송.
+
+### Internal API (Admin Backend ↔ MVP 연동)
+
+`/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **VPC 내부 접근만 허용**. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용:
+
+| 도메인 | 베이스 경로 | 용도 |
+|------|----------|----|
+| user | `/api/internal/users` | 유저 검색/조회/통계, blacklist, 신고 처리 (suspend/warn) |
+| user | `/api/internal/daily-mvp-exclusions` | MVP 제외 명단 관리 |
+| user | `/api/internal/terms` | 약관 관리 |
+| guild | `/api/internal/guilds` | 길드 검색, 통계, 활성화 토글, **신고 처리 (ban-from-report)** |
+| guild | `/api/internal/guilds/{guildId}` | 길드 게시글 어드민 |
+| mission | `/api/internal/missions`, `/api/internal/mission-templates`, `/api/internal/mission-participants`, `/api/internal/mission-comments` | 미션 어드민 |
+| feed | `/api/internal/feeds`, `/api/internal/feed-comments` | 피드 어드민 |
+| meta | `/api/internal/{user,guild}-level-configs`, `/api/internal/attendance-reward-configs`, `/api/internal/mission-categories`, `/api/internal/profanity-words` | 메타 설정 |
+| gamification | `/api/internal/{achievements,achievement-categories,titles,title-grants,events,seasons,check-logic-types,experience-history,mvp-history}` | 게임화 어드민 |
+| gamification | `/api/internal/seasons/{id}/rank-rewards` | 시즌 순위 보상 어드민 |
