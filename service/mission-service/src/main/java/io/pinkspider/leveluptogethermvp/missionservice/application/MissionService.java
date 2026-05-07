@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionStateChangedEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -58,7 +59,7 @@ public class MissionService {
             throw new IllegalArgumentException("길드 미션은 길드 ID가 필요합니다.");
         }
 
-        validateSimpleCreationLimit(creatorId, request.getExecutionMode());
+        validateMissionCreationLimit(creatorId, request.getType());
 
         // 카테고리 처리: categoryId 또는 customCategory 중 하나만 사용 (스냅샷 패턴)
         Long categoryId = null;
@@ -141,7 +142,7 @@ public class MissionService {
             throw new IllegalStateException("이미 추가한 미션입니다.");
         }
 
-        validateSimpleCreationLimit(userId, template.getExecutionMode());
+        validateMissionCreationLimit(userId, MissionType.PERSONAL);
 
         Mission mission = Mission.builder()
             .title(template.getTitle())
@@ -580,14 +581,13 @@ public class MissionService {
         throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
     }
 
-    private void validateSimpleCreationLimit(String userId, io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode executionMode) {
-        if (executionMode != io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+    private void validateMissionCreationLimit(String userId, MissionType type) {
+        if (type != MissionType.PERSONAL) {
             return;
         }
-        long simpleCount = missionRepository.countSimpleMissionsByCreatorId(userId);
-        if (simpleCount >= io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
-            throw new IllegalStateException(
-                "수행 여부 미션은 최대 " + io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE_DAILY_LIMIT + "개까지 생성할 수 있습니다.");
+        long count = missionRepository.countActivePersonalByCreatorId(userId);
+        if (count >= Mission.MAX_PERSONAL_MISSIONS_PER_USER) {
+            throw new CustomException("050104", "error.mission.creation_limit_exceeded");
         }
     }
 }

@@ -179,7 +179,9 @@ public class MissionCompletionSaga {
      */
     public MissionExecutionResponse toResponse(SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getExecution() != null) {
-            return MissionExecutionResponse.from(result.getContext().getExecution());
+            MissionExecutionResponse response = MissionExecutionResponse.from(result.getContext().getExecution());
+            response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
+            return response;
         }
         return null;
     }
@@ -189,7 +191,9 @@ public class MissionCompletionSaga {
      */
     public DailyMissionInstanceResponse toPinnedResponse(SagaResult<MissionCompletionContext> result) {
         if (result.isSuccess() && result.getContext().getInstance() != null) {
-            return DailyMissionInstanceResponse.from(result.getContext().getInstance());
+            DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(result.getContext().getInstance());
+            response.setDailySimpleExpCapped(result.getContext().isDailySimpleExpCapped());
+            return response;
         }
         return null;
     }

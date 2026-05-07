@@ -6,7 +6,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionPr
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import java.time.Duration;
 import java.util.function.Predicate;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionContext> {
 
     private final DailyMissionInstanceRepository instanceRepository;
+    private final MissionExecutionRepository executionRepository;
     private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
@@ -49,15 +52,29 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
         log.debug("Completing pinned instance: instanceId={}", instance.getId());
 
         try {
-            // 완료 처리 (시간 기반 경험치 계산 포함)
-            instance.complete();
+            // SIMPLE 모드: 일일 EXP 한도(10회) 도달 시 EXP=0으로 처리
+            Mission mission = context.getMission();
+            boolean awardSimpleExp = true;
+            if (mission != null && mission.getExecutionMode() == MissionExecutionMode.SIMPLE
+                && instance.getInstanceDate() != null) {
+                long regular = executionRepository.countSimpleCompletedByUserIdAndDate(
+                    context.getUserId(), instance.getInstanceDate());
+                long pinned = instanceRepository.countSimpleCompletedByUserIdAndDate(
+                    context.getUserId(), instance.getInstanceDate());
+                if ((regular + pinned) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
+                    awardSimpleExp = false;
+                    context.setDailySimpleExpCapped(true);
+                }
+            }
+
+            // 완료 처리 (시간 기반 경험치 계산 포함, SIMPLE은 awardSimpleExp 반영)
+            instance.complete(awardSimpleExp);
             if (context.getNote() != null) {
                 instance.setNote(context.getNote());
             }
 
-            // SIMPLE 모드는 complete()에서 이미 고정 EXP 설정됨 — 오버라이드 불필요
-            Mission mission = context.getMission();
-            if (mission != null && mission.getExecutionMode() != io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode.SIMPLE) {
+            // SIMPLE 모드는 complete()에서 이미 고정 EXP(또는 한도 도달 시 0) 설정됨 — 오버라이드 불필요
+            if (mission != null && mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
                 // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
                 if ((instance.getTargetDurationMinutes() == null || instance.getTargetDurationMinutes() <= 0)
                     && instance.getStartedAt() != null && instance.getCompletedAt() != null) {

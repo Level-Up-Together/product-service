@@ -51,6 +51,8 @@ public class MissionCompletionContext extends SagaContext {
 
     // === Common Calculated Data ===
     private int userExpEarned;
+    /** SIMPLE 일일 EXP 한도(10회) 도달 여부. true면 완료는 되지만 EXP=0으로 처리됨. */
+    private boolean dailySimpleExpCapped;
 
     // === Regular-only Calculated Data ===
     private int guildExpEarned;

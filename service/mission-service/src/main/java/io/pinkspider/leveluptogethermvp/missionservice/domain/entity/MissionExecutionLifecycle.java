@@ -76,6 +76,17 @@ public interface MissionExecutionLifecycle {
      * - DailyMissionInstance: completionCount, totalExpEarned 갱신
      */
     default void complete() {
+        complete(true);
+    }
+
+    /**
+     * 미션 수행 완료 (SIMPLE 일일 EXP 한도 반영)
+     *
+     * @param awardSimpleExp SIMPLE 모드에서 EXP 지급 여부.
+     *                       false면 expEarned=0으로 처리(일일 10회 한도 초과 시).
+     *                       TIMED 모드는 무시(시간 기반 계산 그대로).
+     */
+    default void complete(boolean awardSimpleExp) {
         if (getStatus() == ExecutionStatus.COMPLETED) {
             throw new IllegalStateException("이미 완료된 수행 기록입니다.");
         }
@@ -89,10 +100,10 @@ public interface MissionExecutionLifecycle {
         LocalDateTime now = LocalDateTime.now();
 
         if (getExecutionMode() == MissionExecutionMode.SIMPLE) {
-            // SIMPLE 모드: 즉시 완료, 고정 경험치
+            // SIMPLE 모드: 즉시 완료, 고정 경험치 (일일 한도 초과 시 0)
             setStatus(ExecutionStatus.COMPLETED);
             setCompletedAt(now);
-            setExpEarned(MissionExecutionMode.SIMPLE_EXP);
+            setExpEarned(awardSimpleExp ? MissionExecutionMode.SIMPLE_EXP : 0);
             onComplete();
             return;
         }

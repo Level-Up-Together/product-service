@@ -52,6 +52,9 @@ public class MissionExecutionResponse {
     // 자동 종료 여부 (2시간 초과 시 true, 프론트엔드에서 알림 모달 표시용)
     private Boolean isAutoCompleted;
 
+    // SIMPLE 모드 일일 EXP 한도(10회) 도달로 EXP=0 처리됨 (프론트 안내 토스트용)
+    private Boolean dailySimpleExpCapped;
+
     private LocalDateTime createdAt;
 
     public static MissionExecutionResponse from(MissionExecution execution) {
@@ -103,6 +106,7 @@ public class MissionExecutionResponse {
             .note(instanceResponse.getNote())
             .imageUrl(instanceResponse.getImageUrl())
             .isSharedToFeed(instanceResponse.getIsSharedToFeed())
+            .dailySimpleExpCapped(instanceResponse.getDailySimpleExpCapped())
             .createdAt(instanceResponse.getCreatedAt())
             .build();
     }

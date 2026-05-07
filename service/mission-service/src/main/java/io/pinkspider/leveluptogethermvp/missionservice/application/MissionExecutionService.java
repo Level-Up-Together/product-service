@@ -78,8 +78,7 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
-        // SIMPLE 모드 하루 제한 체크 (시작 시점에서 차단해야 IN_PROGRESS 좀비 방지)
-        validateSimpleDailyLimit(missionId, userId, executionDate);
+        // SIMPLE 일일 한도 도달은 더 이상 차단 사유가 아님 (수행은 가능, EXP만 0 처리)
         return strategyResolver.resolve(missionId, userId).startExecution(missionId, userId, executionDate);
     }
 
@@ -101,8 +100,7 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
-        // SIMPLE 모드 하루 제한 체크
-        validateSimpleDailyLimit(missionId, userId, executionDate);
+        // SIMPLE 일일 한도는 차단하지 않음 (Strategy/Saga에서 EXP 0 처리 + 응답 플래그)
 
         // feedVisibility가 null이면 비공개 (명시적 선택 없음 = 공유 의사 없음)
         FeedVisibility resolvedVisibility = feedVisibility != null
@@ -319,20 +317,16 @@ public class MissionExecutionService {
         dailyMissionInstanceRepository.save(instance);
     }
 
-    private void validateSimpleDailyLimit(Long missionId, String userId, LocalDate date) {
-        Mission mission = participantRepository.findByMissionIdAndUserId(missionId, userId)
-            .map(MissionParticipant::getMission)
-            .orElse(null);
-        if (mission == null || mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
-            return;
-        }
+    /**
+     * 유저의 오늘 SIMPLE 미션 완료 횟수가 일일 한도(SIMPLE_DAILY_LIMIT)에 도달했는지 확인.
+     * 일반(MissionExecution) + 고정(DailyMissionInstance) 합산.
+     *
+     * 도달 시 추가 수행은 가능하지만 EXP는 0으로 처리한다.
+     */
+    public boolean isSimpleDailyLimitReached(String userId, LocalDate date) {
         long regularCount = executionRepository.countSimpleCompletedByUserIdAndDate(userId, date);
         long pinnedCount = dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(userId, date);
-        long totalCount = regularCount + pinnedCount;
-        if (totalCount >= MissionExecutionMode.SIMPLE_DAILY_LIMIT) {
-            throw new IllegalStateException(
-                "즉시종료는 하루 " + MissionExecutionMode.SIMPLE_DAILY_LIMIT + "회까지 수행할 수 있어요. 내일 다시 도전해보세요!");
-        }
+        return (regularCount + pinnedCount) >= MissionExecutionMode.SIMPLE_DAILY_LIMIT;
     }
 
 }

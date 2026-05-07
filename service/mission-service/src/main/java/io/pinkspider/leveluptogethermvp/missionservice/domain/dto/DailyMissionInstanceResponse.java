@@ -61,6 +61,11 @@ public class DailyMissionInstanceResponse {
 
     private Boolean isSharedToFeed;
 
+    // ============ EXP 한도 안내 ============
+
+    // SIMPLE 모드 일일 EXP 한도(10회) 도달로 EXP=0 처리됨 (프론트 안내 토스트용)
+    private Boolean dailySimpleExpCapped;
+
     // ============ 메타 정보 ============
 
     private LocalDateTime createdAt;
