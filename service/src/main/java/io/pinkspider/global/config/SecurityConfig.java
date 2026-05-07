@@ -56,7 +56,16 @@ public class SecurityConfig {
             configuration.setAllowCredentials(false);
         }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("X-Requested-With", "Content-Type", "Authorization", "X-XSRF-token", "Origin", "Accept"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "X-Requested-With", "Content-Type", "Authorization", "X-XSRF-token", "Origin", "Accept",
+            // 커스텀 헤더 (브라우저 직접 호출 + admin-service Feign 통합)
+            "X-Signup-Token",       // OAuth 신규 가입 세션 토큰
+            "X-Timezone",           // 홈/오늘의 미션 등 사용자 타임존
+            "X-Admin-Id",           // 어드민 인증 컨텍스트
+            "X-User-Id",            // 어드민 → 사용자 위임 호출
+            "X-User-Email",
+            "X-User-Nickname"
+        ));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

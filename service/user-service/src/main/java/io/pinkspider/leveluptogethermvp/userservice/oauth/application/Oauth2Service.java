@@ -108,8 +108,8 @@ public class Oauth2Service {
         String redirectUri = resolveRedirectUri(request, provider);
 
         String state = UUID.randomUUID().toString(); // CSRF 방지를 위한 랜덤 값
+        // Apple authorize 엔드포인트는 grant_type 파라미터를 받지 않음 (token 엔드포인트 전용)
         String authUrl = UriComponentsBuilder.fromUriString(authorizationUri)
-            .queryParam("grant_type", "authorization_code")
             .queryParam("client_id", clientId)
             .queryParam("redirect_uri", redirectUri)
             .queryParam("response_type", "code id_token")
