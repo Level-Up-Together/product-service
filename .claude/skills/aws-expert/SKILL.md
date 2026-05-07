@@ -13,10 +13,10 @@ allowed-tools: Agent, Read, Edit, Write, Grep, Glob, Bash
 
 ### EC2 인스턴스
 
-| 인스턴스 | ID | Private IP | 서비스 |
-|---------|-----|-----------|--------|
-| EC2 #1 | i-09f4dc30ff0493d0a | 10.0.1.124 | config-server, product-service, redis6, cloudwatch-agent |
-| EC2 #2 | i-0f69e8ef77f38f36e | 10.0.2.251 | product-service, admin-service, cloudwatch-agent |
+| 인스턴스 (Name tag) | ID | Public IP | Private IP | 서비스 |
+|----------------------|-----|-----------|-----------|--------|
+| **lut-ec2-1** | `i-0687f947dc8cb021a` | 43.200.33.125 | 10.0.1.236 | config-server, product-service, redis6, cloudwatch-agent |
+| **lut-ec2-2** | `i-0cc909641da6a8dbc` | 43.203.15.151 | 10.0.2.23 | product-service, admin-service, cloudwatch-agent |
 
 ### 주요 AWS 리소스
 
