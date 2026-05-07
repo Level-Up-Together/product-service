@@ -331,6 +331,7 @@ class YourIntegrationTest {
 - **날짜/시간**: ISO 8601 (`2026-03-24T14:30:45`), UTC 기준 저장
 - **에러 메시지**: i18n 메시지 키 사용 (`error.xxx.yyy`), 한국어 하드코딩 금지
 - **기본 언어**: 영어 (Default)
+- **커밋 메시지**: `.claude/commands/commit.md` 규칙 준수 — `type: [JIRA-번호] 설명`, 50자 이내, 한글, "with claude" 푸터 금지. 여러 프로젝트 동시 작업 시 프로젝트별 메시지를 별도로 제안
 
 ## Internationalization (i18n)
 
