@@ -11,6 +11,9 @@
 ### - 내 길드 목록
 ### - 공개 길드 목록 (카테고리 필터)
 ### - 활성 공지사항 목록
+### today_executions[] / completed_pinned_instances[] 응답 필드 (QA-130):
+###   - exp_earned: 획득 EXP (SIMPLE + 일일 한도 도달 시 0)
+###   - daily_simple_exp_capped: SIMPLE 일일 EXP 한도(10회) 도달 여부
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/bff/home?feedPage=0&feedSize=20&publicGuildSize=5
 Authorization: Bearer {{accessToken}}

@@ -3,8 +3,11 @@
 ### ============================================================
 
 ### ----------------------------------------------------------
-### 미션 생성
+### 미션 생성 (PERSONAL)
 ### ----------------------------------------------------------
+### type=PERSONAL 합산 30개 한도 (Mission.MAX_PERSONAL_MISSIONS_PER_USER)
+### 한도 초과 시 050104 error.mission.creation_limit_exceeded
+### type=GUILD 는 한도 무관
 POST {{baseUrl}}/api/v1/missions
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -13,12 +16,36 @@ Accept: application/json
 {
   "title": "Morning Exercise",
   "description": "30 minutes of morning exercise every day",
+  "type": "PERSONAL",
   "categoryId": 1,
   "visibility": "PUBLIC",
-  "startDate": "2025-01-01",
-  "endDate": "2025-01-31",
-  "repeatType": "DAILY",
+  "missionInterval": "DAILY",
+  "durationDays": 30,
+  "executionMode": "TIMED",
+  "isPinned": false,
+  "expPerCompletion": 10,
   "maxParticipants": 10
+}
+
+### ----------------------------------------------------------
+### 미션 생성 (SIMPLE 모드 - 즉시 완료)
+### ----------------------------------------------------------
+### SIMPLE 모드: 시간 측정 없이 즉시 완료, 고정 +5 EXP
+### 일일 10회까지만 EXP 지급, 초과 시 수행 가능하나 EXP=0
+POST {{baseUrl}}/api/v1/missions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "물 한 잔 마시기",
+  "description": "체크만 하면 끝",
+  "type": "PERSONAL",
+  "categoryId": 1,
+  "visibility": "PRIVATE",
+  "missionInterval": "DAILY",
+  "executionMode": "SIMPLE",
+  "isPinned": true
 }
 
 ### ----------------------------------------------------------
@@ -208,6 +235,9 @@ Accept: application/json
 ### ----------------------------------------------------------
 ### 특정 날짜 실행 완료 처리
 ### ----------------------------------------------------------
+### 응답 필드 (QA-130):
+###   - exp_earned: 획득 EXP (SIMPLE 모드 + 일일 한도 도달 시 0)
+###   - daily_simple_exp_capped: SIMPLE 일일 EXP 한도(10회) 도달 여부 (true면 EXP=0)
 PATCH {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/complete?note=Completed morning run&shareToFeed=true
 Authorization: Bearer {{accessToken}}
 Accept: application/json
