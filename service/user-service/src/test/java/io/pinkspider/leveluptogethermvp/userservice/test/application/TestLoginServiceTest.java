@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -156,6 +157,29 @@ class TestLoginServiceTest {
 
                 // then
                 assertThat(result.getUserId()).isEqualTo("specific-id");
+            }
+        }
+
+        @Test
+        @DisplayName("testUserId가 명시되었지만 DB에 없으면 CustomException(030001) 발생")
+        void loginWithTestUserId_notFound_throws() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                // given
+                mockedCrypto.when(() -> CryptoUtils.encryptAes("ghost@test.com"))
+                    .thenReturn("encrypted");
+                when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.findById("e2e-user-001"))
+                    .thenReturn(Optional.empty());
+
+                // when & then
+                org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    testLoginService.loginAsTestUser(
+                        httpRequest, "e2e-user-001", "ghost@test.com", null, null, null))
+                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                    .hasMessageContaining("error.user.not_found");
+
+                verify(userRepository, never()).save(any(Users.class));
             }
         }
     }
