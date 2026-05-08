@@ -339,4 +339,486 @@ class UserStatsCheckStrategyTest {
             assertThat(result).isFalse();
         }
     }
+
+    // ========================== ctx overload 테스트 ==========================
+
+    @Nested
+    @DisplayName("fetchCurrentValue(ctx, achievement) 테스트")
+    class FetchCurrentValueCtxTest {
+
+        private AchievementSyncContext buildCtx(UserStats stats, boolean guildMaster) {
+            return new AchievementSyncContext(
+                TEST_USER_ID, stats, null, java.util.List.of(), guildMaster, java.util.List.of()
+            );
+        }
+
+        @Test
+        @DisplayName("dataField가 null이면 0을 반환한다")
+        void fetchCurrentValue_ctx_nullDataField_returnsZero() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(5, 3, 7), false);
+            Achievement achievement = createTestAchievement(1L, null, "GTE", 5);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("isGuildMaster dataField: ctx가 마스터이면 1 반환")
+        void fetchCurrentValue_ctx_isGuildMaster_true() {
+            // given
+            AchievementSyncContext ctx = buildCtx(null, true);
+            Achievement achievement = createTestAchievement(1L, "isGuildMaster", "EQ", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("isGuildMaster dataField: ctx가 마스터 아니면 0 반환")
+        void fetchCurrentValue_ctx_isGuildMaster_false() {
+            // given
+            AchievementSyncContext ctx = buildCtx(null, false);
+            Achievement achievement = createTestAchievement(1L, "isGuildMaster", "EQ", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("userStats가 null이면 0 반환")
+        void fetchCurrentValue_ctx_nullUserStats_returnsZero() {
+            // given
+            AchievementSyncContext ctx = buildCtx(null, false);
+            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("totalMissionCompletions 값을 ctx에서 반환한다")
+        void fetchCurrentValue_ctx_totalMissionCompletions() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(15, 3, 7), false);
+            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("totalMissionFullCompletions 값을 ctx에서 반환한다")
+        void fetchCurrentValue_ctx_totalMissionFullCompletions() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(10, 3, 7), false);
+            Achievement achievement = createTestAchievement(1L, "totalMissionFullCompletions", "GTE", 5);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("totalGuildMissionCompletions ctx alias 반환")
+        void fetchCurrentValue_ctx_totalGuildMissionCompletions() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "totalGuildMissionCompletions", "GTE", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("guildMissionCount alias ctx에서 반환")
+        void fetchCurrentValue_ctx_guildMissionCount_alias() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "guildMissionCount", "GTE", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("currentStreak ctx에서 반환")
+        void fetchCurrentValue_ctx_currentStreak() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 8, 10), false);
+            Achievement achievement = createTestAchievement(1L, "currentStreak", "GTE", 7);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(8);
+        }
+
+        @Test
+        @DisplayName("maxStreak ctx에서 반환")
+        void fetchCurrentValue_ctx_maxStreak() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 12), false);
+            Achievement achievement = createTestAchievement(1L, "maxStreak", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(12);
+        }
+
+        @Test
+        @DisplayName("maxStreakDays alias ctx에서 반환")
+        void fetchCurrentValue_ctx_maxStreakDays_alias() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 20), false);
+            Achievement achievement = createTestAchievement(1L, "maxStreakDays", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("totalAchievementsCompleted ctx에서 반환")
+        void fetchCurrentValue_ctx_totalAchievementsCompleted() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "totalAchievementsCompleted", "GTE", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("totalTitlesAcquired ctx에서 반환")
+        void fetchCurrentValue_ctx_totalTitlesAcquired() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "totalTitlesAcquired", "GTE", 3);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("maxCompletedMissionDuration ctx에서 반환")
+        void fetchCurrentValue_ctx_maxCompletedMissionDuration() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "maxCompletedMissionDuration", "GTE", 20);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("guildJoinCount ctx에서 반환")
+        void fetchCurrentValue_ctx_guildJoinCount() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .guildJoinCount(6)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "guildJoinCount", "GTE", 5);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(6);
+        }
+
+        @Test
+        @DisplayName("friendCount ctx에서 반환")
+        void fetchCurrentValue_ctx_friendCount() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .friendCount(15)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "friendCount", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("totalLikesReceived ctx에서 반환")
+        void fetchCurrentValue_ctx_totalLikesReceived() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalLikesReceived(100L)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "totalLikesReceived", "GTE", 50);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(100L);
+        }
+
+        @Test
+        @DisplayName("receivedLikeCount alias ctx에서 반환")
+        void fetchCurrentValue_ctx_receivedLikeCount_alias() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalLikesReceived(77L)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "receivedLikeCount", "GTE", 50);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(77L);
+        }
+
+        @Test
+        @DisplayName("totalCommentsReceived ctx에서 반환")
+        void fetchCurrentValue_ctx_totalCommentsReceived() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalCommentsReceived(25L)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "totalCommentsReceived", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(25L);
+        }
+
+        @Test
+        @DisplayName("receivedCommentCount alias ctx에서 반환")
+        void fetchCurrentValue_ctx_receivedCommentCount_alias() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalCommentsReceived(30L)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "receivedCommentCount", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(30L);
+        }
+
+        @Test
+        @DisplayName("commentsReceived alias ctx에서 반환")
+        void fetchCurrentValue_ctx_commentsReceived_alias() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalCommentsReceived(18L)
+                .build();
+            AchievementSyncContext ctx = buildCtx(stats, false);
+            Achievement achievement = createTestAchievement(1L, "commentsReceived", "GTE", 10);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(18L);
+        }
+
+        @Test
+        @DisplayName("알 수 없는 dataField면 0을 반환한다 (ctx overload)")
+        void fetchCurrentValue_ctx_unknownField_returnsZero() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(0, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "unknownDataField", "GTE", 1);
+
+            // when
+            Object result = strategy.fetchCurrentValue(ctx, achievement);
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("checkCondition(ctx, achievement) 테스트")
+    class CheckConditionCtxTest {
+
+        private AchievementSyncContext buildCtx(UserStats stats, boolean guildMaster) {
+            return new AchievementSyncContext(
+                TEST_USER_ID, stats, null, java.util.List.of(), guildMaster, java.util.List.of()
+            );
+        }
+
+        @Test
+        @DisplayName("ctx 조건 충족 시 true 반환 (GTE)")
+        void checkCondition_ctx_satisfied_returnsTrue() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(10, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 5);
+
+            // when
+            boolean result = strategy.checkCondition(ctx, achievement);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("ctx 조건 미충족 시 false 반환 (GTE)")
+        void checkCondition_ctx_notSatisfied_returnsFalse() {
+            // given
+            AchievementSyncContext ctx = buildCtx(createTestUserStats(3, 0, 0), false);
+            Achievement achievement = createTestAchievement(1L, "totalMissionCompletions", "GTE", 10);
+
+            // when
+            boolean result = strategy.checkCondition(ctx, achievement);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("currentValue가 Number가 아니면 false 반환")
+        void checkCondition_ctx_nonNumberValue_returnsFalse() {
+            // given - dataField가 null → fetchCurrentValue returns 0 (Integer), then null dataField returns 0
+            AchievementSyncContext ctx = buildCtx(null, false);
+            Achievement achievement = createTestAchievement(1L, null, "GTE", 1);
+
+            // when
+            boolean result = strategy.checkCondition(ctx, achievement);
+
+            // then - 0 is a Number so this returns compare(0, 1) = false
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("isGuildMaster ctx에서 EQ 조건 충족 시 true")
+        void checkCondition_ctx_isGuildMaster_eq_true() {
+            // given
+            AchievementSyncContext ctx = buildCtx(null, true);
+            Achievement achievement = createTestAchievement(1L, "isGuildMaster", "EQ", 1);
+
+            // when
+            boolean result = strategy.checkCondition(ctx, achievement);
+
+            // then
+            assertThat(result).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("fetchCurrentValue(userId, dataField) 예외 경로 테스트")
+    class FetchCurrentValueExceptionTest {
+
+        @Test
+        @DisplayName("isGuildMaster: 예외 발생 시 0 반환")
+        void fetchCurrentValue_isGuildMaster_exception_returns0() {
+            // given
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID))
+                .thenThrow(new RuntimeException("네트워크 오류"));
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster");
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("isGuildMaster: memberships가 null이면 0 반환")
+        void fetchCurrentValue_isGuildMaster_nullMemberships_returns0() {
+            // given
+            when(guildQueryFacade.getUserGuildMemberships(TEST_USER_ID)).thenReturn(null);
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "isGuildMaster");
+
+            // then
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("totalCommentsReceived 값을 반환한다")
+        void fetchCurrentValue_totalCommentsReceived() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalCommentsReceived(45L)
+                .build();
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "totalCommentsReceived");
+
+            // then
+            assertThat(result).isEqualTo(45L);
+        }
+
+        @Test
+        @DisplayName("commentsReceived alias 값을 반환한다")
+        void fetchCurrentValue_commentsReceived_alias() {
+            // given
+            UserStats stats = UserStats.builder()
+                .userId(TEST_USER_ID)
+                .totalCommentsReceived(22L)
+                .build();
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+
+            // when
+            Object result = strategy.fetchCurrentValue(TEST_USER_ID, "commentsReceived");
+
+            // then
+            assertThat(result).isEqualTo(22L);
+        }
+    }
 }

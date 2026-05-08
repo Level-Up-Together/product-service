@@ -589,4 +589,440 @@ class FeedCommandServiceTest {
             verify(eventPublisher, never()).publishEvent(any());
         }
     }
+
+    @Nested
+    @DisplayName("updateFeedVisibility 테스트")
+    class UpdateFeedVisibilityTest {
+
+        @Test
+        @DisplayName("피드 공개범위를 변경한다")
+        void updateFeedVisibility_success() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            ActivityFeedResponse result = feedCommandService.updateFeedVisibility(feedId, TEST_USER_ID, FeedVisibility.PRIVATE);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.PRIVATE);
+            verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 피드의 공개범위 변경 시 예외 발생")
+        void updateFeedVisibility_feedNotFound_throwsException() {
+            // given
+            when(activityFeedRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.updateFeedVisibility(999L, TEST_USER_ID, FeedVisibility.PRIVATE))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.not_found");
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 피드 공개범위 변경 시 예외 발생")
+        void updateFeedVisibility_notOwner_throwsException() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.updateFeedVisibility(feedId, TEST_USER_ID, FeedVisibility.PRIVATE))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.not_owner");
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteFeedByExecutionId 테스트")
+    class DeleteFeedByExecutionIdTest {
+
+        @Test
+        @DisplayName("executionId에 해당하는 피드를 삭제한다")
+        void deleteFeedByExecutionId_success() {
+            // given
+            Long executionId = 10L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+
+            // when
+            feedCommandService.deleteFeedByExecutionId(executionId);
+
+            // then
+            verify(activityFeedRepository).delete(feed);
+        }
+
+        @Test
+        @DisplayName("executionId에 해당하는 피드가 없으면 삭제하지 않는다")
+        void deleteFeedByExecutionId_notFound_doesNothing() {
+            // given
+            Long executionId = 999L;
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.empty());
+
+            // when
+            feedCommandService.deleteFeedByExecutionId(executionId);
+
+            // then
+            verify(activityFeedRepository, never()).delete(any(ActivityFeed.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("updateFeedImageUrlByExecutionId 테스트")
+    class UpdateFeedImageUrlByExecutionIdTest {
+
+        @Test
+        @DisplayName("executionId로 피드 이미지 URL을 업데이트한다")
+        void updateFeedImageUrlByExecutionId_success() {
+            // given
+            Long executionId = 10L;
+            String newImageUrl = "https://example.com/updated.jpg";
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.updateFeedImageUrlByExecutionId(executionId, newImageUrl);
+
+            // then
+            assertThat(feed.getImageUrl()).isEqualTo(newImageUrl);
+            verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("executionId에 해당하는 피드가 없으면 업데이트하지 않는다")
+        void updateFeedImageUrlByExecutionId_notFound_doesNothing() {
+            // given
+            Long executionId = 999L;
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.empty());
+
+            // when
+            feedCommandService.updateFeedImageUrlByExecutionId(executionId, "https://x.com/img.jpg");
+
+            // then
+            verify(activityFeedRepository, never()).save(any(ActivityFeed.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("updateFeedDescriptionByExecutionId 테스트")
+    class UpdateFeedDescriptionByExecutionIdTest {
+
+        @Test
+        @DisplayName("executionId로 피드 description을 업데이트한다")
+        void updateFeedDescriptionByExecutionId_success() {
+            // given
+            Long executionId = 10L;
+            String newDescription = "업데이트된 노트";
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, newDescription);
+
+            // then
+            assertThat(feed.getDescription()).isEqualTo(newDescription);
+            verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("executionId에 해당하는 피드가 없으면 업데이트하지 않는다")
+        void updateFeedDescriptionByExecutionId_notFound_doesNothing() {
+            // given
+            Long executionId = 999L;
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.empty());
+
+            // when
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, "노트");
+
+            // then
+            verify(activityFeedRepository, never()).save(any(ActivityFeed.class));
+        }
+
+        @Test
+        @DisplayName("description이 null이어도 업데이트한다")
+        void updateFeedDescriptionByExecutionId_nullDescription_success() {
+            // given
+            Long executionId = 10L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, null);
+
+            // then
+            assertThat(feed.getDescription()).isNull();
+            verify(activityFeedRepository).save(feed);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateFeedContentByExecutionId 테스트")
+    class UpdateFeedContentByExecutionIdTest {
+
+        @Test
+        @DisplayName("executionId로 피드 content를 업데이트하고 피드를 반환한다")
+        void updateFeedContentByExecutionId_success() {
+            // given
+            Long executionId = 10L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
+                executionId, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(feed.getDescription()).isEqualTo("새 설명");
+            assertThat(feed.getImageUrl()).isEqualTo("https://example.com/img.jpg");
+            assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.FRIENDS);
+            verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("executionId에 해당하는 피드가 없으면 null을 반환한다")
+        void updateFeedContentByExecutionId_notFound_returnsNull() {
+            // given
+            Long executionId = 999L;
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.empty());
+
+            // when
+            ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
+                executionId, "설명", null, FeedVisibility.PUBLIC);
+
+            // then
+            assertThat(result).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("updateFeedTitles 테스트")
+    class UpdateFeedTitlesTest {
+
+        @Test
+        @DisplayName("사용자의 모든 피드 칭호 정보를 업데이트한다")
+        void updateFeedTitles_success() {
+            // given
+            DetailedTitleInfoDto detailedTitle = new DetailedTitleInfoDto(
+                "용감한", io.pinkspider.global.enums.TitleRarity.RARE,
+                "전사", io.pinkspider.global.enums.TitleRarity.EPIC,
+                null, null
+            );
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(detailedTitle);
+            when(activityFeedRepository.updateUserTitleByUserId(
+                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(3);
+
+            // when
+            int result = feedCommandService.updateFeedTitles(
+                TEST_USER_ID, "용감한 전사", TitleRarity.EPIC, "#00FF00");
+
+            // then
+            assertThat(result).isEqualTo(3);
+            verify(activityFeedRepository).updateUserTitleByUserId(
+                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("칭호 정보 조회 실패 시 빈 DetailedTitleInfoDto로 업데이트한다")
+        void updateFeedTitles_titleInfoFetchFails_usesEmpty() {
+            // given
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                .thenThrow(new RuntimeException("Feign 오류"));
+            when(activityFeedRepository.updateUserTitleByUserId(
+                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(2);
+
+            // when
+            int result = feedCommandService.updateFeedTitles(TEST_USER_ID, null, null, null);
+
+            // then
+            assertThat(result).isEqualTo(2);
+            verify(activityFeedRepository).updateUserTitleByUserId(
+                eq(TEST_USER_ID), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteFeedByAdmin 테스트")
+    class DeleteFeedByAdminTest {
+
+        @Test
+        @DisplayName("어드민이 피드를 삭제한다")
+        void deleteFeedByAdmin_success() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+
+            // when
+            feedCommandService.deleteFeedByAdmin(feedId, "부적절한 콘텐츠", "admin@test.com");
+
+            // then
+            verify(activityFeedRepository).delete(feed);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 피드를 어드민 삭제 시 예외 발생")
+        void deleteFeedByAdmin_notFound_throwsException() {
+            // given
+            when(activityFeedRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.deleteFeedByAdmin(999L, "사유", "admin"))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.not_found");
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteCommentByAdmin 테스트")
+    class DeleteCommentByAdminTest {
+
+        @Test
+        @DisplayName("어드민이 댓글을 강제 삭제한다")
+        void deleteCommentByAdmin_success() {
+            // given
+            Long commentId = 1L;
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            feed.incrementCommentCount();
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(OTHER_USER_ID)
+                .content("부적절한 댓글")
+                .isDeleted(false)
+                .build();
+            setId(comment, commentId);
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.deleteCommentByAdmin(commentId, "신고 처리");
+
+            // then
+            assertThat(comment.getIsDeleted()).isTrue();
+            assertThat(feed.getCommentCount()).isEqualTo(0);
+            verify(feedCommentRepository).save(comment);
+            verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 댓글을 어드민 삭제 시 예외 발생")
+        void deleteCommentByAdmin_notFound_throwsException() {
+            // given
+            when(feedCommentRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.deleteCommentByAdmin(999L, "사유"))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.not_found");
+        }
+    }
+
+    @Nested
+    @DisplayName("toggleLike 추가 예외 케이스 테스트")
+    class ToggleLikeExtraTest {
+
+        @Test
+        @DisplayName("존재하지 않는 피드에 좋아요 시 예외 발생")
+        void toggleLike_feedNotFound_throwsException() {
+            // given
+            when(activityFeedRepository.findById(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.toggleLike(999L, TEST_USER_ID))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.not_found");
+        }
+    }
+
+    @Nested
+    @DisplayName("createFeed visibility 기본값 테스트")
+    class CreateFeedVisibilityDefaultTest {
+
+        @Test
+        @DisplayName("visibility가 null이면 기본값 PUBLIC으로 생성된다")
+        void createFeed_nullVisibility_defaultsToPublic() {
+            // given
+            ActivityFeed savedFeed = createTestFeed(1L, TEST_USER_ID);
+            CreateFeedRequest request = createTestFeedRequest();
+            // visibility 필드 세팅하지 않음(null 유지)
+
+            when(userQueryFacadeService.userExistsById(TEST_USER_ID)).thenReturn(true);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(
+                new UserProfileInfo(TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg", 5, null, null, null));
+            when(gamificationQueryFacadeService.getCombinedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(new TitleInfoDto("칭호", TitleRarity.COMMON, "#FFFFFF"));
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(EMPTY_DETAILED_TITLE);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+
+            // when
+            ActivityFeedResponse result = feedCommandService.createFeed(TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("createMissionSharedFeed visibility overload 테스트")
+    class CreateMissionSharedFeedVisibilityTest {
+
+        @Test
+        @DisplayName("visibility 파라미터를 명시하여 미션 공유 피드를 생성한다")
+        void createMissionSharedFeed_withVisibility_success() {
+            // given
+            ActivityFeed savedFeed = ActivityFeed.builder()
+                .userId(TEST_USER_ID)
+                .activityType(ActivityType.MISSION_SHARED)
+                .visibility(FeedVisibility.FRIENDS)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+            setId(savedFeed, 2L);
+
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(savedFeed);
+            when(gamificationQueryFacadeService.getDetailedEquippedTitleInfo(TEST_USER_ID))
+                .thenReturn(EMPTY_DETAILED_TITLE);
+
+            // when
+            ActivityFeed result = feedCommandService.createMissionSharedFeed(
+                TEST_USER_ID, "테스트유저", "https://example.com/profile.jpg",
+                5, null, null, null,
+                1L, 2L, "미션 제목", "미션 설명", 1L,
+                "노트", null, 60, 50, FeedVisibility.FRIENDS
+            );
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(2L);
+            verify(activityFeedRepository).save(any(ActivityFeed.class));
+        }
+    }
 }

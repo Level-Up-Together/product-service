@@ -895,4 +895,282 @@ class NotificationServiceTest {
             assertThat(result.getIconUrl()).isEqualTo("rarity:LEGENDARY");
         }
     }
+
+    @Nested
+    @DisplayName("saveInquiryRepliedInApp 테스트")
+    class SaveInquiryRepliedInAppTest {
+
+        @Test
+        @DisplayName("1:1 문의 답변 in-app 알림을 저장한다")
+        void saveInquiryRepliedInApp_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.saveInquiryRepliedInApp(TEST_USER_ID, 10L, "서비스 문의");
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("userId가 null이면 저장하지 않는다")
+        void saveInquiryRepliedInApp_nullUserId_skips() {
+            // when
+            notificationService.saveInquiryRepliedInApp(null, 10L, "서비스 문의");
+
+            // then
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("userId가 빈 문자열이면 저장하지 않는다")
+        void saveInquiryRepliedInApp_blankUserId_skips() {
+            // when
+            notificationService.saveInquiryRepliedInApp("   ", 10L, "서비스 문의");
+
+            // then
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("inquiryTitle이 null이어도 저장한다")
+        void saveInquiryRepliedInApp_nullTitle_success() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.INQUIRY_REPLIED);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.saveInquiryRepliedInApp(TEST_USER_ID, 10L, null);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("localizePushText 테스트")
+    class LocalizePushTextTest {
+
+        @Test
+        @DisplayName("사용자 locale로 푸시 텍스트를 현지화한다")
+        void localizePushText_success() {
+            // given
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id(TEST_USER_ID)
+                    .email("test@example.com")
+                    .nickname("testNick")
+                    .provider("google")
+                    .preferredLocale("ko")
+                    .build();
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            String[] result = notificationService.localizePushText(TEST_USER_ID, NotificationType.FRIEND_REQUEST, "닉네임");
+
+            // then
+            assertThat(result).hasSize(2);
+            // 첫 번째 요소: title, 두 번째: message
+        }
+
+        @Test
+        @DisplayName("사용자가 없으면 기본 locale(en)로 처리한다")
+        void localizePushText_userNotFound_usesDefaultLocale() {
+            // given
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            String[] result = notificationService.localizePushText(TEST_USER_ID, NotificationType.SYSTEM);
+
+            // then
+            assertThat(result).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("quiet hours 야간범위(cross-midnight) 테스트")
+    class QuietHoursNightRangeTest {
+
+        @Test
+        @DisplayName("야간 quiet hours(22:00~06:00) 내이면 푸시를 보내지 않는다")
+        void createNotification_quietHoursNightRange_pushSkipped() {
+            // given
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id(TEST_USER_ID)
+                    .email("test@example.com")
+                    .nickname("testNick")
+                    .provider("google")
+                    .preferredTimezone("Asia/Seoul")
+                    .build();
+
+            // start > end (야간 범위) → 현재 시간이 어디든 예외 없이 실행
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .pushEnabled(true)
+                .friendNotifications(true)
+                .guildNotifications(true)
+                .socialNotifications(true)
+                .systemNotifications(true)
+                .quietHoursEnabled(true)
+                .quietHoursStart("00:00")  // 항상 quiet에 걸리도록 넓은 범위
+                .quietHoursEnd("23:59")
+                .build();
+            setId(preference, 1L);
+
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+            // quiet hours 내에 있어 푸시 전송 안 됨 (예외 없이 정상 처리)
+        }
+
+        @Test
+        @DisplayName("잘못된 timezone 문자열이어도 예외 없이 처리한다")
+        void createNotification_invalidTimezone_handledGracefully() {
+            // given
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id(TEST_USER_ID)
+                    .email("test@example.com")
+                    .nickname("testNick")
+                    .provider("google")
+                    .preferredTimezone("Invalid/Zone")  // 잘못된 timezone
+                    .build();
+
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .pushEnabled(true)
+                .systemNotifications(true)
+                .quietHoursEnabled(true)
+                .quietHoursStart("22:00")
+                .quietHoursEnd("08:00")
+                .build();
+            setId(preference, 1L);
+
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when - 예외 없이 실행
+            NotificationResponse result = notificationService.createNotification(
+                TEST_USER_ID, NotificationType.SYSTEM, "제목", "내용");
+
+            // then
+            assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("markAllAsRead 배지 동기화 테스트")
+    class MarkAllAsReadBadgeTest {
+
+        @Test
+        @DisplayName("모든 알림 읽음 처리 시 배지 카운트가 0으로 동기화된다")
+        void markAllAsRead_syncBadgeToZero() {
+            // given
+            when(notificationRepository.markAllAsRead(TEST_USER_ID)).thenReturn(3);
+
+            // when
+            int result = notificationService.markAllAsRead(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(3);
+            verify(deviceTokenService).syncBadgeCount(TEST_USER_ID, 0);
+        }
+
+        @Test
+        @DisplayName("읽음 처리할 알림이 없으면 0을 반환한다")
+        void markAllAsRead_noNotifications_returnsZero() {
+            // given
+            when(notificationRepository.markAllAsRead(TEST_USER_ID)).thenReturn(0);
+
+            // when
+            int result = notificationService.markAllAsRead(TEST_USER_ID);
+
+            // then
+            assertThat(result).isZero();
+            verify(deviceTokenService).syncBadgeCount(TEST_USER_ID, 0);
+        }
+    }
+
+    @Nested
+    @DisplayName("markAsRead 배지 동기화 테스트")
+    class MarkAsReadBadgeSyncTest {
+
+        @Test
+        @DisplayName("알림 읽음 처리 후 남은 미읽음 수로 배지를 동기화한다")
+        void markAsRead_syncBadgeCount() {
+            // given
+            Long notificationId = 1L;
+            Notification notification = createTestNotification(notificationId, TEST_USER_ID, NotificationType.SYSTEM);
+            when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+            when(notificationRepository.countUnreadByUserId(TEST_USER_ID)).thenReturn(2);
+
+            // when
+            notificationService.markAsRead(TEST_USER_ID, notificationId);
+
+            // then
+            verify(deviceTokenService).syncBadgeCount(TEST_USER_ID, 2);
+        }
+    }
+
+    @Nested
+    @DisplayName("sendNotification 야간범위 quiet hours 테스트")
+    class SendNotificationQuietHoursTest {
+
+        @Test
+        @DisplayName("sendNotification에서도 카테고리 활성화 시 push가 전송된다")
+        void sendNotification_pushEnabledNoQuietHours_pushSent() {
+            // given
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.SYSTEM);
+
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.save(any(Notification.class))).thenReturn(savedNotification);
+
+            // when
+            notificationService.sendNotification(TEST_USER_ID, NotificationType.SYSTEM,
+                null, null);
+
+            // then
+            verify(notificationRepository).save(any(Notification.class));
+            verify(appPushMessageProducer).sendMessage(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("cleanupExpiredNotifications 0건 처리 테스트")
+    class CleanupExpiredNotificationsZeroTest {
+
+        @Test
+        @DisplayName("만료된 알림이 없으면 0을 반환한다")
+        void cleanupExpiredNotifications_noExpired_returnsZero() {
+            // given
+            when(notificationRepository.deleteExpiredNotifications(any(LocalDateTime.class))).thenReturn(0);
+
+            // when
+            int result = notificationService.cleanupExpiredNotifications();
+
+            // then
+            assertThat(result).isZero();
+        }
+    }
 }

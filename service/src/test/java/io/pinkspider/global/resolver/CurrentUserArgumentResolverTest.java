@@ -173,6 +173,24 @@ class CurrentUserArgumentResolverTest {
         }
 
         @Test
+        @DisplayName("Authentication.isAuthenticated()이 false면 null 반환 (필수 X)")
+        void resolveArgument_isAuthenticatedFalse_returnsNull() throws Exception {
+            // given: 2-arg 생성자는 isAuthenticated=false로 초기화됨
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken("user-id", null);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            Method method = TestController.class.getMethod("testMethodOptional", String.class);
+            MethodParameter parameter = new MethodParameter(method, 0);
+
+            // when
+            Object result = resolver.resolveArgument(parameter, null, null, null);
+
+            // then
+            assertThat(result).isNull();
+        }
+
+        @Test
         @DisplayName("기타 principal 타입일 경우 toString()을 반환한다")
         void resolveArgument_withOtherPrincipal_returnsToString() throws Exception {
             // given

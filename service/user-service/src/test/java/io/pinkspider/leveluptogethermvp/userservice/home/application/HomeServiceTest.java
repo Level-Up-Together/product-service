@@ -1053,4 +1053,242 @@ class HomeServiceTest {
             assertThat(result.get(0).getUserId()).isEqualTo(testUserId);
         }
     }
+
+    @Nested
+    @DisplayName("getActiveBanners 빈 목록 테스트")
+    class GetActiveBannersEmptyTest {
+
+        @Test
+        @DisplayName("활성 배너가 없으면 빈 목록을 반환한다")
+        void getActiveBanners_empty() {
+            // given
+            when(adminInternalFeignClient.getActiveBanners()).thenReturn(Collections.emptyList());
+
+            // when
+            java.util.List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse> result =
+                homeService.getActiveBanners();
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("특정 타입 배너가 없으면 빈 목록을 반환한다")
+        void getActiveBannersByType_empty() {
+            // given
+            when(adminInternalFeignClient.getBannersByType("NOTICE")).thenReturn(Collections.emptyList());
+
+            // when
+            java.util.List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.HomeBannerResponse> result =
+                homeService.getActiveBannersByType(io.pinkspider.global.enums.BannerType.NOTICE);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getTodayPlayers locale overload 테스트")
+    class GetTodayPlayersLocaleOverloadTest {
+
+        @Test
+        @DisplayName("locale 파라미터로 오늘의 플레이어를 조회한다")
+        void getTodayPlayers_localeOverload_success() {
+            // given
+            Object[] row1 = {testUserId, 200L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 7));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers("ko");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserId()).isEqualTo(testUserId);
+            assertThat(result.get(0).getLevel()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("locale이 null일 때도 정상 조회한다")
+        void getTodayPlayers_localeNull_success() {
+            // given
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers((String) null);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getTodayPlayersByCategory locale overload 테스트")
+    class GetTodayPlayersByCategoryLocaleOverloadTest {
+
+        @Test
+        @DisplayName("locale만 지정하여 카테고리별 플레이어를 조회한다")
+        void getTodayPlayersByCategory_localeOnly_success() {
+            // given
+            when(adminInternalFeignClient.getFeaturedPlayerUserIds(testCategoryId))
+                .thenReturn(Collections.emptyList());
+            when(missionCategoryService.getCategory(testCategoryId))
+                .thenReturn(testCategoryResponse);
+
+            Object[] row1 = {testUserId, 50L};
+            List<Object[]> autoGainers = new ArrayList<>();
+            autoGainers.add(row1);
+            when(gamificationQueryFacadeService.findTopExpGainersByCategoryAndPeriod(
+                eq("운동"), any(), any(), any()))
+                .thenReturn(autoGainers);
+            when(userRepository.findById(testUserId)).thenReturn(Optional.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevel(testUserId)).thenReturn(3);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(testUserId))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayersByCategory(testCategoryId, "en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserId()).isEqualTo(testUserId);
+        }
+    }
+
+    @Nested
+    @DisplayName("getMvpGuilds 기본값 테스트")
+    class GetMvpGuildsDefaultTest {
+
+        @Test
+        @DisplayName("getMvpGuilds() 기본 메서드는 timezone null로 위임한다")
+        void getMvpGuilds_noArg_delegatesWithNullTimezone() {
+            // given
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse> result =
+                homeService.getMvpGuilds();
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("MVP 길드 조회 시 guildMap에 없는 길드는 스킵된다")
+        void getMvpGuilds_guildNotInMap_skipped() {
+            // given
+            Long guildId = 1L;
+            Long missingGuildId = 2L;
+            Object[] row1 = {guildId, 500L};
+            Object[] row2 = {missingGuildId, 300L};
+            List<Object[]> topGuilds = new ArrayList<>();
+            topGuilds.add(row1);
+            topGuilds.add(row2);
+
+            io.pinkspider.global.facade.dto.GuildWithMemberCount guildWithCount =
+                new io.pinkspider.global.facade.dto.GuildWithMemberCount(
+                    guildId, "존재길드", null, 5, 20
+                );
+
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(topGuilds);
+            when(guildQueryFacadeService.getGuildsWithMemberCounts(any()))
+                .thenReturn(List.of(guildWithCount));
+
+            // when
+            List<io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse> result =
+                homeService.getMvpGuilds();
+
+            // then
+            assertThat(result).hasSize(1);  // missingGuildId는 스킵
+            assertThat(result.get(0).getName()).isEqualTo("존재길드");
+        }
+    }
+
+    @Nested
+    @DisplayName("getHighestRarity 분기 테스트")
+    class GetHighestRarityTest {
+
+        @Test
+        @DisplayName("LEFT rarity가 null이면 RIGHT rarity를 반환한다")
+        void buildTitleInfo_leftRarityNull_returnsRightRarity() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            UserTitleDto rightTitle = new UserTitleDto(
+                2L, testUserId, 2L, "수호자", null, null,
+                null,
+                null, null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT,
+                "#0000FF", null, true, TitlePosition.RIGHT, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(rightTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTitleRarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(result.get(0).getTitleColorCode()).isEqualTo("#0000FF");
+            assertThat(result.get(0).getLeftTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("LEFT/RIGHT rarity가 동일하면 LEFT 색상 코드를 사용한다 (leftRarity == highestRarity)")
+        void buildTitleInfo_equalRarity_usesLeftColorCode() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            UserTitleDto leftTitle = new UserTitleDto(
+                1L, testUserId, 1L, "빠른", null, null,
+                null,
+                null, null, null, null, TitleRarity.EPIC, TitlePosition.LEFT,
+                "#AA0000", null, true, TitlePosition.LEFT, null
+            );
+            UserTitleDto rightTitle = new UserTitleDto(
+                2L, testUserId, 2L, "사냥꾼", null, null,
+                null,
+                null, null, null, null, TitleRarity.EPIC, TitlePosition.RIGHT,
+                "#00AA00", null, true, TitlePosition.RIGHT, null
+            );
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(leftTitle, rightTitle)));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            // 동일 등급이면 leftRarity == highestRarity 분기 → LEFT 색상 코드
+            assertThat(result.get(0).getTitleRarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(result.get(0).getTitleColorCode()).isEqualTo("#AA0000");
+        }
+    }
 }

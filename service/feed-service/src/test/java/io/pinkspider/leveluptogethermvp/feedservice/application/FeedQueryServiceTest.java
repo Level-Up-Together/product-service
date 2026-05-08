@@ -13,9 +13,11 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.translation.TranslationService;
 import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
@@ -1301,6 +1303,755 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).isEmpty();
             org.mockito.Mockito.verify(activityFeedRepository, org.mockito.Mockito.never())
                 .searchByKeywordAndCategory(any(), anyList(), any());
+        }
+    }
+
+    // ==================== 새로 추가된 테스트 ====================
+
+    @Nested
+    @DisplayName("searchFeedsForAdmin 테스트")
+    class SearchFeedsForAdminTest {
+
+        @Test
+        @DisplayName("모든 파라미터가 null인 경우 전체 검색을 수행한다")
+        void searchFeedsForAdmin_allParamsNull() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.searchFeedsForAdmin(
+                eq(null), eq(null), eq(null), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                null, null, null, null, null, 0, 10, null, null);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("activityType과 visibility 파라미터가 있으면 enum으로 변환하여 검색한다")
+        void searchFeedsForAdmin_withActivityTypeAndVisibility() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.searchFeedsForAdmin(
+                eq(ActivityType.MISSION_COMPLETED), eq(FeedVisibility.PUBLIC),
+                eq(TEST_USER_ID), eq(1L), eq("keyword"), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                "MISSION_COMPLETED", "PUBLIC", TEST_USER_ID, 1L, "keyword", 0, 10, "id", "ASC");
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("sortDirection이 ASC이면 오름차순 정렬을 적용한다")
+        void searchFeedsForAdmin_sortAscending() {
+            // given
+            Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
+            when(activityFeedRepository.searchFeedsForAdmin(
+                any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                null, null, null, null, null, 0, 10, "createdAt", "ASC");
+
+            // then
+            assertThat(result).isNotNull();
+            verify(activityFeedRepository).searchFeedsForAdmin(
+                any(), any(), any(), any(), any(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("sortDirection이 DESC이면 내림차순 정렬을 적용한다")
+        void searchFeedsForAdmin_sortDescending() {
+            // given
+            Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
+            when(activityFeedRepository.searchFeedsForAdmin(
+                any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                null, null, null, null, null, 0, 10, "createdAt", "DESC");
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("sortBy가 null이면 기본 정렬 기준 id를 사용한다")
+        void searchFeedsForAdmin_sortByNull_defaultsToId() {
+            // given
+            Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
+            when(activityFeedRepository.searchFeedsForAdmin(
+                any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when — sortBy=null, sortDirection=ASC
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                null, null, null, null, null, 0, 10, null, "ASC");
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("sortDirection이 null이면 DESC(기본값)으로 처리한다")
+        void searchFeedsForAdmin_sortDirectionNull_defaultsToDesc() {
+            // given
+            Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
+            when(activityFeedRepository.searchFeedsForAdmin(
+                any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+
+            // when — sortDirection=null → else 분기(DESC)
+            FeedAdminPageResponse result = feedQueryService.searchFeedsForAdmin(
+                null, null, null, null, null, 0, 10, "id", null);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getFilteredFeeds 테스트")
+    class GetFilteredFeedsTest {
+
+        @Test
+        @DisplayName("searchType이 null이면 전체 공개 피드를 반환한다")
+        void getFilteredFeeds_searchTypeNull_returnsPublic() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                null, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(activityFeedRepository).findPublicFeeds(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("userId가 null이면 전체 공개 피드를 반환한다")
+        void getFilteredFeeds_userIdNull_returnsPublic() {
+            // given
+            Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.ALL, null, 0, 10, null);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(activityFeedRepository).findPublicFeeds(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=ALL이면 전체 공개 피드를 반환한다")
+        void getFilteredFeeds_searchTypeAll() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.ALL, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findPublicFeeds(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=FRIENDS이고 친구가 없으면 빈 페이지를 반환한다")
+        void getFilteredFeeds_searchTypeFriends_noFriends_returnsEmpty() {
+            // given
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never()).findFriendsFeeds(anyList(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=FRIENDS이고 친구가 있으면 친구 피드를 반환한다")
+        void getFilteredFeeds_searchTypeFriends_withFriends() {
+            // given
+            List<String> friendIds = List.of("friend-1", "friend-2");
+            ActivityFeed feed = createTestFeed(1L, "friend-1");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findFriendsFeeds(eq(friendIds), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=GUILD이고 소속 길드가 없으면 빈 페이지를 반환한다")
+        void getFilteredFeeds_searchTypeGuild_noGuilds_returnsEmpty() {
+            // given
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.GUILD, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=GUILD이고 소속 길드가 있으면 길드 피드를 반환한다")
+        void getFilteredFeeds_searchTypeGuild_withGuilds() {
+            // given
+            Long guildId = 10L;
+            GuildMembershipInfo membership = new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false);
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(List.of(membership));
+            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.GUILD, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=MINE이면 내 공개 피드를 반환한다")
+        void getFilteredFeeds_searchTypeMine() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findPublicFeedsByUserId(eq(TEST_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.MINE, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findPublicFeedsByUserId(eq(TEST_USER_ID), any(Pageable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getFeed 추가 분기 테스트")
+    class GetFeedAdditionalTest {
+
+        @Test
+        @DisplayName("현재 유저가 피드 작성자이면 isMyFeed=true를 반환한다")
+        void getFeed_isMyFeed_true() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(true);
+            when(reportService.isUnderReview(any(), anyString())).thenReturn(false);
+
+            // when
+            ActivityFeedResponse result = feedQueryService.getFeed(feedId, TEST_USER_ID, null);
+
+            // then
+            assertThat(result.isMyFeed()).isTrue();
+            assertThat(result.isLikedByMe()).isTrue();
+        }
+
+        @Test
+        @DisplayName("현재 유저가 피드 작성자가 아니면 isMyFeed=false를 반환한다")
+        void getFeed_isMyFeed_false() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedLikeRepository.existsByFeedIdAndUserId(feedId, TEST_USER_ID)).thenReturn(false);
+            when(reportService.isUnderReview(any(), anyString())).thenReturn(false);
+
+            // when
+            ActivityFeedResponse result = feedQueryService.getFeed(feedId, TEST_USER_ID, null);
+
+            // then
+            assertThat(result.isMyFeed()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("enrichFeeds lambda 분기 테스트")
+    class EnrichFeedsLambdaTest {
+
+        @Test
+        @DisplayName("enrichFeeds에서 피드 작성자와 현재 유저가 같으면 isMyFeed=true로 매핑된다")
+        void enrichFeeds_isMyFeed_true_viaGetFilteredFeedsMine() {
+            // given
+            ActivityFeed myFeed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(myFeed));
+
+            when(activityFeedRepository.findPublicFeedsByUserId(eq(TEST_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(List.of(1L));  // 좋아요한 피드
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.MINE, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).isMyFeed()).isTrue();
+            assertThat(result.getContent().get(0).isLikedByMe()).isTrue();
+        }
+
+        @Test
+        @DisplayName("enrichFeeds에서 신고 처리중인 피드는 isUnderReview=true로 설정된다")
+        void enrichFeeds_underReview_true_viaFriendsFeeds() {
+            // given
+            List<String> friendIds = List.of("friend-1");
+            ActivityFeed feed = createTestFeed(5L, "friend-1");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+            Map<String, Boolean> underReviewMap = new HashMap<>();
+            underReviewMap.put("5", true);
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(underReviewMap);
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getIsUnderReview()).isTrue();
+        }
+
+        @Test
+        @DisplayName("enrichFeeds에서 userId가 null이면 isMyFeed=false로 매핑된다")
+        void enrichFeeds_userId_null_isMyFeed_false() {
+            // given — getFilteredFeeds(null, null) → null/null 분기로 getPublicFeeds() 호출
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(createTestFeed(1L, TEST_USER_ID)));
+
+            when(activityFeedRepository.findPublicFeeds(any(Pageable.class))).thenReturn(feedPage);
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                null, null, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            // currentUserId=null → isMyFeed 평가 시 null!=null이면 false
+            assertThat(result.getContent().get(0).isMyFeed()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserFeeds lambda 분기 테스트 (lambda$getUserFeeds$10)")
+    class GetUserFeedsLambdaTest {
+
+        @Test
+        @DisplayName("GUILD 공개범위 피드에서 같은 길드 소속이면 열람 가능하다")
+        void getUserFeeds_guildFeed_sameGuild_canView() {
+            // given
+            Long guildId = 100L;
+            ActivityFeed guildFeed = ActivityFeed.builder()
+                .userId(OTHER_USER_ID)
+                .userNickname("다른유저")
+                .activityType(ActivityType.MISSION_COMPLETED)
+                .title("길드공개 피드")
+                .visibility(FeedVisibility.GUILD)
+                .guildId(guildId)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+            setId(guildFeed, 1L);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
+
+            GuildMembershipInfo membership = new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false);
+
+            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            // 현재 유저가 같은 길드 소속
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(List.of(membership));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
+                OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위 피드에서 다른 길드 소속이면 null을 반환한다")
+        void getUserFeeds_guildFeed_differentGuild_returnsNull() {
+            // given
+            Long feedGuildId = 100L;
+            Long myGuildId = 200L;
+            ActivityFeed guildFeed = ActivityFeed.builder()
+                .userId(OTHER_USER_ID)
+                .userNickname("다른유저")
+                .activityType(ActivityType.MISSION_COMPLETED)
+                .title("길드공개 피드")
+                .visibility(FeedVisibility.GUILD)
+                .guildId(feedGuildId)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+            setId(guildFeed, 1L);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
+
+            GuildMembershipInfo myMembership = new GuildMembershipInfo(myGuildId, "내길드", null, 1, false, false);
+
+            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            // 현재 유저는 다른 길드 소속
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(List.of(myMembership));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
+                OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            // then — GUILD 공개이지만 같은 길드 아니므로 null
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0)).isNull();
+        }
+
+        @Test
+        @DisplayName("PRIVATE 공개범위 피드는 항상 null을 반환한다")
+        void getUserFeeds_privateFeed_alwaysNull() {
+            // given
+            ActivityFeed privateFeed = ActivityFeed.builder()
+                .userId(OTHER_USER_ID)
+                .userNickname("다른유저")
+                .activityType(ActivityType.MISSION_COMPLETED)
+                .title("비공개 피드")
+                .visibility(FeedVisibility.PRIVATE)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+            setId(privateFeed, 1L);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(privateFeed));
+
+            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            // 친구이더라도 PRIVATE은 열람 불가
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(true);
+            when(guildQueryFacadeService.getUserGuildMemberships(anyString()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
+                OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0)).isNull();
+        }
+
+        @Test
+        @DisplayName("GUILD 공개범위이고 feed.guildId가 null인 피드는 null을 반환한다")
+        void getUserFeeds_guildFeed_guildIdNull_returnsNull() {
+            // given — guildId가 null인 GUILD 공개 피드
+            ActivityFeed guildFeed = ActivityFeed.builder()
+                .userId(OTHER_USER_ID)
+                .userNickname("다른유저")
+                .activityType(ActivityType.MISSION_COMPLETED)
+                .title("길드공개 피드 (guildId 없음)")
+                .visibility(FeedVisibility.GUILD)
+                .guildId(null)
+                .likeCount(0)
+                .commentCount(0)
+                .build();
+            setId(guildFeed, 1L);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
+
+            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
+                OTHER_USER_ID, TEST_USER_ID, 0, 10);
+
+            // then — guildId null이면 myGuildIds.contains(null) = false → null 반환
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("translateComment 분기 테스트 (비기본 언어)")
+    class TranslateCommentNonDefaultLocaleTest {
+
+        @Test
+        @DisplayName("비기본 언어이고 삭제되지 않은 댓글은 번역 서비스를 호출한다")
+        void getComments_nonDefaultLocale_notDeleted_callsTranslation() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("댓글 내용")
+                .isDeleted(false)
+                .userLevel(3)
+                .build();
+            setId(comment, 10L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(translationService.translateContent(any(), any(), any(), any())).thenReturn(null);
+
+            // when
+            feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "ja");
+
+            // then — ja는 기본 언어(en) 아니므로 번역 호출됨
+            verify(translationService).translateContent(
+                eq(io.pinkspider.global.translation.enums.ContentType.FEED_COMMENT),
+                any(), any(), eq("ja"));
+        }
+
+        @Test
+        @DisplayName("비기본 언어이지만 삭제된 댓글은 번역 서비스를 호출하지 않는다")
+        void getComments_nonDefaultLocale_deleted_noTranslation() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment deletedComment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("삭제된 댓글")
+                .isDeleted(true)
+                .userLevel(3)
+                .build();
+            setId(deletedComment, 11L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "ja");
+
+            // then — 삭제된 댓글은 번역 호출 안됨
+            verify(translationService, never()).translateContent(any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("getFriendsOnlyFeeds 분기 테스트")
+    class GetFriendsOnlyFeedsTest {
+
+        @Test
+        @DisplayName("친구 목록이 비어있으면 빈 페이지를 즉시 반환한다")
+        void getFriendsOnlyFeeds_emptyFriendIds_returnsEmpty() {
+            // given
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, "ko");
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never()).findFriendsFeeds(anyList(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("친구 목록이 있으면 친구 피드를 조회한다")
+        void getFriendsOnlyFeeds_withFriends_fetchesFeeds() {
+            // given
+            List<String> friendIds = List.of("friend-A");
+            ActivityFeed feed = createTestFeed(1L, "friend-A");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getMyGuildFeeds 분기 테스트")
+    class GetMyGuildFeedsTest {
+
+        @Test
+        @DisplayName("소속 길드가 없으면 빈 페이지를 즉시 반환한다")
+        void getMyGuildFeeds_noGuilds_returnsEmpty() {
+            // given
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.GUILD, TEST_USER_ID, 0, 10, "ko");
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("소속 길드가 있으면 해당 길드 피드를 조회한다")
+        void getMyGuildFeeds_withGuilds_fetchesFeeds() {
+            // given
+            Long guildId = 7L;
+            GuildMembershipInfo membership = new GuildMembershipInfo(guildId, "내길드", null, 2, false, false);
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(List.of(membership));
+            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.GUILD, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getGuildFeeds 비멤버 분기 테스트")
+    class GetGuildFeedsNonMemberTest {
+
+        @Test
+        @DisplayName("비멤버는 PUBLIC 피드만 조회된다")
+        void getGuildFeeds_nonMember_seesPublicOnly() {
+            // given
+            Long guildId = 1L;
+            ActivityFeed publicFeed = createTestFeed(1L, OTHER_USER_ID);
+            Page<ActivityFeed> publicFeedPage = new PageImpl<>(List.of(publicFeed));
+
+            // 현재 유저는 해당 길드의 멤버가 아님
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(activityFeedRepository.findPublicFeedsByGuildId(eq(guildId), any(Pageable.class)))
+                .thenReturn(publicFeedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getGuildFeeds(guildId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findPublicFeedsByGuildId(eq(guildId), any(Pageable.class));
+            verify(activityFeedRepository, never()).findGuildFeeds(eq(guildId), any(Pageable.class));
         }
     }
 }
