@@ -127,59 +127,89 @@ class TestLoginServiceTest {
         }
 
         @Test
-        @DisplayName("testUserId로 기존 사용자를 조회한다")
+        @DisplayName("testUserId로 기존 사용자를 조회한다 (이메일 조회보다 우선)")
         void loginWithTestUserId() {
+            // given
+            Users existingUser = Users.builder()
+                .id("specific-id")
+                .email("spec@test.com")
+                .nickname("spec")
+                .provider("test")
+                .build();
+
+            when(userRepository.findById("specific-id"))
+                .thenReturn(Optional.of(existingUser));
+            when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
+                .thenReturn("at");
+            when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
+                .thenReturn("rt");
+            when(deviceIdentifier.generateDeviceId(any(), anyString()))
+                .thenReturn("dev");
+
+            // when
+            CreateJwtResponseDto result = testLoginService.loginAsTestUser(
+                httpRequest, "specific-id", "spec@test.com", null, null, null);
+
+            // then
+            assertThat(result.getUserId()).isEqualTo("specific-id");
+            verify(userRepository, never()).findByEncryptedEmailAndProvider(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("testUserId 명시 + DB 미존재: testUserId 무시하고 자동 UUID로 신규 생성")
+        void loginWithTestUserId_notFound_createsNewUserWithAutoId() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                Users existingUser = Users.builder()
-                    .id("specific-id")
-                    .email("spec@test.com")
-                    .nickname("spec")
-                    .provider("test")
-                    .build();
+                String testUserId = "e2e00001-0000-0000-0000-000000000001";
+                String email = "e2e-user-001@test.com";
+                String autoId = "generated-uuid";
+                Users savedUser = Users.builder()
+                    .id(autoId).email(email).nickname("e2e-user-").provider("test").build();
 
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("spec@test.com"))
-                    .thenReturn("encrypted");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
+                when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
                 when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
                     .thenReturn(Optional.empty());
-                when(userRepository.findById("specific-id"))
-                    .thenReturn(Optional.of(existingUser));
-                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
-                    .thenReturn("at");
-                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
-                    .thenReturn("rt");
-                when(deviceIdentifier.generateDeviceId(any(), anyString()))
-                    .thenReturn("dev");
+                when(userRepository.existsByNickname(anyString())).thenReturn(false);
+                when(userRepository.save(any(Users.class))).thenReturn(savedUser);
+                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("at");
+                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("rt");
+                when(deviceIdentifier.generateDeviceId(any(), anyString())).thenReturn("dev");
 
                 // when
                 CreateJwtResponseDto result = testLoginService.loginAsTestUser(
-                    httpRequest, "specific-id", "spec@test.com", null, null, null);
+                    httpRequest, testUserId, email, null, null, null);
 
-                // then
-                assertThat(result.getUserId()).isEqualTo("specific-id");
+                // then: save 호출, 응답 ID = 자동 부여 ID (요청 testUserId 아님)
+                verify(userRepository).save(any(Users.class));
+                assertThat(result.getUserId()).isEqualTo(autoId);
+                assertThat(result.getUserId()).isNotEqualTo(testUserId);
             }
         }
 
         @Test
-        @DisplayName("testUserId가 명시되었지만 DB에 없으면 CustomException(030001) 발생")
-        void loginWithTestUserId_notFound_throws() {
+        @DisplayName("testUserId 미지정 + 이메일 매칭 시 기존 user 반환")
+        void loginWithoutTestUserId_emailMatch_returnsExisting() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
-                mockedCrypto.when(() -> CryptoUtils.encryptAes("ghost@test.com"))
-                    .thenReturn("encrypted");
+                String email = "exist@test.com";
+                Users existing = Users.builder()
+                    .id("existing-id").email(email).nickname("exist").provider("test").build();
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
                 when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
-                    .thenReturn(Optional.empty());
-                when(userRepository.findById("e2e-user-001"))
-                    .thenReturn(Optional.empty());
+                    .thenReturn(Optional.of(existing));
+                when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("at");
+                when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("rt");
+                when(deviceIdentifier.generateDeviceId(any(), anyString())).thenReturn("dev");
 
-                // when & then
-                org.assertj.core.api.Assertions.assertThatThrownBy(() ->
-                    testLoginService.loginAsTestUser(
-                        httpRequest, "e2e-user-001", "ghost@test.com", null, null, null))
-                    .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
-                    .hasMessageContaining("error.user.not_found");
+                // when
+                CreateJwtResponseDto result = testLoginService.loginAsTestUser(
+                    httpRequest, null, email, null, null, null);
 
+                // then: 신규 save 미호출
                 verify(userRepository, never()).save(any(Users.class));
+                assertThat(result.getUserId()).isEqualTo("existing-id");
             }
         }
     }

@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.test.application;
 
-import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.util.CryptoUtils;
 import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.global.security.JwtUtil;
@@ -100,29 +99,30 @@ public class TestLoginService {
     /**
      * 테스트 사용자를 조회하거나 새로 생성합니다.
      *
-     * <p>testUserId가 명시되었는데 DB에 해당 사용자가 없으면 예외 발생.
-     * (지정 ID로 신규 INSERT 시 Hibernate가 detached entity로 인식해 merge → SELECT 미스 시
-     * StaleObjectStateException 발생하던 기존 동작 제거)</p>
+     * <p>{@code testUserId}가 명시되었지만 DB에 없으면 무시하고 신규 사용자 생성.
+     * (Hibernate가 ID 명시된 entity를 detached로 인식해 INSERT 불가 — {@code save}/{@code persist}
+     * 모두 실패하므로 ID 자동 생성으로 위임)</p>
      */
     private Users findOrCreateTestUser(String testUserId, String email, String nickname) {
-        // 1. 이메일로 기존 사용자 조회
-        String encryptedEmail = CryptoUtils.encryptAes(email);
-        Optional<Users> existingUser = userRepository.findByEncryptedEmailAndProvider(
-            encryptedEmail,
-            TEST_PROVIDER
-        );
-        if (existingUser.isPresent()) {
-            log.info("기존 테스트 사용자 로그인 (이메일): userId={}", existingUser.get().getId());
-            return existingUser.get();
-        }
-
-        // 2. testUserId 명시 시: 해당 ID 사용자가 DB에 있어야 함. 없으면 예외 (신규 INSERT 하지 않음)
+        // 1. testUserId 명시 시 ID로 조회 (있으면 그대로 사용)
         if (testUserId != null && !testUserId.trim().isEmpty()) {
-            return userRepository.findById(testUserId)
-                .orElseThrow(() -> new CustomException("030001", "error.user.not_found"));
+            Optional<Users> userById = userRepository.findById(testUserId);
+            if (userById.isPresent()) {
+                log.info("기존 테스트 사용자 로그인 (ID): userId={}", userById.get().getId());
+                return userById.get();
+            }
         }
 
-        // 3. testUserId 미지정 시: 신규 테스트 사용자 자동 생성 (UUID 자동 부여)
+        // 2. 이메일로 조회
+        String encryptedEmail = CryptoUtils.encryptAes(email);
+        Optional<Users> byEmail = userRepository.findByEncryptedEmailAndProvider(
+            encryptedEmail, TEST_PROVIDER);
+        if (byEmail.isPresent()) {
+            log.info("기존 테스트 사용자 로그인 (이메일): userId={}", byEmail.get().getId());
+            return byEmail.get();
+        }
+
+        // 3. 신규 생성 (UUID 자동 부여 — testUserId는 무시; 클라이언트는 응답의 user_id 사용)
         return createTestUser(email, nickname);
     }
 
@@ -130,15 +130,12 @@ public class TestLoginService {
      * 새 테스트 사용자를 생성합니다. ID는 @UuidGenerator로 자동 부여됩니다.
      */
     private Users createTestUser(String email, String nickname) {
-        // 닉네임이 없으면 이메일에서 추출
         if (nickname == null || nickname.trim().isEmpty()) {
             nickname = email.split("@")[0];
             if (nickname.length() > 10) {
                 nickname = nickname.substring(0, 10);
             }
         }
-
-        // 닉네임 중복 확인
         if (userRepository.existsByNickname(nickname)) {
             nickname = generateUniqueNickname(nickname);
         }
@@ -147,16 +144,13 @@ public class TestLoginService {
             .email(email)
             .nickname(nickname)
             .provider(TEST_PROVIDER)
-            .nicknameSet(true)   // 테스트 사용자는 닉네임 설정 완료로 처리
+            .nicknameSet(true)
             .build();
         Users savedUser = userRepository.save(newUser);
 
         log.info("신규 테스트 사용자 생성: userId={}, email={}, nickname={}",
             savedUser.getId(), email, nickname);
-
-        // 회원가입 이벤트 발행 → 기본 칭호 부여 등 후속 처리
         eventPublisher.publishEvent(new UserSignedUpEvent(savedUser.getId()));
-
         return savedUser;
     }
 
