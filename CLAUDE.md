@@ -90,7 +90,7 @@ one unit via `sourceSets.main.java.srcDirs`.
 | `gamificationservice` | gamification_db | Titles, achievements, user stats, experience/levels, attendance tracking, events, seasons                          |
 | `bffservice`          | -               | Backend-for-Frontend API aggregation, unified search                                                               |
 | `noticeservice`       | -               | Notice/announcement management (layered: api, application, core, domain)                                           |
-| `supportservice`      | -               | Customer support (1:1 inquiry) + Report handling (`/api/v1/reports`, ReportService → Admin Backend Feign)         |
+| `supportservice`      | -               | Customer support (1:1 inquiry) + Report handling (`/api/v1/reports`, ReportService → Admin Backend Feign)          |
 
 ### Global Infrastructure (`service/src/main/java/io/pinkspider/global/`)
 
@@ -219,7 +219,7 @@ Custom exceptions use message keys resolved via `MessageSource` at response time
 
 ```java
 // 메시지 키 사용 (i18n properties에서 locale별 메시지 조회)
-throw new CustomException("USER_001", "error.user.not_found");
+throw new CustomException("USER_001","error.user.not_found");
 // Accept-Language: en → "User not found."
 // Accept-Language: ko → "사용자를 찾을 수 없습니다."
 ```
@@ -331,7 +331,21 @@ class YourIntegrationTest {
 - **날짜/시간**: ISO 8601 (`2026-03-24T14:30:45`), UTC 기준 저장
 - **에러 메시지**: i18n 메시지 키 사용 (`error.xxx.yyy`), 한국어 하드코딩 금지
 - **기본 언어**: 영어 (Default)
-- **커밋 메시지**: `.claude/commands/commit.md` 규칙 준수 — `type: [JIRA-번호] 설명`, 50자 이내, 한글, "with claude" 푸터 금지. 여러 프로젝트 동시 작업 시 프로젝트별 메시지를 별도로 제안
+- **커밋 메시지**: `.claude/commands/commit.md` 규칙 준수 — `type: [JIRA-번호] 설명`, 50자 이내, 한글, "with claude" 푸터 금지. 여러 프로젝트 동시 작업
+  시 프로젝트별 메시지를 별도로 제안
+
+## 작업 완료 시 규칙
+
+- 작업이 끝나면 반드시 프로젝트별 커밋 메시지를 생성해줄 것 (커밋은 내가 직접)
+- 커밋 메시지:
+  - 형식: `type: 설명` (feat, fix, refactor, docs, test, chore 등)
+  - JIRA 이슈 해결시에는 [JIRA 티켓 번호] 넣을 것
+  - 50자 이내
+  - with claude 필요 없음
+  - sample: (fix: [QA-123] ~~~ 작업)
+  - 영문으로 커밋 메시지 작성
+- 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
+- 필요시 CLAUDE.md, README.md 업데이트
 
 ## Internationalization (i18n)
 
@@ -424,37 +438,37 @@ public class YourEventListener {
 
 ### 주요 이벤트 흐름
 
-| 발행 서비스                 | 이벤트                                | 수신 리스너                               | 처리 내용                                  |
-|------------------------|------------------------------------|--------------------------------------|----------------------------------------|
-| GuildService           | `GuildJoinedEvent`                 | `AchievementEventListener`           | 길드 가입 업적 체크                            |
-| GuildService           | `GuildJoinedEvent`                 | `FeedProjectionEventListener`        | 길드 가입 피드 생성                            |
-| GuildService           | `GuildCreatedEvent`                | `FeedProjectionEventListener`        | 길드 창설 피드 생성                            |
-| GuildService           | `GuildInvitationEvent`             | `NotificationEventListener`          | 초대 알림 발송                               |
-| GuildExperienceService | `GuildLevelUpEvent`                | `FeedProjectionEventListener`        | 길드 레벨업 피드 생성                           |
-| FriendService          | `FriendRequestAcceptedEvent`       | `NotificationEventListener`          | 친구 수락 알림                               |
-| FriendService          | `FriendRequestAcceptedEvent`       | `FeedProjectionEventListener`        | 친구 추가 피드 생성 (양쪽)                       |
-| FriendService          | `FriendRequestAcceptedEvent`       | `UserStatsCounterEventListener`      | friendCount 증가 + 업적 체크                 |
-| FriendService          | `FriendRemovedEvent`               | `UserStatsCounterEventListener`      | friendCount 감소 (양쪽)                    |
-| GamificationService    | `TitleAcquiredEvent`               | `NotificationEventListener`          | 칭호 획득 알림                               |
-| GamificationService    | `TitleAcquiredEvent`               | `FeedProjectionEventListener`        | 칭호 획득 피드 생성                            |
-| GamificationService    | `AchievementCompletedEvent`        | `NotificationEventListener`          | 업적 달성 알림                               |
-| GamificationService    | `AchievementCompletedEvent`        | `FeedProjectionEventListener`        | 업적 달성 피드 생성                            |
-| GamificationService    | `TitleEquippedEvent`               | `FeedProjectionEventListener`        | 칭호 변경 피드 업데이트                          |
-| UserExperienceService  | `UserLevelUpEvent`                 | `FeedProjectionEventListener`        | 레벨업 피드 생성                              |
-| UserExperienceService  | `UserLevelUpEvent`                 | `UserLevelUpProfileSyncListener`     | 유저 프로필 레벨 동기화                          |
-| AttendanceService      | `AttendanceStreakEvent`            | `FeedProjectionEventListener`        | 연속 출석 피드 생성                            |
-| MissionService         | `MissionStateChangedEvent`         | `MissionStateHistoryEventListener`   | 미션 상태 이력 저장                            |
-| GuildMemberService     | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 입장 알림                              |
-| GuildMemberService     | `GuildMemberLeftChatNotifyEvent`   | `ChatEventListener`                  | 채팅방 퇴장 알림                              |
-| GuildMemberService     | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 추방 알림                              |
-| UserService            | `UserSignedUpEvent`                | `UserSignedUpEventListener`          | 기본 칭호 부여                               |
-| UserService            | `UserProfileChangedEvent`          | `*ProfileSnapshotEventListener` (x4) | 비정규화 닉네임 동기화 (chat/feed/guild/mission) |
-| FeedCommandService     | `FeedLikedEvent`                   | `UserStatsCounterEventListener`      | likesReceived 증가 + 업적 체크               |
-| FeedCommandService     | `FeedUnlikedEvent`                 | `UserStatsCounterEventListener`      | likesReceived 감소                       |
-| GuildService           | `GuildJoinedEvent`                 | `UserStatsCounterEventListener`      | guildJoinCount 증가 + 업적 체크              |
-| MissionCompletionSaga  | `MissionCompletedCountEvent`       | `UserStatsCounterEventListener`      | totalMissionCompletions 증가 + 업적 체크     |
-| MissionCompletionSaga  | `GuildMissionCompletedCountEvent`  | `UserStatsCounterEventListener`      | totalGuildMissionCompletions 증가 + 업적 체크 |
-| MissionAutoCompleteScheduler | `MissionAutoEndWarningEvent` | `NotificationEventListener`          | 미션 자동 종료 10분 전 경고 알림                  |
+| 발행 서비스                       | 이벤트                                | 수신 리스너                               | 처리 내용                                   |
+|------------------------------|------------------------------------|--------------------------------------|-----------------------------------------|
+| GuildService                 | `GuildJoinedEvent`                 | `AchievementEventListener`           | 길드 가입 업적 체크                             |
+| GuildService                 | `GuildJoinedEvent`                 | `FeedProjectionEventListener`        | 길드 가입 피드 생성                             |
+| GuildService                 | `GuildCreatedEvent`                | `FeedProjectionEventListener`        | 길드 창설 피드 생성                             |
+| GuildService                 | `GuildInvitationEvent`             | `NotificationEventListener`          | 초대 알림 발송                                |
+| GuildExperienceService       | `GuildLevelUpEvent`                | `FeedProjectionEventListener`        | 길드 레벨업 피드 생성                            |
+| FriendService                | `FriendRequestAcceptedEvent`       | `NotificationEventListener`          | 친구 수락 알림                                |
+| FriendService                | `FriendRequestAcceptedEvent`       | `FeedProjectionEventListener`        | 친구 추가 피드 생성 (양쪽)                        |
+| FriendService                | `FriendRequestAcceptedEvent`       | `UserStatsCounterEventListener`      | friendCount 증가 + 업적 체크                  |
+| FriendService                | `FriendRemovedEvent`               | `UserStatsCounterEventListener`      | friendCount 감소 (양쪽)                     |
+| GamificationService          | `TitleAcquiredEvent`               | `NotificationEventListener`          | 칭호 획득 알림                                |
+| GamificationService          | `TitleAcquiredEvent`               | `FeedProjectionEventListener`        | 칭호 획득 피드 생성                             |
+| GamificationService          | `AchievementCompletedEvent`        | `NotificationEventListener`          | 업적 달성 알림                                |
+| GamificationService          | `AchievementCompletedEvent`        | `FeedProjectionEventListener`        | 업적 달성 피드 생성                             |
+| GamificationService          | `TitleEquippedEvent`               | `FeedProjectionEventListener`        | 칭호 변경 피드 업데이트                           |
+| UserExperienceService        | `UserLevelUpEvent`                 | `FeedProjectionEventListener`        | 레벨업 피드 생성                               |
+| UserExperienceService        | `UserLevelUpEvent`                 | `UserLevelUpProfileSyncListener`     | 유저 프로필 레벨 동기화                           |
+| AttendanceService            | `AttendanceStreakEvent`            | `FeedProjectionEventListener`        | 연속 출석 피드 생성                             |
+| MissionService               | `MissionStateChangedEvent`         | `MissionStateHistoryEventListener`   | 미션 상태 이력 저장                             |
+| GuildMemberService           | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 입장 알림                               |
+| GuildMemberService           | `GuildMemberLeftChatNotifyEvent`   | `ChatEventListener`                  | 채팅방 퇴장 알림                               |
+| GuildMemberService           | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 추방 알림                               |
+| UserService                  | `UserSignedUpEvent`                | `UserSignedUpEventListener`          | 기본 칭호 부여                                |
+| UserService                  | `UserProfileChangedEvent`          | `*ProfileSnapshotEventListener` (x4) | 비정규화 닉네임 동기화 (chat/feed/guild/mission)  |
+| FeedCommandService           | `FeedLikedEvent`                   | `UserStatsCounterEventListener`      | likesReceived 증가 + 업적 체크                |
+| FeedCommandService           | `FeedUnlikedEvent`                 | `UserStatsCounterEventListener`      | likesReceived 감소                        |
+| GuildService                 | `GuildJoinedEvent`                 | `UserStatsCounterEventListener`      | guildJoinCount 증가 + 업적 체크               |
+| MissionCompletionSaga        | `MissionCompletedCountEvent`       | `UserStatsCounterEventListener`      | totalMissionCompletions 증가 + 업적 체크      |
+| MissionCompletionSaga        | `GuildMissionCompletedCountEvent`  | `UserStatsCounterEventListener`      | totalGuildMissionCompletions 증가 + 업적 체크 |
+| MissionAutoCompleteScheduler | `MissionAutoEndWarningEvent`       | `NotificationEventListener`          | 미션 자동 종료 10분 전 경고 알림                    |
 
 > **자동 피드 생성 축소 (QA-35)**: 칭호 획득/업적 달성/길드 가입/친구 추가 피드는 비활성화. 레벨업/길드 레벨업 피드는 **10단위 마일스톤**(Lv 10, 20, 30…)에서만 생성.
 
@@ -469,22 +483,24 @@ public class YourEventListener {
 
 ## Scheduler & Distributed Lock (ShedLock)
 
-멀티 EC2 인스턴스 환경에서 `@Scheduled` 메서드의 동시 실행을 막기 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반 LockProvider를 등록 (`prefix=lut`). `SchedulerLockCoverageTest`가 누락된 락을 컴파일 타임에 잡아낸다.
+멀티 EC2 인스턴스 환경에서 `@Scheduled` 메서드의 동시 실행을 막기 위해 **모든 스케줄러는 `@SchedulerLock` 필수**. `ShedLockConfig`가 Redis SETNX 기반
+LockProvider를 등록 (`prefix=lut`). `SchedulerLockCoverageTest`가 누락된 락을 컴파일 타임에 잡아낸다.
 
 ```java
+
 @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
 @SchedulerLock(name = "MyScheduler_method", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
-public void run() { ... }
+public void run() { ...}
 ```
 
-| 스케줄러 | 주기/Zone | Lock 이름 | 비고 |
-|--------|---------|---------|------|
-| `DailyMissionInstanceScheduler.generateDailyInstances` | `0 0 0 * * *` KST | `DailyMissionInstanceScheduler_generateDailyInstances` | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
-| `MissionAutoCompleteScheduler.autoCompleteExpiredMissions` | 5분 fixedRate | `MissionAutoCompleteScheduler_autoCompleteExpiredMissions` | 만료 미션 자동 종료 + 10분 전 경고 알림 |
-| `TokenMaintenanceScheduler.cleanupExpiredSessions` | `0 0 2 * * *` KST | `TokenMaintenanceScheduler_cleanupExpiredSessions` | 만료된 OAuth 세션 정리 |
-| `TokenMaintenanceScheduler.cleanupOrphanedUserSessions` | `0 30 2 * * *` KST | `TokenMaintenanceScheduler_cleanupOrphanedUserSessions` | 고아 user_sessions 참조 정리 |
-| `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (3 zones: KST/AST/UTC) | `DailyMvpHistoryScheduler_{kst,ast,utc}` | 타임존별 일간 MVP 기록 |
-| `SeasonRewardScheduler.processEndedSeasonRewards` | `0 0 3 * * *` KST | `SeasonRewardScheduler_processEndedSeasonRewards` | 종료된 시즌 보상 자동 부여 |
+| 스케줄러                                                        | 주기/Zone                              | Lock 이름                                                    | 비고                         |
+|-------------------------------------------------------------|--------------------------------------|------------------------------------------------------------|----------------------------|
+| `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST                    | `DailyMissionInstanceScheduler_generateDailyInstances`     | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
+| `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                         | `MissionAutoCompleteScheduler_autoCompleteExpiredMissions` | 만료 미션 자동 종료 + 10분 전 경고 알림  |
+| `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST                    | `TokenMaintenanceScheduler_cleanupExpiredSessions`         | 만료된 OAuth 세션 정리            |
+| `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST                   | `TokenMaintenanceScheduler_cleanupOrphanedUserSessions`    | 고아 user_sessions 참조 정리     |
+| `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (3 zones: KST/AST/UTC) | `DailyMvpHistoryScheduler_{kst,ast,utc}`                   | 타임존별 일간 MVP 기록             |
+| `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST                    | `SeasonRewardScheduler_processEndedSeasonRewards`          | 종료된 시즌 보상 자동 부여            |
 
 ## Saga Pattern (Mission Completion 예시)
 
@@ -686,26 +702,27 @@ moderation:
 
 `@Profile` 기반 Strategy Pattern으로 환경별 이미지 저장소 분기:
 
-| 환경          | 구현체                          | 저장소                                   |
-|-------------|------------------------------|---------------------------------------|
-| `prod`      | `S3*ImageStorageService`     | S3 (`lut-images-prod`) + CloudFront CDN |
-| `!prod`     | `Local*ImageStorageService`  | 로컬 파일시스템 + Spring MVC 리소스 핸들러         |
+| 환경      | 구현체                         | 저장소                                     |
+|---------|-----------------------------|-----------------------------------------|
+| `prod`  | `S3*ImageStorageService`    | S3 (`lut-images-prod`) + CloudFront CDN |
+| `!prod` | `Local*ImageStorageService` | 로컬 파일시스템 + Spring MVC 리소스 핸들러           |
 
 ### S3 구현체 (prod)
 
 - `S3Config` — `S3Client` Bean (`@Profile("prod")`, EC2 IAM Role 자동 인증)
 - `S3ImageProperties` — `app.upload.s3.bucket` + `app.upload.s3.cdn-base-url`
-- S3 키 패턴: `profile/{userId}/{uuid}.ext`, `guild/{guildId}/{uuid}.ext`, `missions/{userId}/{missionId}/{date}_{uuid}.ext`, `events/{uuid}.ext`
+- S3 키 패턴: `profile/{userId}/{uuid}.ext`, `guild/{guildId}/{uuid}.ext`,
+  `missions/{userId}/{missionId}/{date}_{uuid}.ext`, `events/{uuid}.ext`
 - CDN URL 반환: `https://images.level-up-together.com/{key}`
 
 ### 서비스별 구현체
 
-| 서비스 | S3 구현체 (prod)                  | Local 구현체 (!prod)                |
-|------|-------------------------------|----------------------------------|
-| 프로필  | `S3ProfileImageStorageService`  | `LocalProfileImageStorageService`  |
-| 길드   | `S3GuildImageStorageService`    | `LocalGuildImageStorageService`    |
-| 미션   | `S3MissionImageStorageService`  | `LocalMissionImageStorageService`  |
-| 이벤트  | `S3EventImageStorageService`    | `LocalEventImageStorageService`    |
+| 서비스 | S3 구현체 (prod)                  | Local 구현체 (!prod)                 |
+|-----|--------------------------------|-----------------------------------|
+| 프로필 | `S3ProfileImageStorageService` | `LocalProfileImageStorageService` |
+| 길드  | `S3GuildImageStorageService`   | `LocalGuildImageStorageService`   |
+| 미션  | `S3MissionImageStorageService` | `LocalMissionImageStorageService` |
+| 이벤트 | `S3EventImageStorageService`   | `LocalEventImageStorageService`   |
 
 ### 설정
 
@@ -752,7 +769,7 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 
 ```java
 TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 2시간 자동완료
-SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
+    SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 ```
 
 - `Mission.executionMode` 필드로 미션 생성 시 선택 (TIMED/SIMPLE)
@@ -790,7 +807,9 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 홈 피드 조회 시 필터별 뷰:
 
 ```java
-FeedSearchType { ALL, FRIENDS, GUILD, MINE }
+FeedSearchType {
+    ALL, FRIENDS, GUILD, MINE
+}
 ```
 
 - `GET /api/v1/feeds/public?searchType=FRIENDS` — 피드 API에 searchType 파라미터
@@ -871,7 +890,8 @@ DELETE /api/v1/guild-invitations/{id}               - 초대 취소 (마스터)
 
 ### Signup Token Flow (QA-108) — 회원가입 흐름
 
-OAuth 콜백 시점에 `Users` row를 곧바로 INSERT하지 않고 **임시 signup token**으로 Redis 세션을 만든다. 닉네임/약관 동의가 모두 완료된 시점에 비로소 INSERT → 중도 이탈 시 잔여 row가 남지 않는다.
+OAuth 콜백 시점에 `Users` row를 곧바로 INSERT하지 않고 **임시 signup token**으로 Redis 세션을 만든다. 닉네임/약관 동의가 모두 완료된 시점에 비로소 INSERT → 중도 이탈
+시 잔여 row가 남지 않는다.
 
 - `SignupTokenService` (TTL 30분, Redis)
   - `signup:{provider}:{emailHash}` → `SignupSessionData` JSON
@@ -884,29 +904,30 @@ OAuth 콜백 시점에 `Users` row를 곧바로 INSERT하지 않고 **임시 sig
 
 `supportservice/report` — 사용자 신고 생성/조회 + 어드민 처리 결과 적용:
 
-| 단계 | 엔드포인트 | 처리 |
-|----|----------|----|
-| 신고 접수 | `POST /api/v1/reports` | `ReportService.createReport()` (Admin Backend로 전달) |
-| 신고 상태 확인 | `GET /api/v1/reports/check?targetType=&targetId=` | 처리 대기 중 여부 |
-| **WARNING (PR3)** | (Admin → MVP) `POST /api/internal/users/{userId}/warn-from-report` | 누적 경고 +1, 임계치 도달 시 자동 USER_SUSPENDED |
-| **USER_SUSPENDED (PR2)** | (Admin → MVP) `POST /api/internal/users/{userId}/suspend-from-report` | 30일 정지, 누적 3회면 영구강퇴 |
-| **GUILD_BANNED (PR1c)** | (Admin → MVP) `POST /api/internal/guilds/{guildId}/ban-from-report` | 길드 차단 처리 |
+| 단계                       | 엔드포인트                                                                 | 처리                                                 |
+|--------------------------|-----------------------------------------------------------------------|----------------------------------------------------|
+| 신고 접수                    | `POST /api/v1/reports`                                                | `ReportService.createReport()` (Admin Backend로 전달) |
+| 신고 상태 확인                 | `GET /api/v1/reports/check?targetType=&targetId=`                     | 처리 대기 중 여부                                         |
+| **WARNING (PR3)**        | (Admin → MVP) `POST /api/internal/users/{userId}/warn-from-report`    | 누적 경고 +1, 임계치 도달 시 자동 USER_SUSPENDED               |
+| **USER_SUSPENDED (PR2)** | (Admin → MVP) `POST /api/internal/users/{userId}/suspend-from-report` | 30일 정지, 누적 3회면 영구강퇴                                |
+| **GUILD_BANNED (PR1c)**  | (Admin → MVP) `POST /api/internal/guilds/{guildId}/ban-from-report`   | 길드 차단 처리                                           |
 
 처리 결과는 `notification-service`의 Redis Streams (`AppPushMessageProducer`)를 통해 사용자에게 푸시 + in-app 알림 발송.
 
 ### Internal API (Admin Backend ↔ MVP 연동)
 
-`/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **VPC 내부 접근만 허용**. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때 사용:
+`/api/internal/**` 경로는 `SecurityConfig`에서 `permitAll`이지만 **VPC 내부 접근만 허용**. Admin Backend가 MVP의 도메인 데이터를 읽거나 액션을 실행할 때
+사용:
 
-| 도메인 | 베이스 경로 | 용도 |
-|------|----------|----|
-| user | `/api/internal/users` | 유저 검색/조회/통계, blacklist, 신고 처리 (suspend/warn) |
-| user | `/api/internal/daily-mvp-exclusions` | MVP 제외 명단 관리 |
-| user | `/api/internal/terms` | 약관 관리 |
-| guild | `/api/internal/guilds` | 길드 검색, 통계, 활성화 토글, **신고 처리 (ban-from-report)** |
-| guild | `/api/internal/guilds/{guildId}` | 길드 게시글 어드민 |
-| mission | `/api/internal/missions`, `/api/internal/mission-templates`, `/api/internal/mission-participants`, `/api/internal/mission-comments` | 미션 어드민 |
-| feed | `/api/internal/feeds`, `/api/internal/feed-comments` | 피드 어드민 |
-| meta | `/api/internal/{user,guild}-level-configs`, `/api/internal/attendance-reward-configs`, `/api/internal/mission-categories`, `/api/internal/profanity-words` | 메타 설정 |
-| gamification | `/api/internal/{achievements,achievement-categories,titles,title-grants,events,seasons,check-logic-types,experience-history,mvp-history}` | 게임화 어드민 |
-| gamification | `/api/internal/seasons/{id}/rank-rewards` | 시즌 순위 보상 어드민 |
+| 도메인          | 베이스 경로                                                                                                                                                     | 용도                                             |
+|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| user         | `/api/internal/users`                                                                                                                                      | 유저 검색/조회/통계, blacklist, 신고 처리 (suspend/warn)   |
+| user         | `/api/internal/daily-mvp-exclusions`                                                                                                                       | MVP 제외 명단 관리                                   |
+| user         | `/api/internal/terms`                                                                                                                                      | 약관 관리                                          |
+| guild        | `/api/internal/guilds`                                                                                                                                     | 길드 검색, 통계, 활성화 토글, **신고 처리 (ban-from-report)** |
+| guild        | `/api/internal/guilds/{guildId}`                                                                                                                           | 길드 게시글 어드민                                     |
+| mission      | `/api/internal/missions`, `/api/internal/mission-templates`, `/api/internal/mission-participants`, `/api/internal/mission-comments`                        | 미션 어드민                                         |
+| feed         | `/api/internal/feeds`, `/api/internal/feed-comments`                                                                                                       | 피드 어드민                                         |
+| meta         | `/api/internal/{user,guild}-level-configs`, `/api/internal/attendance-reward-configs`, `/api/internal/mission-categories`, `/api/internal/profanity-words` | 메타 설정                                          |
+| gamification | `/api/internal/{achievements,achievement-categories,titles,title-grants,events,seasons,check-logic-types,experience-history,mvp-history}`                  | 게임화 어드민                                        |
+| gamification | `/api/internal/seasons/{id}/rank-rewards`                                                                                                                  | 시즌 순위 보상 어드민                                   |
