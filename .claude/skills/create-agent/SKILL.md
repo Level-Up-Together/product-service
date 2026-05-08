@@ -21,7 +21,7 @@ allowed-tools: Agent, Read, Write, Grep, Glob, Bash
 
 `.claude/agents/` 디렉토리의 기존 에이전트를 참고한다.
 
-### 기존 에이전트 목록 (17개)
+### 기존 에이전트 목록 (18개)
 
 | 에이전트 | 용도 | model | tools 특징 |
 |---------|------|-------|-----------|
@@ -42,6 +42,7 @@ allowed-tools: Agent, Read, Write, Grep, Glob, Bash
 | `sentry-investigator` | Sentry 에러 분석 | sonnet | Read,Edit,Grep,Glob,Bash |
 | `test-runner` | 테스트 실행/분석 | sonnet | Bash,Read,Grep,Glob |
 | `fullstack-sync` | API 변경 시 프론트 동기화 | sonnet | Read,Grep,Glob,Bash |
+| `qa-investigate` | QA 이슈 조사/근본원인 분석 | sonnet | Read,Grep,Glob,Bash (읽기 전용) |
 
 ### 작업 로그 분석 (`prompt_log/claude_log_*.log`)
 

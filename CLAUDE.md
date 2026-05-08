@@ -752,14 +752,27 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 
 ```java
 TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 2시간 자동완료
-SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP, 하루 10회 제한
+SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 ```
 
 - `Mission.executionMode` 필드로 미션 생성 시 선택 (TIMED/SIMPLE)
-- `MissionExecutionLifecycle.complete()`에서 SIMPLE 모드 분기
+- `MissionExecutionLifecycle.complete(boolean awardSimpleExp)`에서 SIMPLE 모드 분기 — `awardSimpleExp=false`면 EXP 0
 - SIMPLE 모드는 최소 수행 시간 제한 없음, 자동완료 불필요
-- 하루 제한 체크: `MissionExecutionService.validateSimpleDailyLimit()`
-  (일반+고정 미션의 SIMPLE 완료 합산)
+- **SIMPLE 일일 EXP 한도 (QA-130)**: 하루 `SIMPLE_DAILY_LIMIT(10)`회까지 EXP +5 지급, 초과 시에도 수행은 가능하지만 EXP=0 처리
+  - 카운트는 일반(`MissionExecution`) + 고정(`DailyMissionInstance`) SIMPLE 완료 합산 (mission 단위가 아닌 **유저 단위**)
+  - 한도 도달 여부는 `MissionExecutionService.isSimpleDailyLimitReached(userId, date)`로 조회
+  - 실제 EXP 0 처리는 Saga 단계(`CompleteExecutionStep`/`CompletePinnedInstanceStep`)에서 카운트 체크 후 `lifecycle.complete(false)` 호출
+  - 응답 DTO(`MissionExecutionResponse`/`DailyMissionInstanceResponse`)의 `daily_simple_exp_capped` 플래그로 프론트 안내
+
+### Mission 생성 한도 (QA-130)
+
+사용자별 PERSONAL 미션 합산 최대 30개 (`Mission.MAX_PERSONAL_MISSIONS_PER_USER`):
+
+- **길드 미션(GUILD)은 카운트 제외 / 무제한**
+- 검증: `MissionService.validateMissionCreationLimit(userId, type)` — `type != PERSONAL`이면 통과
+- 카운트 쿼리: `MissionRepository.countActivePersonalByCreatorId(creatorId)` — `type=PERSONAL AND isDeleted=false`
+- 초과 시: `CustomException("050104", "error.mission.creation_limit_exceeded")` (i18n ko/en/ja)
+- 미션북에서 추가한 미션(`source=SYSTEM, type=PERSONAL`)도 카운트에 포함
 
 ### Feed Visibility at Execution (피드 공개범위)
 

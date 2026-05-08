@@ -12,10 +12,11 @@ maxTurns: 30
 
 | 프로젝트 | 경로 |
 |---------|------|
-| Backend (이 프로젝트) | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp` |
+| Product Backend (이 프로젝트) | `/Users/pink-spider/Code/github/Level-Up-Together/product-service` |
+| Web Frontend (Next.js) | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-frontend` |
 | React Native App | `/Users/pink-spider/Code/github/Level-Up-Together/LevelUpTogetherReactNative` |
 | Admin Frontend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-admin-frontend` |
-| Admin Backend | `/Users/pink-spider/Code/github/Level-Up-Together/level-up-together-mvp-admin` |
+| Admin Backend | `/Users/pink-spider/Code/github/Level-Up-Together/admin-service` |
 
 ## 분석 절차
 
