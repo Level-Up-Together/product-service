@@ -802,6 +802,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.today_executions[].feed_visibility").type(JsonFieldType.STRING).description("피드 공개범위").optional(),
                             fieldWithPath("value.today_executions[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.today_executions[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.today_executions[].daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional(),
                             fieldWithPath("value.completed_pinned_instances[]").type(JsonFieldType.ARRAY).description("오늘 완료된 고정 미션 인스턴스 목록 (오늘 수행 기록용)").optional(),
                             fieldWithPath("value.completed_pinned_instances[].id").type(JsonFieldType.NUMBER).description("인스턴스 ID").optional(),
                             fieldWithPath("value.completed_pinned_instances[].participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
@@ -822,6 +823,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.completed_pinned_instances[].feed_visibility").type(JsonFieldType.STRING).description("피드 공개범위").optional(),
                             fieldWithPath("value.completed_pinned_instances[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.completed_pinned_instances[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.completed_pinned_instances[].daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional(),
                             fieldWithPath("value.completed_count").type(JsonFieldType.NUMBER).description("오늘 완료한 미션 수 (일반 + 고정)"),
                             fieldWithPath("value.in_progress_count").type(JsonFieldType.NUMBER).description("진행 중인 미션 수"),
                             fieldWithPath("value.pending_count").type(JsonFieldType.NUMBER).description("미완료 미션 수")

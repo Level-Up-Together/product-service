@@ -163,7 +163,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -219,7 +220,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value[].daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -331,7 +333,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value[].is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value[].daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -635,7 +638,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -702,7 +706,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -768,7 +773,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -836,7 +842,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -899,7 +906,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -973,7 +981,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -1049,7 +1058,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -1130,7 +1140,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -1204,7 +1215,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -1280,7 +1292,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )
@@ -1354,7 +1367,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value.started_at").type(JsonFieldType.STRING).description("시작 일시").optional(),
                             fieldWithPath("value.duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
-                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional()
+                            fieldWithPath("value.is_auto_completed").type(JsonFieldType.BOOLEAN).description("자동 완료 여부").optional(),
+                            fieldWithPath("value.daily_simple_exp_capped").type(JsonFieldType.BOOLEAN).description("SIMPLE 일일 EXP 한도 도달로 EXP=0 처리됨").optional()
                         )
                         .build()
                 )

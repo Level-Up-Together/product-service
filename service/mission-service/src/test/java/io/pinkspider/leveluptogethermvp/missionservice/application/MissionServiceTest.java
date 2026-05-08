@@ -804,6 +804,95 @@ class MissionServiceTest {
             assertThat(response).isNotNull();
             verify(guildQueryFacadeService, never()).getGuildName(any());
         }
+
+        // ===== QA-130: PERSONAL 미션 30개 생성 한도 =====
+
+        @Test
+        @DisplayName("QA-130: PERSONAL 미션 30개 도달 시 CustomException 발생")
+        void createMission_personalAt30Limit_throwsCustomException() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("31번째 미션")
+                .description("초과")
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .build();
+
+            when(missionRepository.countActivePersonalByCreatorId(TEST_USER_ID))
+                .thenReturn((long) Mission.MAX_PERSONAL_MISSIONS_PER_USER);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.createMission(TEST_USER_ID, request))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.creation_limit_exceeded");
+            verify(missionRepository, never()).save(any(Mission.class));
+        }
+
+        @Test
+        @DisplayName("QA-130: PERSONAL 미션 29개일 때는 30번째 생성 가능")
+        void createMission_personalUnder30_succeeds() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("30번째 미션")
+                .description("성공")
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .build();
+
+            when(missionRepository.countActivePersonalByCreatorId(TEST_USER_ID))
+                .thenReturn((long) (Mission.MAX_PERSONAL_MISSIONS_PER_USER - 1));
+
+            Mission saved = Mission.builder()
+                .title(request.getTitle())
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .source(MissionSource.USER)
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .build();
+            setId(saved, 1L);
+            when(missionRepository.save(any(Mission.class))).thenReturn(saved);
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionRepository).save(any(Mission.class));
+        }
+
+        @Test
+        @DisplayName("QA-130: 길드 미션은 30개 한도와 무관하게 생성 가능 (카운트 쿼리 호출 안함)")
+        void createMission_guildMission_skipsCountQuery() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("길드용")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("100")
+                .build();
+
+            Mission saved = Mission.builder()
+                .title(request.getTitle())
+                .type(MissionType.GUILD)
+                .creatorId(TEST_USER_ID)
+                .source(MissionSource.USER)
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .guildId("100")
+                .build();
+            setId(saved, 1L);
+            when(missionRepository.save(any(Mission.class))).thenReturn(saved);
+            when(guildQueryFacadeService.getGuildName(100L)).thenReturn("테스트 길드");
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(missionRepository, never()).countActivePersonalByCreatorId(anyString());
+        }
     }
 
     @Nested

@@ -16,9 +16,11 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import java.time.LocalDate;
@@ -38,6 +40,9 @@ class CompleteExecutionStepTest {
 
     @Mock
     private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Mock
     private MissionExecutionProperties missionExecutionProperties;
@@ -347,6 +352,88 @@ class CompleteExecutionStepTest {
             assertThat(result.isSuccess()).isTrue();
             verify(executionRepository).deleteFuturePendingExecutions(
                 eq(participant.getId()), eq(execution.getExecutionDate()));
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드 + 일일 한도 미달이면 EXP=5(SIMPLE_EXP), dailySimpleExpCapped=false")
+        void execute_simpleMode_underDailyLimit_awardsExp() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(3L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(2L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getExpEarned()).isEqualTo(MissionExecutionMode.SIMPLE_EXP);
+            assertThat(context.isDailySimpleExpCapped()).isFalse();
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드 + 일일 한도(10회) 도달이면 EXP=0, dailySimpleExpCapped=true")
+        void execute_simpleMode_atDailyLimit_capsExpToZero() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(7L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(3L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getExpEarned()).isEqualTo(0);
+            assertThat(context.isDailySimpleExpCapped()).isTrue();
+        }
+
+        @Test
+        @DisplayName("SIMPLE 모드 + 한도 초과(10회 이상)도 EXP=0 처리")
+        void execute_simpleMode_overDailyLimit_capsExpToZero() {
+            // given
+            mission.setExecutionMode(MissionExecutionMode.SIMPLE);
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(15L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(eq(TEST_USER_ID), any()))
+                .thenReturn(0L);
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(execution.getExpEarned()).isEqualTo(0);
+            assertThat(context.isDailySimpleExpCapped()).isTrue();
+        }
+
+        @Test
+        @DisplayName("TIMED 모드는 SIMPLE 카운트 쿼리를 호출하지 않는다")
+        void execute_timedMode_skipsSimpleCountQuery() {
+            // given (default: TIMED)
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            verify(executionRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+            verify(dailyMissionInstanceRepository, never()).countSimpleCompletedByUserIdAndDate(any(), any());
+            assertThat(context.isDailySimpleExpCapped()).isFalse();
         }
     }
 

@@ -956,4 +956,60 @@ class MissionExecutionServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("isSimpleDailyLimitReached 테스트 (QA-130)")
+    class IsSimpleDailyLimitReachedTest {
+
+        @Test
+        @DisplayName("일반+고정 합산이 10회 미만이면 false")
+        void underLimit_returnsFalse() {
+            // given
+            LocalDate date = today();
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(4L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(5L);
+
+            // when
+            boolean reached = executionService.isSimpleDailyLimitReached(testUserId, date);
+
+            // then
+            assertThat(reached).isFalse();
+        }
+
+        @Test
+        @DisplayName("일반+고정 합산이 정확히 10회면 true (한도 도달)")
+        void atLimit_returnsTrue() {
+            // given
+            LocalDate date = today();
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(7L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(3L);
+
+            // when
+            boolean reached = executionService.isSimpleDailyLimitReached(testUserId, date);
+
+            // then
+            assertThat(reached).isTrue();
+        }
+
+        @Test
+        @DisplayName("합산이 10회를 초과해도 true")
+        void overLimit_returnsTrue() {
+            // given
+            LocalDate date = today();
+            when(executionRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(15L);
+            when(dailyMissionInstanceRepository.countSimpleCompletedByUserIdAndDate(testUserId, date))
+                .thenReturn(0L);
+
+            // when
+            boolean reached = executionService.isSimpleDailyLimitReached(testUserId, date);
+
+            // then
+            assertThat(reached).isTrue();
+        }
+    }
+
 }
