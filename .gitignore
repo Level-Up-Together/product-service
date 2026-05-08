@@ -52,6 +52,7 @@ logs
 ### Claude Code ###
 *-command-message*.txt
 .mcp.json
+.claude/*.lock
 /app/src/main/resources/restdocs/
 /uploads/
 /last_prompting_history.log
