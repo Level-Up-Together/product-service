@@ -343,7 +343,6 @@ class YourIntegrationTest {
   - 50자 이내
   - with claude 필요 없음
   - sample: (fix: [QA-123] ~~~ 작업)
-  - 영문으로 커밋 메시지 작성
 - 새로 작성된 코드에 대한 테스트 코드 병행 작성 필수
 - 필요시 CLAUDE.md, README.md 업데이트
 
