@@ -23,7 +23,6 @@ public class AttendanceRewardConfigResponse {
     private String rewardTypeDisplayName;
     private Integer requiredDays;
     private Integer rewardExp;
-    private Integer rewardPoints;
     private Long rewardTitleId;
     private String description;
     private LocalDate startDate;
@@ -39,7 +38,6 @@ public class AttendanceRewardConfigResponse {
             .rewardTypeDisplayName(entity.getRewardType().getDisplayName())
             .requiredDays(entity.getRequiredDays())
             .rewardExp(entity.getRewardExp())
-            .rewardPoints(entity.getRewardPoints())
             .rewardTitleId(entity.getRewardTitleId())
             .description(entity.getDescription())
             .startDate(entity.getStartDate())

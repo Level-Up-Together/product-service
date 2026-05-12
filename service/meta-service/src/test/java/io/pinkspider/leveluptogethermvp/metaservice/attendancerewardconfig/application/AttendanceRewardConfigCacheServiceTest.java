@@ -46,7 +46,6 @@ class AttendanceRewardConfigCacheServiceTest {
             .rewardType(type)
             .requiredDays(requiredDays)
             .rewardExp(rewardExp)
-            .rewardPoints(0)
             .description(type.getDisplayName())
             .isActive(isActive)
             .build();
@@ -346,7 +345,6 @@ class AttendanceRewardConfigCacheServiceTest {
                 .rewardType(AttendanceRewardType.CONSECUTIVE_7)
                 .requiredDays(7)
                 .rewardExp(50)
-                .rewardPoints(10)
                 .description("7일 연속 출석 보상")
                 .isActive(true)
                 .build();
@@ -366,14 +364,13 @@ class AttendanceRewardConfigCacheServiceTest {
         }
 
         @Test
-        @DisplayName("rewardExp와 rewardPoints가 null이면 0으로 설정된다")
-        void createConfig_nullRewardExpAndPoints_usesZero() {
+        @DisplayName("rewardExp가 null이면 0으로 설정된다")
+        void createConfig_nullRewardExp_usesZero() {
             // given
             AttendanceRewardConfigRequest request = AttendanceRewardConfigRequest.builder()
                 .rewardType(AttendanceRewardType.DAILY)
                 .requiredDays(1)
                 .rewardExp(null)
-                .rewardPoints(null)
                 .build();
 
             AttendanceRewardConfig saved = createRewardConfig(1L, AttendanceRewardType.DAILY, 1, 0, true);
@@ -422,7 +419,6 @@ class AttendanceRewardConfigCacheServiceTest {
                 .rewardType(AttendanceRewardType.DAILY)
                 .requiredDays(1)
                 .rewardExp(20)
-                .rewardPoints(5)
                 .description("수정된 일일 출석")
                 .isActive(true)
                 .startDate(LocalDate.of(2024, 1, 1))

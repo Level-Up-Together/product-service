@@ -129,7 +129,6 @@ public class AttendanceRewardConfigCacheService {
             .rewardType(request.getRewardType())
             .requiredDays(request.getRequiredDays())
             .rewardExp(request.getRewardExp() != null ? request.getRewardExp() : 0)
-            .rewardPoints(request.getRewardPoints() != null ? request.getRewardPoints() : 0)
             .rewardTitleId(request.getRewardTitleId())
             .description(request.getDescription())
             .startDate(request.getStartDate())
@@ -156,7 +155,6 @@ public class AttendanceRewardConfigCacheService {
         config.setRewardType(request.getRewardType());
         config.setRequiredDays(request.getRequiredDays());
         config.setRewardExp(request.getRewardExp());
-        config.setRewardPoints(request.getRewardPoints());
         config.setRewardTitleId(request.getRewardTitleId());
         config.setDescription(request.getDescription());
         config.setStartDate(request.getStartDate());

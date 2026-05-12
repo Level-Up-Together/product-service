@@ -52,11 +52,6 @@ public class AttendanceRewardConfig extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Integer rewardExp = 0;
 
-    @Column(name = "reward_points")
-    @Comment("보상 포인트")
-    @Builder.Default
-    private Integer rewardPoints = 0;
-
     @Column(name = "reward_title_id")
     @Comment("보상 칭호 ID")
     private Long rewardTitleId;

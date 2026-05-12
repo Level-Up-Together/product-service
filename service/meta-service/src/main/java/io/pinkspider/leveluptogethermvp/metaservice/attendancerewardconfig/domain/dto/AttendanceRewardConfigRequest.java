@@ -30,9 +30,6 @@ public class AttendanceRewardConfigRequest {
     @Min(value = 0, message = "보상 경험치는 0 이상이어야 합니다.")
     private Integer rewardExp;
 
-    @Min(value = 0, message = "보상 포인트는 0 이상이어야 합니다.")
-    private Integer rewardPoints;
-
     private Long rewardTitleId;
 
     @Size(max = 200, message = "설명은 200자 이하이어야 합니다.")
