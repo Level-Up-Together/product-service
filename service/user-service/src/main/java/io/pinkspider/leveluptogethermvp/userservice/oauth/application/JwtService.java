@@ -35,23 +35,34 @@ public class JwtService {
     private long accessTokenExpiryMs;
 
     public ReissueJwtResponseDto reissue(RefreshTokenRequestDto request) {
-        try {
-            String refreshToken = request.getRefreshToken();
+        String refreshToken = request.getRefreshToken();
+        String deviceType = request.getDeviceType();
+        log.info("[reissue] start deviceType={}", deviceType);
 
+        try {
             // 리프레시 토큰 검증
             if (!jwtUtil.validateToken(refreshToken)) {
+                log.info("[reissue] reject reason=NOT_VALID_REFRESH_TOKEN stage=validateToken deviceType={}", deviceType);
                 throw new JwtException(UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultCode(),
                     UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultMessage());
             }
 
             // 블랙리스트 확인
             if (tokenService.isTokenBlacklisted(refreshToken)) {
+                String userIdForLog = safeGetUserId(refreshToken);
+                String deviceIdForLog = safeGetDeviceId(refreshToken);
+                log.info("[reissue] reject reason=BLACKLISTED_JWT userId={} deviceId={} deviceType={}",
+                    userIdForLog, deviceIdForLog, deviceType);
                 throw new JwtException(UserApiStatus.BLACKLISTED_JWT.getResultCode(),
                     UserApiStatus.BLACKLISTED_JWT.getResultMessage());
             }
 
             // 최대 수명(30일) 초과 여부만 확인 - 초과 시 재로그인 필요
             if (!slidingExpirationService.isWithinMaxLifetime(refreshToken)) {
+                String userIdForLog = safeGetUserId(refreshToken);
+                String deviceIdForLog = safeGetDeviceId(refreshToken);
+                log.info("[reissue] reject reason=TOKEN_EXCEEDED_MAXIMUM_LIFETIME userId={} deviceId={} deviceType={}",
+                    userIdForLog, deviceIdForLog, deviceType);
                 throw new JwtException(UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultCode(),
                     UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultMessage());
             }
@@ -62,8 +73,10 @@ public class JwtService {
             String deviceId = jwtUtil.getDeviceIdFromToken(refreshToken);
 
             // 저장된 리프레시 토큰과 비교
-            String storedRefreshToken = tokenService.getRefreshToken(userId, request.getDeviceType(), deviceId);
+            String storedRefreshToken = tokenService.getRefreshToken(userId, deviceType, deviceId);
             if (!refreshToken.equals(storedRefreshToken)) {
+                log.info("[reissue] reject reason=NOT_VALID_REFRESH_TOKEN stage=storedTokenMismatch storedNull={} userId={} deviceId={} deviceType={}",
+                    storedRefreshToken == null, userId, deviceId, deviceType);
                 throw new JwtException(UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultCode(),
                     UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultMessage());
             }
@@ -86,8 +99,11 @@ public class JwtService {
             }
 
             // Redis에 토큰 업데이트
-            tokenService.updateTokens(userId, request.getDeviceType(), deviceId,
+            tokenService.updateTokens(userId, deviceType, deviceId,
                 newAccessToken, refreshTokenRenewed ? newRefreshToken : null);
+
+            log.info("[reissue] success userId={} deviceId={} deviceType={} refreshTokenRenewed={}",
+                userId, deviceId, deviceType, refreshTokenRenewed);
 
             return ReissueJwtResponseDto.builder()
                 .accessToken(newAccessToken)
@@ -102,7 +118,24 @@ public class JwtService {
         } catch (JwtException e) {
             throw e;
         } catch (Exception e) {
+            log.error("[reissue] unexpected error deviceType={} message={}", deviceType, e.getMessage(), e);
             throw new CustomException(UserApiStatus.TOKEN_REISSUE_FAILED.getResultCode(), UserApiStatus.TOKEN_REISSUE_FAILED.getResultMessage());
+        }
+    }
+
+    private String safeGetUserId(String token) {
+        try {
+            return jwtUtil.getSubjectFromToken(token);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String safeGetDeviceId(String token) {
+        try {
+            return jwtUtil.getDeviceIdFromToken(token);
+        } catch (Exception e) {
+            return null;
         }
     }
 
