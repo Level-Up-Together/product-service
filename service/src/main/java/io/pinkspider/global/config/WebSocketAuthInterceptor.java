@@ -63,6 +63,15 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             return token;
         }
 
+        // Fallback: handshake 단계에서 쿠키로부터 추출해둔 access_token (httpOnly 쿠키 경로)
+        if (accessor.getSessionAttributes() != null) {
+            Object cookieToken = accessor.getSessionAttributes()
+                .get(WebSocketCookieHandshakeInterceptor.ATTR_ACCESS_TOKEN);
+            if (cookieToken instanceof String s && !s.isEmpty()) {
+                return s;
+            }
+        }
+
         return null;
     }
 }

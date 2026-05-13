@@ -16,15 +16,18 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+    private final WebSocketCookieHandshakeInterceptor cookieHandshakeInterceptor;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
             .setAllowedOriginPatterns("*")
+            .addInterceptors(cookieHandshakeInterceptor)
             .withSockJS();
 
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*");
+            .setAllowedOriginPatterns("*")
+            .addInterceptors(cookieHandshakeInterceptor);
     }
 
     @Override
