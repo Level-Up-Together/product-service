@@ -32,7 +32,8 @@ import org.hibernate.annotations.Comment;
     indexes = {
         @Index(name = "idx_comment_feed", columnList = "feed_id"),
         @Index(name = "idx_comment_user", columnList = "user_id"),
-        @Index(name = "idx_comment_created", columnList = "created_at DESC")
+        @Index(name = "idx_comment_created", columnList = "created_at DESC"),
+        @Index(name = "idx_feed_comment_parent", columnList = "parent_id")
     })
 @Comment("피드 댓글")
 public class FeedComment extends LocalDateTimeBaseEntity {
@@ -71,6 +72,16 @@ public class FeedComment extends LocalDateTimeBaseEntity {
     @Comment("댓글 내용")
     private String content;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    @Comment("상위 댓글 (NULL이면 최상위 댓글, 1-depth 제한)")
+    private FeedComment parent;
+
+    @Column(name = "is_edited", nullable = false)
+    @Comment("수정 여부")
+    @Builder.Default
+    private Boolean isEdited = false;
+
     @Column(name = "is_deleted")
     @Comment("삭제 여부")
     @Builder.Default
@@ -79,6 +90,19 @@ public class FeedComment extends LocalDateTimeBaseEntity {
     @Column(name = "deleted_at")
     @Comment("삭제 시간")
     private LocalDateTime deletedAt;
+
+    public boolean isReply() {
+        return this.parent != null;
+    }
+
+    public boolean isAuthor(String userId) {
+        return this.userId.equals(userId);
+    }
+
+    public void update(String content) {
+        this.content = content;
+        this.isEdited = true;
+    }
 
     public void delete() {
         this.isDeleted = true;

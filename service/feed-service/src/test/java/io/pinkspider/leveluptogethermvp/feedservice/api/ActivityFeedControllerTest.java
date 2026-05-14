@@ -21,8 +21,10 @@ import io.pinkspider.global.component.LmObjectMapper;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
@@ -446,8 +448,15 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.content[].user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.content[].user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
                             fieldWithPath("value.content[].content").type(JsonFieldType.STRING).description("댓글 내용"),
+                            fieldWithPath("value.content[].parent_id").type(JsonFieldType.NUMBER).description("상위 댓글 ID (대댓글)").optional(),
                             fieldWithPath("value.content[].is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.content[].is_edited").type(JsonFieldType.BOOLEAN).description("수정 여부"),
+                            fieldWithPath("value.content[].is_editable").type(JsonFieldType.BOOLEAN).description("수정 가능 여부"),
+                            fieldWithPath("value.content[].is_liked").type(JsonFieldType.BOOLEAN).description("내가 좋아요 누른 여부"),
+                            fieldWithPath("value.content[].like_count").type(JsonFieldType.NUMBER).description("댓글 좋아요 수").optional(),
+                            fieldWithPath("value.content[].replies").type(JsonFieldType.ARRAY).description("대댓글 목록").optional(),
                             fieldWithPath("value.content[].created_at").type(JsonFieldType.STRING).description("작성 일시"),
+                            fieldWithPath("value.content[].updated_at").type(JsonFieldType.STRING).description("수정 일시").optional(),
                             fieldWithPath("value.content[].is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
                             fieldWithPath("value.content[].translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
@@ -525,8 +534,15 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
                             fieldWithPath("value.content").type(JsonFieldType.STRING).description("댓글 내용"),
+                            fieldWithPath("value.parent_id").type(JsonFieldType.NUMBER).description("상위 댓글 ID (대댓글)").optional(),
                             fieldWithPath("value.is_deleted").type(JsonFieldType.BOOLEAN).description("삭제 여부"),
+                            fieldWithPath("value.is_edited").type(JsonFieldType.BOOLEAN).description("수정 여부"),
+                            fieldWithPath("value.is_editable").type(JsonFieldType.BOOLEAN).description("수정 가능 여부"),
+                            fieldWithPath("value.is_liked").type(JsonFieldType.BOOLEAN).description("내가 좋아요 누른 여부"),
+                            fieldWithPath("value.like_count").type(JsonFieldType.NUMBER).description("댓글 좋아요 수").optional(),
+                            fieldWithPath("value.replies").type(JsonFieldType.ARRAY).description("대댓글 목록").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("작성 일시"),
+                            fieldWithPath("value.updated_at").type(JsonFieldType.STRING).description("수정 일시").optional(),
                             fieldWithPath("value.is_my_comment").type(JsonFieldType.BOOLEAN).description("내 댓글 여부"),
                             fieldWithPath("value.translation").type(JsonFieldType.OBJECT).description("번역 정보").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
@@ -573,6 +589,53 @@ class ActivityFeedControllerTest {
                         .build()
                 )
             )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/feeds/{feedId}/comments/{commentId} : 댓글 수정")
+    void updateCommentTest() throws Exception {
+        // given
+        Long feedId = 1L;
+        Long commentId = 1L;
+        FeedCommentResponse response = MockUtil.readJsonFileToClass(
+            "fixture/feed/feedCommentResponse.json", FeedCommentResponse.class);
+        response.setEdited(true);
+        response.setContent("수정된 댓글");
+
+        when(feedCommandService.updateComment(anyLong(), anyLong(), anyString(), any(FeedCommentUpdateRequest.class)))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.put("/api/v1/feeds/{feedId}/comments/{commentId}", feedId, commentId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"content\":\"수정된 댓글\"}")
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/feeds/{feedId}/comments/{commentId}/like : 댓글 좋아요 토글")
+    void toggleCommentLikeTest() throws Exception {
+        // given
+        Long feedId = 1L;
+        Long commentId = 1L;
+        FeedCommentLikeResponse response = new FeedCommentLikeResponse(true, 1);
+
+        when(feedCommandService.toggleCommentLike(anyLong(), anyLong(), anyString())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/feeds/{feedId}/comments/{commentId}/like", feedId, commentId)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
         );
 
         // then

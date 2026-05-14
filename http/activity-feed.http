@@ -123,6 +123,38 @@ Accept: application/json
 }
 
 ### ----------------------------------------------------------
+### 대댓글 작성 (parent_id 지정, 1-depth 제한)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/feeds/1/comments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "Reply to your comment",
+  "parent_id": 1
+}
+
+### ----------------------------------------------------------
+### 댓글 수정 (본인 + 대댓글 없는 경우만)
+### ----------------------------------------------------------
+PUT {{baseUrl}}/api/v1/feeds/1/comments/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "content": "수정된 댓글 내용"
+}
+
+### ----------------------------------------------------------
+### 댓글 좋아요 토글
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/feeds/1/comments/1/like
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
 ### 댓글 삭제
 ### ----------------------------------------------------------
 DELETE {{baseUrl}}/api/v1/feeds/1/comments/1

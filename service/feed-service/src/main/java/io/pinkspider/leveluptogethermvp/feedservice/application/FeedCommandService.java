@@ -2,28 +2,35 @@ package io.pinkspider.leveluptogethermvp.feedservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.FeedCommentLikedEvent;
+import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
 import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedCommentLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,6 +46,7 @@ public class FeedCommandService {
     private final ActivityFeedRepository activityFeedRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
+    private final FeedCommentLikeRepository feedCommentLikeRepository;
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final GamificationQueryFacade gamificationQueryFacadeService;
@@ -178,7 +186,7 @@ public class FeedCommandService {
     }
 
     /**
-     * 댓글 작성
+     * 댓글/대댓글 작성. parentId가 있으면 대댓글로 등록되며 1-depth 제한이 강제된다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
@@ -186,6 +194,23 @@ public class FeedCommandService {
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
         feedAccessChecker.assertAccessible(feed, userId);
+
+        // 대댓글이면 부모 검증 (1-depth 제한)
+        FeedComment parent = null;
+        if (request.getParentId() != null) {
+            parent = feedCommentRepository.findById(request.getParentId())
+                .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
+                    "error.feed.comment.parent_not_found"));
+
+            if (!parent.getFeed().getId().equals(feedId)) {
+                throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
+                    "error.feed.comment.wrong_feed");
+            }
+            if (parent.isReply()) {
+                throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
+                    "error.feed.comment.reply_depth_exceeded");
+            }
+        }
 
         // 사용자 프로필 정보 조회 (캐시)
         UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(userId);
@@ -197,26 +222,147 @@ public class FeedCommandService {
             .userProfileImageUrl(userProfile.picture())
             .userLevel(userProfile.level())
             .content(request.getContent())
+            .parent(parent)
             .isDeleted(false)
+            .isEdited(false)
             .build();
 
         FeedComment saved = feedCommentRepository.save(comment);
         feed.incrementCommentCount();
         activityFeedRepository.save(feed);
 
-        log.info("Comment added: feedId={}, commentId={}, userId={}", feedId, saved.getId(), userId);
+        log.info("Comment added: feedId={}, commentId={}, parentId={}, userId={}",
+            feedId, saved.getId(), parent != null ? parent.getId() : null, userId);
 
-        // 피드 댓글 알림 이벤트 발행 (자신의 글에 자신이 댓글 단 경우 제외)
-        if (!userId.equals(feed.getUserId())) {
-            eventPublisher.publishEvent(new FeedCommentEvent(
-                userId,
-                feed.getUserId(),
-                userProfile.nickname(),
-                feedId
-            ));
+        if (parent != null) {
+            publishReplyNotification(parent, saved, userId, userProfile.nickname(), feedId);
+        } else {
+            // 최상위 댓글 — 피드 작성자에게 알림 (자기 자신 제외)
+            if (!userId.equals(feed.getUserId())) {
+                eventPublisher.publishEvent(new FeedCommentEvent(
+                    userId,
+                    feed.getUserId(),
+                    userProfile.nickname(),
+                    feedId
+                ));
+            }
         }
 
         return FeedCommentResponse.from(saved, null, userId);
+    }
+
+    /**
+     * 댓글 수정. 본인 댓글만, 대댓글이 달린 댓글은 수정 불가. 수정 시 isEdited=true.
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public FeedCommentResponse updateComment(Long feedId, Long commentId, String userId,
+                                             FeedCommentUpdateRequest request) {
+        FeedComment comment = feedCommentRepository.findById(commentId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
+                "error.feed.comment.not_found"));
+
+        if (!comment.getFeed().getId().equals(feedId)) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
+        }
+        if (comment.getIsDeleted()) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
+        }
+        if (!comment.isAuthor(userId)) {
+            throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
+        }
+        // 대댓글이 달린 댓글은 수정 불가 (QA-73 정책)
+        if (!comment.isReply() && feedCommentRepository.countActiveRepliesByParentId(commentId) > 0) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(),
+                "error.feed.comment.has_replies_uneditable");
+        }
+
+        comment.update(request.getContent());
+        FeedComment saved = feedCommentRepository.save(comment);
+
+        log.info("Comment updated: feedId={}, commentId={}, userId={}", feedId, commentId, userId);
+        return FeedCommentResponse.from(saved, null, userId);
+    }
+
+    /**
+     * 댓글 좋아요 토글. 좋아요가 새로 추가될 때만 알림 발행 (취소 시 알림 없음, 본인 자기 좋아요 금지).
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public FeedCommentLikeResponse toggleCommentLike(Long feedId, Long commentId, String userId) {
+        FeedComment comment = feedCommentRepository.findById(commentId)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
+                "error.feed.comment.not_found"));
+
+        if (!comment.getFeed().getId().equals(feedId)) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.wrong_feed");
+        }
+        if (comment.getIsDeleted()) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.feed.comment.deleted");
+        }
+
+        feedAccessChecker.assertAccessible(comment.getFeed(), userId);
+
+        boolean isLiked = feedCommentLikeRepository.findByCommentIdAndUserId(commentId, userId)
+            .map(like -> {
+                feedCommentLikeRepository.delete(like);
+                log.info("Comment unliked: commentId={}, userId={}", commentId, userId);
+                return false;
+            })
+            .orElseGet(() -> {
+                FeedCommentLike like = FeedCommentLike.builder()
+                    .comment(comment)
+                    .userId(userId)
+                    .build();
+                feedCommentLikeRepository.save(like);
+                log.info("Comment liked: commentId={}, userId={}", commentId, userId);
+
+                // 자기 자신 댓글에 좋아요는 알림 발행하지 않음
+                if (!comment.isAuthor(userId)) {
+                    UserProfileInfo likerProfile = userQueryFacadeService.getUserProfile(userId);
+                    eventPublisher.publishEvent(new FeedCommentLikedEvent(
+                        userId,
+                        likerProfile.nickname(),
+                        comment.getUserId(),
+                        feedId,
+                        commentId
+                    ));
+                }
+                return true;
+            });
+
+        int likeCount = feedCommentLikeRepository.countByCommentId(commentId);
+        return new FeedCommentLikeResponse(isLiked, likeCount);
+    }
+
+    /**
+     * 대댓글 작성 시 알림 발행.
+     * - 부모 댓글 작성자
+     * - 같은 부모에 대댓글을 단 다른 유저들 (중복 제거)
+     * - replier 본인은 항상 제외
+     */
+    private void publishReplyNotification(FeedComment parent, FeedComment reply, String replierId,
+                                          String replierNickname, Long feedId) {
+        List<String> threadAuthors = feedCommentRepository.findReplyAuthorsByParentId(parent.getId())
+            .stream()
+            .filter(authorId -> !authorId.equals(replierId))
+            .filter(authorId -> !authorId.equals(parent.getUserId())) // 부모 작성자는 별도 필드
+            .toList();
+
+        String parentAuthorId = parent.isAuthor(replierId) ? null : parent.getUserId();
+
+        // 알림 받을 사람이 한 명도 없으면 발행 생략
+        if (parentAuthorId == null && threadAuthors.isEmpty()) {
+            return;
+        }
+
+        eventPublisher.publishEvent(new FeedCommentReplyEvent(
+            replierId,
+            replierNickname,
+            parentAuthorId,
+            threadAuthors,
+            feedId,
+            parent.getId(),
+            reply.getId()
+        ));
     }
 
     /**

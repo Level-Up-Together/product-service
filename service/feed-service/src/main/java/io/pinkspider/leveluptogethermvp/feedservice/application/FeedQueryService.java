@@ -18,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.enums.ReportTargetType;
@@ -53,6 +54,7 @@ public class FeedQueryService {
     private final ActivityFeedRepository activityFeedRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
+    private final FeedCommentLikeRepository feedCommentLikeRepository;
     private final AdminInternalFeignClient adminInternalFeignClient;
     private final UserQueryFacade userQueryFacadeService;
     private final GuildQueryFacade guildQueryFacadeService;
@@ -532,8 +534,10 @@ public class FeedQueryService {
     }
 
     /**
-     * 댓글 목록 조회 (다국어 지원)
-     * - 모든 댓글에 대해 현재 유저 레벨을 표시 (작성 시점 레벨이 아닌 현재 레벨)
+     * 댓글 목록 조회 (다국어 + 트리 응답)
+     * - 부모 댓글만 페이징하고, 각 부모 아래 대댓글을 한 번에 트리로 반환 (1-depth 제한).
+     * - like_count / is_liked / is_editable / is_edited 필드 동시 포함.
+     * - 모든 댓글에 대해 현재 유저 레벨을 표시 (작성 시점 레벨이 아닌 현재 레벨).
      */
     public Page<FeedCommentResponse> getComments(Long feedId, String currentUserId, int page, int size, String acceptLanguage) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
@@ -541,28 +545,83 @@ public class FeedQueryService {
         feedAccessChecker.assertAccessible(feed, currentUserId);
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<FeedComment> comments = feedCommentRepository.findByFeedId(feedId, pageable);
+        Page<FeedComment> rootPage = feedCommentRepository.findRootCommentsByFeedId(feedId, pageable);
+        List<FeedComment> roots = rootPage.getContent();
+        if (roots.isEmpty()) {
+            return rootPage.map(c -> FeedCommentResponse.from(c, null, currentUserId));
+        }
+
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        // 신고 상태 일괄 조회
-        List<String> commentIds = comments.getContent().stream().map(c -> String.valueOf(c.getId())).toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED_COMMENT, commentIds);
+        // 1) 대댓글 일괄 조회 (N+1 방지)
+        List<Long> rootIds = roots.stream().map(FeedComment::getId).toList();
+        List<FeedComment> replies = feedCommentRepository.findRepliesByParentIds(rootIds);
 
-        return comments.map(comment -> {
-            TranslationInfo translation = translateComment(comment, targetLocale);
-            // 모든 댓글에 대해 현재 유저 레벨 조회
-            Integer userLevel;
-            try {
-                UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(comment.getUserId());
-                userLevel = userProfile.level();
-            } catch (Exception e) {
-                log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());
-                userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
-            }
-            FeedCommentResponse response = FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
-            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(comment.getId()), false));
+        // 2) 신고 상태 / 좋아요 수 / 좋아요 여부 일괄 조회 (부모 + 대댓글 합산)
+        List<Long> allCommentIds = new ArrayList<>(rootIds);
+        replies.forEach(r -> allCommentIds.add(r.getId()));
+        List<String> allCommentIdStrs = allCommentIds.stream().map(String::valueOf).toList();
+
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED_COMMENT, allCommentIdStrs);
+
+        Map<Long, Integer> likeCountMap = feedCommentLikeRepository.countByCommentIds(allCommentIds).stream()
+            .collect(Collectors.toMap(
+                row -> ((Number) row[0]).longValue(),
+                row -> ((Number) row[1]).intValue()
+            ));
+        Set<Long> likedSet = currentUserId == null ? new HashSet<>()
+            : new HashSet<>(feedCommentLikeRepository.findLikedCommentIds(currentUserId, allCommentIds));
+
+        // 3) 부모 댓글별 활성 대댓글 카운트 (수정 가능 여부 결정용)
+        Map<Long, Long> activeReplyCountByParent = replies.stream()
+            .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
+            .collect(Collectors.groupingBy(r -> r.getParent().getId(), Collectors.counting()));
+
+        // 4) 응답 조립
+        Map<Long, List<FeedCommentResponse>> repliesByParent = new java.util.HashMap<>();
+        for (FeedComment reply : replies) {
+            FeedCommentResponse r = buildCommentResponse(reply, currentUserId, targetLocale, likeCountMap, likedSet,
+                underReviewMap, /*hasReplies*/ false);
+            repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>()).add(r);
+        }
+
+        return rootPage.map(root -> {
+            boolean hasReplies = activeReplyCountByParent.getOrDefault(root.getId(), 0L) > 0;
+            FeedCommentResponse response = buildCommentResponse(root, currentUserId, targetLocale, likeCountMap,
+                likedSet, underReviewMap, hasReplies);
+            response.setReplies(repliesByParent.getOrDefault(root.getId(), List.of()));
             return response;
         });
+    }
+
+    /**
+     * 단일 댓글 응답 빌드 헬퍼. 트리 응답에서 부모/대댓글 공통으로 사용.
+     */
+    private FeedCommentResponse buildCommentResponse(FeedComment comment, String currentUserId, String targetLocale,
+                                                     Map<Long, Integer> likeCountMap, Set<Long> likedSet,
+                                                     Map<String, Boolean> underReviewMap, boolean hasReplies) {
+        TranslationInfo translation = translateComment(comment, targetLocale);
+        Integer userLevel;
+        try {
+            UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(comment.getUserId());
+            userLevel = userProfile.level();
+        } catch (Exception e) {
+            log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());
+            userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
+        }
+
+        FeedCommentResponse response = FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
+        response.setLikeCount(likeCountMap.getOrDefault(comment.getId(), 0));
+        response.setLiked(likedSet.contains(comment.getId()));
+        response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(comment.getId()), false));
+
+        // 수정 가능 여부: 본인 + 미삭제 + (최상위면 활성 대댓글 없음 / 대댓글은 항상 가능)
+        boolean editable = response.getIsMyComment()
+            && !response.getIsDeleted()
+            && (comment.isReply() || !hasReplies);
+        response.setEditable(editable);
+
+        return response;
     }
 
     /**

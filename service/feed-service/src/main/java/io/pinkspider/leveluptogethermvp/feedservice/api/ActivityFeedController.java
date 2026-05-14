@@ -5,8 +5,10 @@ import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
@@ -251,5 +253,32 @@ public class ActivityFeedController {
     ) {
         feedCommandService.deleteComment(feedId, commentId, userId);
         return ResponseEntity.ok(ApiResult.<Void>builder().build());
+    }
+
+    /**
+     * 댓글 수정 (본인 + 대댓글 없는 경우만)
+     */
+    @PutMapping("/{feedId}/comments/{commentId}")
+    public ResponseEntity<ApiResult<FeedCommentResponse>> updateComment(
+        @PathVariable Long feedId,
+        @PathVariable Long commentId,
+        @CurrentUser String userId,
+        @Valid @RequestBody FeedCommentUpdateRequest request
+    ) {
+        FeedCommentResponse response = feedCommandService.updateComment(feedId, commentId, userId, request);
+        return ResponseEntity.ok(ApiResult.<FeedCommentResponse>builder().value(response).build());
+    }
+
+    /**
+     * 댓글 좋아요 토글
+     */
+    @PostMapping("/{feedId}/comments/{commentId}/like")
+    public ResponseEntity<ApiResult<FeedCommentLikeResponse>> toggleCommentLike(
+        @PathVariable Long feedId,
+        @PathVariable Long commentId,
+        @CurrentUser String userId
+    ) {
+        FeedCommentLikeResponse response = feedCommandService.toggleCommentLike(feedId, commentId, userId);
+        return ResponseEntity.ok(ApiResult.<FeedCommentLikeResponse>builder().value(response).build());
     }
 }

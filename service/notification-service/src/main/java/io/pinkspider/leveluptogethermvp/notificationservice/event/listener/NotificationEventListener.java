@@ -5,6 +5,8 @@ import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.FeedCommentLikedEvent;
+import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
@@ -176,6 +178,42 @@ public class NotificationEventListener {
         safeHandle("피드 댓글", () -> notificationService.sendNotification(
             event.feedOwnerId(), NotificationType.COMMENT_ON_MY_FEED,
             event.feedId(), null, event.commenterNickname()));
+    }
+
+    /**
+     * 피드 댓글 대댓글 알림 (QA-73).
+     * 발행 측에서 자기 자신은 이미 제외했지만 방어적으로 한 번 더 필터링.
+     * 부모 작성자 + 같은 부모에 대댓글 단 다른 유저들 모두에게 알림.
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFeedCommentReply(FeedCommentReplyEvent event) {
+        // 부모 작성자 알림
+        if (event.parentCommentAuthorId() != null
+            && !event.parentCommentAuthorId().equals(event.userId())) {
+            safeHandle("피드 대댓글(부모작성자)", () -> notificationService.sendNotification(
+                event.parentCommentAuthorId(), NotificationType.COMMENT_REPLY,
+                event.feedId(), null, event.replierNickname()));
+        }
+        // 같은 부모에 대댓글 단 다른 유저들 (replier/부모작성자 제외, 중복 제거)
+        if (event.threadParticipants() != null && !event.threadParticipants().isEmpty()) {
+            safeHandleMultiple("피드 대댓글(스레드참여자)", event.threadParticipants(), event.userId(),
+                participantId -> notificationService.sendNotification(
+                    participantId, NotificationType.COMMENT_REPLY,
+                    event.feedId(), null, event.replierNickname()));
+        }
+    }
+
+    /**
+     * 피드 댓글 좋아요 알림 (QA-73). 자기 자신 댓글 좋아요는 발행 측에서 제외됨.
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFeedCommentLiked(FeedCommentLikedEvent event) {
+        if (event.userId().equals(event.commentAuthorId())) return;
+        safeHandle("피드 댓글 좋아요", () -> notificationService.sendNotification(
+            event.commentAuthorId(), NotificationType.COMMENT_LIKED,
+            event.feedId(), null, event.likerNickname()));
     }
 
     @Async(EVENT_EXECUTOR)

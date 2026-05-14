@@ -9,24 +9,30 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.FeedCommentLikedEvent;
+import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
 import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.CreateFeedRequest;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentLikeResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
+import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedCommentLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
 import io.pinkspider.global.enums.TitleRarity;
@@ -53,6 +59,9 @@ class FeedCommandServiceTest {
 
     @Mock
     private FeedCommentRepository feedCommentRepository;
+
+    @Mock
+    private FeedCommentLikeRepository feedCommentLikeRepository;
 
     @Mock
     private UserQueryFacade userQueryFacadeService;
@@ -85,6 +94,33 @@ class FeedCommandServiceTest {
         FeedCommentRequest request = new FeedCommentRequest();
         TestReflectionUtils.setField(request, "content", content);
         return request;
+    }
+
+    private FeedCommentRequest createTestReplyRequest(String content, Long parentId) {
+        FeedCommentRequest request = new FeedCommentRequest();
+        TestReflectionUtils.setField(request, "content", content);
+        TestReflectionUtils.setField(request, "parentId", parentId);
+        return request;
+    }
+
+    private FeedCommentUpdateRequest createTestUpdateRequest(String content) {
+        FeedCommentUpdateRequest request = new FeedCommentUpdateRequest();
+        TestReflectionUtils.setField(request, "content", content);
+        return request;
+    }
+
+    private FeedComment createTestComment(Long id, ActivityFeed feed, String userId, FeedComment parent) {
+        FeedComment comment = FeedComment.builder()
+            .feed(feed)
+            .userId(userId)
+            .userNickname("nickname-" + userId)
+            .content("기존 댓글")
+            .parent(parent)
+            .isDeleted(false)
+            .isEdited(false)
+            .build();
+        setId(comment, id);
+        return comment;
     }
 
     private ActivityFeed createTestFeed(Long id, String userId) {
@@ -293,6 +329,248 @@ class FeedCommandServiceTest {
             assertThatThrownBy(() -> feedCommandService.addComment(999L, TEST_USER_ID, request))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.feed.not_found");
+        }
+
+        @Test
+        @DisplayName("대댓글 추가 시 FeedCommentReplyEvent 발행")
+        void addReply_publishesReplyEvent() {
+            // given
+            Long feedId = 1L;
+            Long parentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment parent = createTestComment(parentId, feed, OTHER_USER_ID, null);
+            FeedCommentRequest request = createTestReplyRequest("대댓글", parentId);
+
+            UserProfileInfo userProfile = new UserProfileInfo(
+                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findById(parentId)).thenReturn(Optional.of(parent));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommentRepository.findReplyAuthorsByParentId(parentId))
+                .thenReturn(java.util.List.of());
+            when(feedCommentRepository.save(any(FeedComment.class))).thenAnswer(inv -> {
+                FeedComment c = inv.getArgument(0);
+                setId(c, 100L);
+                return c;
+            });
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.addComment(feedId, TEST_USER_ID, request);
+
+            // then — 대댓글이므로 FeedCommentEvent 대신 FeedCommentReplyEvent 발행
+            verify(eventPublisher).publishEvent(any(FeedCommentReplyEvent.class));
+        }
+
+        @Test
+        @DisplayName("대댓글에 다시 대댓글 시 1-depth 제한 예외 발생")
+        void addReply_replyToReply_throwsException() {
+            // given
+            Long feedId = 1L;
+            Long rootId = 10L;
+            Long replyId = 11L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment root = createTestComment(rootId, feed, OTHER_USER_ID, null);
+            FeedComment reply = createTestComment(replyId, feed, TEST_USER_ID, root); // 대댓글
+            FeedCommentRequest request = createTestReplyRequest("재대댓글", replyId);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findById(replyId)).thenReturn(Optional.of(reply));
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.addComment(feedId, TEST_USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.reply_depth_exceeded");
+        }
+
+        @Test
+        @DisplayName("부모 댓글이 다른 피드 소속이면 wrong_feed 예외")
+        void addReply_parentFromDifferentFeed_throwsException() {
+            // given
+            Long feedId = 1L;
+            Long otherFeedId = 2L;
+            Long parentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            ActivityFeed otherFeed = createTestFeed(otherFeedId, OTHER_USER_ID);
+            FeedComment parent = createTestComment(parentId, otherFeed, OTHER_USER_ID, null);
+            FeedCommentRequest request = createTestReplyRequest("잘못된 대댓글", parentId);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findById(parentId)).thenReturn(Optional.of(parent));
+
+            // when & then
+            assertThatThrownBy(() -> feedCommandService.addComment(feedId, TEST_USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.wrong_feed");
+        }
+    }
+
+    @Nested
+    @DisplayName("updateComment 테스트")
+    class UpdateCommentTest {
+
+        @Test
+        @DisplayName("본인 댓글을 수정하면 isEdited=true가 된다")
+        void updateComment_success() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+            FeedCommentUpdateRequest request = createTestUpdateRequest("수정된 댓글");
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.countActiveRepliesByParentId(commentId)).thenReturn(0);
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            // when
+            feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request);
+
+            // then
+            assertThat(comment.getIsEdited()).isTrue();
+            assertThat(comment.getContent()).isEqualTo("수정된 댓글");
+        }
+
+        @Test
+        @DisplayName("다른 사용자가 수정 시도 시 예외 발생")
+        void updateComment_notOwner_throwsException() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, OTHER_USER_ID, null);
+            FeedCommentUpdateRequest request = createTestUpdateRequest("악의 수정");
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+
+            // when & then
+            assertThatThrownBy(() ->
+                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.not_owner");
+        }
+
+        @Test
+        @DisplayName("대댓글이 달린 댓글 수정 시 예외 발생")
+        void updateComment_hasReplies_throwsException() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+            FeedCommentUpdateRequest request = createTestUpdateRequest("수정 시도");
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.countActiveRepliesByParentId(commentId)).thenReturn(2);
+
+            // when & then
+            assertThatThrownBy(() ->
+                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.has_replies_uneditable");
+        }
+
+        @Test
+        @DisplayName("삭제된 댓글 수정 시 예외 발생")
+        void updateComment_deleted_throwsException() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+            comment.setIsDeleted(true);
+            FeedCommentUpdateRequest request = createTestUpdateRequest("수정 시도");
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+
+            // when & then
+            assertThatThrownBy(() ->
+                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.feed.comment.deleted");
+        }
+    }
+
+    @Nested
+    @DisplayName("toggleCommentLike 테스트")
+    class ToggleCommentLikeTest {
+
+        @Test
+        @DisplayName("좋아요를 신규로 누르면 이벤트 발행 + 카운트 증가")
+        void toggleCommentLike_add_publishesEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, OTHER_USER_ID, null);
+            UserProfileInfo likerProfile = new UserProfileInfo(
+                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
+                .thenReturn(Optional.empty());
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(likerProfile);
+            when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(1);
+
+            // when
+            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+
+            // then
+            assertThat(result.isLiked()).isTrue();
+            assertThat(result.getLikeCount()).isEqualTo(1);
+            verify(feedCommentLikeRepository).save(any(FeedCommentLike.class));
+            verify(eventPublisher).publishEvent(any(FeedCommentLikedEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미 누른 상태에서 토글하면 취소 + 이벤트 없음")
+        void toggleCommentLike_remove_noEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, OTHER_USER_ID, null);
+            FeedCommentLike existing = FeedCommentLike.builder()
+                .comment(comment)
+                .userId(TEST_USER_ID)
+                .build();
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
+                .thenReturn(Optional.of(existing));
+            when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(0);
+
+            // when
+            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+
+            // then
+            assertThat(result.isLiked()).isFalse();
+            verify(feedCommentLikeRepository).delete(existing);
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentLikedEvent.class));
+        }
+
+        @Test
+        @DisplayName("본인 댓글에 좋아요 시 알림 이벤트 발행하지 않음")
+        void toggleCommentLike_selfLike_noEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null); // 본인 댓글
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentLikeRepository.findByCommentIdAndUserId(commentId, TEST_USER_ID))
+                .thenReturn(Optional.empty());
+            when(feedCommentLikeRepository.countByCommentId(commentId)).thenReturn(1);
+
+            // when
+            FeedCommentLikeResponse result = feedCommandService.toggleCommentLike(feedId, commentId, TEST_USER_ID);
+
+            // then
+            assertThat(result.isLiked()).isTrue();
+            verify(feedCommentLikeRepository).save(any(FeedCommentLike.class));
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentLikedEvent.class));
         }
     }
 
