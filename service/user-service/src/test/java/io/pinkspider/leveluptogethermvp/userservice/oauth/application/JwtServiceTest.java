@@ -299,19 +299,40 @@ class JwtServiceTest {
     class LogoutTest {
 
         @Test
-        @DisplayName("유효한 토큰으로 로그아웃 성공")
+        @DisplayName("유효한 토큰으로 현재 디바이스만 로그아웃 성공")
         void logout_success() {
             // given
             HttpServletRequest request = mock(HttpServletRequest.class);
             when(request.getHeader("Authorization")).thenReturn("Bearer " + testAccessToken);
+            when(request.getHeader("X-Device-Type")).thenReturn(testDeviceType);
             when(jwtUtil.validateToken(testAccessToken)).thenReturn(true);
             when(jwtUtil.getSubjectFromToken(testAccessToken)).thenReturn(testUserId);
+            when(jwtUtil.getDeviceIdFromToken(testAccessToken)).thenReturn(testDeviceId);
 
             // when
             jwtService.logout(request);
 
             // then
-            verify(tokenService).logoutAllDevices(testUserId);
+            verify(tokenService).logout(testUserId, testDeviceType, testDeviceId);
+            verify(tokenService, never()).logoutAllDevices(anyString());
+        }
+
+        @Test
+        @DisplayName("X-Device-Type 헤더가 없으면 기본값 web으로 로그아웃")
+        void logout_noDeviceTypeHeader_defaultsToWeb() {
+            // given
+            HttpServletRequest request = mock(HttpServletRequest.class);
+            when(request.getHeader("Authorization")).thenReturn("Bearer " + testAccessToken);
+            when(request.getHeader("X-Device-Type")).thenReturn(null);
+            when(jwtUtil.validateToken(testAccessToken)).thenReturn(true);
+            when(jwtUtil.getSubjectFromToken(testAccessToken)).thenReturn(testUserId);
+            when(jwtUtil.getDeviceIdFromToken(testAccessToken)).thenReturn(testDeviceId);
+
+            // when
+            jwtService.logout(request);
+
+            // then
+            verify(tokenService).logout(testUserId, "web", testDeviceId);
         }
 
         @Test
@@ -325,6 +346,7 @@ class JwtServiceTest {
             jwtService.logout(request);
 
             // then
+            verify(tokenService, never()).logout(anyString(), anyString(), anyString());
             verify(tokenService, never()).logoutAllDevices(anyString());
         }
 
@@ -340,6 +362,7 @@ class JwtServiceTest {
             jwtService.logout(request);
 
             // then
+            verify(tokenService, never()).logout(anyString(), anyString(), anyString());
             verify(tokenService, never()).logoutAllDevices(anyString());
         }
 
