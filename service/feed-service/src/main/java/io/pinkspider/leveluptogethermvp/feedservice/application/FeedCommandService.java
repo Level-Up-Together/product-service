@@ -18,11 +18,13 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedCommentLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedLike;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedImageRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
@@ -44,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedCommandService {
 
     private final ActivityFeedRepository activityFeedRepository;
+    private final ActivityFeedImageRepository activityFeedImageRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
     private final FeedCommentLikeRepository feedCommentLikeRepository;
@@ -568,14 +571,41 @@ public class FeedCommandService {
     }
 
     /**
-     * executionId로 피드 이미지 URL 업데이트 (feedId 역참조 제거 후 이미지 동기화용)
+     * executionId로 피드 이미지 URL 업데이트 (단일 이미지 호환).
+     * @deprecated QA-53 다중 이미지로 전환. {@link #updateFeedImagesByExecutionId(Long, List)} 사용.
      */
+    @Deprecated
     @Transactional(transactionManager = "feedTransactionManager")
     public void updateFeedImageUrlByExecutionId(Long executionId, String imageUrl) {
+        updateFeedImagesByExecutionId(executionId, imageUrl != null ? List.of(imageUrl) : List.of());
+    }
+
+    /**
+     * executionId로 피드 다중 이미지 동기화 (QA-53).
+     * - activity_feed_image 전체 교체 (간단하고 안전)
+     * - activity_feed.image_url 은 첫 장(또는 null)과 동기화 (응답 호환)
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public void updateFeedImagesByExecutionId(Long executionId, List<String> imageUrls) {
         activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
-            feed.setImageUrl(imageUrl);
+            List<String> normalized = imageUrls != null ? imageUrls : List.of();
+
+            // 기존 이미지 일괄 삭제 후 신규 등록 (단순/안전)
+            activityFeedImageRepository.deleteByFeedId(feed.getId());
+            for (int i = 0; i < normalized.size(); i++) {
+                ActivityFeedImage img = ActivityFeedImage.builder()
+                    .feed(feed)
+                    .imageUrl(normalized.get(i))
+                    .sortOrder(i)
+                    .build();
+                activityFeedImageRepository.save(img);
+            }
+
+            // 첫 장과 단일 컬럼 동기화
+            feed.setImageUrl(normalized.isEmpty() ? null : normalized.get(0));
             activityFeedRepository.save(feed);
-            log.info("Feed image updated by executionId: executionId={}, imageUrl={}", executionId, imageUrl);
+
+            log.info("Feed images updated by executionId: executionId={}, count={}", executionId, normalized.size());
         });
     }
 

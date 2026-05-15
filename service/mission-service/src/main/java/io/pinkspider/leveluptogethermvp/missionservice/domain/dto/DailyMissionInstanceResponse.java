@@ -1,11 +1,13 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -55,7 +57,13 @@ public class DailyMissionInstanceResponse {
     private Integer completionCount;
     private Integer totalExpEarned;
     private String note;
+
+    /** 호환: 첫 장. QA-53 이후 imageUrls 의 0번 인덱스와 동일. */
     private String imageUrl;
+
+    /** QA-53: 다중 이미지 (sort_order 순). null/미설정이면 JSON 응답에서 제외. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<String> imageUrls;
 
     // ============ 피드 연동 ============
 

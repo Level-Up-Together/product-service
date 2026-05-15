@@ -9,6 +9,7 @@ import io.pinkspider.global.event.MissionDeletedEvent;
 import io.pinkspider.global.event.MissionFeedImageChangedEvent;
 import io.pinkspider.global.event.MissionFeedUnsharedEvent;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedCommandService;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -32,27 +33,29 @@ class MissionFeedEventListenerTest {
     class HandleFeedImageChangedTest {
 
         @Test
-        @DisplayName("이미지 URL 업데이트를 처리한다")
+        @DisplayName("이미지 URL 업데이트를 처리한다 (QA-53: 다중)")
         void shouldUpdateFeedImageUrl() {
-            var event = new MissionFeedImageChangedEvent("user-123", 1L, "https://example.com/image.jpg");
+            List<String> urls = List.of("https://example.com/image.jpg");
+            var event = new MissionFeedImageChangedEvent("user-123", 1L, urls);
             eventListener.handleFeedImageChanged(event);
-            verify(feedCommandService).updateFeedImageUrlByExecutionId(1L, "https://example.com/image.jpg");
+            verify(feedCommandService).updateFeedImagesByExecutionId(1L, urls);
         }
 
         @Test
-        @DisplayName("이미지 삭제(null)를 처리한다")
+        @DisplayName("이미지 삭제(empty list)를 처리한다")
         void shouldDeleteFeedImage() {
-            var event = new MissionFeedImageChangedEvent("user-123", 1L, null);
+            var event = MissionFeedImageChangedEvent.single("user-123", 1L, null);
             eventListener.handleFeedImageChanged(event);
-            verify(feedCommandService).updateFeedImageUrlByExecutionId(1L, null);
+            verify(feedCommandService).updateFeedImagesByExecutionId(1L, List.of());
         }
 
         @Test
         @DisplayName("예외 발생 시 전파하지 않는다")
         void shouldNotPropagateException() {
-            var event = new MissionFeedImageChangedEvent("user-123", 1L, "https://example.com/image.jpg");
+            List<String> urls = List.of("https://example.com/image.jpg");
+            var event = new MissionFeedImageChangedEvent("user-123", 1L, urls);
             doThrow(new RuntimeException("DB error"))
-                .when(feedCommandService).updateFeedImageUrlByExecutionId(1L, "https://example.com/image.jpg");
+                .when(feedCommandService).updateFeedImagesByExecutionId(1L, urls);
             eventListener.handleFeedImageChanged(event);
         }
     }

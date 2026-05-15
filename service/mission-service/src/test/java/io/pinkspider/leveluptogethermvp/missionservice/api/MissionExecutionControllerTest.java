@@ -1071,8 +1071,8 @@ class MissionExecutionControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/missions/{missionId}/executions/{executionDate}/image : 이미지 업로드")
-    void uploadExecutionImageTest() throws Exception {
+    @DisplayName("POST /api/v1/missions/{missionId}/executions/{executionDate}/images : 다중 이미지 업로드 (QA-53)")
+    void uploadExecutionImagesTest() throws Exception {
         // given
         MissionExecutionResponse response = MissionExecutionResponse.builder()
             .id(1L)
@@ -1082,29 +1082,34 @@ class MissionExecutionControllerTest {
             .executionDate(LocalDate.now())
             .status(ExecutionStatus.COMPLETED)
             .expEarned(50)
-            .imageUrl("https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid.jpg")
+            .imageUrl("https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid1.jpg")
+            .imageUrls(java.util.List.of(
+                "https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid1.jpg",
+                "https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid2.jpg"
+            ))
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.uploadExecutionImage(anyLong(), anyString(), any(LocalDate.class), any(), any()))
+        when(executionService.uploadExecutionImages(anyLong(), anyString(), any(LocalDate.class), any(), any()))
             .thenReturn(response);
 
-        MockMultipartFile image = new MockMultipartFile(
-            "image",
-            "test-image.jpg",
-            MediaType.IMAGE_JPEG_VALUE,
-            "fake-image-content".getBytes()
+        MockMultipartFile image1 = new MockMultipartFile(
+            "images", "image-1.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-content-1".getBytes()
+        );
+        MockMultipartFile image2 = new MockMultipartFile(
+            "images", "image-2.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-content-2".getBytes()
         );
 
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.multipart(
-                    "/api/v1/missions/{missionId}/executions/{executionDate}/image",
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/images",
                     1L, LocalDate.now().toString())
-                .file(image)
+                .file(image1)
+                .file(image2)
                 .with(user(MOCK_USER_ID))
         ).andDo(
-            MockMvcRestDocumentationWrapper.document("미션실행-16. 이미지 업로드",
+            MockMvcRestDocumentationWrapper.document("미션실행-16. 이미지 다중 업로드 (QA-53)",
                 preprocessRequest(prettyPrint()),
                 preprocessResponse(prettyPrint()),
                 resource(
@@ -1134,7 +1139,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
-                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("업로드된 이미지 URL").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("대표 이미지 URL (호환: imageUrls[0])").optional(),
+                            fieldWithPath("value.image_urls").type(JsonFieldType.ARRAY).description("이미지 URL 배열 (QA-53, sort_order 순)").optional(),
                             fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
                             fieldWithPath("value.feed_visibility").type(JsonFieldType.STRING).description("피드 공개범위 (PUBLIC/FRIENDS/GUILD/PRIVATE)").optional(),
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
@@ -1153,7 +1159,7 @@ class MissionExecutionControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/missions/{missionId}/executions/{executionDate}/image : 이미지 삭제")
+    @DisplayName("DELETE /api/v1/missions/{missionId}/executions/{executionDate}/images : URL 삭제 (QA-53)")
     void deleteExecutionImageTest() throws Exception {
         // given
         MissionExecutionResponse response = MissionExecutionResponse.builder()
@@ -1168,14 +1174,15 @@ class MissionExecutionControllerTest {
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.deleteExecutionImage(anyLong(), anyString(), any(LocalDate.class), any()))
+        when(executionService.deleteExecutionImageByUrl(anyLong(), anyString(), any(LocalDate.class), anyString(), any()))
             .thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.delete(
-                    "/api/v1/missions/{missionId}/executions/{executionDate}/image",
+                    "/api/v1/missions/{missionId}/executions/{executionDate}/images",
                     1L, LocalDate.now().toString())
+                .param("image_url", "https://cdn.example.com/missions/test-user-123/1/2026-04-03_uuid.jpg")
                 .with(user(MOCK_USER_ID))
                 .contentType(MediaType.APPLICATION_JSON)
         ).andDo(
@@ -1209,7 +1216,8 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.participant_id").type(JsonFieldType.NUMBER).description("참여자 ID").optional(),
                             fieldWithPath("value.created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
                             fieldWithPath("value.note").type(JsonFieldType.STRING).description("메모").optional(),
-                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("이미지 URL (삭제 후 null)").optional(),
+                            fieldWithPath("value.image_url").type(JsonFieldType.STRING).description("대표 이미지 URL (삭제 후 null)").optional(),
+                            fieldWithPath("value.image_urls").type(JsonFieldType.ARRAY).description("이미지 URL 배열 (QA-53, sort_order 순)").optional(),
                             fieldWithPath("value.is_shared_to_feed").type(JsonFieldType.BOOLEAN).description("피드 공유 여부").optional(),
                             fieldWithPath("value.feed_visibility").type(JsonFieldType.STRING).description("피드 공개범위 (PUBLIC/FRIENDS/GUILD/PRIVATE)").optional(),
                             fieldWithPath("value.completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),

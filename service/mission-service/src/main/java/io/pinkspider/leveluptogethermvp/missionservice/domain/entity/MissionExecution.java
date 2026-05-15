@@ -42,6 +42,9 @@ import org.hibernate.annotations.Comment;
 @Comment("미션 수행 기록")
 public class MissionExecution extends LocalDateTimeBaseEntity implements MissionExecutionLifecycle {
 
+    /** QA-53: 미션 실행/인스턴스 당 최대 이미지 장수. */
+    public static final int MAX_IMAGES = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)

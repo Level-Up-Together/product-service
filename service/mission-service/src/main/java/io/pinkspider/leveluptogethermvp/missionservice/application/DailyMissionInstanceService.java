@@ -8,12 +8,16 @@ import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.DailyMissionInstanceResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
@@ -51,6 +55,7 @@ import java.util.stream.Collectors;
 public class DailyMissionInstanceService {
 
     private final DailyMissionInstanceRepository instanceRepository;
+    private final DailyMissionInstanceImageRepository instanceImageRepository;
     private final MissionParticipantRepository participantRepository;
     private final MissionExecutionRepository executionRepository;
     private final FeedCommandService feedCommandService;
@@ -391,81 +396,113 @@ public class DailyMissionInstanceService {
         return DailyMissionInstanceResponse.from(instance);
     }
 
-    // ============ 이미지 업로드 ============
+    // ============ 이미지 업로드 (QA-53: 다중 이미지) ============
 
-    /**
-     * 인스턴스 이미지 업로드
-     */
     @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse uploadImage(Long instanceId, String userId, MultipartFile image) {
+    public DailyMissionInstanceResponse uploadImages(Long instanceId, String userId, java.util.List<MultipartFile> images) {
+        if (images == null || images.isEmpty()) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.empty");
+        }
+
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
 
-        // 기존 이미지가 있으면 삭제
-        if (instance.getImageUrl() != null) {
-            missionImageStorageService.delete(instance.getImageUrl());
+        int existing = instanceImageRepository.countByInstanceId(instance.getId());
+        if (existing + images.size() > MissionExecution.MAX_IMAGES) {
+            throw new CustomException(ApiStatus.INVALID_INPUT.getResultCode(), "error.mission.image.max_exceeded");
         }
 
-        // 새 이미지 저장
-        String imageUrl = missionImageStorageService.store(
-            image,
-            userId,
-            instance.getParticipant().getMission().getId(),
-            instance.getInstanceDate().toString()
-        );
+        int nextSortOrder = existing;
+        for (MultipartFile file : images) {
+            String url = missionImageStorageService.store(
+                file, userId,
+                instance.getParticipant().getMission().getId(),
+                instance.getInstanceDate().toString()
+            );
+            DailyMissionInstanceImage img = DailyMissionInstanceImage.builder()
+                .instance(instance)
+                .imageUrl(url)
+                .sortOrder(nextSortOrder++)
+                .build();
+            instanceImageRepository.save(img);
+        }
 
-        instance.setImageUrl(imageUrl);
+        syncInstanceFirstImage(instance);
+        publishInstanceImageChangedEvent(userId, instance);
 
-        // 피드 이미지 동기화 (이벤트 기반)
-        eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), imageUrl));
+        log.info("고정 미션 이미지 다중 업로드: instanceId={}, added={}, total={}",
+            instance.getId(), images.size(), nextSortOrder);
+        return buildInstanceResponseWithImages(instance);
+    }
 
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse uploadImagesByMission(Long missionId, String userId, LocalDate date,
+                                                              java.util.List<MultipartFile> images, Long instanceId) {
+        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+        return uploadImages(instance.getId(), userId, images);
+    }
+
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse deleteImageByUrl(Long instanceId, String userId, String imageUrl) {
+        DailyMissionInstance instance = findInstanceById(instanceId);
+        validateInstanceOwner(instance, userId);
+
+        instanceImageRepository.findByInstanceIdAndImageUrl(instance.getId(), imageUrl)
+            .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
+                "error.mission.image.not_found"));
+
+        missionImageStorageService.delete(imageUrl);
+        instanceImageRepository.deleteByInstanceIdAndImageUrl(instance.getId(), imageUrl);
+        instanceImageRepository.flush();
+
+        reorderInstanceImages(instance.getId());
+        syncInstanceFirstImage(instance);
+        publishInstanceImageChangedEvent(userId, instance);
+
+        log.info("고정 미션 이미지 URL 삭제: instanceId={}, url={}", instance.getId(), imageUrl);
+        return buildInstanceResponseWithImages(instance);
+    }
+
+    /** 응답 빌더 helper — imageUrls(전체) + imageUrl(첫 장) 채워서 반환. */
+    private DailyMissionInstanceResponse buildInstanceResponseWithImages(DailyMissionInstance instance) {
+        DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
+        java.util.List<String> urls = new java.util.ArrayList<>();
+        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
+            urls.add(img.getImageUrl());
+        }
+        response.setImageUrls(urls);
+        return response;
+    }
+
+    @Transactional(transactionManager = "missionTransactionManager")
+    public DailyMissionInstanceResponse deleteImageByUrlAndMission(Long missionId, String userId, LocalDate date,
+                                                                   String imageUrl, Long instanceId) {
+        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
+        return deleteImageByUrl(instance.getId(), userId, imageUrl);
+    }
+
+    private void reorderInstanceImages(Long instanceId) {
+        java.util.List<DailyMissionInstanceImage> remaining = instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instanceId);
+        for (int i = 0; i < remaining.size(); i++) {
+            DailyMissionInstanceImage img = remaining.get(i);
+            if (img.getSortOrder() != i) {
+                img.setSortOrder(i);
+            }
+        }
+    }
+
+    private void syncInstanceFirstImage(DailyMissionInstance instance) {
+        java.util.List<DailyMissionInstanceImage> images = instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId());
+        instance.setImageUrl(images.isEmpty() ? null : images.get(0).getImageUrl());
         instanceRepository.save(instance);
-
-        log.info("고정 미션 이미지 업로드: instanceId={}, userId={}, imageUrl={}",
-            instanceId, userId, imageUrl);
-
-        return DailyMissionInstanceResponse.from(instance);
     }
 
-    /**
-     * 고정 미션 이미지 업로드 (missionId + date + optional instanceId)
-     */
-    @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse uploadImageByMission(Long missionId, String userId, LocalDate date, MultipartFile image, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
-        return uploadImage(instance.getId(), userId, image);
-    }
-
-    /**
-     * 인스턴스 이미지 삭제
-     */
-    @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse deleteImage(Long instanceId, String userId) {
-        DailyMissionInstance instance = findInstanceById(instanceId);
-        validateInstanceOwner(instance, userId);
-
-        if (instance.getImageUrl() != null) {
-            missionImageStorageService.delete(instance.getImageUrl());
-            instance.setImageUrl(null);
-
-            // 피드 이미지 동기화 (이벤트 기반)
-            eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), null));
-
-            instanceRepository.save(instance);
-
-            log.info("고정 미션 이미지 삭제: instanceId={}, userId={}", instanceId, userId);
+    private void publishInstanceImageChangedEvent(String userId, DailyMissionInstance instance) {
+        java.util.List<String> urls = new java.util.ArrayList<>();
+        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(instance.getId())) {
+            urls.add(img.getImageUrl());
         }
-
-        return DailyMissionInstanceResponse.from(instance);
-    }
-
-    /**
-     * 고정 미션 이미지 삭제 (missionId + date + optional instanceId)
-     */
-    @Transactional(transactionManager = "missionTransactionManager")
-    public DailyMissionInstanceResponse deleteImageByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
-        DailyMissionInstance instance = resolveCompletedInstance(missionId, userId, date, instanceId);
-        return deleteImage(instance.getId(), userId);
+        eventPublisher.publishEvent(new MissionFeedImageChangedEvent(userId, instance.getId(), urls));
     }
 
     // ============ 인스턴스 해석 (Phase 1 + Phase 2) ============

@@ -125,14 +125,20 @@ public class MissionExecutionService {
 
     // === 후처리 메서드 (instanceId 지원) ===
 
+    // === QA-53: 다중 이미지 (단수형 image 메서드는 제거됨) ===
+
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate, MultipartFile image, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).uploadExecutionImage(missionId, userId, executionDate, image, instanceId);
+    public MissionExecutionResponse uploadExecutionImages(Long missionId, String userId, LocalDate executionDate,
+                                                          List<MultipartFile> images, Long instanceId) {
+        return strategyResolver.resolve(missionId, userId)
+            .uploadExecutionImages(missionId, userId, executionDate, images, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
-    public MissionExecutionResponse deleteExecutionImage(Long missionId, String userId, LocalDate executionDate, Long instanceId) {
-        return strategyResolver.resolve(missionId, userId).deleteExecutionImage(missionId, userId, executionDate, instanceId);
+    public MissionExecutionResponse deleteExecutionImageByUrl(Long missionId, String userId, LocalDate executionDate,
+                                                              String imageUrl, Long instanceId) {
+        return strategyResolver.resolve(missionId, userId)
+            .deleteExecutionImageByUrl(missionId, userId, executionDate, imageUrl, instanceId);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

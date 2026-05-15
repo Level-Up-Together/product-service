@@ -231,35 +231,38 @@ public class MissionExecutionController {
     }
 
     /**
-     * 완료된 미션 실행에 이미지 업로드
+     * 완료된 미션 실행에 이미지 다중 업로드 (QA-53). 한 번에 여러 장, 합산 최대 5장.
      *
      * @param instanceId 고정 미션의 특정 인스턴스 ID (optional)
      */
-    @PostMapping(value = "/{missionId}/executions/{executionDate}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResult<MissionExecutionResponse>> uploadExecutionImage(
+    @PostMapping(value = "/{missionId}/executions/{executionDate}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResult<MissionExecutionResponse>> uploadExecutionImages(
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
-        @RequestPart("image") MultipartFile image,
+        @RequestPart("images") List<MultipartFile> images,
         @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.uploadExecutionImage(missionId, userId, executionDate, image, instanceId);
+        MissionExecutionResponse response = executionService.uploadExecutionImages(missionId, userId, executionDate, images, instanceId);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
     /**
-     * 완료된 미션 실행의 이미지 삭제
+     * 완료된 미션 실행의 이미지 1장 삭제 (QA-53, URL 기반).
      *
+     * @param imageUrl 삭제할 이미지 URL
      * @param instanceId 고정 미션의 특정 인스턴스 ID (optional)
      */
-    @DeleteMapping("/{missionId}/executions/{executionDate}/image")
+    @DeleteMapping("/{missionId}/executions/{executionDate}/images")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> deleteExecutionImage(
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
+        @RequestParam("image_url") String imageUrl,
         @RequestParam(required = false) Long instanceId) {
 
-        MissionExecutionResponse response = executionService.deleteExecutionImage(missionId, userId, executionDate, instanceId);
+        MissionExecutionResponse response = executionService.deleteExecutionImageByUrl(
+            missionId, userId, executionDate, imageUrl, instanceId);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 

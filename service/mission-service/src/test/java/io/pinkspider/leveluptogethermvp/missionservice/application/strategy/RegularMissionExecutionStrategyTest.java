@@ -53,6 +53,9 @@ class RegularMissionExecutionStrategyTest {
     private MissionExecutionRepository executionRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository executionImageRepository;
+
+    @Mock
     private MissionParticipantRepository participantRepository;
 
     @Mock
@@ -355,40 +358,69 @@ class RegularMissionExecutionStrategyTest {
     }
 
     @Nested
-    @DisplayName("이미지 업로드/삭제 테스트")
+    @DisplayName("이미지 다중 업로드/삭제 테스트 (QA-53)")
     class ImageManagementTest {
 
         @Test
-        @DisplayName("완료된 미션에 이미지를 업로드한다")
-        void uploadExecutionImage_success() {
+        @DisplayName("완료된 미션에 다중 이미지를 업로드한다")
+        void uploadExecutionImages_success() {
             // given
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+            MockMultipartFile file1 = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
+            MockMultipartFile file2 = new MockMultipartFile("images", "b.jpg", "image/jpeg", "b".getBytes());
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
+            when(executionImageRepository.countByExecutionId(execution.getId())).thenReturn(0);
             when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
-                .thenReturn("https://example.com/image.jpg");
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn("https://example.com/a.jpg", "https://example.com/b.jpg");
+            when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(execution.getId()))
+                .thenReturn(java.util.List.of());
 
             // when
-            MissionExecutionResponse response = strategy.uploadExecutionImage(
-                testMission.getId(), testUserId, executionDate, mockFile);
+            MissionExecutionResponse response = strategy.uploadExecutionImages(
+                testMission.getId(), testUserId, executionDate, java.util.List.of(file1, file2), null);
 
             // then
             assertThat(response).isNotNull();
-            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
+            verify(missionImageStorageService, org.mockito.Mockito.times(2))
+                .store(any(), eq(testUserId), eq(testMission.getId()), any());
+        }
+
+        @Test
+        @DisplayName("5장 한도 초과 시 예외가 발생한다")
+        void uploadExecutionImages_exceedsLimit_throwsException() {
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            MockMultipartFile file = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionImageRepository.countByExecutionId(execution.getId())).thenReturn(5);
+
+            assertThatThrownBy(() -> strategy.uploadExecutionImages(
+                testMission.getId(), testUserId, executionDate, java.util.List.of(file), null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.max_exceeded");
+        }
+
+        @Test
+        @DisplayName("빈 이미지 리스트면 예외가 발생한다")
+        void uploadExecutionImages_empty_throwsException() {
+            assertThatThrownBy(() -> strategy.uploadExecutionImages(
+                testMission.getId(), testUserId, LocalDate.now(), java.util.List.of(), null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.empty");
         }
 
         @Test
         @DisplayName("완료되지 않은 미션에 이미지 업로드 시 예외가 발생한다")
-        void uploadExecutionImage_notCompleted_throwsException() {
-            // given
+        void uploadExecutionImages_notCompleted_throwsException() {
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = MissionExecution.builder()
                 .participant(testParticipant)
@@ -396,95 +428,64 @@ class RegularMissionExecutionStrategyTest {
                 .status(ExecutionStatus.PENDING)
                 .build();
             setId(execution, 1L);
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+            MockMultipartFile file = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
 
-            // when & then
-            assertThatThrownBy(() -> strategy.uploadExecutionImage(
-                testMission.getId(), testUserId, executionDate, mockFile))
+            assertThatThrownBy(() -> strategy.uploadExecutionImages(
+                testMission.getId(), testUserId, executionDate, java.util.List.of(file), null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("완료된 미션만 이미지를 추가할 수 있습니다");
         }
 
         @Test
-        @DisplayName("기존 이미지가 있으면 삭제 후 새 이미지를 업로드한다")
-        void uploadExecutionImage_replacesExistingImage() {
-            // given
+        @DisplayName("URL로 이미지 1장을 삭제한다")
+        void deleteExecutionImageByUrl_success() {
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            TestReflectionUtils.setField(execution, "imageUrl", "https://example.com/old-image.jpg");
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test image content".getBytes());
+            String imageUrl = "https://example.com/image.jpg";
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage img =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl(imageUrl).sortOrder(0).build();
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(missionImageStorageService.store(any(), eq(testUserId), eq(testMission.getId()), any()))
-                .thenReturn("https://example.com/new-image.jpg");
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(executionImageRepository.findByExecutionIdAndImageUrl(execution.getId(), imageUrl))
+                .thenReturn(Optional.of(img));
+            when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(execution.getId()))
+                .thenReturn(java.util.List.of());
 
-            // when
-            MissionExecutionResponse response = strategy.uploadExecutionImage(
-                testMission.getId(), testUserId, executionDate, mockFile);
+            MissionExecutionResponse response = strategy.deleteExecutionImageByUrl(
+                testMission.getId(), testUserId, executionDate, imageUrl, null);
 
-            // then
             assertThat(response).isNotNull();
-            verify(missionImageStorageService).delete("https://example.com/old-image.jpg");
-            verify(missionImageStorageService).store(any(), eq(testUserId), eq(testMission.getId()), any());
+            verify(missionImageStorageService).delete(imageUrl);
+            verify(executionImageRepository).deleteByExecutionIdAndImageUrl(execution.getId(), imageUrl);
         }
 
         @Test
-        @DisplayName("이미지를 삭제한다")
-        void deleteExecutionImage_success() {
-            // given
+        @DisplayName("존재하지 않는 URL 삭제 시 예외가 발생한다")
+        void deleteExecutionImageByUrl_notFound_throwsException() {
             LocalDate executionDate = LocalDate.now();
             MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
-            TestReflectionUtils.setField(execution, "imageUrl", "https://example.com/image.jpg");
 
             when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(executionRepository.save(any(MissionExecution.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(executionImageRepository.findByExecutionIdAndImageUrl(eq(execution.getId()), any()))
+                .thenReturn(Optional.empty());
 
-            // when
-            MissionExecutionResponse response = strategy.deleteExecutionImage(
-                testMission.getId(), testUserId, executionDate);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(missionImageStorageService).delete("https://example.com/image.jpg");
-        }
-
-        @Test
-        @DisplayName("완료되지 않은 미션의 이미지 삭제 시 예외가 발생한다")
-        void deleteExecutionImage_notCompleted_throwsException() {
-            // given
-            LocalDate executionDate = LocalDate.now();
-            MissionExecution execution = MissionExecution.builder()
-                .participant(testParticipant)
-                .executionDate(executionDate)
-                .status(ExecutionStatus.PENDING)
-                .build();
-            setId(execution, 1L);
-
-            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
-                .thenReturn(Optional.of(testParticipant));
-            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
-                .thenReturn(Optional.of(execution));
-
-            // when & then
-            assertThatThrownBy(() -> strategy.deleteExecutionImage(testMission.getId(), testUserId, executionDate))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("완료된 미션만 이미지를 삭제할 수 있습니다");
+            assertThatThrownBy(() -> strategy.deleteExecutionImageByUrl(
+                testMission.getId(), testUserId, executionDate, "https://x.com/none.jpg", null))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.not_found");
         }
     }
 

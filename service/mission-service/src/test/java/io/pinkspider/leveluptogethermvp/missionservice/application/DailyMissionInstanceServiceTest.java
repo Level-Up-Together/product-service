@@ -67,6 +67,9 @@ class DailyMissionInstanceServiceTest {
     private DailyMissionInstanceRepository instanceRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository instanceImageRepository;
+
+    @Mock
     private MissionParticipantRepository participantRepository;
 
     @Mock
@@ -425,119 +428,113 @@ class DailyMissionInstanceServiceTest {
     }
 
     @Nested
-    @DisplayName("uploadImage 테스트")
-    class UploadImageTest {
+    @DisplayName("uploadImages 테스트 (QA-53)")
+    class UploadImagesTest {
 
         @Test
-        @DisplayName("인스턴스에 이미지를 업로드한다")
-        void uploadImage_success() {
+        @DisplayName("인스턴스에 다중 이미지를 업로드한다")
+        void uploadImages_success() {
             // given
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test content".getBytes());
+            MockMultipartFile file1 = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
+            MockMultipartFile file2 = new MockMultipartFile("images", "b.jpg", "image/jpeg", "b".getBytes());
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
+            when(instanceImageRepository.countByInstanceId(INSTANCE_ID)).thenReturn(0);
             when(missionImageStorageService.store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString()))
-                .thenReturn("https://example.com/image.jpg");
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn("https://example.com/a.jpg", "https://example.com/b.jpg");
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of());
 
             // when
-            DailyMissionInstanceResponse response = service.uploadImage(INSTANCE_ID, TEST_USER_ID, mockFile);
+            DailyMissionInstanceResponse response = service.uploadImages(INSTANCE_ID, TEST_USER_ID,
+                List.of(file1, file2));
 
             // then
-            assertThat(response.getImageUrl()).isEqualTo("https://example.com/image.jpg");
-            verify(missionImageStorageService).store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString());
+            assertThat(response).isNotNull();
+            verify(missionImageStorageService, org.mockito.Mockito.times(2))
+                .store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString());
         }
 
         @Test
-        @DisplayName("기존 이미지가 있으면 삭제 후 새 이미지를 업로드한다")
-        void uploadImage_replacesExisting() {
-            // given
-            instance.setImageUrl("https://example.com/old-image.jpg");
-
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test content".getBytes());
+        @DisplayName("5장 한도 초과 시 예외가 발생한다")
+        void uploadImages_exceedsLimit_throwsException() {
+            MockMultipartFile file = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
-            when(missionImageStorageService.store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString()))
-                .thenReturn("https://example.com/new-image.jpg");
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(instanceImageRepository.countByInstanceId(INSTANCE_ID)).thenReturn(5);
 
-            // when
-            DailyMissionInstanceResponse response = service.uploadImage(INSTANCE_ID, TEST_USER_ID, mockFile);
-
-            // then
-            assertThat(response.getImageUrl()).isEqualTo("https://example.com/new-image.jpg");
-            verify(missionImageStorageService).delete("https://example.com/old-image.jpg");
+            assertThatThrownBy(() -> service.uploadImages(INSTANCE_ID, TEST_USER_ID, List.of(file)))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.max_exceeded");
         }
 
         @Test
-        @DisplayName("피드가 있으면 피드 이미지도 업데이트한다")
-        void uploadImage_updatesFeedImage() {
-            // given
-            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
+        @DisplayName("빈 이미지 리스트면 예외가 발생한다")
+        void uploadImages_empty_throwsException() {
+            assertThatThrownBy(() -> service.uploadImages(INSTANCE_ID, TEST_USER_ID, List.of()))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.empty");
+        }
 
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test content".getBytes());
+        @Test
+        @DisplayName("업로드 후 피드 이미지 동기화 이벤트가 발행된다")
+        void uploadImages_publishesFeedSyncEvent() {
+            MockMultipartFile file = new MockMultipartFile("images", "a.jpg", "image/jpeg", "a".getBytes());
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
+            when(instanceImageRepository.countByInstanceId(INSTANCE_ID)).thenReturn(0);
             when(missionImageStorageService.store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString()))
-                .thenReturn("https://example.com/image.jpg");
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn("https://example.com/a.jpg");
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of());
 
-            // when
-            service.uploadImage(INSTANCE_ID, TEST_USER_ID, mockFile);
+            service.uploadImages(INSTANCE_ID, TEST_USER_ID, List.of(file));
 
-            // then
             verify(eventPublisher).publishEvent(any(MissionFeedImageChangedEvent.class));
         }
     }
 
     @Nested
-    @DisplayName("deleteImage 테스트")
-    class DeleteImageTest {
+    @DisplayName("deleteImageByUrl 테스트 (QA-53)")
+    class DeleteImageByUrlTest {
 
         @Test
-        @DisplayName("인스턴스의 이미지를 삭제한다")
-        void deleteImage_success() {
-            // given
-            instance.setImageUrl("https://example.com/image.jpg");
+        @DisplayName("URL로 이미지 1장을 삭제한다")
+        void deleteImageByUrl_success() {
+            String imageUrl = "https://example.com/image.jpg";
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage img =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage.builder()
+                    .instance(instance).imageUrl(imageUrl).sortOrder(0).build();
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(instanceImageRepository.findByInstanceIdAndImageUrl(INSTANCE_ID, imageUrl))
+                .thenReturn(Optional.of(img));
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of());
 
-            // when
-            DailyMissionInstanceResponse response = service.deleteImage(INSTANCE_ID, TEST_USER_ID);
+            DailyMissionInstanceResponse response = service.deleteImageByUrl(INSTANCE_ID, TEST_USER_ID, imageUrl);
 
-            // then
-            assertThat(response.getImageUrl()).isNull();
-            verify(missionImageStorageService).delete("https://example.com/image.jpg");
+            assertThat(response).isNotNull();
+            verify(missionImageStorageService).delete(imageUrl);
+            verify(instanceImageRepository).deleteByInstanceIdAndImageUrl(INSTANCE_ID, imageUrl);
+            verify(eventPublisher).publishEvent(any(MissionFeedImageChangedEvent.class));
         }
 
         @Test
-        @DisplayName("피드가 있으면 피드 이미지도 삭제한다")
-        void deleteImage_updatesFeedImage() {
-            // given
-            instance.setImageUrl("https://example.com/image.jpg");
-            TestReflectionUtils.setField(instance, "isSharedToFeed", true);
-
+        @DisplayName("존재하지 않는 URL 삭제 시 예외가 발생한다")
+        void deleteImageByUrl_notFound_throwsException() {
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(instanceImageRepository.findByInstanceIdAndImageUrl(eq(INSTANCE_ID), any()))
+                .thenReturn(Optional.empty());
 
-            // when
-            service.deleteImage(INSTANCE_ID, TEST_USER_ID);
-
-            // then
-            verify(eventPublisher).publishEvent(any(MissionFeedImageChangedEvent.class));
+            assertThatThrownBy(() -> service.deleteImageByUrl(INSTANCE_ID, TEST_USER_ID, "https://x.com/none.jpg"))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.image.not_found");
         }
     }
 
@@ -960,16 +957,16 @@ class DailyMissionInstanceServiceTest {
     }
 
     @Nested
-    @DisplayName("uploadImageByMission 테스트")
-    class UploadImageByMissionTest {
+    @DisplayName("uploadImagesByMission 테스트 (QA-53)")
+    class UploadImagesByMissionTest {
 
         @Test
-        @DisplayName("missionId와 date로 이미지를 업로드한다")
-        void uploadImageByMission_success() {
+        @DisplayName("missionId와 date로 다중 이미지를 업로드한다")
+        void uploadImagesByMission_success() {
             // given
             LocalDate today = LocalDate.now();
-            MockMultipartFile mockFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", "test content".getBytes());
+            MockMultipartFile file = new MockMultipartFile(
+                "images", "a.jpg", "image/jpeg", "a".getBytes());
 
             TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
 
@@ -979,32 +976,35 @@ class DailyMissionInstanceServiceTest {
                 .thenReturn(List.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
+            when(instanceImageRepository.countByInstanceId(INSTANCE_ID)).thenReturn(0);
             when(missionImageStorageService.store(any(), eq(TEST_USER_ID), eq(MISSION_ID), anyString()))
-                .thenReturn("https://example.com/image.jpg");
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn("https://example.com/a.jpg");
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of());
 
             // when
-            DailyMissionInstanceResponse response = service.uploadImageByMission(
-                MISSION_ID, TEST_USER_ID, today, mockFile, null);
+            DailyMissionInstanceResponse response = service.uploadImagesByMission(
+                MISSION_ID, TEST_USER_ID, today, List.of(file), null);
 
             // then
             assertThat(response).isNotNull();
-            assertThat(response.getImageUrl()).isEqualTo("https://example.com/image.jpg");
         }
     }
 
     @Nested
-    @DisplayName("deleteImageByMission 테스트")
-    class DeleteImageByMissionTest {
+    @DisplayName("deleteImageByUrlAndMission 테스트 (QA-53)")
+    class DeleteImageByUrlAndMissionTest {
 
         @Test
-        @DisplayName("missionId와 date로 이미지를 삭제한다")
-        void deleteImageByMission_success() {
+        @DisplayName("missionId와 date로 URL 기반 이미지를 삭제한다")
+        void deleteImageByUrlAndMission_success() {
             // given
             LocalDate today = LocalDate.now();
+            String imageUrl = "https://example.com/image.jpg";
             TestReflectionUtils.setField(instance, "status", ExecutionStatus.COMPLETED);
-            instance.setImageUrl("https://example.com/image.jpg");
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage img =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage.builder()
+                    .instance(instance).imageUrl(imageUrl).sortOrder(0).build();
 
             when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
                 .thenReturn(Optional.of(participant));
@@ -1012,16 +1012,18 @@ class DailyMissionInstanceServiceTest {
                 .thenReturn(List.of(instance));
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
-            when(instanceRepository.save(any(DailyMissionInstance.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+            when(instanceImageRepository.findByInstanceIdAndImageUrl(INSTANCE_ID, imageUrl))
+                .thenReturn(Optional.of(img));
+            when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(INSTANCE_ID))
+                .thenReturn(List.of());
 
             // when
-            DailyMissionInstanceResponse response = service.deleteImageByMission(MISSION_ID, TEST_USER_ID, today, null);
+            DailyMissionInstanceResponse response = service.deleteImageByUrlAndMission(
+                MISSION_ID, TEST_USER_ID, today, imageUrl, null);
 
             // then
             assertThat(response).isNotNull();
-            assertThat(response.getImageUrl()).isNull();
-            verify(missionImageStorageService).delete("https://example.com/image.jpg");
+            verify(missionImageStorageService).delete(imageUrl);
         }
     }
 }

@@ -126,39 +126,41 @@ class PinnedMissionExecutionStrategyTest {
     }
 
     @Test
-    @DisplayName("uploadExecutionImage는 DailyMissionInstanceService로 위임한다")
-    void uploadExecutionImage_delegatesToDailyMissionInstanceService() {
+    @DisplayName("uploadExecutionImages는 DailyMissionInstanceService로 위임한다 (QA-53)")
+    void uploadExecutionImages_delegatesToDailyMissionInstanceService() {
         // given
         MultipartFile mockFile = mock(MultipartFile.class);
+        java.util.List<MultipartFile> files = java.util.List.of(mockFile);
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
         when(mockResponse.getImageUrl()).thenReturn("https://example.com/image.jpg");
 
-        when(dailyMissionInstanceService.uploadImageByMission(testMissionId, testUserId, testDate, mockFile, null))
+        when(dailyMissionInstanceService.uploadImagesByMission(testMissionId, testUserId, testDate, files, null))
             .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.uploadExecutionImage(testMissionId, testUserId, testDate, mockFile, null);
+        MissionExecutionResponse response = strategy.uploadExecutionImages(testMissionId, testUserId, testDate, files, null);
 
         // then
-        verify(dailyMissionInstanceService).uploadImageByMission(testMissionId, testUserId, testDate, mockFile, null);
+        verify(dailyMissionInstanceService).uploadImagesByMission(testMissionId, testUserId, testDate, files, null);
         assertThat(response).isNotNull();
         assertThat(response.getImageUrl()).isEqualTo("https://example.com/image.jpg");
     }
 
     @Test
-    @DisplayName("deleteExecutionImage는 DailyMissionInstanceService로 위임한다")
-    void deleteExecutionImage_delegatesToDailyMissionInstanceService() {
+    @DisplayName("deleteExecutionImageByUrl는 DailyMissionInstanceService로 위임한다 (QA-53)")
+    void deleteExecutionImageByUrl_delegatesToDailyMissionInstanceService() {
         // given
+        String imageUrl = "https://example.com/image.jpg";
         DailyMissionInstanceResponse mockResponse = createMockResponse(ExecutionStatus.COMPLETED);
 
-        when(dailyMissionInstanceService.deleteImageByMission(testMissionId, testUserId, testDate, null))
+        when(dailyMissionInstanceService.deleteImageByUrlAndMission(testMissionId, testUserId, testDate, imageUrl, null))
             .thenReturn(mockResponse);
 
         // when
-        MissionExecutionResponse response = strategy.deleteExecutionImage(testMissionId, testUserId, testDate, null);
+        MissionExecutionResponse response = strategy.deleteExecutionImageByUrl(testMissionId, testUserId, testDate, imageUrl, null);
 
         // then
-        verify(dailyMissionInstanceService).deleteImageByMission(testMissionId, testUserId, testDate, null);
+        verify(dailyMissionInstanceService).deleteImageByUrlAndMission(testMissionId, testUserId, testDate, imageUrl, null);
         assertThat(response).isNotNull();
         assertThat(response.getImageUrl()).isNull();
     }

@@ -13,10 +13,12 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminPageR
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminStatsResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
+import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedSearchType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedImageRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
@@ -30,6 +32,7 @@ import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedQueryService {
 
     private final ActivityFeedRepository activityFeedRepository;
+    private final ActivityFeedImageRepository activityFeedImageRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final FeedCommentRepository feedCommentRepository;
     private final FeedCommentLikeRepository feedCommentLikeRepository;
@@ -85,7 +89,7 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(
                 feed,
@@ -96,6 +100,8 @@ public class FeedQueryService {
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -523,6 +529,9 @@ public class FeedQueryService {
 
         // 신고 상태 조회
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.FEED, String.valueOf(feedId)));
+
+        // QA-53: 다중 이미지 캐러셀
+        enrichWithImageUrls(List.of(response));
         return response;
     }
 
@@ -744,5 +753,29 @@ public class FeedQueryService {
             .todayNewCount(todayNewCount)
             .missionSharedCount(missionSharedCount)
             .build();
+    }
+
+    /**
+     * QA-53: ActivityFeedResponse 들의 imageUrls 를 ActivityFeedImage 테이블에서 일괄 조회해 채운다.
+     * 단일 이미지 폴백은 ActivityFeedResponse.from 에서 이미 처리되어 있고,
+     * 다중 이미지가 있는 피드만 여기서 실제 sort_order 순으로 덮어쓴다.
+     * Page 의 mapping 으로 호출.
+     */
+    private void enrichWithImageUrls(List<ActivityFeedResponse> responses) {
+        if (responses == null || responses.isEmpty()) return;
+
+        List<Long> feedIds = responses.stream().map(ActivityFeedResponse::getId).toList();
+        Map<Long, List<String>> imageMap = new HashMap<>();
+        for (ActivityFeedImage img : activityFeedImageRepository.findByFeedIdInOrderBySortOrder(feedIds)) {
+            imageMap.computeIfAbsent(img.getFeed().getId(), k -> new ArrayList<>()).add(img.getImageUrl());
+        }
+
+        for (ActivityFeedResponse r : responses) {
+            List<String> urls = imageMap.get(r.getId());
+            if (urls != null && !urls.isEmpty()) {
+                r.setImageUrls(urls);
+                r.setImageUrl(urls.get(0));
+            }
+        }
     }
 }

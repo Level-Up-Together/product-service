@@ -313,23 +313,28 @@ Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
-### 완료된 미션 실행에 이미지 업로드
+### 완료된 미션 실행에 이미지 다중 업로드 (QA-53, 최대 5장)
 ### ----------------------------------------------------------
-POST {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/image
+POST {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/images
 Authorization: Bearer {{accessToken}}
 Content-Type: multipart/form-data; boundary=boundary
 
 --boundary
-Content-Disposition: form-data; name="image"; filename="execution-image.png"
+Content-Disposition: form-data; name="images"; filename="image-1.png"
 Content-Type: image/png
 
-< ./test-image.png
+< ./test-image-1.png
+--boundary
+Content-Disposition: form-data; name="images"; filename="image-2.png"
+Content-Type: image/png
+
+< ./test-image-2.png
 --boundary--
 
 ### ----------------------------------------------------------
-### 완료된 미션 실행의 이미지 삭제
+### 완료된 미션 실행 이미지 1장 삭제 (URL 기반)
 ### ----------------------------------------------------------
-DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/image
+DELETE {{baseUrl}}/api/v1/missions/1/executions/2025-01-15/images?image_url=https://images.level-up-together.com/missions/.../uuid.png
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 

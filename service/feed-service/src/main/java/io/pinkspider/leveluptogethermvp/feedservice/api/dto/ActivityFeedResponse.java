@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.feedservice.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -9,6 +10,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -45,7 +47,14 @@ public class ActivityFeedResponse {
     private String referenceName;
     private FeedVisibility visibility;
     private Long guildId;
+
+    /** 호환: 첫 장. QA-53 이후 imageUrls 의 0번 인덱스와 동일. */
     private String imageUrl;
+
+    /** QA-53: 다중 이미지 (캐러셀용, sort_order 순). null/미설정이면 JSON 응답에서 제외. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<String> imageUrls;
+
     private String iconUrl;
     private int likeCount;
     private int commentCount;
@@ -97,6 +106,8 @@ public class ActivityFeedResponse {
             .visibility(feed.getVisibility())
             .guildId(feed.getGuildId())
             .imageUrl(feed.getImageUrl())
+            // QA-53: imageUrls 는 FeedQueryService.enrichWithImageUrls 에서 채운다.
+            //   여기서 폴백을 채우지 않는 이유는 RestDocs 응답 명세 호환 (필드 미존재 시 JSON 에서 빠짐).
             .iconUrl(feed.getIconUrl())
             .likeCount(feed.getLikeCount())
             .commentCount(feed.getCommentCount())

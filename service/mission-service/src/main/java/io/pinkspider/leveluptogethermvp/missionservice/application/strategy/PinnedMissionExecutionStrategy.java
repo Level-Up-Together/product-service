@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -39,20 +40,23 @@ public class PinnedMissionExecutionStrategy implements MissionExecutionStrategy 
         return MissionExecutionResponse.fromDailyInstance(response);
     }
 
+    // === QA-53: 다중 이미지 (단수형 image 메서드는 제거됨) ===
+
     @Override
     @ModerateImage
-    public MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate,
-                                                          MultipartFile image, Long instanceId) {
-        log.info("고정 미션 이미지 업로드 요청: missionId={}, instanceId={}", missionId, instanceId);
-        var response = dailyMissionInstanceService.uploadImageByMission(missionId, userId, executionDate, image, instanceId);
+    public MissionExecutionResponse uploadExecutionImages(Long missionId, String userId, LocalDate executionDate,
+                                                          List<MultipartFile> images, Long instanceId) {
+        log.info("고정 미션 이미지 다중 업로드: missionId={}, instanceId={}, count={}", missionId, instanceId,
+            images == null ? 0 : images.size());
+        var response = dailyMissionInstanceService.uploadImagesByMission(missionId, userId, executionDate, images, instanceId);
         return MissionExecutionResponse.fromDailyInstance(response);
     }
 
     @Override
-    public MissionExecutionResponse deleteExecutionImage(Long missionId, String userId, LocalDate executionDate,
-                                                          Long instanceId) {
-        log.info("고정 미션 이미지 삭제 요청: missionId={}, instanceId={}", missionId, instanceId);
-        var response = dailyMissionInstanceService.deleteImageByMission(missionId, userId, executionDate, instanceId);
+    public MissionExecutionResponse deleteExecutionImageByUrl(Long missionId, String userId, LocalDate executionDate,
+                                                              String imageUrl, Long instanceId) {
+        log.info("고정 미션 이미지 URL 삭제: missionId={}, instanceId={}, url={}", missionId, instanceId, imageUrl);
+        var response = dailyMissionInstanceService.deleteImageByUrlAndMission(missionId, userId, executionDate, imageUrl, instanceId);
         return MissionExecutionResponse.fromDailyInstance(response);
     }
 

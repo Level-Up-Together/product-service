@@ -387,49 +387,51 @@ class MissionExecutionServiceTest {
         }
 
         @Test
-        @DisplayName("uploadExecutionImage는 Strategy로 위임한다")
-        void uploadExecutionImage_delegatesToStrategy() {
+        @DisplayName("uploadExecutionImages는 Strategy로 위임한다 (QA-53)")
+        void uploadExecutionImages_delegatesToStrategy() {
             // given
             LocalDate date = today();
             org.springframework.web.multipart.MultipartFile mockFile =
-                new org.springframework.mock.web.MockMultipartFile("image", "test.jpg", "image/jpeg", "test".getBytes());
+                new org.springframework.mock.web.MockMultipartFile("images", "test.jpg", "image/jpeg", "test".getBytes());
+            java.util.List<org.springframework.web.multipart.MultipartFile> files = java.util.List.of(mockFile);
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
             when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
-            when(mockStrategy.uploadExecutionImage(testMission.getId(), testUserId, date, mockFile, null))
+            when(mockStrategy.uploadExecutionImages(testMission.getId(), testUserId, date, files, null))
                 .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse result = executionService.uploadExecutionImage(
-                testMission.getId(), testUserId, date, mockFile, null);
+            MissionExecutionResponse result = executionService.uploadExecutionImages(
+                testMission.getId(), testUserId, date, files, null);
 
             // then
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
-            verify(mockStrategy).uploadExecutionImage(testMission.getId(), testUserId, date, mockFile, null);
+            verify(mockStrategy).uploadExecutionImages(testMission.getId(), testUserId, date, files, null);
         }
 
         @Test
-        @DisplayName("deleteExecutionImage는 Strategy로 위임한다")
-        void deleteExecutionImage_delegatesToStrategy() {
+        @DisplayName("deleteExecutionImageByUrl는 Strategy로 위임한다 (QA-53)")
+        void deleteExecutionImageByUrl_delegatesToStrategy() {
             // given
             LocalDate date = today();
+            String imageUrl = "https://cdn.example.com/missions/u/1/x.jpg";
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
             when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
-            when(mockStrategy.deleteExecutionImage(testMission.getId(), testUserId, date, null))
+            when(mockStrategy.deleteExecutionImageByUrl(testMission.getId(), testUserId, date, imageUrl, null))
                 .thenReturn(expectedResponse);
 
             // when
-            MissionExecutionResponse result = executionService.deleteExecutionImage(
-                testMission.getId(), testUserId, date, null);
+            MissionExecutionResponse result = executionService.deleteExecutionImageByUrl(
+                testMission.getId(), testUserId, date, imageUrl, null);
 
             // then
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
-            verify(mockStrategy).deleteExecutionImage(testMission.getId(), testUserId, date, null);
+            verify(mockStrategy).deleteExecutionImageByUrl(testMission.getId(), testUserId, date, imageUrl, null);
         }
 
         @Test

@@ -27,14 +27,14 @@ public class MissionFeedEventListener {
     private final FeedCommandService feedCommandService;
 
     /**
-     * 미션 수행 기록의 이미지 변경 시 피드 이미지 동기화
+     * 미션 수행 기록의 이미지 변경 시 피드 이미지 동기화 (QA-53 다중).
      */
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedImageChanged(MissionFeedImageChangedEvent event) {
         safeHandle("MissionFeedImageChanged", () ->
-            feedCommandService.updateFeedImageUrlByExecutionId(
-                event.executionId(), event.imageUrl()));
+            feedCommandService.updateFeedImagesByExecutionId(
+                event.executionId(), event.imageUrls()));
     }
 
     /**

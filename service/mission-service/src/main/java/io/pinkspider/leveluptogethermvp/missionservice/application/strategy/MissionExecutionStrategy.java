@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application.strategy;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface MissionExecutionStrategy {
@@ -18,11 +19,15 @@ public interface MissionExecutionStrategy {
 
     // === 후처리 메서드 (instanceId 지원 — 고정 미션의 특정 인스턴스 타겟팅) ===
 
-    MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate,
-                                                    MultipartFile image, Long instanceId);
+    // QA-53: 다중 이미지 (단수형 image 메서드는 제거됨)
 
-    MissionExecutionResponse deleteExecutionImage(Long missionId, String userId, LocalDate executionDate,
-                                                    Long instanceId);
+    /** 한 번에 여러 장 업로드. 기존 + 신규 합산 5장 초과 시 예외. */
+    MissionExecutionResponse uploadExecutionImages(Long missionId, String userId, LocalDate executionDate,
+                                                    List<MultipartFile> images, Long instanceId);
+
+    /** URL 기반 단일 삭제. sort_order 재정렬 + 첫 장 동기화. */
+    MissionExecutionResponse deleteExecutionImageByUrl(Long missionId, String userId, LocalDate executionDate,
+                                                       String imageUrl, Long instanceId);
 
     MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate,
                                                     Long instanceId, FeedVisibility feedVisibility);
@@ -37,15 +42,6 @@ public interface MissionExecutionStrategy {
                                                   Long instanceId);
 
     // === 하위 호환 default 메서드 (instanceId 없이 호출 시) ===
-
-    default MissionExecutionResponse uploadExecutionImage(Long missionId, String userId, LocalDate executionDate,
-                                                            MultipartFile image) {
-        return uploadExecutionImage(missionId, userId, executionDate, image, null);
-    }
-
-    default MissionExecutionResponse deleteExecutionImage(Long missionId, String userId, LocalDate executionDate) {
-        return deleteExecutionImage(missionId, userId, executionDate, null);
-    }
 
     default MissionExecutionResponse shareExecutionToFeed(Long missionId, String userId, LocalDate executionDate) {
         return shareExecutionToFeed(missionId, userId, executionDate, null, FeedVisibility.PUBLIC);

@@ -55,6 +55,9 @@ class FeedCommandServiceTest {
     private ActivityFeedRepository activityFeedRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedImageRepository activityFeedImageRepository;
+
+    @Mock
     private FeedLikeRepository feedLikeRepository;
 
     @Mock
