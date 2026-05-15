@@ -100,6 +100,12 @@ class Oauth2ServiceTest {
     @Mock
     private HttpServletRequest httpRequest;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalProperties withdrawalProperties;
+
+    @Mock
+    private org.springframework.context.MessageSource messageSource;
+
     @InjectMocks
     private Oauth2Service oauth2Service;
 
@@ -273,21 +279,25 @@ class Oauth2ServiceTest {
         }
 
         @Test
-        @DisplayName("탈퇴한 사용자가 로그인을 시도하면 예외를 던진다")
-        void dbProcessOAuth2User_withdrawnUser_throwsException() {
+        @DisplayName("탈퇴한 사용자가 cool-down 기간 내에 로그인을 시도하면 예외를 던진다 (QA-115)")
+        void dbProcessOAuth2User_withdrawnUserWithinCoolDown_throwsException() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
+                // given: 어제 탈퇴한 사용자, cool-down 7일
                 Users withdrawnUser = Users.builder()
                     .id(TEST_USER_ID)
                     .email(TEST_EMAIL)
                     .nickname("탈퇴한 사용자")
                     .provider("google")
                     .status(UserStatus.WITHDRAWN)
+                    .withdrawnAt(java.time.LocalDateTime.now().minusDays(1))
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(withdrawnUser));
+                when(withdrawalProperties.getCoolDownDays()).thenReturn(7);
+                when(messageSource.getMessage(eq("error.account.withdrawn.cooldown"), any(), any()))
+                    .thenReturn("탈퇴한 계정입니다. 2026-05-22부터 재가입할 수 있습니다.");
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
@@ -296,6 +306,36 @@ class Oauth2ServiceTest {
                 assertThatThrownBy(() -> oauth2Service.findExistingUser(userInfo, null, null))
                     .isInstanceOf(CustomException.class)
                     .hasMessageContaining("탈퇴한 계정");
+            }
+        }
+
+        @Test
+        @DisplayName("탈퇴 후 cool-down 이 종료되면 신규 가입 진입을 허용한다 (QA-115)")
+        void dbProcessOAuth2User_withdrawnUserAfterCoolDown_returnsEmpty() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                // given: 10일 전 탈퇴, cool-down 7일 → 가능
+                Users withdrawnUser = Users.builder()
+                    .id(TEST_USER_ID)
+                    .email(TEST_EMAIL)
+                    .nickname("탈퇴한 사용자")
+                    .provider("google")
+                    .status(UserStatus.WITHDRAWN)
+                    .withdrawnAt(java.time.LocalDateTime.now().minusDays(10))
+                    .build();
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(withdrawnUser));
+                when(withdrawalProperties.getCoolDownDays()).thenReturn(7);
+
+                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
+                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
+
+                // when
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, null);
+
+                // then: empty 반환 → 호출자가 신규 가입 흐름으로 진입
+                assertThat(result).isEmpty();
             }
         }
 

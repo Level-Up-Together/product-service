@@ -19,6 +19,13 @@ encrypt:
   key: key-brian
 
 app:
+  # 사용자 정책 (QA-115)
+  # withdrawal.cool-down-days: 회원탈퇴 후 동일 이메일로 재가입 가능해지는 기간(일).
+  # 운영 중 정책 변경 시 config-repository 의 product-service-prod.yml 등에서 override.
+  user:
+    withdrawal:
+      cool-down-days: 7
+
   dev-config-server-ip: 121.136.108.44
   dev-discovery-server-ip: 121.136.108.44
   dev-db-server-ip: 121.136.108.44

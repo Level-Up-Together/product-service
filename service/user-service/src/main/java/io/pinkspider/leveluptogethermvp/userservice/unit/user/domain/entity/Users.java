@@ -100,6 +100,9 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "warning_count", nullable = false)
     private Integer warningCount = 0;
 
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;
+
     @Setter
     @OneToMany(mappedBy = "users")
     private Set<UserTermAgreement> userTermAgreements = new LinkedHashSet<>();
@@ -185,13 +188,14 @@ public class Users extends LocalDateTimeBaseEntity {
     }
 
     /**
-     * 회원 탈퇴 처리
+     * 회원 탈퇴 처리. withdrawnAt 을 기록하여 cool-down 기반 재가입 정책(QA-115)에서 사용한다.
      */
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
         this.nickname = "탈퇴한 사용자";
         this.picture = null;
         this.bio = null;
+        this.withdrawnAt = LocalDateTime.now();
     }
 
     /**

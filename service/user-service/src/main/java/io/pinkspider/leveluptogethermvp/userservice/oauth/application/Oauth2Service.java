@@ -28,6 +28,7 @@ import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
+import io.pinkspider.leveluptogethermvp.userservice.core.properties.WithdrawalProperties;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.UserStatus;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
@@ -43,6 +44,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -69,6 +72,8 @@ public class Oauth2Service {
     private final NotificationService notificationService;
     private final SignupTokenService signupTokenService;
     private final UserTermsService userTermsService;
+    private final WithdrawalProperties withdrawalProperties;
+    private final MessageSource messageSource;
 
     @org.springframework.beans.factory.annotation.Value("${app.jwt.access-token-expiry:86400000}")
     private long accessTokenExpiryMs;
@@ -250,8 +255,26 @@ public class Oauth2Service {
 
         Users user = existingUser.get();
         if (user.getStatus() == UserStatus.WITHDRAWN) {
-            log.warn("탈퇴한 사용자 로그인 시도: userId={}, provider={}", user.getId(), userInfo.getProvider());
-            throw new CustomException("030001", "탈퇴한 계정입니다. 새로 가입해 주세요.");
+            // QA-115: cool-down 기간 내면 명확한 에러로 차단, 종료되었으면 신규 가입 진입 허용.
+            int coolDownDays = withdrawalProperties.getCoolDownDays();
+            java.time.LocalDateTime withdrawnAt = user.getWithdrawnAt();
+            // withdrawnAt 이 null 인 레거시 row 는 cool-down 즉시 만료로 취급 (정책상 V007 이전 탈퇴자는 재가입 허용).
+            java.time.LocalDateTime availableAt = withdrawnAt == null
+                ? java.time.LocalDateTime.now().minusDays(1)
+                : withdrawnAt.plusDays(coolDownDays);
+            if (java.time.LocalDateTime.now().isBefore(availableAt)) {
+                log.warn("탈퇴 cool-down 중 재가입 시도: userId={}, provider={}, withdrawnAt={}, availableAt={}",
+                    user.getId(), userInfo.getProvider(), withdrawnAt, availableAt);
+                String availableDate = availableAt.toLocalDate().toString();
+                String resolved = messageSource.getMessage(
+                    "error.account.withdrawn.cooldown",
+                    new Object[] { availableDate },
+                    LocaleContextHolder.getLocale());
+                throw new CustomException("030001", resolved);
+            }
+            log.info("탈퇴 cool-down 만료, 재가입 허용: userId={}, provider={}, withdrawnAt={}",
+                user.getId(), userInfo.getProvider(), withdrawnAt);
+            return Optional.empty();
         }
 
         boolean needsSave = false;
@@ -329,8 +352,9 @@ public class Oauth2Service {
         }
 
         // 이메일 중복 체크 (같은 (provider, email)이 동시 진행 중 INSERT됐을 가능성 방어)
+        // QA-115: WITHDRAWN row 는 cool-down 정책에 따라 findExistingUser 에서 이미 처리되므로 여기선 제외.
         String encryptedEmail = CryptoUtils.encryptAes(session.email());
-        if (userRepository.findByEncryptedEmailAndProvider(encryptedEmail, session.provider()).isPresent()) {
+        if (userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, session.provider()).isPresent()) {
             throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.signup.already_completed");
         }
 

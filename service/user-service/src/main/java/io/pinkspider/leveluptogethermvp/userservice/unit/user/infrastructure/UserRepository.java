@@ -31,6 +31,16 @@ public interface UserRepository extends JpaRepository<Users, String> {
         @Param("provider") String provider
     );
 
+    /**
+     * QA-115: cool-down 기반 재가입 정책에서, 활성 사용자(WITHDRAWN 제외)만 조회한다.
+     * completeSignup 중복 체크에서 사용해 WITHDRAWN row 가 있어도 새 가입이 허용되도록 한다.
+     */
+    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) = LOWER(:provider) AND status <> 'WITHDRAWN'", nativeQuery = true)
+    Optional<Users> findActiveByEncryptedEmailAndProvider(
+        @Param("encryptedEmail") String encryptedEmail,
+        @Param("provider") String provider
+    );
+
     List<Users> findAllByIdIn(List<String> userIds);
 
     // 닉네임 중복 확인 (자신 제외)
