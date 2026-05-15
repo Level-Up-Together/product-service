@@ -24,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.MissionServic
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionReorderRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
@@ -320,6 +321,47 @@ class MissionControllerTest {
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/missions/my/reorder : 내 미션 순서 일괄 변경 (QA-71)")
+    void reorderMyMissionsTest() throws Exception {
+        // given
+        MissionReorderRequest request = MissionReorderRequest.builder()
+            .orderedMissionIds(java.util.List.of(3L, 1L, 2L))
+            .build();
+
+        List<MissionResponse> responses = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionResponseList.json",
+            new TypeReference<List<MissionResponse>>() {});
+
+        doNothing().when(missionService).reorderMyMissions(anyString(), any());
+        when(missionService.getMyMissions(anyString())).thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.patch("/api/v1/missions/my/reorder")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("03-1. 내 미션 순서 일괄 변경",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission")
+                        .description("내 미션 목록 드래그앤드롭 순서 일괄 변경 (QA-71). ordered_mission_ids 의 순서대로 0..N-1 로 저장.")
+                        .requestFields(
+                            fieldWithPath("ordered_mission_ids").type(JsonFieldType.ARRAY).description("새 순서대로 정렬된 미션 ID 배열")
                         )
                         .build()
                 )

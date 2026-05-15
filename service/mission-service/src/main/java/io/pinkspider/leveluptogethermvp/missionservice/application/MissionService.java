@@ -213,6 +213,41 @@ public class MissionService {
     }
 
     /**
+     * QA-71: 내 미션 목록 순서 일괄 변경.
+     * orderedMissionIds 순서대로 mission_participant.user_order 를 0..N-1 로 갱신한다.
+     * 본인이 활성 참여중이 아닌 missionId 가 섞여 있으면 거부한다.
+     */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public void reorderMyMissions(String userId, List<Long> orderedMissionIds) {
+        if (orderedMissionIds == null || orderedMissionIds.isEmpty()) {
+            throw new CustomException("050105", "error.mission.reorder.empty");
+        }
+
+        Set<Long> uniqueIds = new HashSet<>(orderedMissionIds);
+        if (uniqueIds.size() != orderedMissionIds.size()) {
+            throw new CustomException("050106", "error.mission.reorder.duplicate");
+        }
+
+        List<io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant> participants =
+            participantRepository.findActiveByUserIdAndMissionIds(userId, orderedMissionIds);
+
+        if (participants.size() != orderedMissionIds.size()) {
+            throw new CustomException("050107", "error.mission.reorder.not_participant");
+        }
+
+        Map<Long, io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant> byMissionId =
+            new java.util.HashMap<>();
+        for (var mp : participants) {
+            byMissionId.put(mp.getMission().getId(), mp);
+        }
+
+        for (int i = 0; i < orderedMissionIds.size(); i++) {
+            var mp = byMissionId.get(orderedMissionIds.get(i));
+            mp.setUserOrder(i);
+        }
+    }
+
+    /**
      * 특정 유저의 미션 목록 조회 (공개 범위 필터링)
      * - Self: 전체 표시
      * - Friend: PUBLIC + FRIENDS_ONLY

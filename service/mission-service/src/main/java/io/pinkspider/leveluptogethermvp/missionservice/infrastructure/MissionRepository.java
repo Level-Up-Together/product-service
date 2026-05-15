@@ -83,10 +83,10 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     /**
      * 사용자가 참여중인 미션 목록 조회 (활성 상태인 참여자)
      * 활성 상태: PENDING, ACCEPTED, IN_PROGRESS (WITHDRAWN, FAILED, COMPLETED 제외)
-     * 정렬 우선순위:
-     * 1. 고정미션: isPinned = true
-     * 2. 길드미션: guildId IS NOT NULL
-     * 3. 일반미션: 나머지
+     * 정렬 우선순위 (QA-71):
+     * 1. mp.userOrder (사용자 정의 정렬)가 있으면 그 값으로 ASC 정렬
+     * 2. userOrder NULL 인 경우 기본 정렬 (고정 → 길드 → 일반, 그 안에서 createdAt DESC)
+     * COALESCE 를 통해 userOrder 가 있는 미션이 앞으로, 없는 미션은 기존 카테고리 정렬에 따라 뒤로 배치
      */
     @Query("SELECT m FROM Mission m " +
            "JOIN MissionParticipant mp ON mp.mission = m " +
@@ -96,6 +96,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS) " +
            "AND m.isDeleted = false " +
            "ORDER BY " +
+           "CASE WHEN mp.userOrder IS NULL THEN 1 ELSE 0 END ASC, " +
+           "mp.userOrder ASC, " +
            "CASE " +
            "  WHEN m.isPinned = true THEN 1 " +
            "  WHEN m.guildId IS NOT NULL THEN 2 " +

@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.MissionServic
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCreateRequest;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionReorderRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionTemplateResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest;
@@ -55,6 +56,20 @@ public class MissionController {
     public ResponseEntity<ApiResult<List<MissionResponse>>> getMyMissions(
         @CurrentUser String userId) {
 
+        List<MissionResponse> responses = missionService.getMyMissions(userId);
+        return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
+    }
+
+    /**
+     * QA-71: 내 미션 목록 드래그앤드롭 순서 일괄 변경.
+     * ordered_mission_ids 순서대로 user_order 를 0..N-1 로 저장한다.
+     */
+    @PatchMapping("/my/reorder")
+    public ResponseEntity<ApiResult<List<MissionResponse>>> reorderMyMissions(
+        @CurrentUser String userId,
+        @Valid @RequestBody MissionReorderRequest request) {
+
+        missionService.reorderMyMissions(userId, request.getOrderedMissionIds());
         List<MissionResponse> responses = missionService.getMyMissions(userId);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }

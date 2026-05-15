@@ -77,6 +77,10 @@ public class MissionParticipant extends LocalDateTimeBaseEntity {
     @Comment("메모")
     private String note;
 
+    @Column(name = "user_order")
+    @Comment("사용자 정의 정렬 순서 (QA-71). NULL 이면 기본 정렬 적용")
+    private Integer userOrder;
+
     public void accept() {
         if (this.status != ParticipantStatus.PENDING) {
             throw new IllegalStateException("대기중 상태의 참여자만 승인할 수 있습니다.");

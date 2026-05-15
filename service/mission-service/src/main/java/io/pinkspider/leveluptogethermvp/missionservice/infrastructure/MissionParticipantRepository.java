@@ -96,4 +96,18 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
            "AND m.isPinned = true " +
            "AND m.isDeleted = false")
     List<Long> findAllActivePinnedMissionParticipantIds();
+
+    /**
+     * QA-71: 사용자가 활성 참여중인 미션 ID 집합 조회 (드래그앤드롭 reorder 검증용)
+     * 활성 상태: PENDING / ACCEPTED / IN_PROGRESS
+     */
+    @Query("SELECT mp FROM MissionParticipant mp " +
+           "WHERE mp.userId = :userId " +
+           "AND mp.mission.id IN :missionIds " +
+           "AND mp.status IN (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.PENDING, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
+    List<MissionParticipant> findActiveByUserIdAndMissionIds(
+        @Param("userId") String userId,
+        @Param("missionIds") List<Long> missionIds);
 }

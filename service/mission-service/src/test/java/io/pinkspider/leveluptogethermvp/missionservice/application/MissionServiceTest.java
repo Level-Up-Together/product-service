@@ -2225,4 +2225,77 @@ class MissionServiceTest {
             // 파싱 실패해도 예외 없이 실행됨
         }
     }
+
+    @Nested
+    @DisplayName("내 미션 순서 변경 테스트 (QA-71)")
+    class ReorderMyMissionsTest {
+
+        private io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant buildParticipant(
+            Long missionId,
+            Integer userOrder) {
+            Mission mission = Mission.builder().title("m" + missionId).build();
+            setId(mission, missionId);
+            var mp = io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED)
+                .userOrder(userOrder)
+                .build();
+            return mp;
+        }
+
+        @Test
+        @DisplayName("orderedMissionIds 순서대로 user_order 가 0..N-1 로 갱신된다")
+        void reorder_success_setsUserOrderInSequence() {
+            // given
+            List<Long> ordered = List.of(3L, 1L, 2L);
+            var mp1 = buildParticipant(1L, null);
+            var mp2 = buildParticipant(2L, null);
+            var mp3 = buildParticipant(3L, null);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(mp1, mp2, mp3));
+
+            // when
+            missionService.reorderMyMissions(TEST_USER_ID, ordered);
+
+            // then
+            assertThat(mp3.getUserOrder()).isEqualTo(0);
+            assertThat(mp1.getUserOrder()).isEqualTo(1);
+            assertThat(mp2.getUserOrder()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("orderedMissionIds 가 비어있으면 050105 예외를 던진다")
+        void reorder_empty_throws() {
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, List.of()))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.empty");
+        }
+
+        @Test
+        @DisplayName("orderedMissionIds 에 중복이 있으면 050106 예외를 던진다")
+        void reorder_duplicate_throws() {
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, List.of(1L, 2L, 1L)))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.duplicate");
+        }
+
+        @Test
+        @DisplayName("참여중이지 않은 missionId 가 섞여 있으면 050107 예외를 던진다")
+        void reorder_notParticipant_throws() {
+            // given: 요청은 3개인데 활성 참여자는 2개만 매칭
+            List<Long> ordered = List.of(1L, 2L, 99L);
+            var mp1 = buildParticipant(1L, null);
+            var mp2 = buildParticipant(2L, null);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(mp1, mp2));
+
+            // when / then
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.not_participant");
+        }
+    }
 }
