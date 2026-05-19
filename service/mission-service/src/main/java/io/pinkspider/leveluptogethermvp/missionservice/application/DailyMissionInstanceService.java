@@ -74,10 +74,7 @@ public class DailyMissionInstanceService {
     public List<DailyMissionInstanceResponse> getTodayInstances(String userId) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         List<DailyMissionInstance> instances = instanceRepository.findByUserIdAndInstanceDateWithMission(userId, today);
-
-        return instances.stream()
-            .map(DailyMissionInstanceResponse::from)
-            .collect(Collectors.toList());
+        return toResponsesWithImages(instances);
     }
 
     /**
@@ -86,9 +83,29 @@ public class DailyMissionInstanceService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public List<DailyMissionInstanceResponse> getInstancesByDate(String userId, LocalDate date) {
         List<DailyMissionInstance> instances = instanceRepository.findByUserIdAndInstanceDateWithMission(userId, date);
+        return toResponsesWithImages(instances);
+    }
 
+    /**
+     * 인스턴스 목록을 응답으로 변환하면서 다중 이미지 일괄 채움 (N+1 방지, QA-139)
+     */
+    private List<DailyMissionInstanceResponse> toResponsesWithImages(List<DailyMissionInstance> instances) {
+        if (instances.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = instances.stream().map(DailyMissionInstance::getId).collect(Collectors.toList());
+        java.util.Map<Long, java.util.List<String>> imagesByInstanceId = new java.util.HashMap<>();
+        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
+            imagesByInstanceId.computeIfAbsent(img.getInstance().getId(), k -> new java.util.ArrayList<>())
+                .add(img.getImageUrl());
+        }
         return instances.stream()
-            .map(DailyMissionInstanceResponse::from)
+            .map(instance -> {
+                DailyMissionInstanceResponse response = DailyMissionInstanceResponse.from(instance);
+                List<String> urls = imagesByInstanceId.getOrDefault(instance.getId(), List.of());
+                response.setImageUrls(urls);
+                return response;
+            })
             .collect(Collectors.toList());
     }
 
@@ -99,7 +116,7 @@ public class DailyMissionInstanceService {
     public DailyMissionInstanceResponse getInstance(Long instanceId, String userId) {
         DailyMissionInstance instance = findInstanceById(instanceId);
         validateInstanceOwner(instance, userId);
-        return DailyMissionInstanceResponse.from(instance);
+        return buildInstanceResponseWithImages(instance);
     }
 
     /**
@@ -108,7 +125,7 @@ public class DailyMissionInstanceService {
     @Transactional(readOnly = true, transactionManager = "missionTransactionManager")
     public DailyMissionInstanceResponse getInstanceByMission(Long missionId, String userId, LocalDate date, Long instanceId) {
         DailyMissionInstance instance = resolveQueryInstance(missionId, userId, date, instanceId);
-        return DailyMissionInstanceResponse.from(instance);
+        return buildInstanceResponseWithImages(instance);
     }
 
     // ============ 실행 ============
@@ -317,10 +334,13 @@ public class DailyMissionInstanceService {
         }
         instanceRepository.save(instance);
 
+        // 수동 공유 시 ActivityFeedImage child rows 동기화 (QA-139)
+        publishInstanceImageChangedEvent(userId, instance);
+
         log.info("고정 미션 피드 공유 완료: instanceId={}, userId={}, visibility={}",
             instanceId, userId, feedVisibility);
 
-        return DailyMissionInstanceResponse.from(instance);
+        return buildInstanceResponseWithImages(instance);
     }
 
     /**
@@ -362,7 +382,7 @@ public class DailyMissionInstanceService {
         log.info("고정 미션 피드 공유 취소: instanceId={}, userId={}",
             instanceId, userId);
 
-        return DailyMissionInstanceResponse.from(instance);
+        return buildInstanceResponseWithImages(instance);
     }
 
     /**
@@ -393,7 +413,7 @@ public class DailyMissionInstanceService {
         eventPublisher.publishEvent(new io.pinkspider.global.event.MissionFeedNoteChangedEvent(userId, instance.getId(), note));
 
         log.info("고정 미션 기록 업데이트: missionId={}, userId={}, date={}, instanceId={}", missionId, userId, date, instance.getId());
-        return DailyMissionInstanceResponse.from(instance);
+        return buildInstanceResponseWithImages(instance);
     }
 
     // ============ 이미지 업로드 (QA-53: 다중 이미지) ============

@@ -1672,6 +1672,39 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             verify(activityFeedRepository).findPublicFeedsByUserId(eq(TEST_USER_ID), any(Pageable.class));
         }
+
+        @Test
+        @DisplayName("QA-139: searchType=MINE 응답에도 다중 이미지(imageUrls)가 포함된다")
+        void getFilteredFeeds_searchTypeMine_includesMultipleImageUrls() {
+            // given
+            Long feedId = 7L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage img1 =
+                io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.builder()
+                    .feed(feed).imageUrl("https://cdn/x.jpg").sortOrder(0).build();
+            io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage img2 =
+                io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.builder()
+                    .feed(feed).imageUrl("https://cdn/y.jpg").sortOrder(1).build();
+
+            when(activityFeedRepository.findPublicFeedsByUserId(eq(TEST_USER_ID), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(activityFeedImageRepository.findByFeedIdInOrderBySortOrder(anyList()))
+                .thenReturn(List.of(img1, img2));
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.MINE, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getImageUrls())
+                .containsExactly("https://cdn/x.jpg", "https://cdn/y.jpg");
+        }
     }
 
     @Nested

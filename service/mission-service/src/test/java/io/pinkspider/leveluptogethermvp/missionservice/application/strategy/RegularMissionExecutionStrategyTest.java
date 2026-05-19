@@ -90,6 +90,9 @@ class RegularMissionExecutionStrategyTest {
     void setUp() {
         testUserId = "test-user-123";
         lenient().when(dailyMissionInstanceRepository.findInProgressByUserId(anyString())).thenReturn(Optional.empty());
+        // QA-139: 이미지 enrich 헬퍼는 빈 리스트 기본값
+        lenient().when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(java.util.List.of());
 
         testMission = Mission.builder()
             .title("30일 운동 챌린지")
@@ -517,6 +520,27 @@ class RegularMissionExecutionStrategyTest {
         }
 
         @Test
+        @DisplayName("QA-139: 수동 공유 시 MissionFeedImageChangedEvent 발행으로 child rows 동기화")
+        void shareExecutionToFeed_publishesImageChangedEvent() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any()))
+                .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
+
+            // when
+            strategy.shareExecutionToFeed(testMission.getId(), testUserId, executionDate, null, FeedVisibility.PUBLIC);
+
+            // then — image change 이벤트가 발행되어야 함 (수동 공유 시 다중 이미지 동기화 보장)
+            verify(eventPublisher).publishEvent(any(io.pinkspider.global.event.MissionFeedImageChangedEvent.class));
+        }
+
+        @Test
         @DisplayName("이미 공유된 미션도 재공유(업데이트)가 가능하다")
         void shareExecutionToFeed_alreadyShared_updatesExistingFeed() {
             // given
@@ -578,6 +602,38 @@ class RegularMissionExecutionStrategyTest {
             assertThatThrownBy(() -> strategy.getExecutionByDate(testMission.getId(), testUserId, executionDate))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("미션 참여 정보를 찾을 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("QA-139: 다중 이미지 등록 후 조회 시 imageUrls 배열로 반환")
+        void getExecutionByDate_multiImage_returnsImageUrlsArray() {
+            // given
+            LocalDate executionDate = LocalDate.now();
+            MissionExecution execution = createCompletedExecution(1L, executionDate, 50, 30);
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage img1 =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl("https://cdn/a.jpg").sortOrder(0).build();
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage img2 =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl("https://cdn/b.jpg").sortOrder(1).build();
+            io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage img3 =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage.builder()
+                    .execution(execution).imageUrl("https://cdn/c.jpg").sortOrder(2).build();
+
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
+                .thenReturn(Optional.of(execution));
+            when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(execution.getId()))
+                .thenReturn(java.util.List.of(img1, img2, img3));
+
+            // when
+            MissionExecutionResponse response = strategy.getExecutionByDate(
+                testMission.getId(), testUserId, executionDate);
+
+            // then
+            assertThat(response.getImageUrls()).containsExactly(
+                "https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg");
         }
     }
 }

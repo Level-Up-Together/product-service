@@ -308,12 +308,17 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                 log.info("미션 피드 공유 완료: userId={}, missionId={}, feedId={}, visibility={}",
                     userId, missionId, createdFeed.getId(), feedVisibility);
             }
+
+            // 수동 공유 시 ActivityFeedImage child rows 동기화 (QA-139)
+            //   업로드 시점에 발행된 image changed event 는 피드 미존재로 무시될 수 있어,
+            //   공유 시점에서 명시적으로 한번 더 발행하여 다중 이미지를 보장한다.
+            publishImageChangedEvent(userId, execution);
         } catch (Exception e) {
             log.error("피드 공유 실패: userId={}, missionId={}, error={}", userId, missionId, e.getMessage());
             throw new IllegalStateException("피드 공유에 실패했습니다: " + e.getMessage(), e);
         }
 
-        return MissionExecutionResponse.from(execution);
+        return buildResponseWithImages(execution);
     }
 
     @Override
@@ -337,7 +342,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         log.info("미션 피드 공유 취소 완료: userId={}, missionId={}, executionDate={}, executionId={}",
             userId, missionId, executionDate, execution.getId());
 
-        return MissionExecutionResponse.from(execution);
+        return buildResponseWithImages(execution);
     }
 
     @Override
@@ -360,7 +365,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         eventPublisher.publishEvent(new io.pinkspider.global.event.MissionFeedNoteChangedEvent(userId, execution.getId(), note));
 
         log.info("미션 기록 업데이트: missionId={}, userId={}, executionDate={}", missionId, userId, executionDate);
-        return MissionExecutionResponse.from(execution);
+        return buildResponseWithImages(execution);
     }
 
     @Override
@@ -372,7 +377,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         MissionExecution execution = executionRepository.findByParticipantIdAndExecutionDate(participant.getId(), date)
             .orElseThrow(() -> new IllegalArgumentException("해당 날짜의 수행 기록을 찾을 수 없습니다: " + date));
 
-        return MissionExecutionResponse.from(execution);
+        return buildResponseWithImages(execution);
     }
 
     private MissionParticipant findParticipant(Long missionId, String userId) {

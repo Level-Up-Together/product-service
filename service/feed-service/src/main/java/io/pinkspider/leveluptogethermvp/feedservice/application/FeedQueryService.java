@@ -168,14 +168,14 @@ public class FeedQueryService {
     }
 
     /**
-     * 피드 목록을 좋아요/신고/번역 정보로 보강
+     * 피드 목록을 좋아요/신고/번역/다중이미지 정보로 보강 (QA-139: enrich 누락 제거)
      */
     private Page<ActivityFeedResponse> enrichFeeds(Page<ActivityFeed> feeds, String userId, String targetLocale) {
         Set<Long> likedFeedIds = getLikedFeedIds(userId, feeds.getContent());
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(
                 feed,
@@ -186,6 +186,8 @@ public class FeedQueryService {
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -270,7 +272,10 @@ public class FeedQueryService {
                 response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
                 return response;
             })
-            .toList();
+            .collect(Collectors.toList());
+
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(responseList);
 
         return new org.springframework.data.domain.PageImpl<>(
             responseList,
@@ -307,12 +312,15 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -344,7 +352,7 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds
+        Page<ActivityFeedResponse> result = feeds
             .map(feed -> {
                 TranslationInfo translation = translateFeed(feed, targetLocale);
                 ActivityFeedResponse response;
@@ -368,6 +376,9 @@ public class FeedQueryService {
                 }
                 return null;
             });
+        // QA-139: 다중 이미지 응답 보강 (null 제외)
+        enrichWithImageUrls(result.getContent().stream().filter(java.util.Objects::nonNull).toList());
+        return result;
     }
 
     /**
@@ -401,12 +412,15 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -435,12 +449,15 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -464,12 +481,15 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**
@@ -498,12 +518,15 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
-        return feeds.map(feed -> {
+        Page<ActivityFeedResponse> result = feeds.map(feed -> {
             TranslationInfo translation = translateFeed(feed, targetLocale);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
         });
+        // QA-139: 다중 이미지 응답 보강
+        enrichWithImageUrls(result.getContent());
+        return result;
     }
 
     /**

@@ -58,6 +58,12 @@ class MissionExecutionQueryServiceTest {
     private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository executionImageRepository;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository instanceImageRepository;
+
+    @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
 
     @InjectMocks
@@ -89,6 +95,16 @@ class MissionExecutionQueryServiceTest {
             .status(ParticipantStatus.IN_PROGRESS)
             .build();
         setId(testParticipant, 1L);
+
+        // QA-139: 이미지 enrich 헬퍼는 빈 리스트 기본값
+        org.mockito.Mockito.lenient().when(executionImageRepository.findByExecutionIdInOrderBySortOrder(org.mockito.ArgumentMatchers.anyList()))
+            .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(executionImageRepository.findByExecutionIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(instanceImageRepository.findByInstanceIdInOrderBySortOrder(org.mockito.ArgumentMatchers.anyList()))
+            .thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(java.util.List.of());
     }
 
 

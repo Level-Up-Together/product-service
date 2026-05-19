@@ -5,10 +5,14 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecuti
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDate;
@@ -32,21 +36,19 @@ public class MissionExecutionQueryService {
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
     private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    private final MissionExecutionImageRepository executionImageRepository;
+    private final DailyMissionInstanceImageRepository instanceImageRepository;
     private final MissionExecutionStrategyResolver strategyResolver;
 
     public List<MissionExecutionResponse> getExecutionsByParticipant(Long participantId) {
-        return executionRepository.findByParticipantId(participantId).stream()
-            .map(MissionExecutionResponse::from)
-            .toList();
+        return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
     }
 
     public List<MissionExecutionResponse> getExecutionsByMissionAndUser(Long missionId, String userId) {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        return executionRepository.findByParticipantId(participant.getId()).stream()
-            .map(MissionExecutionResponse::from)
-            .toList();
+        return toResponsesWithImages(executionRepository.findByParticipantId(participant.getId()));
     }
 
     public List<MissionExecutionResponse> getExecutionsForMission(Long missionId, String userId) {
@@ -62,10 +64,8 @@ public class MissionExecutionQueryService {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        return executionRepository.findByParticipantIdAndExecutionDateBetween(
-                participant.getId(), startDate, endDate).stream()
-            .map(MissionExecutionResponse::from)
-            .toList();
+        return toResponsesWithImages(executionRepository.findByParticipantIdAndExecutionDateBetween(
+            participant.getId(), startDate, endDate));
     }
 
     public double getCompletionRate(Long missionId, String userId) {
@@ -88,7 +88,7 @@ public class MissionExecutionQueryService {
      */
     public MissionExecutionResponse getInProgressExecution(String userId) {
         return executionRepository.findInProgressByUserId(userId)
-            .map(MissionExecutionResponse::from)
+            .map(this::toResponseWithImages)
             .orElse(null);
     }
 
@@ -107,18 +107,14 @@ public class MissionExecutionQueryService {
         List<MissionExecutionResponse> responses = new ArrayList<>();
 
         // 일반 미션 Execution 조회 (오늘 + 전날 IN_PROGRESS)
-        List<MissionExecutionResponse> regularExecutions = executionRepository
-            .findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday).stream()
-            .map(MissionExecutionResponse::from)
-            .toList();
+        List<MissionExecutionResponse> regularExecutions = toResponsesWithImages(
+            executionRepository.findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday));
         responses.addAll(regularExecutions);
 
         // 고정 미션 DailyMissionInstance 조회 (오늘 + 전날 IN_PROGRESS)
         List<DailyMissionInstance> dailyInstances = dailyMissionInstanceRepository
             .findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday);
-        List<MissionExecutionResponse> instanceResponses = dailyInstances.stream()
-            .map(MissionExecutionResponse::fromDailyMissionInstance)
-            .toList();
+        List<MissionExecutionResponse> instanceResponses = toResponsesFromInstancesWithImages(dailyInstances);
         responses.addAll(instanceResponses);
 
         log.info("getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
@@ -142,13 +138,69 @@ public class MissionExecutionQueryService {
         List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
             .findCompletedByUserIdAndInstanceDate(userId, today);
 
-        List<MissionExecutionResponse> responses = completedInstances.stream()
-            .map(MissionExecutionResponse::fromDailyMissionInstance)
-            .toList();
+        List<MissionExecutionResponse> responses = toResponsesFromInstancesWithImages(completedInstances);
 
         log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
 
         return responses;
+    }
+
+    /**
+     * MissionExecution 단건을 응답으로 변환 (이미지 포함, QA-139)
+     */
+    private MissionExecutionResponse toResponseWithImages(MissionExecution execution) {
+        MissionExecutionResponse response = MissionExecutionResponse.from(execution);
+        List<String> urls = new ArrayList<>();
+        for (MissionExecutionImage img : executionImageRepository
+                .findByExecutionIdOrderBySortOrderAsc(execution.getId())) {
+            urls.add(img.getImageUrl());
+        }
+        response.setImageUrls(urls);
+        return response;
+    }
+
+    /**
+     * MissionExecution 목록을 응답으로 변환 (다중 이미지 일괄 enrich, N+1 방지, QA-139)
+     */
+    private List<MissionExecutionResponse> toResponsesWithImages(List<MissionExecution> executions) {
+        if (executions.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = executions.stream().map(MissionExecution::getId).toList();
+        Map<Long, List<String>> imagesByExecutionId = new HashMap<>();
+        for (MissionExecutionImage img : executionImageRepository.findByExecutionIdInOrderBySortOrder(ids)) {
+            imagesByExecutionId.computeIfAbsent(img.getExecution().getId(), k -> new ArrayList<>())
+                .add(img.getImageUrl());
+        }
+        return executions.stream()
+            .map(execution -> {
+                MissionExecutionResponse response = MissionExecutionResponse.from(execution);
+                response.setImageUrls(imagesByExecutionId.getOrDefault(execution.getId(), List.of()));
+                return response;
+            })
+            .toList();
+    }
+
+    /**
+     * DailyMissionInstance 목록을 응답으로 변환 (다중 이미지 일괄 enrich, QA-139)
+     */
+    private List<MissionExecutionResponse> toResponsesFromInstancesWithImages(List<DailyMissionInstance> instances) {
+        if (instances.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = instances.stream().map(DailyMissionInstance::getId).toList();
+        Map<Long, List<String>> imagesByInstanceId = new HashMap<>();
+        for (DailyMissionInstanceImage img : instanceImageRepository.findByInstanceIdInOrderBySortOrder(ids)) {
+            imagesByInstanceId.computeIfAbsent(img.getInstance().getId(), k -> new ArrayList<>())
+                .add(img.getImageUrl());
+        }
+        return instances.stream()
+            .map(instance -> {
+                MissionExecutionResponse response = MissionExecutionResponse.fromDailyMissionInstance(instance);
+                response.setImageUrls(imagesByInstanceId.getOrDefault(instance.getId(), List.of()));
+                return response;
+            })
+            .toList();
     }
 
     /**
