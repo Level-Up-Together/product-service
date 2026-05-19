@@ -805,14 +805,14 @@ class MissionServiceTest {
             verify(guildQueryFacadeService, never()).getGuildName(any());
         }
 
-        // ===== QA-130: PERSONAL 미션 30개 생성 한도 =====
+        // ===== QA-138: PERSONAL 활성 미션 20개 보유 한도 (완료/이탈 미션은 카운트 제외) =====
 
         @Test
-        @DisplayName("QA-130: PERSONAL 미션 30개 도달 시 CustomException 발생")
-        void createMission_personalAt30Limit_throwsCustomException() {
+        @DisplayName("QA-138: PERSONAL 활성 미션 한도 도달 시 CustomException 발생")
+        void createMission_personalAtLimit_throwsCustomException() {
             // given
             MissionCreateRequest request = MissionCreateRequest.builder()
-                .title("31번째 미션")
+                .title("한도 초과 미션")
                 .description("초과")
                 .visibility(MissionVisibility.PRIVATE)
                 .type(MissionType.PERSONAL)
@@ -829,11 +829,11 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("QA-130: PERSONAL 미션 29개일 때는 30번째 생성 가능")
-        void createMission_personalUnder30_succeeds() {
+        @DisplayName("QA-138: PERSONAL 활성 미션이 한도 미만일 때 생성 가능")
+        void createMission_personalUnderLimit_succeeds() {
             // given
             MissionCreateRequest request = MissionCreateRequest.builder()
-                .title("30번째 미션")
+                .title("한도 내 미션")
                 .description("성공")
                 .visibility(MissionVisibility.PRIVATE)
                 .type(MissionType.PERSONAL)
@@ -862,7 +862,13 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("QA-130: 길드 미션은 30개 한도와 무관하게 생성 가능 (카운트 쿼리 호출 안함)")
+        @DisplayName("QA-138: 한도 상수는 20개로 고정")
+        void maxPersonalMissionsConstant_is20() {
+            assertThat(Mission.MAX_PERSONAL_MISSIONS_PER_USER).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("QA-138: 길드 미션은 활성 미션 한도와 무관하게 생성 가능 (카운트 쿼리 호출 안함)")
         void createMission_guildMission_skipsCountQuery() {
             // given
             MissionCreateRequest request = MissionCreateRequest.builder()

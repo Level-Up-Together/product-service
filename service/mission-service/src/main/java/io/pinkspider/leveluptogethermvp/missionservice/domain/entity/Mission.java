@@ -42,8 +42,8 @@ import org.hibernate.annotations.Comment;
 @Comment("미션")
 public class Mission extends LocalDateTimeBaseEntity {
 
-    /** 사용자별 개인 미션(PERSONAL) 최대 생성 개수. 길드 미션은 별도. */
-    public static final int MAX_PERSONAL_MISSIONS_PER_USER = 30;
+    /** 사용자별 활성 개인 미션(PERSONAL) 최대 보유 개수. 완료/이탈한 미션은 제외, 길드 미션은 별도. */
+    public static final int MAX_PERSONAL_MISSIONS_PER_USER = 20;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

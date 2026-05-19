@@ -165,9 +165,19 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("durationMinutes") Integer durationMinutes,
         @Param("targetDurationMinutes") Integer targetDurationMinutes);
 
-    // 개인(PERSONAL) 미션 생성 개수 조회 (삭제 제외, 길드 미션 제외)
-    @Query("SELECT COUNT(m) FROM Mission m WHERE m.creatorId = :creatorId " +
+    /**
+     * 활성 개인(PERSONAL) 미션 보유 개수 조회.
+     * 생성한 미션 중 본인이 현재 사용 중인(PENDING/ACCEPTED/IN_PROGRESS) 것만 카운트.
+     * 완료(COMPLETED), 이탈(WITHDRAWN), 실패(FAILED), 소프트 삭제는 제외 → UI "나의 미션" 목록과 정의 일치.
+     */
+    @Query("SELECT COUNT(m) FROM Mission m " +
+           "JOIN MissionParticipant mp ON mp.mission = m " +
+           "WHERE m.creatorId = :creatorId " +
            "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
-           "AND m.isDeleted = false")
+           "AND m.isDeleted = false " +
+           "AND mp.userId = :creatorId " +
+           "AND mp.status IN (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.PENDING, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
     long countActivePersonalByCreatorId(@Param("creatorId") String creatorId);
 }
