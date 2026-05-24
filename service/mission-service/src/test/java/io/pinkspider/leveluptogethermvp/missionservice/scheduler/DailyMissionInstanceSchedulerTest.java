@@ -76,6 +76,9 @@ class DailyMissionInstanceSchedulerTest {
     @Mock
     private MissionExecutionProperties missionExecutionProperties;
 
+    @Mock
+    private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
+
     @InjectMocks
     private DailyMissionInstanceScheduler scheduler;
 
@@ -296,6 +299,62 @@ class DailyMissionInstanceSchedulerTest {
             assertThat(inProgressInstance.getExpEarned()).isEqualTo(10);
             assertThat(inProgressInstance.getIsAutoCompleted()).isTrue();
             verify(instanceRepository).save(inProgressInstance);
+            // QA-141: 폴백 시에도 gamification 경험치 지급
+            verify(gamificationQueryFacade).addExperience(
+                eq(USER_ID_1), eq(10), eq(io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION),
+                eq(1L), anyString(), eq(1L), eq("운동"));
+        }
+
+        @Test
+        @DisplayName("QA-141: 일반 미션 Saga 실패 폴백 시에도 gamification 경험치를 지급한다")
+        void autoCompletePastDayExecutions_fallbackGrantsExpToGamification() {
+            // given
+            Mission regularMission = Mission.builder()
+                .title("매일 1시간 공부")
+                .creatorId(USER_ID_1)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .categoryId(2L)
+                .categoryName("학습")
+                .isPinned(false)
+                .build();
+            setId(regularMission, 9L);
+            MissionParticipant regularParticipant = MissionParticipant.builder()
+                .mission(regularMission)
+                .userId(USER_ID_1)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(regularParticipant, 9L);
+
+            MissionExecution inProgressExecution = MissionExecution.builder()
+                .participant(regularParticipant)
+                .executionDate(today().minusDays(1))
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(3))
+                .build();
+            setId(inProgressExecution, 300L);
+
+            when(instanceRepository.findInProgressBeforeDate(any(LocalDate.class))).thenReturn(List.of());
+            when(executionRepository.findInProgressBeforeDate(any(LocalDate.class)))
+                .thenReturn(List.of(inProgressExecution));
+            when(instanceRepository.markMissedInstances(any(LocalDate.class))).thenReturn(0);
+            when(missionExecutionService.markMissedExecutions()).thenReturn(0);
+            when(participantRepository.findAllActivePinnedMissionParticipants()).thenReturn(List.of());
+            doThrow(new RuntimeException("Saga 실패")).when(missionExecutionService)
+                .completeExecution(any(Long.class), anyString(), isNull(), anyBoolean());
+
+            // when
+            scheduler.generateDailyInstances();
+
+            // then
+            assertThat(inProgressExecution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(inProgressExecution.getExpEarned()).isEqualTo(10);
+            assertThat(inProgressExecution.getIsAutoCompleted()).isTrue();
+            verify(executionRepository).save(inProgressExecution);
+            verify(gamificationQueryFacade).addExperience(
+                eq(USER_ID_1), eq(10), eq(io.pinkspider.global.enums.ExpSourceType.MISSION_EXECUTION),
+                eq(9L), anyString(), eq(2L), eq("학습"));
         }
 
         @Test

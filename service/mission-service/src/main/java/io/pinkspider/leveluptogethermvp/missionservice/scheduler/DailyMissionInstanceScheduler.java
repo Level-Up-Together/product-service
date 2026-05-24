@@ -1,9 +1,12 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
+import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
@@ -40,6 +43,7 @@ public class DailyMissionInstanceScheduler {
     private final DailyMissionInstanceService dailyMissionInstanceService;
     private final MissionExecutionService missionExecutionService;
     private final MissionExecutionProperties missionExecutionProperties;
+    private final GamificationQueryFacade gamificationQueryFacade;
 
     private static final int BATCH_SIZE = 100;
 
@@ -189,12 +193,14 @@ public class DailyMissionInstanceScheduler {
                 log.info("자정 자동 완료 (고정 미션): instanceId={}, userId={}, date={}, title={}",
                     instance.getId(), userId, instance.getInstanceDate(), instance.getMissionTitle());
             } catch (Exception e) {
-                // Saga 실패 시 엔티티 레벨 직접 완료 (캘린더에는 표시되지만 gamification XP 미지급)
+                // Saga 실패 시 엔티티 레벨 직접 완료
                 log.warn("자정 Saga 자동 완료 실패, 직접 완료 처리: instanceId={}, error={}",
                     instance.getId(), e.getMessage());
                 try {
                     if (instance.autoCompleteForDateChange(missionExecutionProperties.getBaseExp())) {
                         instanceRepository.save(instance);
+                        // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
+                        grantAutoCompleteExp(instance.getParticipant(), instance.getExpEarned(), instance.getId());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -248,6 +254,8 @@ public class DailyMissionInstanceScheduler {
                             participant.setCompletedAt(java.time.LocalDateTime.now());
                             participantRepository.save(participant);
                         }
+                        // QA-141: 폴백 시에도 user_experience / experience_history 에 EXP 반영
+                        grantAutoCompleteExp(participant, execution.getExpEarned(), execution.getId());
                         count++;
                     }
                 } catch (Exception fallbackError) {
@@ -256,6 +264,36 @@ public class DailyMissionInstanceScheduler {
             }
         }
         return count;
+    }
+
+    /**
+     * QA-141: 자정 Saga 폴백 시에도 user_experience / experience_history 에 EXP 를 반영.
+     *
+     * MissionAutoCompleteScheduler.grantAutoCompleteExp 와 동일한 의도 — entity 의 exp_earned 만으로는
+     * "오늘의 MVP" 집계(experience_history 기반) 와 마이페이지 totalExp 가 누락된다.
+     */
+    private void grantAutoCompleteExp(MissionParticipant participant, Integer expEarned, Long sourceId) {
+        if (participant == null || expEarned == null || expEarned <= 0) {
+            return;
+        }
+        Mission mission = participant.getMission();
+        if (mission == null) {
+            return;
+        }
+        try {
+            gamificationQueryFacade.addExperience(
+                participant.getUserId(),
+                expEarned,
+                ExpSourceType.MISSION_EXECUTION,
+                mission.getId(),
+                "미션 자정 자동 종료 폴백 보상: " + mission.getTitle(),
+                mission.getCategoryId(),
+                mission.getCategoryName()
+            );
+        } catch (Exception e) {
+            log.error("자정 폴백 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
+                participant.getUserId(), mission.getId(), sourceId, e.getMessage(), e);
+        }
     }
 
     /**
