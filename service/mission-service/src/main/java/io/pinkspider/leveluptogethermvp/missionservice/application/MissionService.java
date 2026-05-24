@@ -216,6 +216,7 @@ public class MissionService {
      * QA-71: 내 미션 목록 순서 일괄 변경.
      * orderedMissionIds 순서대로 mission_participant.user_order 를 0..N-1 로 갱신한다.
      * 본인이 활성 참여중이 아닌 missionId 가 섞여 있으면 거부한다.
+     * QA-140: 일반/고정 미션 간 교차 정렬 금지 (mission.isPinned 가 모두 같아야 함).
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public void reorderMyMissions(String userId, List<Long> orderedMissionIds) {
@@ -235,6 +236,14 @@ public class MissionService {
             throw new CustomException("050107", "error.mission.reorder.not_participant");
         }
 
+        // 프론트가 WEEKLY 도 고정 섹션으로 표시하므로 백엔드도 동일한 기준을 따른다.
+        boolean firstPinned = isPinnedLikeForReorder(participants.get(0).getMission());
+        for (var mp : participants) {
+            if (isPinnedLikeForReorder(mp.getMission()) != firstPinned) {
+                throw new CustomException("050108", "error.mission.reorder.mixed_type");
+            }
+        }
+
         Map<Long, io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant> byMissionId =
             new java.util.HashMap<>();
         for (var mp : participants) {
@@ -245,6 +254,13 @@ public class MissionService {
             var mp = byMissionId.get(orderedMissionIds.get(i));
             mp.setUserOrder(i);
         }
+    }
+
+    private boolean isPinnedLikeForReorder(
+        io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission mission) {
+        return Boolean.TRUE.equals(mission.getIsPinned())
+            || mission.getMissionInterval()
+                == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY;
     }
 
     /**

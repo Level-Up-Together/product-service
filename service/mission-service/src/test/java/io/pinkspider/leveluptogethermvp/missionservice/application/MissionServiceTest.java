@@ -2239,7 +2239,14 @@ class MissionServiceTest {
         private io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant buildParticipant(
             Long missionId,
             Integer userOrder) {
-            Mission mission = Mission.builder().title("m" + missionId).build();
+            return buildParticipant(missionId, userOrder, false);
+        }
+
+        private io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant buildParticipant(
+            Long missionId,
+            Integer userOrder,
+            boolean isPinned) {
+            Mission mission = Mission.builder().title("m" + missionId).isPinned(isPinned).build();
             setId(mission, missionId);
             var mp = io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant.builder()
                 .mission(mission)
@@ -2302,6 +2309,42 @@ class MissionServiceTest {
             assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
                 .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
                 .hasMessageContaining("error.mission.reorder.not_participant");
+        }
+
+        @Test
+        @DisplayName("QA-140: 일반/고정 미션이 섞여 있으면 050108 예외를 던진다")
+        void reorder_mixedPinnedAndRegular_throws() {
+            // given: 일반 미션 1개 + 고정 미션 1개
+            List<Long> ordered = List.of(1L, 2L);
+            var mp1 = buildParticipant(1L, null, /*isPinned*/ false);
+            var mp2 = buildParticipant(2L, null, /*isPinned*/ true);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(mp1, mp2));
+
+            // when / then
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.mixed_type");
+        }
+
+        @Test
+        @DisplayName("QA-140: 고정 미션만 묶여 있으면 정상 동작한다")
+        void reorder_allPinned_success() {
+            // given
+            List<Long> ordered = List.of(2L, 1L);
+            var mp1 = buildParticipant(1L, null, /*isPinned*/ true);
+            var mp2 = buildParticipant(2L, null, /*isPinned*/ true);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(mp1, mp2));
+
+            // when
+            missionService.reorderMyMissions(TEST_USER_ID, ordered);
+
+            // then
+            assertThat(mp2.getUserOrder()).isEqualTo(0);
+            assertThat(mp1.getUserOrder()).isEqualTo(1);
         }
     }
 }
