@@ -189,6 +189,42 @@ class AchievementServiceTest {
         }
 
         @Test
+        @DisplayName("QA-149: mission_category_name 컬럼이 NULL 이어도 메타에서 lookup 한 이름이 응답에 채워진다")
+        void getUserAchievements_missionCategoryName_filledFromMeta() {
+            // given: achievement.missionCategoryName 은 NULL, mission_category_id=5 만 저장된 데이터.
+            //        메타에 id=5 가 "독서" 로 등록되어 있으면 응답에 "독서" 가 채워져야 한다.
+            Achievement achievement = Achievement.builder()
+                .name("Reading 카테고리 경험치 7500")
+                .description("Reading 카테고리에서 경험치 7500을 획득하세요")
+                .categoryCode("MISSION")
+                .requiredCount(7500)
+                .rewardExp(0)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                .checkLogicDataField("categoryExp")
+                .comparisonOperator("GTE")
+                .missionCategoryId(5L)
+                .build();
+            setId(achievement, 267L);
+            UserAchievement ua = createTestUserAchievement(1221L, TEST_USER_ID, achievement, 686, false);
+
+            when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
+                .thenReturn(List.of(ua));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(5L).name("독서").isActive(true).build()
+            ));
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getMissionCategoryId()).isEqualTo(5L);
+            assertThat(result.get(0).getMissionCategoryName()).isEqualTo("독서");
+        }
+
+        @Test
         @DisplayName("QA-145: USER_CATEGORY_EXPERIENCE 업적 중 mission_category_id 가 메타에 없으면 응답에서 제외된다")
         void getUserAchievements_orphanedCategoryAchievement_filteredOut() {
             // given: 활성 메타 카테고리는 1(운동), 11(기타) 뿐. id=6 은 메타에서 사라진 옛 카테고리.

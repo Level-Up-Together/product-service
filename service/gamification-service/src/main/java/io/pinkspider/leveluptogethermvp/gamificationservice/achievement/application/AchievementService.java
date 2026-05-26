@@ -27,6 +27,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryRe
 import io.pinkspider.global.enums.ExpSourceType;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -62,61 +63,75 @@ public class AchievementService {
 
     // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return achievementCacheService.getVisibleAchievements().stream()
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(AchievementResponse::from)
+            .map(a -> AchievementResponse.from(a, categoryNamesById))
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return achievementCacheService.getAchievementsByCategoryCode(categoryCode).stream()
             .filter(a -> !a.getIsHidden())
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(AchievementResponse::from)
+            .map(a -> AchievementResponse.from(a, categoryNamesById))
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId).stream()
             .filter(a -> !a.getIsHidden())
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(AchievementResponse::from)
+            .map(a -> AchievementResponse.from(a, categoryNamesById))
             .toList();
     }
 
     // 유저의 업적 목록 조회
     public List<UserAchievementResponse> getUserAchievements(String userId) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return userAchievementRepository.findByUserIdWithAchievement(userId).stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(UserAchievementResponse::from)
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
             .toList();
     }
 
     public List<UserAchievementResponse> getCompletedAchievements(String userId) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return userAchievementRepository.findCompletedByUserId(userId).stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(UserAchievementResponse::from)
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
             .toList();
     }
 
     public List<UserAchievementResponse> getInProgressAchievements(String userId) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return userAchievementRepository.findInProgressByUserId(userId).stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(UserAchievementResponse::from)
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
             .toList();
     }
 
     public List<UserAchievementResponse> getClaimableAchievements(String userId) {
-        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
+        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
         return userAchievementRepository.findClaimableByUserId(userId).stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(UserAchievementResponse::from)
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
             .toList();
     }
 
@@ -138,10 +153,16 @@ public class AchievementService {
         return !activeCategoryIds.contains(catId);
     }
 
-    private Set<Long> loadActiveMissionCategoryIds() {
-        return missionCategoryService.getActiveCategories().stream()
+    private Set<Long> toCategoryIdSet(List<MissionCategoryResponse> categories) {
+        return categories.stream()
             .map(MissionCategoryResponse::getId)
             .collect(Collectors.toSet());
+    }
+
+    private Map<Long, String> toCategoryNameMap(List<MissionCategoryResponse> categories) {
+        return categories.stream()
+            .collect(Collectors.toMap(MissionCategoryResponse::getId, MissionCategoryResponse::getName,
+                (a, b) -> a));
     }
 
     // 업적 보상 수령

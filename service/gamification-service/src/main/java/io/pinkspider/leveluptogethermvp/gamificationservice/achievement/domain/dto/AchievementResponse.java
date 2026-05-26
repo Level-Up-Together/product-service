@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
+import java.util.Collections;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,13 +30,25 @@ public class AchievementResponse {
     private Boolean isHidden;
 
     public static AchievementResponse from(Achievement achievement) {
+        return from(achievement, Collections.emptyMap());
+    }
+
+    /**
+     * QA-149: mission_category_name 컬럼이 NULL 인 데이터가 다수라 메타 카테고리 이름을 lookup 으로 채운다.
+     */
+    public static AchievementResponse from(Achievement achievement, Map<Long, String> categoryNamesById) {
+        String missionCategoryName = achievement.getMissionCategoryName();
+        if ((missionCategoryName == null || missionCategoryName.isBlank())
+            && achievement.getMissionCategoryId() != null) {
+            missionCategoryName = categoryNamesById.get(achievement.getMissionCategoryId());
+        }
         return AchievementResponse.builder()
             .id(achievement.getId())
             .name(achievement.getName())
             .description(achievement.getDescription())
             .categoryCode(achievement.getCategoryCode())
             .missionCategoryId(achievement.getMissionCategoryId())
-            .missionCategoryName(achievement.getMissionCategoryName())
+            .missionCategoryName(missionCategoryName)
             .iconUrl(achievement.getIconUrl())
             .requiredCount(achievement.getRequiredCount())
             .rewardExp(achievement.getRewardExp())

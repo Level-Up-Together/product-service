@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,6 +36,15 @@ public class UserAchievementResponse {
     private Long rewardTitleId;
 
     public static UserAchievementResponse from(UserAchievement userAchievement) {
+        return from(userAchievement, Collections.emptyMap());
+    }
+
+    /**
+     * QA-149: mission_category_name 컬럼이 NULL 인 데이터가 다수라 메타 카테고리 이름을 lookup 으로 채운다.
+     * achievement.missionCategoryName 이 있으면 그걸 우선, 없으면 categoryNamesById 에서 조회.
+     */
+    public static UserAchievementResponse from(UserAchievement userAchievement,
+                                                Map<Long, String> categoryNamesById) {
         var achievement = userAchievement.getAchievement();
         return UserAchievementResponse.builder()
             .id(userAchievement.getId())
@@ -42,7 +53,8 @@ public class UserAchievementResponse {
             .description(achievement.getDescription())
             .categoryCode(achievement.getCategoryCode())
             .missionCategoryId(achievement.getMissionCategoryId())
-            .missionCategoryName(achievement.getMissionCategoryName())
+            .missionCategoryName(resolveMissionCategoryName(achievement.getMissionCategoryName(),
+                achievement.getMissionCategoryId(), categoryNamesById))
             .iconUrl(achievement.getIconUrl())
             .currentCount(userAchievement.getCurrentCount())
             .requiredCount(achievement.getRequiredCount())
@@ -53,5 +65,16 @@ public class UserAchievementResponse {
             .rewardExp(achievement.getRewardExp())
             .rewardTitleId(achievement.getRewardTitleId())
             .build();
+    }
+
+    private static String resolveMissionCategoryName(String stored, Long id,
+                                                      Map<Long, String> categoryNamesById) {
+        if (stored != null && !stored.isBlank()) {
+            return stored;
+        }
+        if (id == null) {
+            return null;
+        }
+        return categoryNamesById.get(id);
     }
 }
