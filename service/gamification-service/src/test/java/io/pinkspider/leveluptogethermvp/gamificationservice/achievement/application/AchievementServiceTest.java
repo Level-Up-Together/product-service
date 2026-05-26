@@ -29,6 +29,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.d
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -81,6 +83,9 @@ class AchievementServiceTest {
 
     @Mock
     private GuildQueryFacade guildQueryFacade;
+
+    @Mock
+    private MissionCategoryService missionCategoryService;
 
     @InjectMocks
     private AchievementService achievementService;
@@ -181,6 +186,50 @@ class AchievementServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getName()).isEqualTo("FIRST_MISSION_COMPLETE");
+        }
+
+        @Test
+        @DisplayName("QA-145: USER_CATEGORY_EXPERIENCE 업적 중 mission_category_id 가 메타에 없으면 응답에서 제외된다")
+        void getUserAchievements_orphanedCategoryAchievement_filteredOut() {
+            // given: 활성 메타 카테고리는 1(운동), 11(기타) 뿐. id=6 은 메타에서 사라진 옛 카테고리.
+            Achievement aliveCategoryAchievement = createCategoryAchievement(1L, "운동 마스터", 1L);
+            Achievement orphanedCategoryAchievement = createCategoryAchievement(2L, "사회활동 1000", 6L);
+            Achievement nonCategoryAchievement = createTestAchievement(3L, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement ua1 = createTestUserAchievement(1L, TEST_USER_ID, aliveCategoryAchievement, 1, true);
+            UserAchievement ua2 = createTestUserAchievement(2L, TEST_USER_ID, orphanedCategoryAchievement, 1, false);
+            UserAchievement ua3 = createTestUserAchievement(3L, TEST_USER_ID, nonCategoryAchievement, 1, true);
+
+            when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
+                .thenReturn(List.of(ua1, ua2, ua3));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(1L).name("운동").isActive(true).build(),
+                MissionCategoryResponse.builder().id(11L).name("기타").isActive(true).build()
+            ));
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+
+            // then: 사라진 카테고리(id=6) 업적만 제외, 다른 dataSource 업적은 영향 없음
+            assertThat(result).extracting(UserAchievementResponse::getName)
+                .containsExactlyInAnyOrder("운동 마스터", "FIRST_MISSION_COMPLETE");
+        }
+
+        private Achievement createCategoryAchievement(Long id, String name, Long missionCategoryId) {
+            Achievement achievement = Achievement.builder()
+                .name(name)
+                .description(name + " 설명")
+                .categoryCode("MISSION")
+                .requiredCount(1000)
+                .rewardExp(100)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_CATEGORY_EXPERIENCE")
+                .checkLogicDataField("categoryExp")
+                .comparisonOperator("GTE")
+                .missionCategoryId(missionCategoryId)
+                .build();
+            setId(achievement, id);
+            return achievement;
         }
     }
 

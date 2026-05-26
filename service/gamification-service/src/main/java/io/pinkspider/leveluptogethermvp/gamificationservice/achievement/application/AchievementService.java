@@ -22,10 +22,14 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserE
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.enums.ExpSourceType;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 
 import lombok.RequiredArgsConstructor;
@@ -54,51 +58,90 @@ public class AchievementService {
     private final UserExperienceRepository userExperienceRepository;
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final GuildQueryFacade guildQueryFacade;
+    private final MissionCategoryService missionCategoryService;
 
     // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return achievementCacheService.getVisibleAchievements().stream()
+            .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
             .map(AchievementResponse::from)
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return achievementCacheService.getAchievementsByCategoryCode(categoryCode).stream()
             .filter(a -> !a.getIsHidden())
+            .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
             .map(AchievementResponse::from)
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId).stream()
             .filter(a -> !a.getIsHidden())
+            .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
             .map(AchievementResponse::from)
             .toList();
     }
 
     // 유저의 업적 목록 조회
     public List<UserAchievementResponse> getUserAchievements(String userId) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return userAchievementRepository.findByUserIdWithAchievement(userId).stream()
+            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
             .map(UserAchievementResponse::from)
             .toList();
     }
 
     public List<UserAchievementResponse> getCompletedAchievements(String userId) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return userAchievementRepository.findCompletedByUserId(userId).stream()
+            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
             .map(UserAchievementResponse::from)
             .toList();
     }
 
     public List<UserAchievementResponse> getInProgressAchievements(String userId) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return userAchievementRepository.findInProgressByUserId(userId).stream()
+            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
             .map(UserAchievementResponse::from)
             .toList();
     }
 
     public List<UserAchievementResponse> getClaimableAchievements(String userId) {
+        Set<Long> activeCategoryIds = loadActiveMissionCategoryIds();
         return userAchievementRepository.findClaimableByUserId(userId).stream()
+            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
             .map(UserAchievementResponse::from)
             .toList();
+    }
+
+    /**
+     * QA-145 안전장치: USER_CATEGORY_EXPERIENCE 데이터소스인데 mission_category_id 가 메타에 없으면
+     * (카테고리 삭제 후 운영자가 정리 전인 상태) 응답에서 제외한다. 어드민 응답은 별도 경로라 영향 없음.
+     */
+    private boolean isOrphanedCategoryAchievement(Achievement achievement, Set<Long> activeCategoryIds) {
+        if (achievement == null) {
+            return false;
+        }
+        if (!"USER_CATEGORY_EXPERIENCE".equals(achievement.getCheckLogicDataSource())) {
+            return false;
+        }
+        Long catId = achievement.getMissionCategoryId();
+        if (catId == null) {
+            return false;
+        }
+        return !activeCategoryIds.contains(catId);
+    }
+
+    private Set<Long> loadActiveMissionCategoryIds() {
+        return missionCategoryService.getActiveCategories().stream()
+            .map(MissionCategoryResponse::getId)
+            .collect(Collectors.toSet());
     }
 
     // 업적 보상 수령

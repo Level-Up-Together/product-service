@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.checklogic.domain.d
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicDataSource;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
+import java.util.Comparator;
 import java.util.List;
 
 @JsonNaming(SnakeCaseStrategy.class)
@@ -17,12 +19,17 @@ public record DataSourceAdminInfo(
         String displayName
     ) {}
 
-    public static DataSourceAdminInfo from(CheckLogicDataSource ds) {
-        List<DataFieldInfo> fields = getFieldsForDataSource(ds);
-        return new DataSourceAdminInfo(ds.getCode(), ds.getDisplayName(), fields);
+    /**
+     * QA-145: USER_CATEGORY_EXPERIENCE 의 availableFields 는 실시간 mission_category 에서 생성한다.
+     * activeCategories 는 meta-service 가 제공하는 활성 카테고리 목록.
+     */
+    public static DataSourceAdminInfo from(CheckLogicDataSource ds, List<MissionCategoryResponse> activeCategories) {
+        return new DataSourceAdminInfo(ds.getCode(), ds.getDisplayName(), getFieldsForDataSource(ds, activeCategories));
     }
 
-    private static List<DataFieldInfo> getFieldsForDataSource(CheckLogicDataSource ds) {
+    private static List<DataFieldInfo> getFieldsForDataSource(
+        CheckLogicDataSource ds,
+        List<MissionCategoryResponse> activeCategories) {
         return switch (ds) {
             case USER_STATS -> List.of(
                 new DataFieldInfo("currentStreak", "현재 연속 일수"),
@@ -34,19 +41,12 @@ public record DataSourceAdminInfo(
                 new DataFieldInfo("currentLevel", "현재 레벨"),
                 new DataFieldInfo("totalExp", "총 경험치")
             );
-            case USER_CATEGORY_EXPERIENCE -> List.of(
-                new DataFieldInfo("category_1", "운동"),
-                new DataFieldInfo("category_2", "공부"),
-                new DataFieldInfo("category_3", "자기개발"),
-                new DataFieldInfo("category_4", "생활습관"),
-                new DataFieldInfo("category_5", "취미"),
-                new DataFieldInfo("category_6", "사회활동"),
-                new DataFieldInfo("category_7", "환경"),
-                new DataFieldInfo("category_8", "마음챙김"),
-                new DataFieldInfo("category_9", "재테크"),
-                new DataFieldInfo("category_10", "커리어"),
-                new DataFieldInfo("category_11", "기타")
-            );
+            case USER_CATEGORY_EXPERIENCE -> activeCategories.stream()
+                .sorted(Comparator.comparing(
+                    MissionCategoryResponse::getDisplayOrder,
+                    Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(c -> new DataFieldInfo("category_" + c.getId(), c.getName()))
+                .toList();
             case FRIEND_SERVICE -> List.of(
                 new DataFieldInfo("friendCount", "친구 수")
             );

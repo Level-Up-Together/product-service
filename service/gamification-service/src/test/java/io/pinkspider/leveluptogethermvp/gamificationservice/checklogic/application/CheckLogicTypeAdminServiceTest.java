@@ -19,6 +19,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.CheckL
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicComparisonOperator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicDataSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.CheckLogicTypeRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +40,9 @@ class CheckLogicTypeAdminServiceTest {
 
     @Mock
     private CheckLogicTypeRepository checkLogicTypeRepository;
+
+    @Mock
+    private MissionCategoryService missionCategoryService;
 
     @InjectMocks
     private CheckLogicTypeAdminService checkLogicTypeAdminService;
@@ -239,15 +244,72 @@ class CheckLogicTypeAdminServiceTest {
     @DisplayName("getDataSources 테스트")
     class GetDataSourcesTest {
 
+        private MissionCategoryResponse buildCategory(Long id, String name, int displayOrder) {
+            return MissionCategoryResponse.builder()
+                .id(id)
+                .name(name)
+                .displayOrder(displayOrder)
+                .isActive(true)
+                .build();
+        }
+
         @Test
         @DisplayName("모든 데이터 소스 목록을 반환한다")
         void getDataSources_success() {
+            when(missionCategoryService.getActiveCategories())
+                .thenReturn(List.of(buildCategory(1L, "운동", 1)));
+
             // when
             List<DataSourceAdminInfo> result = checkLogicTypeAdminService.getDataSources();
 
             // then
             assertThat(result).isNotEmpty();
             assertThat(result).hasSize(CheckLogicDataSource.values().length);
+        }
+
+        @Test
+        @DisplayName("QA-145: USER_CATEGORY_EXPERIENCE 의 dataField 가 실시간 mission_category 와 일치하고 displayOrder 순으로 정렬된다")
+        void getDataSources_userCategoryExperience_reflectsLiveCategories() {
+            // given: dev 와 유사하게 일부 id 누락(4,6,7,8,9) + id=5 이름 변경(취미→독서) + 신규(12,13)
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                buildCategory(2L, "공부", 1),
+                buildCategory(5L, "독서", 2),
+                buildCategory(1L, "운동", 3),
+                buildCategory(12L, "업무", 5),
+                buildCategory(13L, "창작", 7),
+                buildCategory(10L, "일상", 9),
+                buildCategory(3L, "자기개발", 10),
+                buildCategory(11L, "기타", 99)
+            ));
+
+            // when
+            List<DataSourceAdminInfo> result = checkLogicTypeAdminService.getDataSources();
+
+            // then
+            DataSourceAdminInfo categoryDs = result.stream()
+                .filter(ds -> ds.code().equals(CheckLogicDataSource.USER_CATEGORY_EXPERIENCE.getCode()))
+                .findFirst()
+                .orElseThrow();
+
+            // 사라진 카테고리 (옛 "취미"=category_5, "사회활동"=category_6 등) 는 노출되지 않는다
+            assertThat(categoryDs.availableFields())
+                .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
+                .doesNotContain("취미", "생활습관", "사회활동", "환경", "마음챙김", "재테크", "커리어");
+            // 새로 추가된 카테고리는 즉시 dropdown 에 반영된다
+            assertThat(categoryDs.availableFields())
+                .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
+                .contains("category_12", "category_13");
+            // 이름이 바뀐 id=5 는 새 이름으로 노출된다
+            assertThat(categoryDs.availableFields())
+                .filteredOn(f -> f.fieldName().equals("category_5"))
+                .singleElement()
+                .extracting(DataSourceAdminInfo.DataFieldInfo::displayName)
+                .isEqualTo("독서");
+            // displayOrder 오름차순 정렬
+            assertThat(categoryDs.availableFields())
+                .extracting(DataSourceAdminInfo.DataFieldInfo::fieldName)
+                .containsExactly("category_2", "category_5", "category_1",
+                    "category_12", "category_13", "category_10", "category_3", "category_11");
         }
     }
 

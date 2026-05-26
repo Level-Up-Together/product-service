@@ -10,6 +10,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.CheckL
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicComparisonOperator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicDataSource;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.CheckLogicTypeRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CheckLogicTypeAdminService {
 
     private final CheckLogicTypeRepository checkLogicTypeRepository;
+    private final MissionCategoryService missionCategoryService;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminPageResponse searchCheckLogicTypes(Pageable pageable) {
@@ -73,8 +76,10 @@ public class CheckLogicTypeAdminService {
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<DataSourceAdminInfo> getDataSources() {
+        // QA-145: USER_CATEGORY_EXPERIENCE 의 availableFields 는 실시간 mission_category 에서 채운다.
+        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         return Arrays.stream(CheckLogicDataSource.values())
-            .map(DataSourceAdminInfo::from)
+            .map(ds -> DataSourceAdminInfo.from(ds, activeCategories))
             .collect(Collectors.toList());
     }
 
