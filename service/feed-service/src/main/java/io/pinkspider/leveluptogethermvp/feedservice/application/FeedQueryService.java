@@ -664,6 +664,17 @@ public class FeedQueryService {
     }
 
     /**
+     * QA-152 안전망: 입력된 execution_id 목록 중 실제 ActivityFeed 가 존재하는 id 만 Set 으로 반환.
+     * mission-service 응답에서 mission_execution.is_shared_to_feed 값을 보정할 때 배치로 호출한다.
+     */
+    public Set<Long> findExecutionIdsWithFeed(java.util.Collection<Long> executionIds) {
+        if (executionIds == null || executionIds.isEmpty()) {
+            return java.util.Collections.emptySet();
+        }
+        return new HashSet<>(activityFeedRepository.findExistingExecutionIdsByExecutionIdIn(executionIds));
+    }
+
+    /**
      * executionId로 피드 공개범위 조회 (피드 미생성 시 null)
      */
     public String getFeedVisibilityByExecutionId(Long executionId) {

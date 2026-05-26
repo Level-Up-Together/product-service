@@ -166,6 +166,16 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     // executionId로 피드 조회 (중복 방지: 최신 1건)
     Optional<ActivityFeed> findFirstByExecutionIdOrderByCreatedAtDesc(Long executionId);
 
+    /**
+     * QA-152 안전망: 주어진 execution_id 목록 중 실제 ActivityFeed 가 존재하는 것만 추려서 반환.
+     * mission_execution.is_shared_to_feed=true 인데 ActivityFeed 가 누락된 케이스를 응답 단에서
+     * 보정하기 위해 사용. 한 번에 배치 조회하여 N+1 회피.
+     */
+    @Query("SELECT DISTINCT f.executionId FROM ActivityFeed f " +
+           "WHERE f.executionId IN :executionIds")
+    java.util.List<Long> findExistingExecutionIdsByExecutionIdIn(
+        @Param("executionIds") java.util.Collection<Long> executionIds);
+
     // 사용자의 모든 피드의 프로필 스냅샷 업데이트
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")

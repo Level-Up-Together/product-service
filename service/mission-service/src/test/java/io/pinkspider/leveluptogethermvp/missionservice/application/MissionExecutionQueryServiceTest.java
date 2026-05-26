@@ -66,6 +66,9 @@ class MissionExecutionQueryServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver strategyResolver;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
+
     @InjectMocks
     private MissionExecutionQueryService executionService;
 
@@ -105,6 +108,11 @@ class MissionExecutionQueryServiceTest {
             .thenReturn(java.util.List.of());
         org.mockito.Mockito.lenient().when(instanceImageRepository.findByInstanceIdOrderBySortOrderAsc(org.mockito.ArgumentMatchers.anyLong()))
             .thenReturn(java.util.List.of());
+
+        // QA-152 안전망: 기본은 빈 Set (피드 없음). 개별 테스트에서 필요시 override.
+        org.mockito.Mockito.lenient()
+            .when(feedQueryService.findExecutionIdsWithFeed(org.mockito.ArgumentMatchers.anyCollection()))
+            .thenReturn(java.util.Collections.emptySet());
     }
 
 
@@ -440,6 +448,40 @@ class MissionExecutionQueryServiceTest {
 
             // then
             assertThat(responses).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("QA-152: is_shared_to_feed=true 이지만 feed_db 에 매칭 피드가 없으면 응답에서 false 로 보정한다")
+        void getTodayExecutions_orphanedSharedFlag_correctedToFalse() {
+            // given: execution 1 은 공유 + 피드 있음, execution 2 는 공유 표시지만 피드 없음(QA-152 케이스)
+            MissionExecution execution1 = createCompletedExecution(1L, today(), 50, 30);
+            TestReflectionUtils.setField(execution1, "isSharedToFeed", true);
+            MissionExecution execution2 = createCompletedExecution(2L, today(), 30, 30);
+            TestReflectionUtils.setField(execution2, "isSharedToFeed", true);
+
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(java.util.List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(java.util.List.of(execution1, execution2));
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(java.util.List.of());
+            // 피드는 execution 1 만 존재
+            when(feedQueryService.findExecutionIdsWithFeed(org.mockito.ArgumentMatchers.anyCollection()))
+                .thenReturn(java.util.Set.of(1L));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then
+            assertThat(responses).hasSize(2);
+            MissionExecutionResponse r1 = responses.stream().filter(r -> r.getId() == 1L).findFirst().orElseThrow();
+            MissionExecutionResponse r2 = responses.stream().filter(r -> r.getId() == 2L).findFirst().orElseThrow();
+            assertThat(r1.getIsSharedToFeed()).isTrue();
+            assertThat(r2.getIsSharedToFeed()).isFalse();
         }
 
         @Test

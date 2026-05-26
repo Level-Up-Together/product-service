@@ -15,11 +15,13 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissi
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +43,7 @@ public class MissionExecutionQueryService {
     private final MissionExecutionImageRepository executionImageRepository;
     private final DailyMissionInstanceImageRepository instanceImageRepository;
     private final MissionExecutionStrategyResolver strategyResolver;
+    private final FeedQueryService feedQueryService;
 
     public List<MissionExecutionResponse> getExecutionsByParticipant(Long participantId) {
         return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
@@ -125,6 +128,9 @@ public class MissionExecutionQueryService {
         List<MissionExecutionResponse> instanceResponses = toResponsesFromInstancesWithImages(dailyInstances);
         responses.addAll(instanceResponses);
 
+        // QA-152: is_shared_to_feed=true 인데 feed_db 에 매칭 피드가 없는 행은 false 로 보정.
+        reconcileSharedToFeedFlag(responses);
+
         log.info("getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
             userId, regularExecutions.size(), instanceResponses.size());
 
@@ -152,9 +158,42 @@ public class MissionExecutionQueryService {
 
         List<MissionExecutionResponse> responses = toResponsesFromInstancesWithImages(completedInstances);
 
+        // QA-152: 동일 안전망 — feed 가 없는 행은 is_shared_to_feed=false 로 보정.
+        reconcileSharedToFeedFlag(responses);
+
         log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
 
         return responses;
+    }
+
+    /**
+     * QA-152 안전망: 응답 빌드 결과 중 is_shared_to_feed=true 로 표시된 행을 모아
+     * feed_db 에 실제 ActivityFeed 가 있는지 한 번에 확인하고, 없는 행은 false 로 보정한다.
+     * <p>
+     * cross-DB 트랜잭션 분리로 인해 mission_execution 측은 공유 상태인데 ActivityFeed 가 누락된
+     * 케이스(QA-152 prod 사례)가 발생할 수 있어 응답 일관성을 보장한다.
+     */
+    private void reconcileSharedToFeedFlag(List<MissionExecutionResponse> responses) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        java.util.List<Long> sharedIds = responses.stream()
+            .filter(r -> Boolean.TRUE.equals(r.getIsSharedToFeed()) && r.getId() != null)
+            .map(MissionExecutionResponse::getId)
+            .toList();
+        if (sharedIds.isEmpty()) {
+            return;
+        }
+        Set<Long> withFeed = feedQueryService.findExecutionIdsWithFeed(sharedIds);
+        for (MissionExecutionResponse r : responses) {
+            if (Boolean.TRUE.equals(r.getIsSharedToFeed())
+                && r.getId() != null
+                && !withFeed.contains(r.getId())) {
+                r.setIsSharedToFeed(false);
+                log.warn("QA-152: is_shared_to_feed=true 인데 ActivityFeed 미존재 → false 로 보정: executionId={}",
+                    r.getId());
+            }
+        }
     }
 
     /**
