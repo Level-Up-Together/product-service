@@ -1725,7 +1725,7 @@ class MissionServiceTest {
             MissionTemplate template = createTemplate(templateId);
 
             when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
-            when(missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, TEST_USER_ID))
+            when(missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, TEST_USER_ID))
                 .thenReturn(false);
             when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> {
                 Mission m = invocation.getArgument(0);
@@ -1761,20 +1761,47 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("이미 추가한 템플릿으로 생성 시 예외가 발생한다")
+        @DisplayName("이미 활성 참여 중인 템플릿으로 생성 시 예외가 발생한다")
         void createMissionFromTemplate_duplicate() {
             // given
             Long templateId = 1L;
             MissionTemplate template = createTemplate(templateId);
 
             when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
-            when(missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, TEST_USER_ID))
+            when(missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, TEST_USER_ID))
                 .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> missionService.createMissionFromTemplate(templateId, TEST_USER_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 추가한 미션입니다");
+        }
+
+        @Test
+        @DisplayName("QA-143: 과거 완료/탈퇴된 동일 템플릿 미션만 있으면 (active=false) 재추가가 가능하다")
+        void createMissionFromTemplate_pastCompletedOnly_canReAdd() {
+            // given: 활성 참여중 미션은 없는 상태 (active exists=false). 과거에 같은 템플릿으로
+            //        COMPLETED/WITHDRAWN 참여만 남아 있는 시나리오를 모사한다.
+            Long templateId = 1L;
+            MissionTemplate template = createTemplate(templateId);
+
+            when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
+            when(missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, TEST_USER_ID))
+                .thenReturn(false);
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> {
+                Mission m = invocation.getArgument(0);
+                setId(m, 11L);
+                return m;
+            });
+
+            // when
+            MissionResponse result = missionService.createMissionFromTemplate(templateId, TEST_USER_ID);
+
+            // then: 새 미션 record 가 생성된다
+            assertThat(result.getId()).isEqualTo(11L);
+            verify(missionRepository).save(any(Mission.class));
+            verify(missionParticipantService).addCreatorAsParticipant(any(Mission.class), eq(TEST_USER_ID));
+            verify(missionRepository).existsActiveByBaseMissionIdAndCreatorId(eq(templateId), eq(TEST_USER_ID));
         }
     }
 

@@ -138,7 +138,8 @@ public class MissionService {
         MissionTemplate template = missionTemplateRepository.findById(templateId)
             .orElseThrow(() -> new IllegalArgumentException("미션 템플릿을 찾을 수 없습니다: " + templateId));
 
-        if (missionRepository.existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(templateId, userId)) {
+        // QA-143: 활성 참여중인 미션만 중복으로 본다. 완료/탈퇴/실패한 과거 미션은 재추가 허용.
+        if (missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, userId)) {
             throw new IllegalStateException("이미 추가한 미션입니다.");
         }
 

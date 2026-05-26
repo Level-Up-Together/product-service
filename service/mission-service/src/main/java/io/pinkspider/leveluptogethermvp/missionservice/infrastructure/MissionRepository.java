@@ -153,7 +153,23 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     @Query("SELECT COUNT(m) FROM Mission m WHERE m.source = :source AND m.creatorId = :creatorId")
     long countBySourceAndCreatorId(@Param("source") MissionSource source, @Param("creatorId") String creatorId);
 
-    boolean existsByBaseMissionIdAndCreatorIdAndIsDeletedFalse(Long baseMissionId, String creatorId);
+    /**
+     * QA-143: 미션북 재추가 중복 검증.
+     * 같은 템플릿(base_mission_id)으로 만든 미션 중, 본인이 활성 참여중(PENDING/ACCEPTED/IN_PROGRESS)인 것만 있는지 본다.
+     * 완료(COMPLETED), 이탈(WITHDRAWN), 실패(FAILED), 소프트 삭제는 제외하여 종료된 미션이 재추가를 막지 않도록 한다.
+     */
+    @Query("SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END FROM Mission m " +
+           "JOIN MissionParticipant mp ON mp.mission = m " +
+           "WHERE m.baseMissionId = :templateId " +
+           "AND m.creatorId = :creatorId " +
+           "AND m.isDeleted = false " +
+           "AND mp.userId = :creatorId " +
+           "AND mp.status IN (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.PENDING, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
+    boolean existsActiveByBaseMissionIdAndCreatorId(
+        @Param("templateId") Long templateId,
+        @Param("creatorId") String creatorId);
 
     // 템플릿에서 복제된 미션들의 시간 설정 일괄 업데이트
     @org.springframework.data.jpa.repository.Modifying
