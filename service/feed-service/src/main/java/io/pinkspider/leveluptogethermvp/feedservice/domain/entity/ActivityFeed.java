@@ -182,14 +182,13 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
         }
     }
 
+    /**
+     * QA-150: commentCount 는 "이 피드에 작성된 전체 댓글 수 (대댓글 + 삭제 포함)" 로 정의한다.
+     * 댓글이 새로 작성되면 (대댓글 포함) +1, 삭제는 카운트에 반영하지 않는다.
+     * 백필은 V011__backfill_feed_comment_count.sql 참고.
+     */
     public void incrementCommentCount() {
         this.commentCount++;
-    }
-
-    public void decrementCommentCount() {
-        if (this.commentCount > 0) {
-            this.commentCount--;
-        }
     }
 
     public String getCategory() {

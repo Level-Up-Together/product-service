@@ -380,10 +380,7 @@ public class FeedCommandService {
         comment.delete();
         feedCommentRepository.save(comment);
 
-        ActivityFeed feed = comment.getFeed();
-        feed.decrementCommentCount();
-        activityFeedRepository.save(feed);
-
+        // QA-150: 삭제된 댓글도 카운트에 포함하므로 decrement 하지 않는다.
         log.info("Feed comment admin deleted: commentId={}, reason={}", commentId, reason);
     }
 
@@ -406,10 +403,7 @@ public class FeedCommandService {
         comment.delete();
         feedCommentRepository.save(comment);
 
-        ActivityFeed feed = comment.getFeed();
-        feed.decrementCommentCount();
-        activityFeedRepository.save(feed);
-
+        // QA-150: 삭제된 댓글도 카운트에 포함하므로 decrement 하지 않는다.
         log.info("Comment deleted: feedId={}, commentId={}, userId={}", feedId, commentId, userId);
     }
 

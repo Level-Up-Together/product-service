@@ -364,6 +364,8 @@ class FeedCommandServiceTest {
 
             // then — 대댓글이므로 FeedCommentEvent 대신 FeedCommentReplyEvent 발행
             verify(eventPublisher).publishEvent(any(FeedCommentReplyEvent.class));
+            // QA-150: 대댓글도 feed.commentCount 에 +1 되어야 한다
+            assertThat(feed.getCommentCount()).isEqualTo(1);
         }
 
         @Test
@@ -582,7 +584,7 @@ class FeedCommandServiceTest {
     class DeleteCommentTest {
 
         @Test
-        @DisplayName("댓글을 삭제한다")
+        @DisplayName("QA-150: 댓글을 삭제해도 feed.commentCount 는 감소하지 않는다 (삭제 포함 카운트)")
         void deleteComment_success() {
             // given
             Long feedId = 1L;
@@ -600,14 +602,13 @@ class FeedCommandServiceTest {
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
-            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID);
 
             // then
             assertThat(comment.getIsDeleted()).isTrue();
-            assertThat(feed.getCommentCount()).isEqualTo(0);
+            assertThat(feed.getCommentCount()).isEqualTo(1);
         }
 
         @Test
@@ -1181,7 +1182,7 @@ class FeedCommandServiceTest {
     class DeleteCommentByAdminTest {
 
         @Test
-        @DisplayName("어드민이 댓글을 강제 삭제한다")
+        @DisplayName("QA-150: 어드민이 댓글을 강제 삭제해도 feed.commentCount 는 감소하지 않는다")
         void deleteCommentByAdmin_success() {
             // given
             Long commentId = 1L;
@@ -1199,16 +1200,14 @@ class FeedCommandServiceTest {
 
             when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
             when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
-            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             feedCommandService.deleteCommentByAdmin(commentId, "신고 처리");
 
             // then
             assertThat(comment.getIsDeleted()).isTrue();
-            assertThat(feed.getCommentCount()).isEqualTo(0);
+            assertThat(feed.getCommentCount()).isEqualTo(1);
             verify(feedCommentRepository).save(comment);
-            verify(activityFeedRepository).save(feed);
         }
 
         @Test
