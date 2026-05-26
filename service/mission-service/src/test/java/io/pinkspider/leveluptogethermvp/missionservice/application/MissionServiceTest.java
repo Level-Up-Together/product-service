@@ -2246,7 +2246,23 @@ class MissionServiceTest {
             Long missionId,
             Integer userOrder,
             boolean isPinned) {
-            Mission mission = Mission.builder().title("m" + missionId).isPinned(isPinned).build();
+            return buildParticipant(missionId, userOrder, isPinned,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+        }
+
+        private io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant buildParticipant(
+            Long missionId,
+            Integer userOrder,
+            boolean isPinned,
+            io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType type,
+            io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval interval) {
+            Mission mission = Mission.builder()
+                .title("m" + missionId)
+                .isPinned(isPinned)
+                .type(type)
+                .missionInterval(interval)
+                .build();
             setId(mission, missionId);
             var mp = io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant.builder()
                 .mission(mission)
@@ -2321,6 +2337,50 @@ class MissionServiceTest {
 
             when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
                 .thenReturn(List.of(mp1, mp2));
+
+            // when / then
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.mixed_type");
+        }
+
+        @Test
+        @DisplayName("QA-142: WEEKLY 길드 미션은 일반 PERSONAL 미션과 같이 정렬해도 통과한다")
+        void reorder_guildWeeklyWithPersonalDaily_success() {
+            // given: 프론트 regular 섹션(GENERAL+GUILD) 시나리오. 길드 WEEKLY 1 + 일반 DAILY 1
+            List<Long> ordered = List.of(2L, 1L);
+            var personal = buildParticipant(1L, null, /*isPinned*/ false,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+            var guildWeekly = buildParticipant(2L, null, /*isPinned*/ false,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(personal, guildWeekly));
+
+            // when
+            missionService.reorderMyMissions(TEST_USER_ID, ordered);
+
+            // then
+            assertThat(guildWeekly.getUserOrder()).isEqualTo(0);
+            assertThat(personal.getUserOrder()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("QA-142: PERSONAL WEEKLY 와 PERSONAL DAILY 가 섞이면 050108 예외 유지 (회귀 방지)")
+        void reorder_personalWeeklyWithPersonalDaily_throws() {
+            // given: 개인 미션 한정으로는 WEEKLY 가 FIXED 섹션이므로 거부가 유지되어야 한다
+            List<Long> ordered = List.of(1L, 2L);
+            var personalDaily = buildParticipant(1L, null, /*isPinned*/ false,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+            var personalWeekly = buildParticipant(2L, null, /*isPinned*/ false,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(personalDaily, personalWeekly));
 
             // when / then
             assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))

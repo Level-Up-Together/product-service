@@ -217,6 +217,7 @@ public class MissionService {
      * orderedMissionIds 순서대로 mission_participant.user_order 를 0..N-1 로 갱신한다.
      * 본인이 활성 참여중이 아닌 missionId 가 섞여 있으면 거부한다.
      * QA-140: 일반/고정 미션 간 교차 정렬 금지 (mission.isPinned 가 모두 같아야 함).
+     * QA-142: 길드 미션은 항상 일반(not-FIXED) 그룹으로 분류 — 프론트 getMissionDisplayType 매핑 일치.
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public void reorderMyMissions(String userId, List<Long> orderedMissionIds) {
@@ -256,8 +257,13 @@ public class MissionService {
         }
     }
 
+    // 프론트 getMissionDisplayType 과 동일 매핑.
+    // QA-142: 길드 미션은 type=GUILD 분기가 먼저라 isPinned/WEEKLY 와 무관하게 not-FIXED.
     private boolean isPinnedLikeForReorder(
         io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission mission) {
+        if (mission.getType() == MissionType.GUILD) {
+            return false;
+        }
         return Boolean.TRUE.equals(mission.getIsPinned())
             || mission.getMissionInterval()
                 == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY;
