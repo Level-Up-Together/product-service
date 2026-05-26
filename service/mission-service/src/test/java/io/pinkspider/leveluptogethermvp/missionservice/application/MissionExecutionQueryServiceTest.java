@@ -428,11 +428,11 @@ class MissionExecutionQueryServiceTest {
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(execution1, execution2));
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // when
@@ -443,6 +443,38 @@ class MissionExecutionQueryServiceTest {
         }
 
         @Test
+        @DisplayName("QA-151: 어제 시작-오늘 종료한 COMPLETED execution 도 오늘 목록에 포함된다")
+        void getTodayExecutions_yesterdayStartedTodayCompleted_included() {
+            // given: executionDate=어제 + status=COMPLETED + completedAt=오늘 자정 KST 직후 (UTC: 어제 15:00)
+            //         라는 시나리오를 repository mock 으로 흉내낸다. service 가 LocalDateTime 두 개를
+            //         정확히 KST 자정 범위로 전달하는지가 핵심. 여기서는 mock 매처가 LocalDateTime 을
+            //         받기만 하면 통과한다.
+            MissionExecution yesterdayCompletedExecution = createCompletedExecution(99L, today().minusDays(1), 30, 30);
+
+            when(participantRepository.findPinnedMissionParticipants(testUserId))
+                .thenReturn(List.of());
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(yesterdayCompletedExecution));
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                    eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                    any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getTodayExecutions(testUserId);
+
+            // then: 어제 executionDate 라도 응답에 포함된다 (repository 쿼리가 그 조건을 충족시켰음을 시뮬레이션)
+            assertThat(responses).hasSize(1);
+            assertThat(responses.get(0).getId()).isEqualTo(99L);
+            // service 가 LocalDateTime 파라미터 두 개를 전달하는지 검증
+            verify(executionRepository).findByUserIdAndTodayOrYesterdayInProgress(
+                eq(testUserId), any(LocalDate.class), any(LocalDate.class),
+                any(LocalDateTime.class), any(LocalDateTime.class));
+        }
+
+        @Test
         @DisplayName("오늘 수행이 없으면 빈 목록을 반환한다")
         void getTodayExecutions_empty() {
             // given
@@ -450,11 +482,11 @@ class MissionExecutionQueryServiceTest {
             when(participantRepository.findPinnedMissionParticipants(testUserId))
                 .thenReturn(List.of());
 
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // DailyMissionInstance 조회 mock (없음)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // when
@@ -508,14 +540,14 @@ class MissionExecutionQueryServiceTest {
                 });
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // 저장 후 DailyMissionInstance 조회 시 새로 생성된 것 반환
             DailyMissionInstance newInstance = DailyMissionInstance.createFrom(pinnedParticipant, today);
             setId(newInstance, 200L);
 
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(newInstance));
 
             // when
@@ -565,11 +597,11 @@ class MissionExecutionQueryServiceTest {
                 .thenReturn(true);
 
             // 일반 미션 조회 (없음)
-            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // DailyMissionInstance 조회 (기존 것 반환)
-            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findByUserIdAndTodayOrYesterdayInProgress(eq(testUserId), any(LocalDate.class), any(LocalDate.class), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(existingInstance));
 
             // when
@@ -861,7 +893,7 @@ class MissionExecutionQueryServiceTest {
             setId(completedInstance2, 201L);
             TestReflectionUtils.setField(completedInstance2, "status", ExecutionStatus.COMPLETED);
 
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndInstanceDate(testUserId, today))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(completedInstance1, completedInstance2));
 
             // when
@@ -869,7 +901,7 @@ class MissionExecutionQueryServiceTest {
 
             // then
             assertThat(responses).hasSize(2);
-            verify(dailyMissionInstanceRepository).findCompletedByUserIdAndInstanceDate(testUserId, today);
+            verify(dailyMissionInstanceRepository).findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class));
         }
 
         @Test
@@ -878,7 +910,7 @@ class MissionExecutionQueryServiceTest {
             // given
             LocalDate today = today();
 
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndInstanceDate(testUserId, today))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedDate(eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // when

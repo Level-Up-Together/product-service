@@ -72,17 +72,32 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     /**
      * 오늘 + 전날 IN_PROGRESS 미션 실행 조회 (자정 전환 대응)
      */
+    /**
+     * 오늘 보여야 할 일반 미션 execution 조회.
+     * <p>
+     * 포함 조건:
+     * <ul>
+     *   <li>executionDate = today (시작/예정 모두)</li>
+     *   <li>executionDate = yesterday AND status = IN_PROGRESS (자정 전환 진행 미션)</li>
+     *   <li>QA-151: executionDate = yesterday AND status = COMPLETED AND completedAt 이 KST 오늘 범위
+     *     — 어제 시작했지만 자정 넘겨 오늘 종료한 미션도 "오늘 완료한 미션" 영역에 노출.</li>
+     * </ul>
+     */
     @Query("SELECT me FROM MissionExecution me " +
            "JOIN me.participant p " +
            "JOIN p.mission m " +
            "WHERE p.userId = :userId " +
            "AND (m.isPinned = false OR m.isPinned IS NULL) " +
            "AND (me.executionDate = :today " +
-           "  OR (me.executionDate = :yesterday AND me.status = 'IN_PROGRESS'))")
+           "  OR (me.executionDate = :yesterday AND me.status = 'IN_PROGRESS') " +
+           "  OR (me.executionDate = :yesterday AND me.status = 'COMPLETED' " +
+           "      AND me.completedAt >= :todayStartUtc AND me.completedAt < :tomorrowStartUtc))")
     List<MissionExecution> findByUserIdAndTodayOrYesterdayInProgress(
         @Param("userId") String userId,
         @Param("today") LocalDate today,
-        @Param("yesterday") LocalDate yesterday
+        @Param("yesterday") LocalDate yesterday,
+        @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
+        @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc
     );
 
     /**

@@ -16,8 +16,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -98,22 +100,28 @@ public class MissionExecutionQueryService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        ZoneId kst = ZoneId.of("Asia/Seoul");
+        LocalDate today = LocalDate.now(kst);
         LocalDate yesterday = today.minusDays(1);
+        // QA-151: KST 오늘 자정의 UTC LocalDateTime — completedAt(UTC) 와 비교용
+        LocalDateTime todayStartUtc = today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime tomorrowStartUtc = today.plusDays(1).atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
 
         // 고정 미션의 오늘 execution 자동 생성 (일반 MissionExecution용)
         ensurePinnedMissionExecutionsForToday(userId, today);
 
         List<MissionExecutionResponse> responses = new ArrayList<>();
 
-        // 일반 미션 Execution 조회 (오늘 + 전날 IN_PROGRESS)
+        // 일반 미션 Execution 조회 (오늘 + 전날 IN_PROGRESS + 전날 시작-오늘 종료된 COMPLETED)
         List<MissionExecutionResponse> regularExecutions = toResponsesWithImages(
-            executionRepository.findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday));
+            executionRepository.findByUserIdAndTodayOrYesterdayInProgress(
+                userId, today, yesterday, todayStartUtc, tomorrowStartUtc));
         responses.addAll(regularExecutions);
 
-        // 고정 미션 DailyMissionInstance 조회 (오늘 + 전날 IN_PROGRESS)
+        // 고정 미션 DailyMissionInstance 조회 (동일 기준)
         List<DailyMissionInstance> dailyInstances = dailyMissionInstanceRepository
-            .findByUserIdAndTodayOrYesterdayInProgress(userId, today, yesterday);
+            .findByUserIdAndTodayOrYesterdayInProgress(
+                userId, today, yesterday, todayStartUtc, tomorrowStartUtc);
         List<MissionExecutionResponse> instanceResponses = toResponsesFromInstancesWithImages(dailyInstances);
         responses.addAll(instanceResponses);
 
@@ -133,10 +141,14 @@ public class MissionExecutionQueryService {
      * @return 완료된 고정 미션 인스턴스 목록
      */
     public List<MissionExecutionResponse> getCompletedPinnedInstancesForToday(String userId) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        ZoneId kst = ZoneId.of("Asia/Seoul");
+        LocalDate today = LocalDate.now(kst);
+        // QA-151: completedAt(UTC) 의 KST 날짜가 오늘인 인스턴스를 조회.
+        LocalDateTime todayStartUtc = today.atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime tomorrowStartUtc = today.plusDays(1).atStartOfDay(kst).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
 
         List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
-            .findCompletedByUserIdAndInstanceDate(userId, today);
+            .findCompletedByUserIdAndCompletedDate(userId, todayStartUtc, tomorrowStartUtc);
 
         List<MissionExecutionResponse> responses = toResponsesFromInstancesWithImages(completedInstances);
 

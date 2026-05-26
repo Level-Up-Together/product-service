@@ -58,36 +58,50 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
-     * 오늘 + 전날 IN_PROGRESS 인스턴스 조회 (자정 전환 대응)
+     * 오늘 보여야 할 고정 미션 인스턴스 조회.
+     * <p>
+     * 포함 조건:
+     * <ul>
+     *   <li>instanceDate = today (예정/시작/완료 모두)</li>
+     *   <li>instanceDate = yesterday AND status = IN_PROGRESS (자정 전환 진행 인스턴스)</li>
+     *   <li>QA-151: instanceDate = yesterday AND status = COMPLETED AND completedAt 이 KST 오늘 범위
+     *     — 어제 시작했지만 자정 넘겨 오늘 종료한 인스턴스도 "오늘 완료한 미션" 영역에 노출.</li>
+     * </ul>
      */
     @Query("SELECT dmi FROM DailyMissionInstance dmi " +
            "JOIN FETCH dmi.participant p " +
            "JOIN FETCH p.mission m " +
            "WHERE p.userId = :userId " +
            "AND (dmi.instanceDate = :today " +
-           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'IN_PROGRESS')) " +
+           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'IN_PROGRESS') " +
+           "  OR (dmi.instanceDate = :yesterday AND dmi.status = 'COMPLETED' " +
+           "      AND dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc)) " +
            "ORDER BY dmi.id DESC")
     List<DailyMissionInstance> findByUserIdAndTodayOrYesterdayInProgress(
         @Param("userId") String userId,
         @Param("today") LocalDate today,
-        @Param("yesterday") LocalDate yesterday
+        @Param("yesterday") LocalDate yesterday,
+        @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
+        @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc
     );
 
     /**
-     * 사용자의 오늘 완료된 인스턴스 조회 (오늘 수행 기록용)
-     *
-     * 고정 미션의 완료된 인스턴스만 반환합니다.
-     * 이 데이터는 프론트엔드의 '오늘 수행 기록' 섹션에 표시됩니다.
+     * 사용자의 오늘 완료된 인스턴스 조회 ("오늘 완료한 미션" 섹션용).
+     * <p>
+     * QA-151: 시작일(instanceDate) 이 아닌 종료일(completedAt) 의 KST 날짜가 오늘인 인스턴스를 반환한다.
+     * 어제 시작했어도 오늘 종료했다면 이 목록에 포함된다.
      */
     @Query("SELECT dmi FROM DailyMissionInstance dmi " +
            "JOIN FETCH dmi.participant p " +
            "JOIN FETCH p.mission m " +
-           "WHERE p.userId = :userId AND dmi.instanceDate = :date " +
+           "WHERE p.userId = :userId " +
            "AND dmi.status = 'COMPLETED' " +
+           "AND dmi.completedAt >= :todayStartUtc AND dmi.completedAt < :tomorrowStartUtc " +
            "ORDER BY dmi.completedAt DESC")
-    List<DailyMissionInstance> findCompletedByUserIdAndInstanceDate(
+    List<DailyMissionInstance> findCompletedByUserIdAndCompletedDate(
         @Param("userId") String userId,
-        @Param("date") LocalDate date
+        @Param("todayStartUtc") java.time.LocalDateTime todayStartUtc,
+        @Param("tomorrowStartUtc") java.time.LocalDateTime tomorrowStartUtc
     );
 
     /**
