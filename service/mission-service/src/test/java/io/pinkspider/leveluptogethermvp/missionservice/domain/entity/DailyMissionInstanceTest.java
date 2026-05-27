@@ -290,6 +290,43 @@ class DailyMissionInstanceTest {
         }
 
         @Test
+        @DisplayName("QA-153: 목표 시간 달성 시 targetDurationMinutes + bonusExpOnFullCompletion 을 반환한다")
+        void calculateExpByDuration_targetReached_addsBonus() {
+            // given: target=240, bonus=60, expPerCompletion=10 인 인스턴스를 243분 수행
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            TestReflectionUtils.setField(instance, "targetDurationMinutes", 240);
+            TestReflectionUtils.setField(instance, "bonusExpOnFullCompletion", 60);
+            TestReflectionUtils.setField(instance, "expPerCompletion", 10);
+            instance.start();
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(243));
+            instance.complete();
+
+            // when
+            int exp = instance.calculateExpByDuration();
+
+            // then: 240 + 60 = 300 (이전엔 expPerCompletion=10 을 더해 250 으로 잘못 계산됨)
+            assertThat(exp).isEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("QA-153: 목표 시간 미달 시에는 실제 수행 분만 반환한다")
+        void calculateExpByDuration_targetNotReached_returnsElapsed() {
+            // given: target=240, 60분만 수행
+            DailyMissionInstance instance = createInstance(LocalDate.now());
+            TestReflectionUtils.setField(instance, "targetDurationMinutes", 240);
+            TestReflectionUtils.setField(instance, "bonusExpOnFullCompletion", 60);
+            instance.start();
+            TestReflectionUtils.setField(instance, "startedAt", LocalDateTime.now().minusMinutes(60));
+            instance.complete();
+
+            // when
+            int exp = instance.calculateExpByDuration();
+
+            // then: bonus 미적용, 실제 분만
+            assertThat(exp).isGreaterThanOrEqualTo(59).isLessThanOrEqualTo(60);
+        }
+
+        @Test
         @DisplayName("최대 480분(8시간)까지만 경험치를 계산한다")
         void calculateExpByDuration_cappedAt480() {
             // given

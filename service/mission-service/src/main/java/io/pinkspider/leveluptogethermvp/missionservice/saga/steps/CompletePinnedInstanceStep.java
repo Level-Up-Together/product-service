@@ -86,6 +86,17 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
                             instance.getId(), elapsed, missionExecutionProperties.getBaseExp());
                     }
                 }
+                // QA-153: 목표 시간 달성 여부 식별 → UpdateUserStatsStep 에서 클리어 미션북 카운트 증가
+                if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0
+                    && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
+                    long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
+                    if (elapsed >= instance.getTargetDurationMinutes()) {
+                        int bonus = instance.getBonusExpOnFullCompletion() != null
+                            ? instance.getBonusExpOnFullCompletion() : 0;
+                        context.setFullCompletionBonusGranted(true);
+                        context.setFullCompletionBonusExp(bonus);
+                    }
+                }
             }
 
             // 계산된 경험치를 context에 반영

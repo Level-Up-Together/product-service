@@ -89,8 +89,12 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                 if (mission.getTargetDurationMinutes() != null && mission.getTargetDurationMinutes() > 0) {
                     // 목표시간 설정 미션: 목표시간 기반 XP (2시간 제한 미적용)
                     if (elapsed >= mission.getTargetDurationMinutes()) {
-                        int bonus = mission.getExpPerCompletion() != null ? mission.getExpPerCompletion() : 0;
+                        // QA-153: 추가 보상은 bonusExpOnFullCompletion. 이전엔 expPerCompletion 을 잘못 가산.
+                        int bonus = mission.getBonusExpOnFullCompletion() != null
+                            ? mission.getBonusExpOnFullCompletion() : 0;
                         execution.setExpEarned(mission.getTargetDurationMinutes() + bonus);
+                        context.setFullCompletionBonusGranted(true);
+                        context.setFullCompletionBonusExp(bonus);
                     } else {
                         execution.setExpEarned((int) Math.max(1, elapsed));
                     }

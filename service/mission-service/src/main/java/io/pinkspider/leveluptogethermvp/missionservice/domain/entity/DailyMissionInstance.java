@@ -105,6 +105,15 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
     @Comment("목표 수행 시간 (분) - 스냅샷")
     private Integer targetDurationMinutes;
 
+    /**
+     * QA-153: 목표 수행 시간 도달 시 부여되는 추가 보상 EXP (스냅샷).
+     * 기존에는 expPerCompletion 을 잘못 가산하던 버그가 있어 별도 컬럼으로 분리한다.
+     */
+    @Column(name = "bonus_exp_on_full_completion")
+    @Comment("목표 도달 시 추가 보상 EXP (스냅샷)")
+    @Builder.Default
+    private Integer bonusExpOnFullCompletion = 0;
+
     // ============ 수행 상태 ============
 
     @NotNull
@@ -210,10 +219,11 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
      * 경험치 계산: 목표시간 기반 보너스 포함
      *
      * 목표시간(targetDurationMinutes) 설정 시:
-     * - 목표시간 달성: targetDurationMinutes + expPerCompletion (보너스)
+     * - 목표시간 달성: targetDurationMinutes + bonusExpOnFullCompletion (추가 보상)
      * - 목표시간 미달: 실제 수행 분 (1분=1XP)
      *
      * 목표시간 미설정 시: 분당 1 EXP, 최대 480
+     * QA-153: 이전에는 bonus 자리에 expPerCompletion 을 잘못 사용해 추가 보상이 누락됐다.
      */
     @Override
     public int calculateExpByDuration() {
@@ -224,7 +234,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
 
         if (this.targetDurationMinutes != null && this.targetDurationMinutes > 0) {
             if (elapsed >= this.targetDurationMinutes) {
-                int bonus = this.expPerCompletion != null ? this.expPerCompletion : 0;
+                int bonus = this.bonusExpOnFullCompletion != null ? this.bonusExpOnFullCompletion : 0;
                 return this.targetDurationMinutes + bonus;
             }
             return (int) Math.max(1, elapsed);
@@ -288,6 +298,7 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
             .categoryId(categoryId)
             .expPerCompletion(mission.getExpPerCompletion())
             .targetDurationMinutes(mission.getTargetDurationMinutes())
+            .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
             .status(ExecutionStatus.PENDING)
             .expEarned(0)
             .completionCount(0)

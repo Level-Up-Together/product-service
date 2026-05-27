@@ -76,6 +76,14 @@ public class UserStatsService {
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
+    public void undoMissionFullCompletion(String userId) {
+        UserStats stats = getOrCreateUserStats(userId);
+        stats.decrementMissionFullCompletion();
+        log.debug("미션 전체 완료 보상 처리: userId={}, totalFullCompletions={}",
+            userId, stats.getTotalMissionFullCompletions());
+    }
+
+    @Transactional(transactionManager = "gamificationTransactionManager")
     public void recordAchievementCompleted(String userId) {
         UserStats stats = getOrCreateUserStats(userId);
         stats.incrementAchievementCompleted();

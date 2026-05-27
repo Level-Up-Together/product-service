@@ -145,6 +145,13 @@ public class UserStats extends LocalDateTimeBaseEntity {
         }
     }
 
+    public void decrementMissionFullCompletion() {
+        if (this.totalMissionFullCompletions > 0) {
+            this.totalMissionFullCompletions--;
+            updateRankingPoints();
+        }
+    }
+
     public void decrementGuildMissionCompletion() {
         if (this.totalGuildMissionCompletions > 0) {
             this.totalGuildMissionCompletions--;
