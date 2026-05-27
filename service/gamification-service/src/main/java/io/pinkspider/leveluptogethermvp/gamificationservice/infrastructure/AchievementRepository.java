@@ -84,4 +84,10 @@ public interface AchievementRepository extends JpaRepository<Achievement, Long> 
      */
     @Query("SELECT a FROM Achievement a WHERE a.isActive = true AND a.isHidden = false ORDER BY a.id ASC")
     List<Achievement> findVisibleAchievementsOrderByIdAsc();
+
+    /**
+     * QA-154: 특정 check_logic_type 을 참조하는 업적 개수.
+     * 삭제 가드 + 운영자 안내 메시지에 사용.
+     */
+    long countByCheckLogicTypeId(Long checkLogicTypeId);
 }

@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.checklogic.domain.dt
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.CheckLogicType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicComparisonOperator;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.CheckLogicDataSource;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.CheckLogicTypeRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
@@ -30,6 +31,7 @@ public class CheckLogicTypeAdminService {
 
     private final CheckLogicTypeRepository checkLogicTypeRepository;
     private final MissionCategoryService missionCategoryService;
+    private final AchievementRepository achievementRepository;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public CheckLogicTypeAdminPageResponse searchCheckLogicTypes(Pageable pageable) {
@@ -162,6 +164,15 @@ public class CheckLogicTypeAdminService {
     public void deleteCheckLogicType(Long id) {
         CheckLogicType entity = checkLogicTypeRepository.findById(id)
             .orElseThrow(() -> new CustomException("120201", "error.checklogic.not_found"));
+
+        // QA-154: achievement 가 참조 중이면 FK violation 으로 500 발생 → 사전 확인 후 명확한 에러 반환.
+        long referencingAchievements = achievementRepository.countByCheckLogicTypeId(id);
+        if (referencingAchievements > 0) {
+            log.warn("체크 로직 유형 삭제 거부 (참조 업적 존재): id={}, code={}, refs={}",
+                id, entity.getCode(), referencingAchievements);
+            throw new CustomException("120203", "error.checklogic.in_use");
+        }
+
         log.info("체크 로직 유형 삭제: {} (ID: {})", entity.getCode(), id);
         checkLogicTypeRepository.delete(entity);
     }

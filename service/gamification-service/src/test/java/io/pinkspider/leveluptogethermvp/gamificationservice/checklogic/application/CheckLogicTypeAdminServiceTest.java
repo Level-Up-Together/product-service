@@ -44,6 +44,9 @@ class CheckLogicTypeAdminServiceTest {
     @Mock
     private MissionCategoryService missionCategoryService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository achievementRepository;
+
     @InjectMocks
     private CheckLogicTypeAdminService checkLogicTypeAdminService;
 
@@ -494,11 +497,12 @@ class CheckLogicTypeAdminServiceTest {
     class DeleteCheckLogicTypeTest {
 
         @Test
-        @DisplayName("체크 로직 유형을 삭제한다")
+        @DisplayName("참조 업적이 없으면 체크 로직 유형을 삭제한다")
         void deleteCheckLogicType_success() {
             // given
             CheckLogicType entity = createCheckLogicType(1L, "MISSION_COUNT", true);
             when(checkLogicTypeRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(achievementRepository.countByCheckLogicTypeId(1L)).thenReturn(0L);
 
             // when
             checkLogicTypeAdminService.deleteCheckLogicType(1L);
@@ -517,6 +521,21 @@ class CheckLogicTypeAdminServiceTest {
             assertThatThrownBy(() -> checkLogicTypeAdminService.deleteCheckLogicType(999L))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.checklogic.not_found");
+        }
+
+        @Test
+        @DisplayName("QA-154: 참조 업적이 있으면 CustomException(in_use)을 던지고 삭제하지 않는다")
+        void deleteCheckLogicType_referencedByAchievements_throws() {
+            // given
+            CheckLogicType entity = createCheckLogicType(8L, "HOBBY_CATEGORY_EXP", true);
+            when(checkLogicTypeRepository.findById(8L)).thenReturn(Optional.of(entity));
+            when(achievementRepository.countByCheckLogicTypeId(8L)).thenReturn(12L);
+
+            // when & then
+            assertThatThrownBy(() -> checkLogicTypeAdminService.deleteCheckLogicType(8L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.checklogic.in_use");
+            verify(checkLogicTypeRepository, org.mockito.Mockito.never()).delete(any());
         }
     }
 }
