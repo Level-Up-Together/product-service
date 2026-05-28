@@ -216,6 +216,14 @@ public class AchievementAdminService {
         if (!achievementRepository.existsById(id)) {
             throw new CustomException("404", "error.achievement.not_found");
         }
+
+        // QA-157: user_achievement 가 참조 중이면 FK violation 으로 500 발생 → 사전 검증 후 명확한 에러 반환.
+        long userRefs = userAchievementRepository.countByAchievementId(id);
+        if (userRefs > 0) {
+            log.warn("업적 삭제 거부 (사용자 진행/달성 이력 존재): id={}, refs={}", id, userRefs);
+            throw new CustomException("120303", "error.achievement.in_use");
+        }
+
         achievementRepository.deleteById(id);
         log.info("업적 삭제 및 캐시 갱신: id={}", id);
     }

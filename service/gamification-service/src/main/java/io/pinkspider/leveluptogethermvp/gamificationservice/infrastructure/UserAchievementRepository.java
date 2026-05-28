@@ -45,4 +45,10 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
      */
     @Query("SELECT ua FROM UserAchievement ua WHERE ua.achievement.id = :achievementId AND ua.isCompleted = true AND ua.isRewardClaimed = true")
     List<UserAchievement> findByAchievementIdAndIsCompletedTrueAndIsRewardClaimedTrue(@Param("achievementId") Long achievementId);
+
+    /**
+     * QA-157: 어드민 업적 삭제 가드용 — 사용자 매핑(달성/진행)이 있으면 FK 위반 회피.
+     */
+    @Query("SELECT COUNT(ua) FROM UserAchievement ua WHERE ua.achievement.id = :achievementId")
+    long countByAchievementId(@Param("achievementId") Long achievementId);
 }

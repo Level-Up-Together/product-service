@@ -554,10 +554,11 @@ class AchievementAdminServiceTest {
     class DeleteAchievementTest {
 
         @Test
-        @DisplayName("업적을 삭제한다")
+        @DisplayName("참조 사용자가 없으면 업적을 삭제한다")
         void deleteAchievement_success() {
             // given
             when(achievementRepository.existsById(1L)).thenReturn(true);
+            when(userAchievementRepository.countByAchievementId(1L)).thenReturn(0L);
 
             // when
             achievementAdminService.deleteAchievement(1L);
@@ -576,6 +577,21 @@ class AchievementAdminServiceTest {
             assertThatThrownBy(() -> achievementAdminService.deleteAchievement(999L))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.achievement.not_found");
+
+            verify(achievementRepository, never()).deleteById(anyLong());
+        }
+
+        @Test
+        @DisplayName("QA-157: user_achievement 참조가 있으면 CustomException(in_use)을 던지고 삭제하지 않는다")
+        void deleteAchievement_referencedByUsers_throws() {
+            // given
+            when(achievementRepository.existsById(74L)).thenReturn(true);
+            when(userAchievementRepository.countByAchievementId(74L)).thenReturn(18L);
+
+            // when & then
+            assertThatThrownBy(() -> achievementAdminService.deleteAchievement(74L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.achievement.in_use");
 
             verify(achievementRepository, never()).deleteById(anyLong());
         }
