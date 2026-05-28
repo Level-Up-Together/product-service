@@ -384,4 +384,19 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
         @Param("userId") String userId,
         @Param("templateIds") List<Long> templateIds
     );
+
+    /**
+     * QA-158: 유저가 목표 도달한 모든 미션북 템플릿 ID (페이지 필터 없이 전체).
+     * is_deleted 조건은 의도적으로 적용하지 않음 (clear 이력은 유효).
+     */
+    @Query("SELECT DISTINCT m.baseMissionId FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.baseMissionId IS NOT NULL " +
+           "AND m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
+           "AND dmi.status = 'COMPLETED' " +
+           "AND dmi.targetDurationMinutes IS NOT NULL " +
+           "AND dmi.expEarned >= dmi.targetDurationMinutes")
+    List<Long> findAchievedTargetTemplateIdsByUserId(@Param("userId") String userId);
 }

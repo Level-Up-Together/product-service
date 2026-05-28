@@ -257,4 +257,21 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         @Param("userId") String userId,
         @Param("templateIds") List<Long> templateIds
     );
+
+    /**
+     * QA-158: 유저가 목표 도달한 모든 미션북 템플릿 ID (페이지 필터 없이 전체).
+     * 마이페이지 클리어 미션북 카운트 + 미션북 has_achieved_target 정의가 동일하게 작동하도록 통일.
+     * is_deleted 조건은 의도적으로 적용하지 않음 — 사용자가 미션북에서 미션을 "삭제" 해도
+     * 과거 클리어 이력은 유효하다는 정의를 따른다 (getSystemMissions 의 기존 정의와 일치).
+     */
+    @Query("SELECT DISTINCT m.baseMissionId FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "JOIN p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND m.baseMissionId IS NOT NULL " +
+           "AND m.source = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource.SYSTEM " +
+           "AND me.status = 'COMPLETED' " +
+           "AND m.targetDurationMinutes IS NOT NULL " +
+           "AND me.expEarned >= m.targetDurationMinutes")
+    List<Long> findAchievedTargetTemplateIdsByUserId(@Param("userId") String userId);
 }
