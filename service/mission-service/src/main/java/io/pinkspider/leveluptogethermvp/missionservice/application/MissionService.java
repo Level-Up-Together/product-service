@@ -364,12 +364,36 @@ public class MissionService {
     }
 
     /**
-     * 카테고리별 시스템 미션 템플릿 목록 조회
+     * 카테고리별 시스템 미션 템플릿 목록 조회.
+     * QA-158: has_achieved_target 도 같이 채워 마이페이지/미션북 응답 정의를 일관화한다.
      */
-    public Page<MissionTemplateResponse> getSystemMissionsByCategory(Long categoryId, Pageable pageable) {
+    public Page<MissionTemplateResponse> getSystemMissionsByCategory(String userId, Long categoryId, Pageable pageable) {
         Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplatesByCategory(
             MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable);
-        return templates.map(MissionTemplateResponse::from);
+
+        if (userId == null) {
+            return templates.map(MissionTemplateResponse::from);
+        }
+
+        List<Long> templateIds = templates.stream()
+            .filter(t -> t.getTargetDurationMinutes() != null)
+            .map(MissionTemplate::getId)
+            .toList();
+
+        Set<Long> achievedIds = new HashSet<>();
+        if (!templateIds.isEmpty()) {
+            achievedIds.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIds(userId, templateIds));
+            achievedIds.addAll(executionRepository.findAchievedTargetTemplateIds(userId, templateIds));
+        }
+
+        Set<Long> finalAchievedIds = achievedIds;
+        return templates.map(t -> {
+            MissionTemplateResponse response = MissionTemplateResponse.from(t);
+            if (t.getTargetDurationMinutes() != null) {
+                response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
+            }
+            return response;
+        });
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

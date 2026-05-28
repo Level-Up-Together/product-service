@@ -1177,7 +1177,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionTemplateResponse>>() {});
         Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
 
-        when(missionService.getSystemMissionsByCategory(anyLong(), any()))
+        when(missionService.getSystemMissionsByCategory(any(), anyLong(), any()))
             .thenReturn(responses);
 
         // when

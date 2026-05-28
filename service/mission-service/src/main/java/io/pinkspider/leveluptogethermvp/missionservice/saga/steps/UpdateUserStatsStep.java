@@ -44,21 +44,16 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
             // 미션 완료 기록 (pinned 미션은 길드 미션이 아님 → isGuildMission()이 false 반환)
             gamificationQueryFacadeService.recordMissionCompletion(userId, isGuildMission);
 
-            // QA-153: 목표 시간을 달성(full completion)한 경우 별도 카운트 증가 (마이페이지 "클리어 미션북")
-            if (context.isFullCompletionBonusGranted()) {
-                Integer durationDays = context.getMission() != null
-                    ? context.getMission().getDurationDays() : null;
-                gamificationQueryFacadeService.recordMissionFullCompletion(userId,
-                    durationDays != null ? durationDays : 0);
-            }
+            // QA-158: "클리어 미션북" 카운트는 누적이 아닌 유니크 mission_template 기반으로 응답 시점 계산.
+            // QA-153 에서 추가한 recordMissionFullCompletion 호출은 더 이상 사용하지 않는다.
 
             // 동적 Strategy 패턴으로 USER_STATS 관련 업적 체크
             gamificationQueryFacadeService.checkAchievementsByDataSource(userId, "USER_STATS");
 
             UserStatsDto updatedStats = gamificationQueryFacadeService.getOrCreateUserStats(userId);
-            log.info("User stats updated: userId={}, totalCompletions={}, totalFullCompletions={}, streak={}, pinned={}",
+            log.info("User stats updated: userId={}, totalCompletions={}, streak={}, pinned={}",
                 userId, updatedStats.totalMissionCompletions(),
-                updatedStats.totalMissionFullCompletions(), updatedStats.currentStreak(), context.isPinned());
+                updatedStats.currentStreak(), context.isPinned());
 
             return SagaStepResult.success("사용자 통계 업데이트 완료");
 
@@ -78,11 +73,8 @@ public class UpdateUserStatsStep implements SagaStep<MissionCompletionContext> {
         try {
             boolean isGuildMission = context.isGuildMission();
             gamificationQueryFacadeService.undoMissionCompletion(userId, isGuildMission);
-            if (context.isFullCompletionBonusGranted()) {
-                gamificationQueryFacadeService.undoMissionFullCompletion(userId);
-            }
-            log.info("User stats compensated: userId={}, isGuildMission={}, fullCompletionUndone={}",
-                userId, isGuildMission, context.isFullCompletionBonusGranted());
+            // QA-158: fullCompletion 누적 사용 안 함 → 보상도 없음.
+            log.info("User stats compensated: userId={}, isGuildMission={}", userId, isGuildMission);
 
             return SagaStepResult.success("사용자 통계 복원 완료");
 

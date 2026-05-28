@@ -196,4 +196,40 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
     long countActivePersonalByCreatorId(@Param("creatorId") String creatorId);
+
+    /**
+     * QA-158: 특정 유저가 목표 도달(elapsed >= target_duration_minutes)을 한 적이 있는
+     * 유니크 mission_template (base_mission_id) ID 목록.
+     * 같은 템플릿을 여러 번 클리어해도 1건. is_deleted, status 조건도 함께 검증.
+     */
+    @Query(value = """
+        SELECT DISTINCT m.base_mission_id
+        FROM mission m
+        JOIN mission_participant mp ON mp.mission_id = m.id
+        WHERE mp.user_id = :userId
+          AND m.base_mission_id IS NOT NULL
+          AND m.source = 'SYSTEM'
+          AND m.is_deleted = false
+          AND m.target_duration_minutes IS NOT NULL
+          AND m.target_duration_minutes > 0
+          AND (
+            EXISTS (
+              SELECT 1 FROM mission_execution me
+              WHERE me.participant_id = mp.id
+                AND me.status = 'COMPLETED'
+                AND me.started_at IS NOT NULL
+                AND me.completed_at IS NOT NULL
+                AND EXTRACT(EPOCH FROM (me.completed_at - me.started_at))/60 >= m.target_duration_minutes
+            )
+            OR EXISTS (
+              SELECT 1 FROM daily_mission_instance dmi
+              WHERE dmi.participant_id = mp.id
+                AND dmi.status = 'COMPLETED'
+                AND dmi.started_at IS NOT NULL
+                AND dmi.completed_at IS NOT NULL
+                AND EXTRACT(EPOCH FROM (dmi.completed_at - dmi.started_at))/60 >= dmi.target_duration_minutes
+            )
+          )
+        """, nativeQuery = true)
+    List<Long> findClearedMissionTemplateIdsByUserId(@Param("userId") String userId);
 }

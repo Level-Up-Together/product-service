@@ -129,9 +129,11 @@ public class MissionController {
     @GetMapping("/system/category/{categoryId}")
     public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissionsByCategory(
         @PathVariable Long categoryId,
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<MissionTemplateResponse> responses = missionService.getSystemMissionsByCategory(categoryId, pageable);
+        Page<MissionTemplateResponse> responses =
+            missionService.getSystemMissionsByCategory(userId, categoryId, pageable);
         return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 

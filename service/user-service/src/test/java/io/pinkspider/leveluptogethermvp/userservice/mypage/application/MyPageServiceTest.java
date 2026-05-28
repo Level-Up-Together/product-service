@@ -81,6 +81,9 @@ class MyPageServiceTest {
     private GuildQueryFacade guildQueryFacadeService;
 
     @Mock
+    private io.pinkspider.global.facade.MissionQueryFacade missionQueryFacadeService;
+
+    @Mock
     private ContentReviewChecker contentReviewChecker;
 
     @Mock
@@ -1089,6 +1092,32 @@ class MyPageServiceTest {
 
             // then
             assertThat(result.getUserInfo().getDaysSinceJoined()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("QA-158: clearedMissionBooksCount 는 MissionQueryFacade 의 유니크 클리어 카운트를 사용한다")
+        void buildUserInfo_clearedMissionBooksCount_fromFacade() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(TEST_USER_ID))
+                .thenReturn(new UserExperienceDto(null, TEST_USER_ID, 1, 0, 0, null, null, null));
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2))
+                .thenReturn(UserLevelConfig.builder().requiredExp(100).build());
+            when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
+            // facade 가 유니크 카운트 3 을 반환
+            when(missionQueryFacadeService.countClearedMissionBookTemplates(TEST_USER_ID)).thenReturn(3);
+
+            // when
+            MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
+
+            // then
+            assertThat(result.getUserInfo().getClearedMissionBooksCount()).isEqualTo(3);
+            org.mockito.Mockito.verify(missionQueryFacadeService).countClearedMissionBookTemplates(TEST_USER_ID);
         }
     }
 

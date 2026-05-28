@@ -7,6 +7,7 @@ import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
@@ -61,6 +62,7 @@ public class MyPageService {
     private final UserLevelConfigCacheService userLevelConfigCacheService;
     private final ProfileImageStorageService profileImageStorageService;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final MissionQueryFacade missionQueryFacadeService;
     private final ContentReviewChecker contentReviewChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final UserProfileCacheService userProfileCacheService;
@@ -556,7 +558,8 @@ public class MyPageService {
             .startDate(startDate)
             .daysSinceJoined(daysSinceJoined)
             .clearedMissionsCount(stats.totalMissionCompletions())
-            .clearedMissionBooksCount(stats.totalMissionFullCompletions())
+            // QA-158: 유니크 미션북(mission_template) 클리어 수. UserStats 누적값이 아닌 실시간 distinct count.
+            .clearedMissionBooksCount(missionQueryFacadeService.countClearedMissionBookTemplates(userId))
             .rankingPercentile(rankingPercentile)
             .acquiredTitlesCount((int) titlesCount)
             .rankingPoints(stats.rankingPoints())
