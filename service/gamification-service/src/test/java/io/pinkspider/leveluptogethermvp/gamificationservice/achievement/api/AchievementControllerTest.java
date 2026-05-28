@@ -236,7 +236,12 @@ class AchievementControllerTest {
                             fieldWithPath("value[].is_reward_claimed").type(JsonFieldType.BOOLEAN).description("보상 수령 여부"),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료 일시").optional(),
                             fieldWithPath("value[].reward_exp").type(JsonFieldType.NUMBER).description("보상 경험치").optional(),
-                            fieldWithPath("value[].reward_title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional()
+                            fieldWithPath("value[].reward_title_id").type(JsonFieldType.NUMBER).description("보상 칭호 ID").optional(),
+                            // QA-159: 보상 칭호 이름/등급 + 체크로직 식별 필드
+                            fieldWithPath("value[].reward_title_name").type(JsonFieldType.STRING).description("보상 칭호 이름").optional(),
+                            fieldWithPath("value[].reward_title_rarity").type(JsonFieldType.STRING).description("보상 칭호 등급 (COMMON/RARE/EPIC/LEGENDARY)").optional(),
+                            fieldWithPath("value[].check_logic_type_id").type(JsonFieldType.NUMBER).description("체크 로직 유형 ID (시리즈 그룹화용)").optional(),
+                            fieldWithPath("value[].check_logic_data_field").type(JsonFieldType.STRING).description("체크 로직 데이터 필드 (시리즈 그룹화용)").optional()
                         )
                         .build()
                 )
