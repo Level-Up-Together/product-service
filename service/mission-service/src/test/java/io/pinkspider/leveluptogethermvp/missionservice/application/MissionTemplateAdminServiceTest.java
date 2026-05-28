@@ -340,6 +340,24 @@ class MissionTemplateAdminServiceTest {
 
             assertThat(result).isNotNull();
         }
+
+        @Test
+        @DisplayName("QA-160: 수정 시 duration/target/bonusExp 가 복제된 mission 인스턴스로 전파된다")
+        void cascadeRewardFieldsToClonedMissions() {
+            MissionTemplate existing = createTestTemplate(1L);
+            MissionTemplateAdminRequest request = new MissionTemplateAdminRequest(
+                "수정 미션", null, null, null, "설명", null, null, null,
+                "PUBLIC", "SYSTEM", "DIRECT", "DAILY",
+                20, 100, false, 10, null, null, null
+            );
+            when(templateRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(templateRepository.save(any(MissionTemplate.class))).thenReturn(existing);
+            when(missionRepository.updateRewardFieldsByBaseMissionId(1L, 20, 10, 100)).thenReturn(3);
+
+            service.updateTemplate(1L, request);
+
+            verify(missionRepository).updateRewardFieldsByBaseMissionId(1L, 20, 10, 100);
+        }
     }
 
     @Nested

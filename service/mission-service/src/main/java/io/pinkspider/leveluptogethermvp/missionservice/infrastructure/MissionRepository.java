@@ -171,15 +171,19 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("templateId") Long templateId,
         @Param("creatorId") String creatorId);
 
-    // 템플릿에서 복제된 미션들의 시간 설정 일괄 업데이트
+    // QA-160: 템플릿 수정 시 이미 복제된 mission 인스턴스에 어드민 정책값을 전파.
+    // duration/target/bonusExp 3종 cascade. expPerCompletion 은 template 컬럼이 없어 대상 아님.
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional(transactionManager = "missionTransactionManager")
-    @Query("UPDATE Mission m SET m.durationMinutes = :durationMinutes, m.targetDurationMinutes = :targetDurationMinutes " +
+    @Query("UPDATE Mission m SET m.durationMinutes = :durationMinutes, " +
+           "m.targetDurationMinutes = :targetDurationMinutes, " +
+           "m.bonusExpOnFullCompletion = :bonusExpOnFullCompletion " +
            "WHERE m.baseMissionId = :templateId AND m.isDeleted = false")
-    int updateDurationByBaseMissionId(
+    int updateRewardFieldsByBaseMissionId(
         @Param("templateId") Long templateId,
         @Param("durationMinutes") Integer durationMinutes,
-        @Param("targetDurationMinutes") Integer targetDurationMinutes);
+        @Param("targetDurationMinutes") Integer targetDurationMinutes,
+        @Param("bonusExpOnFullCompletion") Integer bonusExpOnFullCompletion);
 
     /**
      * 활성 개인(PERSONAL) 미션 보유 개수 조회.

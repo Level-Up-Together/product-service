@@ -160,11 +160,14 @@ public class MissionTemplateAdminService {
 
         MissionTemplate saved = templateRepository.save(template);
 
-        // 복제된 미션들에 시간 설정 전파
-        int propagated = missionRepository.updateDurationByBaseMissionId(
-            id, saved.getDurationMinutes(), saved.getTargetDurationMinutes());
+        // QA-160: 복제된 미션들에 어드민 정책값 전파 (duration/target/bonusExp).
+        int propagated = missionRepository.updateRewardFieldsByBaseMissionId(
+            id,
+            saved.getDurationMinutes(),
+            saved.getTargetDurationMinutes(),
+            saved.getBonusExpOnFullCompletion());
         if (propagated > 0) {
-            log.info("템플릿 시간 설정 전파: templateId={}, 업데이트된 미션 {}개", id, propagated);
+            log.info("템플릿 정책 전파: templateId={}, 업데이트된 미션 {}개", id, propagated);
         }
 
         log.info("미션 템플릿 수정 (Admin): {} (ID: {})", request.title(), id);
