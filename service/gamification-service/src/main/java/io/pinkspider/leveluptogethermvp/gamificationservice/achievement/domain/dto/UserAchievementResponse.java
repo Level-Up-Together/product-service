@@ -2,6 +2,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -35,17 +37,33 @@ public class UserAchievementResponse {
     private Integer rewardExp;
     private Long rewardTitleId;
 
+    // QA-159: 보상 칭호 이름 + 등급 (achievement.reward_title_id -> Title 조회)
+    private String rewardTitleName;
+    private TitleRarity rewardTitleRarity;
+
+    // QA-159: 카테고리 내 시리즈 구분용 (GUILD/SOCIAL 카테고리에서 다른 체크로직 그룹화)
+    private Long checkLogicTypeId;
+    private String checkLogicDataField;
+
     public static UserAchievementResponse from(UserAchievement userAchievement) {
-        return from(userAchievement, Collections.emptyMap());
+        return from(userAchievement, Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    public static UserAchievementResponse from(UserAchievement userAchievement,
+                                                Map<Long, String> categoryNamesById) {
+        return from(userAchievement, categoryNamesById, Collections.emptyMap());
     }
 
     /**
      * QA-149: mission_category_name 컬럼이 NULL 인 데이터가 다수라 메타 카테고리 이름을 lookup 으로 채운다.
-     * achievement.missionCategoryName 이 있으면 그걸 우선, 없으면 categoryNamesById 에서 조회.
+     * QA-159: 보상 칭호 이름/등급, 체크로직 식별 필드도 함께 채워서 프론트가 시리즈 그룹화 가능하게 한다.
      */
     public static UserAchievementResponse from(UserAchievement userAchievement,
-                                                Map<Long, String> categoryNamesById) {
+                                                Map<Long, String> categoryNamesById,
+                                                Map<Long, Title> titlesById) {
         var achievement = userAchievement.getAchievement();
+        Title rewardTitle = achievement.getRewardTitleId() != null
+            ? titlesById.get(achievement.getRewardTitleId()) : null;
         return UserAchievementResponse.builder()
             .id(userAchievement.getId())
             .achievementId(achievement.getId())
@@ -64,6 +82,10 @@ public class UserAchievementResponse {
             .isRewardClaimed(userAchievement.getIsRewardClaimed())
             .rewardExp(achievement.getRewardExp())
             .rewardTitleId(achievement.getRewardTitleId())
+            .rewardTitleName(rewardTitle != null ? rewardTitle.getName() : null)
+            .rewardTitleRarity(rewardTitle != null ? rewardTitle.getRarity() : null)
+            .checkLogicTypeId(achievement.getCheckLogicTypeId())
+            .checkLogicDataField(achievement.getCheckLogicDataField())
             .build();
     }
 

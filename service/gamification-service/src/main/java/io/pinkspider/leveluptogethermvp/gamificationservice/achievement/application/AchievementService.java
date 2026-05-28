@@ -11,11 +11,13 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementCheckStrategyRegistry;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.strategy.AchievementSyncContext;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Achievement;
+import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAchievement;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.AchievementRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserAchievementRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
@@ -60,6 +62,7 @@ public class AchievementService {
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final GuildQueryFacade guildQueryFacade;
     private final MissionCategoryService missionCategoryService;
+    private final TitleRepository titleRepository;
 
     // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
@@ -96,42 +99,46 @@ public class AchievementService {
 
     // 유저의 업적 목록 조회
     public List<UserAchievementResponse> getUserAchievements(String userId) {
-        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
-        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
-        return userAchievementRepository.findByUserIdWithAchievement(userId).stream()
-            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
-            .toList();
+        return buildUserAchievementResponses(userAchievementRepository.findByUserIdWithAchievement(userId));
     }
 
     public List<UserAchievementResponse> getCompletedAchievements(String userId) {
-        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
-        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
-        return userAchievementRepository.findCompletedByUserId(userId).stream()
-            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
-            .toList();
+        return buildUserAchievementResponses(userAchievementRepository.findCompletedByUserId(userId));
     }
 
     public List<UserAchievementResponse> getInProgressAchievements(String userId) {
-        List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
-        Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
-        return userAchievementRepository.findInProgressByUserId(userId).stream()
-            .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
-            .toList();
+        return buildUserAchievementResponses(userAchievementRepository.findInProgressByUserId(userId));
     }
 
     public List<UserAchievementResponse> getClaimableAchievements(String userId) {
+        return buildUserAchievementResponses(userAchievementRepository.findClaimableByUserId(userId));
+    }
+
+    /**
+     * QA-159: 마이페이지 업적 응답 빌더 — 메타 카테고리 이름 + 보상 칭호(name/rarity) 를 일괄 enrich.
+     * QA-145 안전망(orphaned mission_category)도 함께 적용.
+     */
+    private List<UserAchievementResponse> buildUserAchievementResponses(List<UserAchievement> userAchievements) {
         List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
         Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
-        return userAchievementRepository.findClaimableByUserId(userId).stream()
+
+        List<UserAchievement> filtered = userAchievements.stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
-            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById))
+            .toList();
+
+        Set<Long> titleIds = filtered.stream()
+            .map(ua -> ua.getAchievement().getRewardTitleId())
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        Map<Long, Title> titlesById = titleIds.isEmpty()
+            ? Collections.emptyMap()
+            : titleRepository.findAllById(titleIds).stream()
+                .collect(Collectors.toMap(Title::getId, t -> t));
+
+        return filtered.stream()
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById, titlesById))
             .toList();
     }
 

@@ -87,6 +87,9 @@ class AchievementServiceTest {
     @Mock
     private MissionCategoryService missionCategoryService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.TitleRepository titleRepository;
+
     @InjectMocks
     private AchievementService achievementService;
 
@@ -186,6 +189,51 @@ class AchievementServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getName()).isEqualTo("FIRST_MISSION_COMPLETE");
+        }
+
+        @Test
+        @DisplayName("QA-159: 응답에 보상 칭호 이름/등급과 check_logic 식별 필드가 채워진다")
+        void getUserAchievements_QA159_rewardTitleAndCheckLogic() {
+            // given: rewardTitleId=10, checkLogicTypeId=5, dataField=guildJoinCount 인 길드 가입 업적
+            Achievement achievement = Achievement.builder()
+                .name("길드 첫 가입")
+                .description("길드에 최초 가입")
+                .categoryCode("GUILD")
+                .requiredCount(1)
+                .rewardExp(50)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicTypeId(5L)
+                .checkLogicDataSource("USER_STATS")
+                .checkLogicDataField("guildJoinCount")
+                .comparisonOperator("GTE")
+                .rewardTitleId(10L)
+                .build();
+            setId(achievement, 1L);
+            UserAchievement ua = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+
+            io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title title =
+                io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title.builder()
+                    .name("최초의")
+                    .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
+                    .build();
+            setId(title, 10L);
+
+            when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
+                .thenReturn(List.of(ua));
+            when(titleRepository.findAllById(java.util.Set.of(10L))).thenReturn(List.of(title));
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            UserAchievementResponse r = result.get(0);
+            assertThat(r.getRewardTitleId()).isEqualTo(10L);
+            assertThat(r.getRewardTitleName()).isEqualTo("최초의");
+            assertThat(r.getRewardTitleRarity()).isEqualTo(io.pinkspider.global.enums.TitleRarity.LEGENDARY);
+            assertThat(r.getCheckLogicTypeId()).isEqualTo(5L);
+            assertThat(r.getCheckLogicDataField()).isEqualTo("guildJoinCount");
         }
 
         @Test
