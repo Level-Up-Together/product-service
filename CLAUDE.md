@@ -45,7 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Platform shared library** (`../level-up-together-platform`):
 
 - `kernel` — ApiResult, CustomException, Base Entity, Domain Events, **Facade 인터페이스** (UserQueryFacade,
-  GuildQueryFacade, GamificationQueryFacade)
+  GuildQueryFacade, GamificationQueryFacade, MissionQueryFacade)
 - `infra` — RedisConfig, JpaAuditingConfig, QueryDslConfig, JwtAuthenticationFilter, RestExceptionHandler,
   CryptoConverter
 - `saga` — SagaOrchestrator, AbstractSagaStep, SagaDataSourceConfig

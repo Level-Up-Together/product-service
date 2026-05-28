@@ -46,7 +46,7 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 
 **주요 아키텍처 특징:**
 
-- **Facade Pattern**: 서비스 간 통신은 Facade 인터페이스 (`UserQueryFacade`, `GuildQueryFacade`, `GamificationQueryFacade`)를 통해 수행
+- **Facade Pattern**: 서비스 간 통신은 Facade 인터페이스 (`UserQueryFacade`, `GuildQueryFacade`, `GamificationQueryFacade`, `MissionQueryFacade`)를 통해 수행
 - **Event-Driven**: Spring Events를 활용한 서비스 간 느슨한 결합 + 프로필 스냅샷 동기화
 - **Redis Caching**: 자주 조회되는 데이터의 캐싱으로 성능 최적화
 - **Redis Streams**: `AppPushMessageProducer/Consumer`로 인앱 알림 비동기 발행
@@ -166,7 +166,7 @@ graph LR
     end
 
     subgraph "Infrastructure"
-        FACADE["Facade Interfaces<br/>(UserQuery/GuildQuery/GamificationQuery)"]
+        FACADE["Facade Interfaces<br/>(UserQuery/GuildQuery/GamificationQuery/MissionQuery)"]
         SAGA["saga"]
         EVENTS["Spring Events"]
         CACHE["Redis Cache"]
@@ -461,7 +461,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 미션 참가자 진행 상태 추적
 - 미션 실행 스케줄 자동 생성
 - 미션 완료 시 경험치 지급 (2시간 기준 차등 지급)
-- 미션북 (시스템 미션 라이브러리, 템플릿 수정 시 복제 미션에 duration 자동 전파)
+- 미션북 (시스템 미션 라이브러리, 템플릿 수정 시 복제 미션에 duration/target/bonusExp 자동 전파)
 - Saga 패턴 기반 분산 트랜잭션 관리
 - **수행 방식 (Execution Mode)**: TIMED (시간 측정, 분당 1 EXP) / SIMPLE (수행 여부 체크, 고정 +5 EXP, 하루 10회 제한)
 - **고정 미션 (Pinned Mission)**: Template-Instance 패턴
