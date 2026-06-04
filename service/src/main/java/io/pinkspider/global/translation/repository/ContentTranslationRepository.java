@@ -20,20 +20,13 @@ public interface ContentTranslationRepository extends JpaRepository<ContentTrans
      * 특정 콘텐츠의 특정 필드 번역 조회
      */
     Optional<ContentTranslation> findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
-        ContentType contentType,
-        Long contentId,
-        String fieldName,
-        String targetLocale
-    );
+            ContentType contentType, Long contentId, String fieldName, String targetLocale);
 
     /**
      * 특정 콘텐츠의 모든 번역 조회
      */
     List<ContentTranslation> findByContentTypeAndContentIdAndTargetLocale(
-        ContentType contentType,
-        Long contentId,
-        String targetLocale
-    );
+            ContentType contentType, Long contentId, String targetLocale);
 
     /**
      * 특정 콘텐츠의 모든 번역 삭제 (콘텐츠 삭제 시)
@@ -41,18 +34,11 @@ public interface ContentTranslationRepository extends JpaRepository<ContentTrans
     @Modifying
     @Query("DELETE FROM ContentTranslation ct WHERE ct.contentType = :contentType AND ct.contentId = :contentId")
     void deleteByContentTypeAndContentId(
-        @Param("contentType") ContentType contentType,
-        @Param("contentId") Long contentId
-    );
+            @Param("contentType") ContentType contentType, @Param("contentId") Long contentId);
 
     /**
      * 원문 해시로 번역 조회 (캐시 유효성 검증용)
      */
     Optional<ContentTranslation> findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-        ContentType contentType,
-        Long contentId,
-        String fieldName,
-        String targetLocale,
-        String originalHash
-    );
+            ContentType contentType, Long contentId, String fieldName, String targetLocale, String originalHash);
 }

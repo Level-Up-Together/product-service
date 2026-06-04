@@ -29,25 +29,25 @@ public class ProfanityWordAdminService {
 
     public List<ProfanityWordResponse> getAllProfanityWords() {
         return profanityWordRepository.findAll().stream()
-            .map(ProfanityWordResponse::from)
-            .collect(Collectors.toList());
+                .map(ProfanityWordResponse::from)
+                .collect(Collectors.toList());
     }
 
     public List<ProfanityWordResponse> getActiveProfanityWords() {
         return profanityWordRepository.findAllByIsActiveTrue().stream()
-            .map(ProfanityWordResponse::from)
-            .collect(Collectors.toList());
+                .map(ProfanityWordResponse::from)
+                .collect(Collectors.toList());
     }
 
     public ProfanityWordPageResponse searchProfanityWords(String keyword, Pageable pageable) {
         return ProfanityWordPageResponse.from(
-            profanityWordRepository.searchByKeyword(keyword, pageable)
-                .map(ProfanityWordResponse::from));
+                profanityWordRepository.searchByKeyword(keyword, pageable).map(ProfanityWordResponse::from));
     }
 
     public ProfanityWordResponse getProfanityWord(Long id) {
-        ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
+        ProfanityWord word = profanityWordRepository
+                .findById(id)
+                .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
         return ProfanityWordResponse.from(word);
     }
 
@@ -60,13 +60,13 @@ public class ProfanityWordAdminService {
         }
 
         ProfanityWord word = ProfanityWord.builder()
-            .locale(locale)
-            .word(request.getWord())
-            .category(request.getCategory())
-            .severity(request.getSeverity())
-            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-            .description(request.getDescription())
-            .build();
+                .locale(locale)
+                .word(request.getWord())
+                .category(request.getCategory())
+                .severity(request.getSeverity())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .description(request.getDescription())
+                .build();
 
         ProfanityWord saved = profanityWordRepository.save(word);
         log.info("금칙어 생성: word={}", saved.getWord());
@@ -76,12 +76,13 @@ public class ProfanityWordAdminService {
     @CacheEvict(value = "profanityWords", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
     public ProfanityWordResponse updateProfanityWord(Long id, ProfanityWordRequest request) {
-        ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
+        ProfanityWord word = profanityWordRepository
+                .findById(id)
+                .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
 
         String locale = request.getLocale() != null ? request.getLocale() : word.getLocale();
         if ((!word.getWord().equals(request.getWord()) || !word.getLocale().equals(locale))
-            && profanityWordRepository.existsByLocaleAndWord(locale, request.getWord())) {
+                && profanityWordRepository.existsByLocaleAndWord(locale, request.getWord())) {
             throw new CustomException("400", "error.profanity.duplicate");
         }
 
@@ -110,8 +111,9 @@ public class ProfanityWordAdminService {
     @CacheEvict(value = "profanityWords", allEntries = true)
     @Transactional(transactionManager = "metaTransactionManager")
     public ProfanityWordResponse toggleActive(Long id) {
-        ProfanityWord word = profanityWordRepository.findById(id)
-            .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
+        ProfanityWord word = profanityWordRepository
+                .findById(id)
+                .orElseThrow(() -> new CustomException("404", "error.profanity.not_found"));
 
         word.setIsActive(!word.getIsActive());
         ProfanityWord saved = profanityWordRepository.save(word);

@@ -42,7 +42,7 @@ class ShedLockConfigTest {
 
         assertThat(profile).isNotNull();
         assertThat(profile.value())
-            .as("테스트 환경에서는 ShedLockConfig가 활성화되지 않아야 합니다 (Redis 연결 의존성 회피)")
-            .anyMatch(p -> p.contains("!test"));
+                .as("테스트 환경에서는 ShedLockConfig가 활성화되지 않아야 합니다 (Redis 연결 의존성 회피)")
+                .anyMatch(p -> p.contains("!test"));
     }
 }

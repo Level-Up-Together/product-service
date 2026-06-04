@@ -32,8 +32,8 @@ public enum SupportedLocale {
             return Optional.empty();
         }
         return Arrays.stream(values())
-            .filter(locale -> locale.getCode().equalsIgnoreCase(code))
-            .findFirst();
+                .filter(locale -> locale.getCode().equalsIgnoreCase(code))
+                .findFirst();
     }
 
     /**
@@ -57,8 +57,6 @@ public enum SupportedLocale {
         String primaryLang = parts[0].trim().toLowerCase();
 
         // 지원하는 언어인지 확인
-        return fromCode(primaryLang)
-            .map(SupportedLocale::getCode)
-            .orElse(DEFAULT.getCode());
+        return fromCode(primaryLang).map(SupportedLocale::getCode).orElse(DEFAULT.getCode());
     }
 }

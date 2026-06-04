@@ -23,11 +23,11 @@ public class RateLimiterConfig {
     @Bean
     public RateLimiter guildCreationRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =
-            io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
-                .limitForPeriod(3)                       // 1시간에 3회
-                .limitRefreshPeriod(Duration.ofHours(1))
-                .timeoutDuration(Duration.ofSeconds(1))
-                .build();
+                io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
+                        .limitForPeriod(3) // 1시간에 3회
+                        .limitRefreshPeriod(Duration.ofHours(1))
+                        .timeoutDuration(Duration.ofSeconds(1))
+                        .build();
 
         return rateLimiterRegistry.rateLimiter("guildCreation", config);
     }
@@ -39,11 +39,11 @@ public class RateLimiterConfig {
     @Bean
     public RateLimiter generalApiRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =
-            io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
-                .limitForPeriod(20)                      // 1초에 20회
-                .limitRefreshPeriod(Duration.ofSeconds(1))
-                .timeoutDuration(Duration.ofMillis(500))
-                .build();
+                io.github.resilience4j.ratelimiter.RateLimiterConfig.custom()
+                        .limitForPeriod(20) // 1초에 20회
+                        .limitRefreshPeriod(Duration.ofSeconds(1))
+                        .timeoutDuration(Duration.ofMillis(500))
+                        .build();
 
         return rateLimiterRegistry.rateLimiter("generalApi", config);
     }

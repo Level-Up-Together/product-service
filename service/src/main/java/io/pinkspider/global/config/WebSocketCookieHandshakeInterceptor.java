@@ -26,8 +26,11 @@ public class WebSocketCookieHandshakeInterceptor implements HandshakeInterceptor
     public static final String ATTR_ACCESS_TOKEN = "access_token";
 
     @Override
-    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                   WebSocketHandler wsHandler, Map<String, Object> attributes) {
+    public boolean beforeHandshake(
+            ServerHttpRequest request,
+            ServerHttpResponse response,
+            WebSocketHandler wsHandler,
+            Map<String, Object> attributes) {
         if (request instanceof ServletServerHttpRequest servletRequest) {
             HttpServletRequest httpRequest = servletRequest.getServletRequest();
             Cookie[] cookies = httpRequest.getCookies();
@@ -48,8 +51,8 @@ public class WebSocketCookieHandshakeInterceptor implements HandshakeInterceptor
     }
 
     @Override
-    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                               WebSocketHandler wsHandler, Exception exception) {
+    public void afterHandshake(
+            ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Exception exception) {
         // no-op
     }
 }

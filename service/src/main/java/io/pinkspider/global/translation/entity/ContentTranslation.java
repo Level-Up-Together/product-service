@@ -24,12 +24,12 @@ import org.hibernate.annotations.CreationTimestamp;
  */
 @Entity
 @Table(
-    name = "content_translation",
-    indexes = {
-        @Index(name = "idx_content_translation_lookup",
-            columnList = "content_type, content_id, field_name, target_locale")
-    }
-)
+        name = "content_translation",
+        indexes = {
+            @Index(
+                    name = "idx_content_translation_lookup",
+                    columnList = "content_type, content_id, field_name, target_locale")
+        })
 @Getter
 @Setter
 @Builder

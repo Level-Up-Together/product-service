@@ -4,7 +4,6 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.profanity.domain.entity.ProfanityWord;
 import io.pinkspider.leveluptogethermvp.profanity.infrastructure.ProfanityWordRepository;
 import jakarta.annotation.PostConstruct;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,9 +44,7 @@ public class ProfanityValidationService {
     @Cacheable(value = "profanityWords", unless = "#result == null || #result.isEmpty()")
     public Set<String> getActiveProfanityWords() {
         List<ProfanityWord> words = profanityWordRepository.findAllByIsActiveTrue();
-        return words.stream()
-            .map(ProfanityWord::getWord)
-            .collect(Collectors.toSet());
+        return words.stream().map(ProfanityWord::getWord).collect(Collectors.toSet());
     }
 
     /**
@@ -56,9 +53,7 @@ public class ProfanityValidationService {
     @Cacheable(value = "profanityWords", key = "#locale", unless = "#result == null || #result.isEmpty()")
     public Set<String> getActiveProfanityWordsByLocale(String locale) {
         List<ProfanityWord> words = profanityWordRepository.findAllByLocaleAndIsActiveTrue(locale);
-        return words.stream()
-            .map(ProfanityWord::getWord)
-            .collect(Collectors.toSet());
+        return words.stream().map(ProfanityWord::getWord).collect(Collectors.toSet());
     }
 
     /**
@@ -134,8 +129,6 @@ public class ProfanityValidationService {
 
         Set<String> profanityWords = getActiveProfanityWords();
 
-        return profanityWords.stream()
-            .filter(content::contains)
-            .collect(Collectors.toList());
+        return profanityWords.stream().filter(content::contains).collect(Collectors.toList());
     }
 }

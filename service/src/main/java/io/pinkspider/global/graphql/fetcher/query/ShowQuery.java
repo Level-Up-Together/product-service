@@ -21,9 +21,8 @@ public class ShowQuery {
             return showsService.shows();
         }
 
-        return showsService.shows()
-            .stream()
-            .filter(s -> s.getTitle().contains(titleFilter)).collect(Collectors.toList());
+        return showsService.shows().stream()
+                .filter(s -> s.getTitle().contains(titleFilter))
+                .collect(Collectors.toList());
     }
 }
-

@@ -21,13 +21,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*")
-            .addInterceptors(cookieHandshakeInterceptor)
-            .withSockJS();
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(cookieHandshakeInterceptor)
+                .withSockJS();
 
-        registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*")
-            .addInterceptors(cookieHandshakeInterceptor);
+        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").addInterceptors(cookieHandshakeInterceptor);
     }
 
     @Override

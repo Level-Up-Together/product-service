@@ -46,12 +46,8 @@ public class ModerationProperties {
      * 차단할 카테고리 목록
      * AWS Rekognition 기준 카테고리명 사용
      */
-    private List<String> blockedCategories = List.of(
-        "Explicit Nudity",
-        "Violence",
-        "Visually Disturbing",
-        "Hate Symbols"
-    );
+    private List<String> blockedCategories =
+            List.of("Explicit Nudity", "Violence", "Visually Disturbing", "Hate Symbols");
 
     /**
      * 검증 기능 활성화 여부

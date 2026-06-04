@@ -46,26 +46,26 @@ public class GoogleTranslationRequest {
 
     public static GoogleTranslationRequest of(String text, String targetLanguage) {
         return GoogleTranslationRequest.builder()
-            .queries(List.of(text))
-            .targetLanguage(targetLanguage)
-            .format("text")
-            .build();
+                .queries(List.of(text))
+                .targetLanguage(targetLanguage)
+                .format("text")
+                .build();
     }
 
     public static GoogleTranslationRequest of(String text, String sourceLanguage, String targetLanguage) {
         return GoogleTranslationRequest.builder()
-            .queries(List.of(text))
-            .sourceLanguage(sourceLanguage)
-            .targetLanguage(targetLanguage)
-            .format("text")
-            .build();
+                .queries(List.of(text))
+                .sourceLanguage(sourceLanguage)
+                .targetLanguage(targetLanguage)
+                .format("text")
+                .build();
     }
 
     public static GoogleTranslationRequest of(List<String> texts, String targetLanguage) {
         return GoogleTranslationRequest.builder()
-            .queries(texts)
-            .targetLanguage(targetLanguage)
-            .format("text")
-            .build();
+                .queries(texts)
+                .targetLanguage(targetLanguage)
+                .format("text")
+                .build();
     }
 }

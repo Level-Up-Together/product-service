@@ -11,12 +11,12 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
-import org.springframework.core.io.Resource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -35,8 +35,8 @@ class SchedulerLockCoverageTest {
      * 형식: "FQCN#methodName"
      */
     private static final Set<String> EXEMPT_METHODS = Set.of(
-        // 현재 예외 없음. 향후 인스턴스별 로컬 작업이 필요하면 여기에 추가.
-    );
+            // 현재 예외 없음. 향후 인스턴스별 로컬 작업이 필요하면 여기에 추가.
+            );
 
     @Test
     @DisplayName("@Scheduled가 붙은 모든 메서드에는 @SchedulerLock이 적용되어야 한다")
@@ -57,9 +57,9 @@ class SchedulerLockCoverageTest {
         }
 
         assertThat(missing)
-            .as("@Scheduled 메서드는 @SchedulerLock도 함께 선언되어야 합니다 (멀티 인스턴스 동시 실행 방지). "
-                + "예외가 필요하면 SchedulerLockCoverageTest.EXEMPT_METHODS에 등록하세요.")
-            .isEmpty();
+                .as("@Scheduled 메서드는 @SchedulerLock도 함께 선언되어야 합니다 (멀티 인스턴스 동시 실행 방지). "
+                        + "예외가 필요하면 SchedulerLockCoverageTest.EXEMPT_METHODS에 등록하세요.")
+                .isEmpty();
     }
 
     @Test
@@ -77,19 +77,18 @@ class SchedulerLockCoverageTest {
 
         long distinct = names.stream().distinct().count();
         assertThat(distinct)
-            .as("@SchedulerLock(name=...) 값이 중복되면 다른 스케줄러끼리 락이 충돌합니다. names=%s", names)
-            .isEqualTo(names.size());
+                .as("@SchedulerLock(name=...) 값이 중복되면 다른 스케줄러끼리 락이 충돌합니다. names=%s", names)
+                .isEqualTo(names.size());
     }
 
     private List<Method> findAllScheduledMethods() {
-        ClassPathScanningCandidateComponentProvider scanner =
-            new ClassPathScanningCandidateComponentProvider(false);
+        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(Component.class));
 
         List<Method> result = new ArrayList<>();
         // 프로젝트의 모든 패키지를 스캔
         Set<org.springframework.beans.factory.config.BeanDefinition> components =
-            scanner.findCandidateComponents("io.pinkspider.leveluptogethermvp");
+                scanner.findCandidateComponents("io.pinkspider.leveluptogethermvp");
 
         for (org.springframework.beans.factory.config.BeanDefinition component : components) {
             String className = component.getBeanClassName();
@@ -110,7 +109,7 @@ class SchedulerLockCoverageTest {
         try {
             MetadataReaderFactory metadataReaderFactory = new SimpleMetadataReaderFactory();
             Resource[] resources = ResourcePatternUtils.getResourcePatternResolver(null)
-                .getResources("classpath*:io/pinkspider/leveluptogethermvp/**/*Scheduler.class");
+                    .getResources("classpath*:io/pinkspider/leveluptogethermvp/**/*Scheduler.class");
             for (Resource resource : resources) {
                 try {
                     MetadataReader reader = metadataReaderFactory.getMetadataReader(resource);

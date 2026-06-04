@@ -14,16 +14,15 @@ public class SshTunnelConfig {
 
     @Bean(name = "sshTunnel", initMethod = "start", destroyMethod = "stop")
     public SshTunnel sshTunnel(
-        @Value("${app.ssh.tunnel.host}") String sshHost,
-        @Value("${app.ssh.tunnel.port}") int sshPort,
-        @Value("${app.ssh.tunnel.username}") String sshUsername,
-        @Value("${app.ssh.tunnel.private-key-path}") String privateKeyPath,
-        @Value("${app.ssh.tunnel.local-port}") int localPort,
-        @Value("${app.ssh.tunnel.remote-host}") String remoteHost,
-        @Value("${app.ssh.tunnel.remote-port}") int remotePort,
-        @Value("${app.ssh.tunnel.passphrase:}") String passphrase
-    ) {
-        return new SshTunnel(sshHost, sshPort, sshUsername, privateKeyPath,
-            localPort, remoteHost, remotePort, passphrase);
+            @Value("${app.ssh.tunnel.host}") String sshHost,
+            @Value("${app.ssh.tunnel.port}") int sshPort,
+            @Value("${app.ssh.tunnel.username}") String sshUsername,
+            @Value("${app.ssh.tunnel.private-key-path}") String privateKeyPath,
+            @Value("${app.ssh.tunnel.local-port}") int localPort,
+            @Value("${app.ssh.tunnel.remote-host}") String remoteHost,
+            @Value("${app.ssh.tunnel.remote-port}") int remotePort,
+            @Value("${app.ssh.tunnel.passphrase:}") String passphrase) {
+        return new SshTunnel(
+                sshHost, sshPort, sshUsername, privateKeyPath, localPort, remoteHost, remotePort, passphrase);
     }
 }

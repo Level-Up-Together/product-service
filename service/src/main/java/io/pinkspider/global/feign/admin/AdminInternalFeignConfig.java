@@ -3,13 +3,12 @@ package io.pinkspider.global.feign.admin;
 import feign.Client;
 import feign.Logger;
 import feign.Retryer;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
+import java.security.cert.X509Certificate;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import java.security.cert.X509Certificate;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AdminInternalFeignConfig {
@@ -31,15 +30,13 @@ public class AdminInternalFeignConfig {
     @Bean
     public Client adminInternalFeignClient() {
         try {
-            TrustManager[] trustManagers = new TrustManager[]{
+            TrustManager[] trustManagers = new TrustManager[] {
                 new X509TrustManager() {
                     @Override
-                    public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                    }
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) {}
 
                     @Override
-                    public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                    }
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) {}
 
                     @Override
                     public X509Certificate[] getAcceptedIssuers() {
@@ -51,10 +48,7 @@ public class AdminInternalFeignConfig {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustManagers, new java.security.SecureRandom());
 
-            return new Client.Default(
-                sslContext.getSocketFactory(),
-                (hostname, session) -> true
-            );
+            return new Client.Default(sslContext.getSocketFactory(), (hostname, session) -> true);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create Feign client with SSL bypass", e);
         }

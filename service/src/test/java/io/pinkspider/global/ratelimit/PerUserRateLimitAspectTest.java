@@ -57,7 +57,7 @@ class PerUserRateLimitAspectTest {
             Method method = TestController.class.getMethod("noUserIdMethod", String.class);
             when(joinPoint.getSignature()).thenReturn(methodSignature);
             when(methodSignature.getMethod()).thenReturn(method);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"not-a-userId"});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"not-a-userId"});
             when(joinPoint.proceed()).thenReturn("ok");
 
             // when
@@ -75,7 +75,7 @@ class PerUserRateLimitAspectTest {
             Method method = TestController.class.getMethod("withUserId", String.class);
             when(joinPoint.getSignature()).thenReturn(methodSignature);
             when(methodSignature.getMethod()).thenReturn(method);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"user-1"});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"user-1"});
             when(perUserRateLimit.name()).thenReturn("test-api");
             when(perUserRateLimit.limit()).thenReturn(10);
             when(perUserRateLimit.windowSeconds()).thenReturn(60);
@@ -99,7 +99,7 @@ class PerUserRateLimitAspectTest {
             when(joinPoint.getSignature()).thenReturn(methodSignature);
             when(methodSignature.getMethod()).thenReturn(method);
             when(methodSignature.getReturnType()).thenReturn((Class) ResponseEntity.class);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"user-1"});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"user-1"});
             when(perUserRateLimit.name()).thenReturn("test-api");
             when(perUserRateLimit.limit()).thenReturn(5);
             when(perUserRateLimit.windowSeconds()).thenReturn(60);
@@ -123,7 +123,7 @@ class PerUserRateLimitAspectTest {
             when(joinPoint.getSignature()).thenReturn(methodSignature);
             when(methodSignature.getMethod()).thenReturn(method);
             when(methodSignature.getReturnType()).thenReturn((Class) String.class);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"user-1"});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"user-1"});
             when(perUserRateLimit.name()).thenReturn("test-api");
             when(perUserRateLimit.limit()).thenReturn(5);
             when(perUserRateLimit.windowSeconds()).thenReturn(60);
@@ -132,7 +132,7 @@ class PerUserRateLimitAspectTest {
 
             // when & then
             assertThatThrownBy(() -> aspect.rateLimit(joinPoint, perUserRateLimit))
-                .isInstanceOf(PerUserRateLimitAspect.RateLimitExceededException.class);
+                    .isInstanceOf(PerUserRateLimitAspect.RateLimitExceededException.class);
         }
 
         @Test
@@ -142,7 +142,7 @@ class PerUserRateLimitAspectTest {
             Method method = TestController.class.getMethod("withUserId", String.class);
             when(joinPoint.getSignature()).thenReturn(methodSignature);
             when(methodSignature.getMethod()).thenReturn(method);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"user-1"});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"user-1"});
             when(perUserRateLimit.name()).thenReturn("test");
             when(perUserRateLimit.windowSeconds()).thenReturn(60);
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -159,8 +159,16 @@ class PerUserRateLimitAspectTest {
 
     // Test helper class
     public static class TestController {
-        public String noUserIdMethod(String data) { return "ok"; }
-        public ResponseEntity<String> withUserId(String userId) { return ResponseEntity.ok("ok"); }
-        public String withAnnotatedUser(@CurrentUser String userId) { return "ok"; }
+        public String noUserIdMethod(String data) {
+            return "ok";
+        }
+
+        public ResponseEntity<String> withUserId(String userId) {
+            return ResponseEntity.ok("ok");
+        }
+
+        public String withAnnotatedUser(@CurrentUser String userId) {
+            return "ok";
+        }
     }
 }

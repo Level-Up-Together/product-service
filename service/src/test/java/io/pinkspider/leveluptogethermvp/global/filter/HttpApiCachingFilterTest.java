@@ -13,8 +13,8 @@ import io.pinkspider.global.wrapper.CachedHttpServletResponseWrapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -50,13 +50,14 @@ class HttpApiCachingFilterTest {
     static class TestableHttpApiCachingFilter extends HttpApiCachingFilter {
         @Override
         public void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+                throws ServletException, IOException {
             super.doFilterInternal(request, response, filterChain);
         }
 
         @Override
-        public void doFilterWrapped(HttpServletRequestWrapper request, ContentCachingResponseWrapper response, FilterChain filterChain)
-            throws ServletException, IOException {
+        public void doFilterWrapped(
+                HttpServletRequestWrapper request, ContentCachingResponseWrapper response, FilterChain filterChain)
+                throws ServletException, IOException {
             super.doFilterWrapped(request, response, filterChain);
         }
     }
@@ -120,7 +121,8 @@ class HttpApiCachingFilterTest {
             filter.doFilterInternal(request, response, filterChain);
 
             // then
-            verify(filterChain, times(1)).doFilter(any(CachedHttpServletRequestWrapper.class), any(CachedHttpServletResponseWrapper.class));
+            verify(filterChain, times(1))
+                    .doFilter(any(CachedHttpServletRequestWrapper.class), any(CachedHttpServletResponseWrapper.class));
         }
 
         @Test
@@ -312,7 +314,8 @@ class HttpApiCachingFilterTest {
         @DisplayName("POST 요청이고 multipart/form-data면 true를 반환한다")
         void isMultipartRequest_postWithMultipart_returnsTrue() throws Exception {
             // given
-            Method isMultipartMethod = HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
+            Method isMultipartMethod =
+                    HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
             isMultipartMethod.setAccessible(true);
 
             HttpServletRequest request = mock(HttpServletRequest.class);
@@ -330,7 +333,8 @@ class HttpApiCachingFilterTest {
         @DisplayName("GET 요청이면 false를 반환한다")
         void isMultipartRequest_getRequest_returnsFalse() throws Exception {
             // given
-            Method isMultipartMethod = HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
+            Method isMultipartMethod =
+                    HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
             isMultipartMethod.setAccessible(true);
 
             HttpServletRequest request = mock(HttpServletRequest.class);
@@ -348,7 +352,8 @@ class HttpApiCachingFilterTest {
         @DisplayName("POST 요청이지만 application/json이면 false를 반환한다")
         void isMultipartRequest_postWithJson_returnsFalse() throws Exception {
             // given
-            Method isMultipartMethod = HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
+            Method isMultipartMethod =
+                    HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
             isMultipartMethod.setAccessible(true);
 
             HttpServletRequest request = mock(HttpServletRequest.class);
@@ -366,7 +371,8 @@ class HttpApiCachingFilterTest {
         @DisplayName("POST 요청이고 post 메서드(소문자)면 true를 반환한다")
         void isMultipartRequest_lowercasePost_returnsTrue() throws Exception {
             // given
-            Method isMultipartMethod = HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
+            Method isMultipartMethod =
+                    HttpApiCachingFilter.class.getDeclaredMethod("isMultipartRequest", HttpServletRequest.class);
             isMultipartMethod.setAccessible(true);
 
             HttpServletRequest request = mock(HttpServletRequest.class);
@@ -390,7 +396,7 @@ class HttpApiCachingFilterTest {
         void logPayload_visibleContent_logsPayload() throws Exception {
             // given
             Method logPayloadMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
+                    "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
             logPayloadMethod.setAccessible(true);
 
             String payload = "{\"message\":\"test\"}";
@@ -405,7 +411,7 @@ class HttpApiCachingFilterTest {
         void logPayload_nullContentType_treatedAsJson() throws Exception {
             // given
             Method logPayloadMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
+                    "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
             logPayloadMethod.setAccessible(true);
 
             String payload = "{\"data\":\"value\"}";
@@ -420,7 +426,7 @@ class HttpApiCachingFilterTest {
         void logPayload_emptyContent_noPayloadLog() throws Exception {
             // given
             Method logPayloadMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
+                    "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
             logPayloadMethod.setAccessible(true);
 
             ByteArrayInputStream inputStream = new ByteArrayInputStream(new byte[0]);
@@ -434,10 +440,10 @@ class HttpApiCachingFilterTest {
         void logPayload_binaryContent_logsBinaryContent() throws Exception {
             // given
             Method logPayloadMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
+                    "logPayload", String.class, String.class, java.io.InputStream.class, String.class);
             logPayloadMethod.setAccessible(true);
 
-            byte[] binaryData = new byte[]{0x00, 0x01, 0x02};
+            byte[] binaryData = new byte[] {0x00, 0x01, 0x02};
             ByteArrayInputStream inputStream = new ByteArrayInputStream(binaryData);
 
             // when & then - binary content도 예외 없이 처리
@@ -454,7 +460,7 @@ class HttpApiCachingFilterTest {
         void logRequest_withQueryString_logsWithQuery() throws Exception {
             // given
             Method logRequestMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logRequest", jakarta.servlet.http.HttpServletRequestWrapper.class);
+                    "logRequest", jakarta.servlet.http.HttpServletRequestWrapper.class);
             logRequestMethod.setAccessible(true);
 
             MockHttpServletRequest mockRequest = new MockHttpServletRequest("GET", "/api/users");
@@ -473,7 +479,7 @@ class HttpApiCachingFilterTest {
         void logRequest_withoutQueryString_logsWithoutQuery() throws Exception {
             // given
             Method logRequestMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logRequest", jakarta.servlet.http.HttpServletRequestWrapper.class);
+                    "logRequest", jakarta.servlet.http.HttpServletRequestWrapper.class);
             logRequestMethod.setAccessible(true);
 
             MockHttpServletRequest mockRequest = new MockHttpServletRequest("POST", "/api/users");
@@ -496,7 +502,7 @@ class HttpApiCachingFilterTest {
         void logResponse_logsResponse() throws Exception {
             // given
             Method logResponseMethod = HttpApiCachingFilter.class.getDeclaredMethod(
-                "logResponse", org.springframework.web.util.ContentCachingResponseWrapper.class);
+                    "logResponse", org.springframework.web.util.ContentCachingResponseWrapper.class);
             logResponseMethod.setAccessible(true);
 
             MockHttpServletResponse mockResponse = new MockHttpServletResponse();

@@ -10,9 +10,7 @@ import io.pinkspider.global.moderation.config.ModerationProperties;
 import io.pinkspider.global.moderation.domain.dto.ImageModerationResult;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import javax.imageio.ImageIO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -85,8 +83,8 @@ class OnnxNsfwModerationServiceTest {
             float[][][][] tensor = service.preprocessImage(testImage);
 
             // then
-            assertThat(tensor.length).isEqualTo(1);       // batch
-            assertThat(tensor[0].length).isEqualTo(3);     // channels
+            assertThat(tensor.length).isEqualTo(1); // batch
+            assertThat(tensor[0].length).isEqualTo(3); // channels
             assertThat(tensor[0][0].length).isEqualTo(224); // height
             assertThat(tensor[0][0][0].length).isEqualTo(224); // width
         }
@@ -110,7 +108,7 @@ class OnnxNsfwModerationServiceTest {
             when(mockFile.getOriginalFilename()).thenReturn("invalid.txt");
             when(mockFile.getSize()).thenReturn(100L);
             // Return invalid image data that ImageIO can't parse
-            when(mockFile.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[]{0, 1, 2, 3}));
+            when(mockFile.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[] {0, 1, 2, 3}));
 
             // when
             ImageModerationResult result = service.analyzeImage(mockFile);

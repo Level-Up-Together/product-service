@@ -54,9 +54,9 @@ public class TranslationInfo {
      */
     public static TranslationInfo notTranslated(String sourceLocale) {
         return TranslationInfo.builder()
-            .sourceLocale(sourceLocale)
-            .isTranslated(false)
-            .build();
+                .sourceLocale(sourceLocale)
+                .isTranslated(false)
+                .build();
     }
 
     /**
@@ -64,11 +64,11 @@ public class TranslationInfo {
      */
     public static TranslationInfo translated(String content, String sourceLocale, String targetLocale) {
         return TranslationInfo.builder()
-            .content(content)
-            .sourceLocale(sourceLocale)
-            .targetLocale(targetLocale)
-            .isTranslated(true)
-            .build();
+                .content(content)
+                .sourceLocale(sourceLocale)
+                .targetLocale(targetLocale)
+                .isTranslated(true)
+                .build();
     }
 
     /**
@@ -76,11 +76,11 @@ public class TranslationInfo {
      */
     public static TranslationInfo translated(String title, String content, String sourceLocale, String targetLocale) {
         return TranslationInfo.builder()
-            .title(title)
-            .content(content)
-            .sourceLocale(sourceLocale)
-            .targetLocale(targetLocale)
-            .isTranslated(true)
-            .build();
+                .title(title)
+                .content(content)
+                .sourceLocale(sourceLocale)
+                .targetLocale(targetLocale)
+                .isTranslated(true)
+                .build();
     }
 }

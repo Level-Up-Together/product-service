@@ -17,7 +17,8 @@ public class LocaleUtils {
      * - 해당 locale 값이 있으면 반환
      * - 없으면 기본값(한국어) 반환
      */
-    public static String getLocalizedText(String defaultValue, String enValue, String arValue, String jaValue, String locale) {
+    public static String getLocalizedText(
+            String defaultValue, String enValue, String arValue, String jaValue, String locale) {
         if (locale == null || locale.isBlank()) {
             return defaultValue;
         }

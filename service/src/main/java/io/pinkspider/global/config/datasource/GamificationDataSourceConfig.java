@@ -12,8 +12,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.lang.Nullable;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.lang.Nullable;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -23,10 +23,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "io.pinkspider.leveluptogethermvp.gamificationservice",
-    entityManagerFactoryRef = "gamificationEntityManagerFactory",
-    transactionManagerRef = "gamificationTransactionManager"
-)
+        basePackages = "io.pinkspider.leveluptogethermvp.gamificationservice",
+        entityManagerFactoryRef = "gamificationEntityManagerFactory",
+        transactionManagerRef = "gamificationTransactionManager")
 @Profile("!test & !push-test")
 @Slf4j
 public class GamificationDataSourceConfig {
@@ -44,8 +43,8 @@ public class GamificationDataSourceConfig {
         HikariConfig cfg = new HikariConfig();
 
         String jdbcUrl = sshTunnel != null
-            ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-            : properties.getJdbcUrl();
+                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                : properties.getJdbcUrl();
         log.info("Gamification DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);
@@ -67,7 +66,7 @@ public class GamificationDataSourceConfig {
 
     @Bean(name = "gamificationEntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean gamificationEntityManagerFactory(
-        @Qualifier("gamificationDataSource") DataSource dataSource) {
+            @Qualifier("gamificationDataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
         em.setPackagesToScan("io.pinkspider.leveluptogethermvp.gamificationservice");
@@ -80,7 +79,7 @@ public class GamificationDataSourceConfig {
 
     @Bean(name = "gamificationTransactionManager")
     public PlatformTransactionManager gamificationTransactionManager(
-        @Qualifier("gamificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            @Qualifier("gamificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 

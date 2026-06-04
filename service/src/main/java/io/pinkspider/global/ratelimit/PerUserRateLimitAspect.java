@@ -1,6 +1,9 @@
 package io.pinkspider.global.ratelimit;
 
 import io.pinkspider.global.api.ApiResult;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -10,10 +13,6 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.time.Duration;
 
 /**
  * 사용자별 Rate Limit Aspect
@@ -58,14 +57,23 @@ public class PerUserRateLimitAspect {
 
         // Rate limit 초과 체크
         if (currentCount > limit) {
-            log.warn("Rate limit 초과: userId={}, name={}, count={}/{}, window={}s",
-                userId, perUserRateLimit.name(), currentCount, limit, windowSeconds);
+            log.warn(
+                    "Rate limit 초과: userId={}, name={}, count={}/{}, window={}s",
+                    userId,
+                    perUserRateLimit.name(),
+                    currentCount,
+                    limit,
+                    windowSeconds);
 
             return createRateLimitExceededResponse(joinPoint);
         }
 
-        log.debug("Rate limit 체크 통과: userId={}, name={}, count={}/{}",
-            userId, perUserRateLimit.name(), currentCount, limit);
+        log.debug(
+                "Rate limit 체크 통과: userId={}, name={}, count={}/{}",
+                userId,
+                perUserRateLimit.name(),
+                currentCount,
+                limit);
 
         return joinPoint.proceed();
     }
@@ -82,8 +90,7 @@ public class PerUserRateLimitAspect {
 
         for (int i = 0; i < parameters.length; i++) {
             // @CurrentUser 어노테이션 확인
-            if (parameters[i].isAnnotationPresent(
-                    io.pinkspider.global.annotation.CurrentUser.class)) {
+            if (parameters[i].isAnnotationPresent(io.pinkspider.global.annotation.CurrentUser.class)) {
                 if (args[i] instanceof String) {
                     return (String) args[i];
                 }
@@ -112,10 +119,10 @@ public class PerUserRateLimitAspect {
         // ResponseEntity<ApiResult<T>> 타입인 경우
         if (ResponseEntity.class.isAssignableFrom(returnType)) {
             return ResponseEntity.status(429)
-                .body(ApiResult.builder()
-                    .code("TOO_MANY_REQUESTS")
-                    .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
-                    .build());
+                    .body(ApiResult.builder()
+                            .code("TOO_MANY_REQUESTS")
+                            .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+                            .build());
         }
 
         // 그 외의 경우 예외 발생

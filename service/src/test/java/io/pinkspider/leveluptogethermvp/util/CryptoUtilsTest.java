@@ -30,10 +30,10 @@ class CryptoUtilsTest {
     @BeforeEach
     void setUp() {
         testCryptoMetaData = CryptoMetaData.builder()
-            .secretKey(TEST_SECRET_KEY)
-            .iv(TEST_IV)
-            .cipher(TEST_CIPHER)
-            .build();
+                .secretKey(TEST_SECRET_KEY)
+                .iv(TEST_IV)
+                .cipher(TEST_CIPHER)
+                .build();
     }
 
     @Nested
@@ -118,16 +118,15 @@ class CryptoUtilsTest {
         @DisplayName("잘못된 키로 암호화 시 CryptoException 발생")
         void encryptWithInvalidKeyThrowsException() {
             CryptoMetaData invalidMetaData = CryptoMetaData.builder()
-                .secretKey("invalidKey")
-                .iv(TEST_IV)
-                .cipher(TEST_CIPHER)
-                .build();
+                    .secretKey("invalidKey")
+                    .iv(TEST_IV)
+                    .cipher(TEST_CIPHER)
+                    .build();
 
             try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(invalidMetaData);
 
-                assertThatThrownBy(() -> CryptoUtils.encryptAes("test"))
-                    .isInstanceOf(CryptoException.class);
+                assertThatThrownBy(() -> CryptoUtils.encryptAes("test")).isInstanceOf(CryptoException.class);
             }
         }
     }
@@ -213,7 +212,7 @@ class CryptoUtilsTest {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
 
                 assertThatThrownBy(() -> CryptoUtils.decryptAes("invalidCipherText"))
-                    .isInstanceOf(CryptoException.class);
+                        .isInstanceOf(CryptoException.class);
             }
         }
 
@@ -229,17 +228,16 @@ class CryptoUtilsTest {
 
             // 다른 키로 복호화 시도 (테스트 전용)
             CryptoMetaData differentKeyMetaData = CryptoMetaData.builder()
-                .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
-                .iv(TEST_IV)
-                .cipher(TEST_CIPHER)
-                .build();
+                    .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
+                    .iv(TEST_IV)
+                    .cipher(TEST_CIPHER)
+                    .build();
 
             try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(differentKeyMetaData);
 
                 String finalEncrypted = encrypted;
-                assertThatThrownBy(() -> CryptoUtils.decryptAes(finalEncrypted))
-                    .isInstanceOf(CryptoException.class);
+                assertThatThrownBy(() -> CryptoUtils.decryptAes(finalEncrypted)).isInstanceOf(CryptoException.class);
             }
         }
     }
@@ -337,12 +335,7 @@ class CryptoUtilsTest {
             try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
 
-                String[] emails = {
-                    "test@example.com",
-                    "user.name@domain.co.kr",
-                    "user+tag@gmail.com",
-                    "한글이메일@테스트.kr"
-                };
+                String[] emails = {"test@example.com", "user.name@domain.co.kr", "user+tag@gmail.com", "한글이메일@테스트.kr"};
 
                 for (String email : emails) {
                     String encrypted = CryptoUtils.encryptAes(email);
@@ -358,13 +351,7 @@ class CryptoUtilsTest {
             try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
 
-                String[] texts = {
-                    "日本語テスト",
-                    "中文测试",
-                    "العربية",
-                    "🎉🎊🎁",
-                    "Привет мир"
-                };
+                String[] texts = {"日本語テスト", "中文测试", "العربية", "🎉🎊🎁", "Привет мир"};
 
                 for (String text : texts) {
                     String encrypted = CryptoUtils.encryptAes(text);

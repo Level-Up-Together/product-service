@@ -48,7 +48,9 @@ public class GoogleTranslationResponse {
      * 첫 번째 번역 결과 반환
      */
     public String getFirstTranslatedText() {
-        if (data != null && data.getTranslations() != null && !data.getTranslations().isEmpty()) {
+        if (data != null
+                && data.getTranslations() != null
+                && !data.getTranslations().isEmpty()) {
             return data.getTranslations().get(0).getTranslatedText();
         }
         return null;
@@ -58,7 +60,9 @@ public class GoogleTranslationResponse {
      * 감지된 원본 언어 반환
      */
     public String getDetectedSourceLanguage() {
-        if (data != null && data.getTranslations() != null && !data.getTranslations().isEmpty()) {
+        if (data != null
+                && data.getTranslations() != null
+                && !data.getTranslations().isEmpty()) {
             return data.getTranslations().get(0).getDetectedSourceLanguage();
         }
         return null;
@@ -70,8 +74,8 @@ public class GoogleTranslationResponse {
     public List<String> getAllTranslatedTexts() {
         if (data != null && data.getTranslations() != null) {
             return data.getTranslations().stream()
-                .map(Translation::getTranslatedText)
-                .toList();
+                    .map(Translation::getTranslatedText)
+                    .toList();
         }
         return List.of();
     }

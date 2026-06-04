@@ -38,7 +38,7 @@ public class AesKeyGenerator {
 
     @Test
     public void generateBase64RandomKey() {
-        int AES_KEY_SIZE = 32; //256 bit
+        int AES_KEY_SIZE = 32; // 256 bit
         int IV_SIZE = 16;
 
         byte[] secretKeyBytes = new byte[AES_KEY_SIZE];
@@ -53,7 +53,7 @@ public class AesKeyGenerator {
 
     @Test
     public void generateHexRandomKey() {
-        int AES_KEY_SIZE = 32; //256 bit
+        int AES_KEY_SIZE = 32; // 256 bit
         int IV_SIZE = 16;
 
         byte[] secretKeyBytes = new byte[AES_KEY_SIZE];
@@ -108,7 +108,8 @@ public class AesKeyGenerator {
         log.info(String.valueOf(sb.length()));
         log.info("16자 문자열: {}", sb.substring(0, 16));
 
-        String secretKeyBase64 = Base64.getEncoder().encodeToString(sb.toString().getBytes());
+        String secretKeyBase64 =
+                Base64.getEncoder().encodeToString(sb.toString().getBytes());
         String ivBase64 = Base64.getEncoder().encodeToString(sb.substring(0, 16).getBytes());
         String decoded = new String(Base64.getDecoder().decode(secretKeyBase64));
 
@@ -125,7 +126,8 @@ public class AesKeyGenerator {
         log.info(String.valueOf(input.length()));
 
         String secretKeyBase64 = Base64.getEncoder().encodeToString(input.getBytes());
-        String ivBase64 = Base64.getEncoder().encodeToString(input.substring(0, 16).getBytes());
+        String ivBase64 =
+                Base64.getEncoder().encodeToString(input.substring(0, 16).getBytes());
         String decoded = new String(Base64.getDecoder().decode(secretKeyBase64));
 
         log.info("secretKeyBase64: {}", secretKeyBase64);
@@ -147,5 +149,4 @@ public class AesKeyGenerator {
         }
         return hexString.toString();
     }
-
 }

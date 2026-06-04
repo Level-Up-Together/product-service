@@ -36,21 +36,21 @@ class ProfanityValidationServiceTest {
     @BeforeEach
     void setUp() {
         activeProfanityWords = List.of(
-            createProfanityWord(1L, "금칙어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW),
-            createProfanityWord(2L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM),
-            createProfanityWord(3L, "비속어", ProfanityCategory.GENERAL, ProfanitySeverity.HIGH)
-        );
+                createProfanityWord(1L, "금칙어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW),
+                createProfanityWord(2L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM),
+                createProfanityWord(3L, "비속어", ProfanityCategory.GENERAL, ProfanitySeverity.HIGH));
     }
 
-    private ProfanityWord createProfanityWord(Long id, String word, ProfanityCategory category, ProfanitySeverity severity) {
+    private ProfanityWord createProfanityWord(
+            Long id, String word, ProfanityCategory category, ProfanitySeverity severity) {
         return ProfanityWord.builder()
-            .id(id)
-            .word(word)
-            .category(category)
-            .severity(severity)
-            .isActive(true)
-            .description("테스트용 금칙어")
-            .build();
+                .id(id)
+                .word(word)
+                .category(category)
+                .severity(severity)
+                .isActive(true)
+                .description("테스트용 금칙어")
+                .build();
     }
 
     @Nested
@@ -110,8 +110,8 @@ class ProfanityValidationServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityValidationService.validateContent(content, "제목"))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.profanity.detected");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.profanity.detected");
         }
 
         @Test
@@ -168,8 +168,8 @@ class ProfanityValidationServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityValidationService.validateContents(contents))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.profanity.detected");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.profanity.detected");
         }
 
         @Test

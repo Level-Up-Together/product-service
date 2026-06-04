@@ -42,19 +42,15 @@ public class NoProfanityValidator implements ConstraintValidator<NoProfanity, St
             return true;
         }
 
-        ProfanityDetectionResult result = detectionEngine.detect(
-            value,
-            mode,
-            checkKoreanJamo,
-            levenshteinThreshold
-        );
+        ProfanityDetectionResult result = detectionEngine.detect(value, mode, checkKoreanJamo, levenshteinThreshold);
 
         if (result.isDetected()) {
-            log.warn("비속어 탐지 - 필드: {}, 탐지어: {}, 매칭유형: {}, 모드: {}",
-                fieldName.isEmpty() ? "unknown" : fieldName,
-                result.getDetectedWord(),
-                result.getMatchType(),
-                mode);
+            log.warn(
+                    "비속어 탐지 - 필드: {}, 탐지어: {}, 매칭유형: {}, 모드: {}",
+                    fieldName.isEmpty() ? "unknown" : fieldName,
+                    result.getDetectedWord(),
+                    result.getMatchType(),
+                    mode);
 
             // 커스텀 에러 메시지 설정
             context.disableDefaultConstraintViolation();
@@ -66,8 +62,7 @@ public class NoProfanityValidator implements ConstraintValidator<NoProfanity, St
                 message = fieldName + "에 부적절한 표현이 포함되어 있습니다.";
             }
 
-            context.buildConstraintViolationWithTemplate(message)
-                .addConstraintViolation();
+            context.buildConstraintViolationWithTemplate(message).addConstraintViolation();
 
             return false;
         }

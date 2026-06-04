@@ -1,13 +1,12 @@
 package io.pinkspider.global.messaging.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
-import java.util.Map;
 
 @Data
 @Builder
@@ -71,10 +70,6 @@ public class AppPushMessageDto {
      * 토픽 푸시 (길드 등)
      */
     public static AppPushMessageDto forTopic(String topic, String title, String body) {
-        return AppPushMessageDto.builder()
-                .topic(topic)
-                .title(title)
-                .body(body)
-                .build();
+        return AppPushMessageDto.builder().topic(topic).title(title).body(body).build();
     }
 }

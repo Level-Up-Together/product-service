@@ -50,8 +50,7 @@ class AppPushMessageProducerTest {
             RecordId recordId = RecordId.of("1234567890-0");
 
             when(objectMapper.writeValueAsString(dto)).thenReturn(payload);
-            when(stringRedisTemplate.opsForStream()).thenReturn(
-                (StreamOperations) streamOperations);
+            when(stringRedisTemplate.opsForStream()).thenReturn((StreamOperations) streamOperations);
             when(streamOperations.add(any(StringRecord.class))).thenReturn(recordId);
 
             // when
@@ -67,12 +66,11 @@ class AppPushMessageProducerTest {
         void sendMessage_jsonSerializationFailure() throws Exception {
             // given
             AppPushMessageDto dto = AppPushMessageDto.forUser("user-1", "제목", "내용");
-            when(objectMapper.writeValueAsString(dto))
-                .thenThrow(new JsonProcessingException("직렬화 실패") {});
+            when(objectMapper.writeValueAsString(dto)).thenThrow(new JsonProcessingException("직렬화 실패") {});
 
             // when & then
             assertThatThrownBy(() -> appPushMessageProducer.sendMessage(dto))
-                .isInstanceOf(MessagingSendFailException.class);
+                    .isInstanceOf(MessagingSendFailException.class);
         }
 
         @Test
@@ -87,7 +85,7 @@ class AppPushMessageProducerTest {
 
             // when & then
             assertThatThrownBy(() -> appPushMessageProducer.sendMessage(dto))
-                .isInstanceOf(MessagingSendFailException.class);
+                    .isInstanceOf(MessagingSendFailException.class);
         }
     }
 
@@ -106,8 +104,7 @@ class AppPushMessageProducerTest {
             RecordId recordId = RecordId.of("1234567890-0");
 
             when(objectMapper.writeValueAsString(any(AppPushMessageDto.class))).thenReturn(payload);
-            when(stringRedisTemplate.opsForStream()).thenReturn(
-                (StreamOperations) streamOperations);
+            when(stringRedisTemplate.opsForStream()).thenReturn((StreamOperations) streamOperations);
             when(streamOperations.add(any(StringRecord.class))).thenReturn(recordId);
 
             // when
@@ -126,8 +123,7 @@ class AppPushMessageProducerTest {
             RecordId recordId = RecordId.of("1234567890-0");
 
             when(objectMapper.writeValueAsString(any(AppPushMessageDto.class))).thenReturn(payload);
-            when(stringRedisTemplate.opsForStream()).thenReturn(
-                (StreamOperations) streamOperations);
+            when(stringRedisTemplate.opsForStream()).thenReturn((StreamOperations) streamOperations);
             when(streamOperations.add(any(StringRecord.class))).thenReturn(recordId);
 
             // when
@@ -153,8 +149,7 @@ class AppPushMessageProducerTest {
             RecordId recordId = RecordId.of("1234567890-0");
 
             when(objectMapper.writeValueAsString(any(AppPushMessageDto.class))).thenReturn(payload);
-            when(stringRedisTemplate.opsForStream()).thenReturn(
-                (StreamOperations) streamOperations);
+            when(stringRedisTemplate.opsForStream()).thenReturn((StreamOperations) streamOperations);
             when(streamOperations.add(any(StringRecord.class))).thenReturn(recordId);
 
             // when
@@ -172,8 +167,7 @@ class AppPushMessageProducerTest {
             RecordId recordId = RecordId.of("1234567890-0");
 
             when(objectMapper.writeValueAsString(any(AppPushMessageDto.class))).thenReturn(payload);
-            when(stringRedisTemplate.opsForStream()).thenReturn(
-                (StreamOperations) streamOperations);
+            when(stringRedisTemplate.opsForStream()).thenReturn((StreamOperations) streamOperations);
             when(streamOperations.add(any(StringRecord.class))).thenReturn(recordId);
 
             // when

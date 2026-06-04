@@ -30,10 +30,10 @@ class DmlEmailEncryptionVerificationTest {
     @BeforeEach
     void setUp() {
         productionCryptoMetaData = CryptoMetaData.builder()
-            .secretKey(PRODUCTION_SECRET_KEY)
-            .iv(PRODUCTION_IV)
-            .cipher(PRODUCTION_CIPHER)
-            .build();
+                .secretKey(PRODUCTION_SECRET_KEY)
+                .iv(PRODUCTION_IV)
+                .cipher(PRODUCTION_CIPHER)
+                .build();
     }
 
     @Test
@@ -112,11 +112,7 @@ class DmlEmailEncryptionVerificationTest {
         try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
             mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(productionCryptoMetaData);
 
-            String[] testEmails = {
-                "dev@pinkspider.io",
-                "test@example.com",
-                "user@gmail.com"
-            };
+            String[] testEmails = {"dev@pinkspider.io", "test@example.com", "user@gmail.com"};
 
             System.out.println("\n=== 새 이메일 암호화 테스트 ===");
             for (String email : testEmails) {

@@ -24,12 +24,15 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         return parameter.hasParameterAnnotation(CurrentUser.class)
-            && parameter.getParameterType().equals(String.class);
+                && parameter.getParameterType().equals(String.class);
     }
 
     @Override
-    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-                                  NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+    public Object resolveArgument(
+            MethodParameter parameter,
+            ModelAndViewContainer mavContainer,
+            NativeWebRequest webRequest,
+            WebDataBinderFactory binderFactory) {
 
         CurrentUser annotation = parameter.getParameterAnnotation(CurrentUser.class);
         boolean required = annotation != null && annotation.required();
@@ -38,8 +41,9 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
 
         // SecurityContext에서 추출 (JWT 인증 시 설정됨)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()
-            && !"anonymousUser".equals(authentication.getPrincipal())) {
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getPrincipal())) {
             Object principal = authentication.getPrincipal();
             if (principal instanceof String) {
                 userId = (String) principal;

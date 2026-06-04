@@ -66,12 +66,7 @@ public class TranslationService {
      * @return 번역 결과 정보
      */
     public TranslationInfo translateContent(
-        ContentType contentType,
-        Long contentId,
-        String title,
-        String content,
-        String targetLocale
-    ) {
+            ContentType contentType, Long contentId, String title, String content, String targetLocale) {
         if (!translationEnabled || !SupportedLocale.isSupported(targetLocale)) {
             return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
         }
@@ -102,8 +97,12 @@ public class TranslationService {
             return TranslationInfo.translated(translatedTitle, translatedContent, sourceLocale, targetLocale);
 
         } catch (Exception e) {
-            log.error("번역 실패: contentType={}, contentId={}, targetLocale={}, error={}",
-                contentType, contentId, targetLocale, e.getMessage());
+            log.error(
+                    "번역 실패: contentType={}, contentId={}, targetLocale={}, error={}",
+                    contentType,
+                    contentId,
+                    targetLocale,
+                    e.getMessage());
             return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
         }
     }
@@ -112,11 +111,7 @@ public class TranslationService {
      * 단일 내용만 번역 (댓글 등)
      */
     public TranslationInfo translateContent(
-        ContentType contentType,
-        Long contentId,
-        String content,
-        String targetLocale
-    ) {
+            ContentType contentType, Long contentId, String content, String targetLocale) {
         return translateContent(contentType, contentId, null, content, targetLocale);
     }
 
@@ -124,12 +119,7 @@ public class TranslationService {
      * 개별 필드 번역 (캐시 우선)
      */
     private String translateField(
-        ContentType contentType,
-        Long contentId,
-        String fieldName,
-        String originalText,
-        String targetLocale
-    ) {
+            ContentType contentType, Long contentId, String fieldName, String originalText, String targetLocale) {
         String originalHash = computeHash(originalText);
 
         // 1. Redis 캐시 확인
@@ -139,9 +129,9 @@ public class TranslationService {
         }
 
         // 2. DB 캐시 확인
-        Optional<ContentTranslation> dbCache = translationRepository
-            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-                contentType, contentId, fieldName, targetLocale, originalHash);
+        Optional<ContentTranslation> dbCache =
+                translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                        contentType, contentId, fieldName, targetLocale, originalHash);
 
         if (dbCache.isPresent()) {
             String translatedText = dbCache.get().getTranslatedText();
@@ -175,8 +165,11 @@ public class TranslationService {
             throw new GoogleTranslationException("번역 결과가 없습니다.");
         }
 
-        log.debug("Google Translation 호출: target={}, originalLength={}, translatedLength={}",
-            targetLocale, text.length(), translatedText.length());
+        log.debug(
+                "Google Translation 호출: target={}, originalLength={}, translatedLength={}",
+                targetLocale,
+                text.length(),
+                translatedText.length());
 
         return translatedText;
     }
@@ -184,7 +177,8 @@ public class TranslationService {
     /**
      * Redis 캐시에서 번역 조회
      */
-    private String getCachedTranslation(ContentType contentType, Long contentId, String fieldName, String targetLocale) {
+    private String getCachedTranslation(
+            ContentType contentType, Long contentId, String fieldName, String targetLocale) {
         String cacheKey = buildCacheKey(contentType, contentId, fieldName, targetLocale);
         try {
             Object cached = redisTemplate.opsForValue().get(cacheKey);
@@ -201,7 +195,8 @@ public class TranslationService {
     /**
      * Redis 캐시에 번역 저장
      */
-    private void cacheTranslation(ContentType contentType, Long contentId, String fieldName, String targetLocale, String translatedText) {
+    private void cacheTranslation(
+            ContentType contentType, Long contentId, String fieldName, String targetLocale, String translatedText) {
         String cacheKey = buildCacheKey(contentType, contentId, fieldName, targetLocale);
         try {
             redisTemplate.opsForValue().set(cacheKey, translatedText, REDIS_CACHE_TTL);
@@ -216,33 +211,32 @@ public class TranslationService {
      */
     @Transactional(transactionManager = "metaTransactionManager")
     public void saveTranslationCache(
-        ContentType contentType,
-        Long contentId,
-        String fieldName,
-        String targetLocale,
-        String originalHash,
-        String translatedText
-    ) {
+            ContentType contentType,
+            Long contentId,
+            String fieldName,
+            String targetLocale,
+            String originalHash,
+            String translatedText) {
         // Redis 저장
         cacheTranslation(contentType, contentId, fieldName, targetLocale, translatedText);
 
         // DB 저장 (upsert)
-        Optional<ContentTranslation> existing = translationRepository
-            .findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
-                contentType, contentId, fieldName, targetLocale);
+        Optional<ContentTranslation> existing =
+                translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
+                        contentType, contentId, fieldName, targetLocale);
 
         if (existing.isPresent()) {
             existing.get().updateTranslation(originalHash, translatedText);
         } else {
             ContentTranslation translation = ContentTranslation.builder()
-                .contentType(contentType)
-                .contentId(contentId)
-                .fieldName(fieldName)
-                .sourceLocale(SupportedLocale.DEFAULT.getCode())
-                .targetLocale(targetLocale)
-                .originalHash(originalHash)
-                .translatedText(translatedText)
-                .build();
+                    .contentType(contentType)
+                    .contentId(contentId)
+                    .fieldName(fieldName)
+                    .sourceLocale(SupportedLocale.DEFAULT.getCode())
+                    .targetLocale(targetLocale)
+                    .originalHash(originalHash)
+                    .translatedText(translatedText)
+                    .build();
             translationRepository.save(translation);
         }
     }

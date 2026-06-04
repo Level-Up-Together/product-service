@@ -30,10 +30,10 @@ class CryptoConverterTest {
     void setUp() {
         cryptoConverter = new CryptoConverter();
         testCryptoMetaData = CryptoMetaData.builder()
-            .secretKey(TEST_SECRET_KEY)
-            .iv(TEST_IV)
-            .cipher(TEST_CIPHER)
-            .build();
+                .secretKey(TEST_SECRET_KEY)
+                .iv(TEST_IV)
+                .cipher(TEST_CIPHER)
+                .build();
     }
 
     @Nested
@@ -116,10 +116,10 @@ class CryptoConverterTest {
 
             // 다른 키로 복호화 시도 (테스트 전용)
             CryptoMetaData differentKeyMetaData = CryptoMetaData.builder()
-                .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
-                .iv(TEST_IV)
-                .cipher(TEST_CIPHER)
-                .build();
+                    .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
+                    .iv(TEST_IV)
+                    .cipher(TEST_CIPHER)
+                    .build();
 
             try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(differentKeyMetaData);
@@ -143,10 +143,7 @@ class CryptoConverterTest {
                 mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
 
                 String[] testData = {
-                    "test@example.com",
-                    "user.name+tag@domain.co.kr",
-                    "한글이메일@테스트.kr",
-                    "special!@#$%^&*()chars@test.com"
+                    "test@example.com", "user.name+tag@domain.co.kr", "한글이메일@테스트.kr", "special!@#$%^&*()chars@test.com"
                 };
 
                 for (String original : testData) {

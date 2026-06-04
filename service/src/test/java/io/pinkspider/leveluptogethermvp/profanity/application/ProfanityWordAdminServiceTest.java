@@ -47,33 +47,33 @@ class ProfanityWordAdminServiceTest {
     @BeforeEach
     void setUp() {
         sampleWord = ProfanityWord.builder()
-            .id(1L)
-            .word("욕설단어")
-            .category(ProfanityCategory.GENERAL)
-            .severity(ProfanitySeverity.MEDIUM)
-            .isActive(true)
-            .description("테스트용 금칙어")
-            .build();
+                .id(1L)
+                .word("욕설단어")
+                .category(ProfanityCategory.GENERAL)
+                .severity(ProfanitySeverity.MEDIUM)
+                .isActive(true)
+                .description("테스트용 금칙어")
+                .build();
 
         sampleRequest = ProfanityWordRequest.builder()
-            .word("욕설단어")
-            .category(ProfanityCategory.GENERAL)
-            .severity(ProfanitySeverity.MEDIUM)
-            .isActive(true)
-            .description("테스트용 금칙어")
-            .build();
+                .word("욕설단어")
+                .category(ProfanityCategory.GENERAL)
+                .severity(ProfanitySeverity.MEDIUM)
+                .isActive(true)
+                .description("테스트용 금칙어")
+                .build();
     }
 
-    private ProfanityWord buildWord(Long id, String word, ProfanityCategory category,
-        ProfanitySeverity severity, boolean isActive) {
+    private ProfanityWord buildWord(
+            Long id, String word, ProfanityCategory category, ProfanitySeverity severity, boolean isActive) {
         return ProfanityWord.builder()
-            .id(id)
-            .word(word)
-            .category(category)
-            .severity(severity)
-            .isActive(isActive)
-            .description("설명")
-            .build();
+                .id(id)
+                .word(word)
+                .category(category)
+                .severity(severity)
+                .isActive(isActive)
+                .description("설명")
+                .build();
     }
 
     @Nested
@@ -85,9 +85,8 @@ class ProfanityWordAdminServiceTest {
         void getAllProfanityWords_success() {
             // given
             List<ProfanityWord> words = List.of(
-                buildWord(1L, "단어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW, true),
-                buildWord(2L, "단어2", ProfanityCategory.SEXUAL, ProfanitySeverity.HIGH, false)
-            );
+                    buildWord(1L, "단어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW, true),
+                    buildWord(2L, "단어2", ProfanityCategory.SEXUAL, ProfanitySeverity.HIGH, false));
             when(profanityWordRepository.findAll()).thenReturn(words);
 
             // when
@@ -122,9 +121,8 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("활성화된 금칙어 목록만 반환한다")
         void getActiveProfanityWords_success() {
             // given
-            List<ProfanityWord> activeWords = List.of(
-                buildWord(1L, "활성단어", ProfanityCategory.GENERAL, ProfanitySeverity.LOW, true)
-            );
+            List<ProfanityWord> activeWords =
+                    List.of(buildWord(1L, "활성단어", ProfanityCategory.GENERAL, ProfanitySeverity.LOW, true));
             when(profanityWordRepository.findAllByIsActiveTrue()).thenReturn(activeWords);
 
             // when
@@ -234,7 +232,7 @@ class ProfanityWordAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.getProfanityWord(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 
@@ -246,7 +244,7 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("새 금칙어를 생성하고 반환한다")
         void createProfanityWord_success() {
             // given
-            when(profanityWordRepository.existsByLocaleAndWord("ko","욕설단어")).thenReturn(false);
+            when(profanityWordRepository.existsByLocaleAndWord("ko", "욕설단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(sampleWord);
 
             // when
@@ -263,11 +261,11 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("이미 등록된 금칙어면 CustomException을 던진다")
         void createProfanityWord_duplicateWord() {
             // given
-            when(profanityWordRepository.existsByLocaleAndWord("ko","욕설단어")).thenReturn(true);
+            when(profanityWordRepository.existsByLocaleAndWord("ko", "욕설단어")).thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.createProfanityWord(sampleRequest))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(profanityWordRepository, never()).save(any());
         }
 
@@ -276,15 +274,14 @@ class ProfanityWordAdminServiceTest {
         void createProfanityWord_nullIsActiveDefaultsToTrue() {
             // given
             ProfanityWordRequest requestWithNullActive = ProfanityWordRequest.builder()
-                .word("새단어")
-                .category(ProfanityCategory.VIOLENCE)
-                .severity(ProfanitySeverity.HIGH)
-                .isActive(null)
-                .build();
+                    .word("새단어")
+                    .category(ProfanityCategory.VIOLENCE)
+                    .severity(ProfanitySeverity.HIGH)
+                    .isActive(null)
+                    .build();
 
-            ProfanityWord savedWord = buildWord(2L, "새단어", ProfanityCategory.VIOLENCE,
-                ProfanitySeverity.HIGH, true);
-            when(profanityWordRepository.existsByLocaleAndWord("ko","새단어")).thenReturn(false);
+            ProfanityWord savedWord = buildWord(2L, "새단어", ProfanityCategory.VIOLENCE, ProfanitySeverity.HIGH, true);
+            when(profanityWordRepository.existsByLocaleAndWord("ko", "새단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(savedWord);
 
             // when
@@ -304,18 +301,17 @@ class ProfanityWordAdminServiceTest {
         void updateProfanityWord_success() {
             // given
             ProfanityWordRequest updateRequest = ProfanityWordRequest.builder()
-                .word("수정된단어")
-                .category(ProfanityCategory.SEXUAL)
-                .severity(ProfanitySeverity.HIGH)
-                .isActive(true)
-                .description("수정된 설명")
-                .build();
+                    .word("수정된단어")
+                    .category(ProfanityCategory.SEXUAL)
+                    .severity(ProfanitySeverity.HIGH)
+                    .isActive(true)
+                    .description("수정된 설명")
+                    .build();
 
-            ProfanityWord updatedWord = buildWord(1L, "수정된단어", ProfanityCategory.SEXUAL,
-                ProfanitySeverity.HIGH, true);
+            ProfanityWord updatedWord = buildWord(1L, "수정된단어", ProfanityCategory.SEXUAL, ProfanitySeverity.HIGH, true);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
-            when(profanityWordRepository.existsByLocaleAndWord("ko","수정된단어")).thenReturn(false);
+            when(profanityWordRepository.existsByLocaleAndWord("ko", "수정된단어")).thenReturn(false);
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(updatedWord);
 
             // when
@@ -332,14 +328,13 @@ class ProfanityWordAdminServiceTest {
         void updateProfanityWord_sameWord_noDuplicateCheck() {
             // given
             ProfanityWordRequest sameWordRequest = ProfanityWordRequest.builder()
-                .word("욕설단어")
-                .category(ProfanityCategory.GENERAL)
-                .severity(ProfanitySeverity.HIGH)
-                .isActive(false)
-                .build();
+                    .word("욕설단어")
+                    .category(ProfanityCategory.GENERAL)
+                    .severity(ProfanitySeverity.HIGH)
+                    .isActive(false)
+                    .build();
 
-            ProfanityWord updatedWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL,
-                ProfanitySeverity.HIGH, false);
+            ProfanityWord updatedWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.HIGH, false);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(updatedWord);
@@ -360,7 +355,7 @@ class ProfanityWordAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.updateProfanityWord(999L, sampleRequest))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -368,18 +363,19 @@ class ProfanityWordAdminServiceTest {
         void updateProfanityWord_duplicateNewWord() {
             // given
             ProfanityWordRequest updateRequest = ProfanityWordRequest.builder()
-                .word("이미존재하는단어")
-                .category(ProfanityCategory.GENERAL)
-                .severity(ProfanitySeverity.LOW)
-                .isActive(true)
-                .build();
+                    .word("이미존재하는단어")
+                    .category(ProfanityCategory.GENERAL)
+                    .severity(ProfanitySeverity.LOW)
+                    .isActive(true)
+                    .build();
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
-            when(profanityWordRepository.existsByLocaleAndWord("ko","이미존재하는단어")).thenReturn(true);
+            when(profanityWordRepository.existsByLocaleAndWord("ko", "이미존재하는단어"))
+                    .thenReturn(true);
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.updateProfanityWord(1L, updateRequest))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(profanityWordRepository, never()).save(any());
         }
 
@@ -388,14 +384,14 @@ class ProfanityWordAdminServiceTest {
         void updateProfanityWord_nullIsActiveDefaultsToTrue() {
             // given
             ProfanityWordRequest requestWithNullActive = ProfanityWordRequest.builder()
-                .word("욕설단어")
-                .category(ProfanityCategory.GENERAL)
-                .severity(ProfanitySeverity.MEDIUM)
-                .isActive(null)
-                .build();
+                    .word("욕설단어")
+                    .category(ProfanityCategory.GENERAL)
+                    .severity(ProfanitySeverity.MEDIUM)
+                    .isActive(null)
+                    .build();
 
-            ProfanityWord updatedWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL,
-                ProfanitySeverity.MEDIUM, true);
+            ProfanityWord updatedWord =
+                    buildWord(1L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM, true);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(updatedWord);
@@ -433,7 +429,7 @@ class ProfanityWordAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.deleteProfanityWord(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
             verify(profanityWordRepository, never()).deleteById(any());
         }
     }
@@ -446,8 +442,8 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("활성화된 금칙어를 비활성화로 전환한다")
         void toggleActive_activeToInactive() {
             // given
-            ProfanityWord inactiveWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL,
-                ProfanitySeverity.MEDIUM, false);
+            ProfanityWord inactiveWord =
+                    buildWord(1L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM, false);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(sampleWord));
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(inactiveWord);
@@ -464,10 +460,9 @@ class ProfanityWordAdminServiceTest {
         @DisplayName("비활성화된 금칙어를 활성화로 전환한다")
         void toggleActive_inactiveToActive() {
             // given
-            ProfanityWord inactiveWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL,
-                ProfanitySeverity.MEDIUM, false);
-            ProfanityWord activeWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL,
-                ProfanitySeverity.MEDIUM, true);
+            ProfanityWord inactiveWord =
+                    buildWord(1L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM, false);
+            ProfanityWord activeWord = buildWord(1L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM, true);
 
             when(profanityWordRepository.findById(1L)).thenReturn(Optional.of(inactiveWord));
             when(profanityWordRepository.save(any(ProfanityWord.class))).thenReturn(activeWord);
@@ -487,7 +482,7 @@ class ProfanityWordAdminServiceTest {
 
             // when & then
             assertThatThrownBy(() -> profanityWordAdminService.toggleActive(999L))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
     }
 }

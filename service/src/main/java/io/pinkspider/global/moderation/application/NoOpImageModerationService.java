@@ -19,9 +19,7 @@ public class NoOpImageModerationService implements ImageModerationService {
 
     @Override
     public ImageModerationResult analyzeImage(MultipartFile imageFile) {
-        log.debug("NoOp 이미지 검증: 파일={}, 크기={} bytes - 검증 생략",
-            imageFile.getOriginalFilename(),
-            imageFile.getSize());
+        log.debug("NoOp 이미지 검증: 파일={}, 크기={} bytes - 검증 생략", imageFile.getOriginalFilename(), imageFile.getSize());
         return ImageModerationResult.safe();
     }
 

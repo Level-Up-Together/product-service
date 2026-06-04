@@ -31,12 +31,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "profanity_word",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_profanity_word_locale_word",
-        columnNames = {"locale", "word"}
-    )
-)
+@Table(
+        name = "profanity_word",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_profanity_word_locale_word",
+                        columnNames = {"locale", "word"}))
 @Comment("금칙어 관리")
 public class ProfanityWord extends LocalDateTimeBaseEntity {
 

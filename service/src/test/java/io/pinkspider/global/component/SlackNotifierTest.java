@@ -48,10 +48,8 @@ class SlackNotifierTest {
         void sendSlackAlert_success() throws Exception {
             // given
             Exception exception = new RuntimeException("테스트 예외");
-            WebhookResponse mockResponse = WebhookResponse.builder()
-                .code(200)
-                .message("ok")
-                .build();
+            WebhookResponse mockResponse =
+                    WebhookResponse.builder().code(200).message("ok").build();
 
             Slack mockSlack = mock(Slack.class);
             when(mockSlack.send(anyString(), any(Payload.class))).thenReturn(mockResponse);
@@ -63,8 +61,7 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/test");
 
             // when
-            CompletableFuture<WebhookResponse> result =
-                slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             assertThat(result).isNotNull();
@@ -77,10 +74,8 @@ class SlackNotifierTest {
         void sendSlackAlert_withForwardedHeader() throws Exception {
             // given
             Exception exception = new RuntimeException("헤더 테스트 예외");
-            WebhookResponse mockResponse = WebhookResponse.builder()
-                .code(200)
-                .message("ok")
-                .build();
+            WebhookResponse mockResponse =
+                    WebhookResponse.builder().code(200).message("ok").build();
 
             Slack mockSlack = mock(Slack.class);
             when(mockSlack.send(anyString(), any(Payload.class))).thenReturn(mockResponse);
@@ -91,8 +86,7 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/users");
 
             // when
-            CompletableFuture<WebhookResponse> result =
-                slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             assertThat(result.get()).isNotNull();
@@ -115,8 +109,7 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/resource");
 
             // when
-            CompletableFuture<WebhookResponse> result =
-                slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             // IOException 발생 시 null response를 CompletableFuture로 감싸 반환
@@ -134,10 +127,8 @@ class SlackNotifierTest {
         void sendAlert_delegatesToSendSlackAlert() throws Exception {
             // given
             Exception exception = new RuntimeException("위임 테스트 예외");
-            WebhookResponse mockResponse = WebhookResponse.builder()
-                .code(200)
-                .message("ok")
-                .build();
+            WebhookResponse mockResponse =
+                    WebhookResponse.builder().code(200).message("ok").build();
 
             Slack mockSlack = mock(Slack.class);
             when(mockSlack.send(anyString(), any(Payload.class))).thenReturn(mockResponse);

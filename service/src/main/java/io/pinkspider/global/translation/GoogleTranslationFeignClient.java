@@ -12,10 +12,9 @@ import org.springframework.web.bind.annotation.RequestParam;
  * https://cloud.google.com/translate/docs/reference/rest/v2/translate
  */
 @FeignClient(
-    name = "google-translation-client",
-    url = "${google.translation.api.url:https://translation.googleapis.com}",
-    configuration = GoogleTranslationConfig.class
-)
+        name = "google-translation-client",
+        url = "${google.translation.api.url:https://translation.googleapis.com}",
+        configuration = GoogleTranslationConfig.class)
 public interface GoogleTranslationFeignClient {
 
     /**
@@ -27,7 +26,5 @@ public interface GoogleTranslationFeignClient {
      */
     @PostMapping("/language/translate/v2")
     GoogleTranslationResponse translate(
-        @RequestParam("key") String apiKey,
-        @RequestBody GoogleTranslationRequest request
-    );
+            @RequestParam("key") String apiKey, @RequestBody GoogleTranslationRequest request);
 }

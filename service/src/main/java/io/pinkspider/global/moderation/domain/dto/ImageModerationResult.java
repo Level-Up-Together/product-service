@@ -54,26 +54,26 @@ public class ImageModerationResult {
      */
     public static ImageModerationResult safe() {
         return ImageModerationResult.builder()
-            .safe(true)
-            .overallConfidence(100.0)
-            .detectedLabels(List.of())
-            .categoryScores(Map.of())
-            .provider("none")
-            .build();
+                .safe(true)
+                .overallConfidence(100.0)
+                .detectedLabels(List.of())
+                .categoryScores(Map.of())
+                .provider("none")
+                .build();
     }
 
     /**
      * 부적절 결과 생성
      */
-    public static ImageModerationResult unsafe(String reason, List<ModerationLabel> labels,
-                                                Map<String, Double> scores, String provider) {
+    public static ImageModerationResult unsafe(
+            String reason, List<ModerationLabel> labels, Map<String, Double> scores, String provider) {
         return ImageModerationResult.builder()
-            .safe(false)
-            .overallConfidence(labels.isEmpty() ? 0.0 : labels.get(0).getConfidence())
-            .detectedLabels(labels)
-            .categoryScores(scores)
-            .rejectionReason(reason)
-            .provider(provider)
-            .build();
+                .safe(false)
+                .overallConfidence(labels.isEmpty() ? 0.0 : labels.get(0).getConfidence())
+                .detectedLabels(labels)
+                .categoryScores(scores)
+                .rejectionReason(reason)
+                .provider(provider)
+                .build();
     }
 }

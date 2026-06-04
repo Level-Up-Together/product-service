@@ -9,13 +9,12 @@ import org.springframework.stereotype.Component;
 public class KoreanTextNormalizer {
 
     // 한글 유니코드 범위
-    private static final int HANGUL_BASE = 0xAC00;  // '가'
-    private static final int HANGUL_END = 0xD7A3;   // '힣'
+    private static final int HANGUL_BASE = 0xAC00; // '가'
+    private static final int HANGUL_END = 0xD7A3; // '힣'
 
     // 초성 (Chosung) 배열 - 19개
     private static final char[] CHOSUNG = {
-        'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ',
-        'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
+        'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
     };
 
     // 중성 개수: 21, 종성 개수: 28
@@ -36,8 +35,7 @@ public class KoreanTextNormalizer {
             return "";
         }
 
-        return text.toLowerCase()
-            .replaceAll("[^가-힣a-z0-9ㄱ-ㅎㅏ-ㅣ]", "");
+        return text.toLowerCase().replaceAll("[^가-힣a-z0-9ㄱ-ㅎㅏ-ㅣ]", "");
     }
 
     /**
@@ -87,7 +85,7 @@ public class KoreanTextNormalizer {
      * @return 자모면 true
      */
     public boolean isKoreanJamo(char c) {
-        return (c >= 0x3131 && c <= 0x3163);  // ㄱ-ㅣ
+        return (c >= 0x3131 && c <= 0x3163); // ㄱ-ㅣ
     }
 
     /**
@@ -97,7 +95,7 @@ public class KoreanTextNormalizer {
      * @return 초성이면 true
      */
     public boolean isKoreanChosung(char c) {
-        return (c >= 0x3131 && c <= 0x314E);  // ㄱ-ㅎ
+        return (c >= 0x3131 && c <= 0x314E); // ㄱ-ㅎ
     }
 
     /**
@@ -130,12 +128,12 @@ public class KoreanTextNormalizer {
             for (int j = 1; j <= len2; j++) {
                 int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
                 dp[i][j] = Math.min(
-                    Math.min(
-                        dp[i - 1][j] + 1,      // 삭제
-                        dp[i][j - 1] + 1       // 삽입
-                    ),
-                    dp[i - 1][j - 1] + cost    // 대체
-                );
+                        Math.min(
+                                dp[i - 1][j] + 1, // 삭제
+                                dp[i][j - 1] + 1 // 삽입
+                                ),
+                        dp[i - 1][j - 1] + cost // 대체
+                        );
             }
         }
 

@@ -20,8 +20,7 @@ public class OAuth2Properties {
         if (origin == null || origin.isBlank()) {
             return false;
         }
-        return allowedOrigins.stream()
-            .anyMatch(allowed -> origin.equalsIgnoreCase(allowed));
+        return allowedOrigins.stream().anyMatch(allowed -> origin.equalsIgnoreCase(allowed));
     }
 
     @Data

@@ -41,12 +41,8 @@ public class SlackNotifier implements io.pinkspider.global.handler.RestException
     public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request) {
         WebhookResponse response = null;
         try {
-            response = slackClient.send(webhookUrl, payload(p -> p
-                .text("서버 에러 발생! 백엔드 확인 요망")
-                .attachments(
-                    List.of(generateSlackAttachment(exception, request))
-                )
-            ));
+            response = slackClient.send(webhookUrl, payload(p -> p.text("서버 에러 발생! 백엔드 확인 요망")
+                    .attachments(List.of(generateSlackAttachment(exception, request)))));
         } catch (IOException slackError) {
             log.error("Slack 통신과의 예외 발생");
         }
@@ -54,31 +50,26 @@ public class SlackNotifier implements io.pinkspider.global.handler.RestException
     }
 
     private Attachment generateSlackAttachment(Exception exception, HttpServletRequest request) {
-        String requestTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(LocalDateTime.now());
+        String requestTime =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(LocalDateTime.now());
         String targetName = Arrays.stream(exception.getStackTrace()).findFirst().toString();
         String xffHeader = request.getHeader("X-FORWARDED-FOR");
 
         return Attachment.builder()
-            .color("danger")
-            .title(requestTime + " 발생 에러 로그")
-            .fields(List.of(
-                    generateSlackField("Service Name", applicationName),
-                    generateSlackField("Target Name", targetName),
-                    generateSlackField("Request IP", xffHeader == null ? request.getRemoteAddr() : xffHeader),
-                    generateSlackField("Request URL", request.getMethod() + " " + request.getRequestURI()),
-//                    generateSlackField("Trace ID", traceId),
-//                    generateSlackField("Span ID", spanId),
-                    generateSlackField("Error Message", exception.getMessage())
-                )
-            )
-            .build();
+                .color("danger")
+                .title(requestTime + " 발생 에러 로그")
+                .fields(List.of(
+                        generateSlackField("Service Name", applicationName),
+                        generateSlackField("Target Name", targetName),
+                        generateSlackField("Request IP", xffHeader == null ? request.getRemoteAddr() : xffHeader),
+                        generateSlackField("Request URL", request.getMethod() + " " + request.getRequestURI()),
+                        //                    generateSlackField("Trace ID", traceId),
+                        //                    generateSlackField("Span ID", spanId),
+                        generateSlackField("Error Message", exception.getMessage())))
+                .build();
     }
 
     private Field generateSlackField(String title, String value) {
-        return Field.builder()
-            .title(title)
-            .value(value)
-            .valueShortEnough(false)
-            .build();
+        return Field.builder().title(title).value(value).valueShortEnough(false).build();
     }
 }

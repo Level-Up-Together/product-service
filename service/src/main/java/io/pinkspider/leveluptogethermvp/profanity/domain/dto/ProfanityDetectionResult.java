@@ -34,9 +34,7 @@ public class ProfanityDetectionResult {
      * 탐지되지 않은 결과 생성
      */
     public static ProfanityDetectionResult notDetected() {
-        return ProfanityDetectionResult.builder()
-            .detected(false)
-            .build();
+        return ProfanityDetectionResult.builder().detected(false).build();
     }
 
     /**
@@ -47,11 +45,11 @@ public class ProfanityDetectionResult {
      */
     public static ProfanityDetectionResult detected(String word, String matchType) {
         return ProfanityDetectionResult.builder()
-            .detected(true)
-            .detectedWord(word)
-            .matchType(matchType)
-            .levenshteinDistance(0)
-            .build();
+                .detected(true)
+                .detectedWord(word)
+                .matchType(matchType)
+                .levenshteinDistance(0)
+                .build();
     }
 
     /**
@@ -63,10 +61,10 @@ public class ProfanityDetectionResult {
      */
     public static ProfanityDetectionResult detected(String word, String matchType, int distance) {
         return ProfanityDetectionResult.builder()
-            .detected(true)
-            .detectedWord(word)
-            .matchType(matchType)
-            .levenshteinDistance(distance)
-            .build();
+                .detected(true)
+                .detectedWord(word)
+                .matchType(matchType)
+                .levenshteinDistance(distance)
+                .build();
     }
 }

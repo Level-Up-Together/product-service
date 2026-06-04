@@ -20,9 +20,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] JWT_EXCLUDE_PATTERNS = {
         // 정적 리소스 (이미지 업로드 등)
-        "/uploads/**",
-        "/favicon.ico",
-        "/error"
+        "/uploads/**", "/favicon.ico", "/error"
     };
     private final LocaleInterceptor localeInterceptor;
     private final JwtInterceptor jwtInterceptor;
@@ -33,21 +31,16 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 정적 리소스 핸들러 (catch-all)
         // 이미지 리소스 핸들러는 각 서비스별 WebMvcConfigurer에서 등록
-        registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/static/");
+        registry.addResourceHandler("/**").addResourceLocations("classpath:/static/");
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(localeInterceptor)
-                .addPathPatterns("/**");
+        registry.addInterceptor(localeInterceptor).addPathPatterns("/**");
 
-        registry.addInterceptor(jwtInterceptor)
-                .addPathPatterns("/**")
-                .excludePathPatterns(JWT_EXCLUDE_PATTERNS);
+        registry.addInterceptor(jwtInterceptor).addPathPatterns("/**").excludePathPatterns(JWT_EXCLUDE_PATTERNS);
 
-        registry.addInterceptor(multipartInterceptor)
-                .addPathPatterns("/**");
+        registry.addInterceptor(multipartInterceptor).addPathPatterns("/**");
     }
 
     @Override

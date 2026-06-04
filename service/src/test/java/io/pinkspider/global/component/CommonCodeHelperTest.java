@@ -54,27 +54,26 @@ class CommonCodeHelperTest {
 
     private List<CommonCodeDto> buildCommonCodes() {
         return List.of(
-            CommonCodeDto.builder()
-                .id("CODE-001")
-                .codeName("코드명1")
-                .codeTitle("코드제목1")
-                .codeTitleEn("Code Title 1")
-                .parentId("PARENT-001")
-                .build(),
-            CommonCodeDto.builder()
-                .id("CODE-002")
-                .codeName("코드명2")
-                .codeTitle("코드제목2")
-                .codeTitleEn("Code Title 2")
-                .parentId("PARENT-001")
-                .build(),
-            CommonCodeDto.builder()
-                .id("CODE-003")
-                .codeName("코드명3")
-                .codeTitle("코드제목3")
-                .parentId("PARENT-002")
-                .build()
-        );
+                CommonCodeDto.builder()
+                        .id("CODE-001")
+                        .codeName("코드명1")
+                        .codeTitle("코드제목1")
+                        .codeTitleEn("Code Title 1")
+                        .parentId("PARENT-001")
+                        .build(),
+                CommonCodeDto.builder()
+                        .id("CODE-002")
+                        .codeName("코드명2")
+                        .codeTitle("코드제목2")
+                        .codeTitleEn("Code Title 2")
+                        .parentId("PARENT-001")
+                        .build(),
+                CommonCodeDto.builder()
+                        .id("CODE-003")
+                        .codeName("코드명3")
+                        .codeTitle("코드제목3")
+                        .parentId("PARENT-002")
+                        .build());
     }
 
     @Nested
@@ -109,7 +108,7 @@ class CommonCodeHelperTest {
 
             // when & then
             assertThatThrownBy(() -> CommonCodeHelper.getCommonCodeById("NOT-EXIST"))
-                .isInstanceOf(NoCommonCodeException.class);
+                    .isInstanceOf(NoCommonCodeException.class);
         }
 
         @Test
@@ -146,8 +145,7 @@ class CommonCodeHelperTest {
 
             // then
             assertThat(result).hasSize(2);
-            assertThat(result).extracting(CommonCodeDto::getId)
-                .containsExactlyInAnyOrder("CODE-001", "CODE-002");
+            assertThat(result).extracting(CommonCodeDto::getId).containsExactlyInAnyOrder("CODE-001", "CODE-002");
         }
 
         @Test
@@ -211,7 +209,7 @@ class CommonCodeHelperTest {
 
             // when & then
             assertThatThrownBy(() -> CommonCodeHelper.getCodeTitleById("INVALID"))
-                .isInstanceOf(NoCommonCodeException.class);
+                    .isInstanceOf(NoCommonCodeException.class);
         }
     }
 
@@ -244,7 +242,7 @@ class CommonCodeHelperTest {
 
             // when & then
             assertThatThrownBy(() -> CommonCodeHelper.getCodeNameById("INVALID"))
-                .isInstanceOf(NoCommonCodeException.class);
+                    .isInstanceOf(NoCommonCodeException.class);
         }
     }
 }

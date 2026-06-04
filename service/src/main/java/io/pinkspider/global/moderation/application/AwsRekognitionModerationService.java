@@ -30,16 +30,15 @@ public class AwsRekognitionModerationService implements ImageModerationService {
 
     public AwsRekognitionModerationService(ModerationProperties properties) {
         this.properties = properties;
-        log.info("AwsRekognitionModerationService 초기화 - 리전: {}, 최소신뢰도: {}",
-            properties.getAws().getRegion(),
-            properties.getMinConfidence());
+        log.info(
+                "AwsRekognitionModerationService 초기화 - 리전: {}, 최소신뢰도: {}",
+                properties.getAws().getRegion(),
+                properties.getMinConfidence());
     }
 
     @Override
     public ImageModerationResult analyzeImage(MultipartFile imageFile) {
-        log.info("AWS Rekognition 이미지 분석 시작: 파일={}, 크기={} bytes",
-            imageFile.getOriginalFilename(),
-            imageFile.getSize());
+        log.info("AWS Rekognition 이미지 분석 시작: 파일={}, 크기={} bytes", imageFile.getOriginalFilename(), imageFile.getSize());
 
         try {
             byte[] imageBytes = imageFile.getBytes();
@@ -87,11 +86,11 @@ public class AwsRekognitionModerationService implements ImageModerationService {
         }
 
         return ImageModerationResult.builder()
-            .safe(true)
-            .overallConfidence(100.0)
-            .detectedLabels(detectedLabels)
-            .categoryScores(categoryScores)
-            .provider(getProviderName())
-            .build();
+                .safe(true)
+                .overallConfidence(100.0)
+                .detectedLabels(detectedLabels)
+                .categoryScores(categoryScores)
+                .provider(getProviderName())
+                .build();
     }
 }

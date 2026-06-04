@@ -46,8 +46,10 @@ public class OnnxNsfwModerationService implements ImageModerationService {
             String modelPath = properties.getOnnx().getModelPath();
             byte[] modelBytes = loadModelBytes(modelPath);
             this.session = env.createSession(modelBytes, new OrtSession.SessionOptions());
-            log.info("OnnxNsfwModerationService 초기화 완료 - 모델: {}, NSFW 임계값: {}",
-                modelPath, properties.getOnnx().getNsfwThreshold());
+            log.info(
+                    "OnnxNsfwModerationService 초기화 완료 - 모델: {}, NSFW 임계값: {}",
+                    modelPath,
+                    properties.getOnnx().getNsfwThreshold());
         } catch (OrtException | IOException e) {
             throw new IllegalStateException("ONNX NSFW 모델 로드 실패: " + e.getMessage(), e);
         }
@@ -62,8 +64,7 @@ public class OnnxNsfwModerationService implements ImageModerationService {
 
     @Override
     public ImageModerationResult analyzeImage(MultipartFile imageFile) {
-        log.debug("ONNX NSFW 이미지 분석 시작: 파일={}, 크기={} bytes",
-            imageFile.getOriginalFilename(), imageFile.getSize());
+        log.debug("ONNX NSFW 이미지 분석 시작: 파일={}, 크기={} bytes", imageFile.getOriginalFilename(), imageFile.getSize());
 
         try {
             BufferedImage image = ImageIO.read(imageFile.getInputStream());
@@ -102,41 +103,42 @@ public class OnnxNsfwModerationService implements ImageModerationService {
             float[][][][] inputTensor = preprocessImage(image);
 
             try (OnnxTensor tensor = OnnxTensor.createTensor(env, inputTensor)) {
-                OrtSession.Result result = session.run(Map.of(session.getInputNames().iterator().next(), tensor));
+                OrtSession.Result result =
+                        session.run(Map.of(session.getInputNames().iterator().next(), tensor));
                 float[][] output = (float[][]) result.get(0).getValue();
 
                 float nsfwScore = output[0][1]; // index 1 = NSFW score
-                float sfwScore = output[0][0];  // index 0 = SFW score
+                float sfwScore = output[0][0]; // index 0 = SFW score
                 float nsfwThreshold = properties.getOnnx().getNsfwThreshold();
 
-                log.debug("ONNX NSFW 분석 완료: SFW={}, NSFW={}, 임계값={}",
-                    String.format("%.4f", sfwScore),
-                    String.format("%.4f", nsfwScore),
-                    nsfwThreshold);
+                log.debug(
+                        "ONNX NSFW 분석 완료: SFW={}, NSFW={}, 임계값={}",
+                        String.format("%.4f", sfwScore),
+                        String.format("%.4f", nsfwScore),
+                        nsfwThreshold);
 
                 if (nsfwScore >= nsfwThreshold) {
                     double confidencePercent = nsfwScore * 100.0;
                     ModerationLabel label = ModerationLabel.builder()
-                        .category(NSFW_CATEGORY)
-                        .name("NSFW Content")
-                        .confidence(confidencePercent)
-                        .build();
+                            .category(NSFW_CATEGORY)
+                            .name("NSFW Content")
+                            .confidence(confidencePercent)
+                            .build();
 
                     return ImageModerationResult.unsafe(
-                        "부적절한 콘텐츠가 감지되었습니다 (NSFW: " + String.format("%.1f", confidencePercent) + "%)",
-                        List.of(label),
-                        Map.of(NSFW_CATEGORY, confidencePercent),
-                        getProviderName()
-                    );
+                            "부적절한 콘텐츠가 감지되었습니다 (NSFW: " + String.format("%.1f", confidencePercent) + "%)",
+                            List.of(label),
+                            Map.of(NSFW_CATEGORY, confidencePercent),
+                            getProviderName());
                 }
 
                 return ImageModerationResult.builder()
-                    .safe(true)
-                    .overallConfidence((1.0 - nsfwScore) * 100.0)
-                    .detectedLabels(List.of())
-                    .categoryScores(Map.of(NSFW_CATEGORY, (double) nsfwScore * 100.0))
-                    .provider(getProviderName())
-                    .build();
+                        .safe(true)
+                        .overallConfidence((1.0 - nsfwScore) * 100.0)
+                        .detectedLabels(List.of())
+                        .categoryScores(Map.of(NSFW_CATEGORY, (double) nsfwScore * 100.0))
+                        .provider(getProviderName())
+                        .build();
             }
         } catch (Exception e) {
             log.error("ONNX 추론 실패: {}", e.getMessage());

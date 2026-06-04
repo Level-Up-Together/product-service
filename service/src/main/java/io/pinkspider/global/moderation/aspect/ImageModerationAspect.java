@@ -44,9 +44,10 @@ public class ImageModerationAspect {
                 }
                 ImageModerationResult result = imageModerationService.analyzeImage(imageFile);
                 if (!result.isSafe()) {
-                    log.warn("부적절한 이미지 업로드 차단: method={}, 사유={}",
-                        joinPoint.getSignature().toShortString(),
-                        result.getRejectionReason());
+                    log.warn(
+                            "부적절한 이미지 업로드 차단: method={}, 사유={}",
+                            joinPoint.getSignature().toShortString(),
+                            result.getRejectionReason());
                     throw new CustomException(MODERATION_ERROR_CODE, MODERATION_ERROR_MESSAGE);
                 }
             }

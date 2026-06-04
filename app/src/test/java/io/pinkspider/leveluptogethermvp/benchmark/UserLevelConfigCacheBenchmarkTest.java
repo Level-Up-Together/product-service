@@ -136,8 +136,9 @@ class UserLevelConfigCacheBenchmarkTest {
             userLevelConfigRepository.findAllByOrderByLevelAsc();
         });
         double dbAvgMs = dbTotalTime / 1_000_000.0 / BENCHMARK_ITERATIONS;
-        System.out.printf("   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
-            dbTotalTime / 1_000_000.0, dbAvgMs, BENCHMARK_ITERATIONS / (dbTotalTime / 1_000_000_000.0));
+        System.out.printf(
+                "   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
+                dbTotalTime / 1_000_000.0, dbAvgMs, BENCHMARK_ITERATIONS / (dbTotalTime / 1_000_000_000.0));
 
         // Redis 캐시 조회 - 동시 요청
         System.out.println("\n[2] Redis 캐시 조회 - 동시 요청");
@@ -145,8 +146,9 @@ class UserLevelConfigCacheBenchmarkTest {
             userLevelConfigCacheService.getAllLevelConfigs();
         });
         double cacheAvgMs = cacheTotalTime / 1_000_000.0 / BENCHMARK_ITERATIONS;
-        System.out.printf("   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
-            cacheTotalTime / 1_000_000.0, cacheAvgMs, BENCHMARK_ITERATIONS / (cacheTotalTime / 1_000_000_000.0));
+        System.out.printf(
+                "   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
+                cacheTotalTime / 1_000_000.0, cacheAvgMs, BENCHMARK_ITERATIONS / (cacheTotalTime / 1_000_000_000.0));
 
         // 비교
         System.out.println("\n[비교 결과]");
@@ -184,9 +186,8 @@ class UserLevelConfigCacheBenchmarkTest {
     }
 
     private void printStats(String label, List<Long> timesNano) {
-        LongSummaryStatistics stats = timesNano.stream()
-            .mapToLong(Long::longValue)
-            .summaryStatistics();
+        LongSummaryStatistics stats =
+                timesNano.stream().mapToLong(Long::longValue).summaryStatistics();
 
         // 정렬하여 백분위수 계산
         List<Long> sorted = timesNano.stream().sorted().toList();
@@ -205,7 +206,8 @@ class UserLevelConfigCacheBenchmarkTest {
 
     private void printComparison(List<Long> dbTimes, List<Long> cacheTimes) {
         double dbAvg = dbTimes.stream().mapToLong(Long::longValue).average().orElse(0);
-        double cacheAvg = cacheTimes.stream().mapToLong(Long::longValue).average().orElse(0);
+        double cacheAvg =
+                cacheTimes.stream().mapToLong(Long::longValue).average().orElse(0);
 
         System.out.println("\n========================================");
         System.out.println("비교 결과");

@@ -12,8 +12,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.lang.Nullable;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.lang.Nullable;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -23,10 +23,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "io.pinkspider.leveluptogethermvp.missionservice",
-    entityManagerFactoryRef = "missionEntityManagerFactory",
-    transactionManagerRef = "missionTransactionManager"
-)
+        basePackages = "io.pinkspider.leveluptogethermvp.missionservice",
+        entityManagerFactoryRef = "missionEntityManagerFactory",
+        transactionManagerRef = "missionTransactionManager")
 @Profile("!test & !push-test")
 @Slf4j
 public class MissionDataSourceConfig {
@@ -44,8 +43,8 @@ public class MissionDataSourceConfig {
         HikariConfig cfg = new HikariConfig();
 
         String jdbcUrl = sshTunnel != null
-            ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-            : properties.getJdbcUrl();
+                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                : properties.getJdbcUrl();
         log.info("Mission DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);
@@ -53,21 +52,21 @@ public class MissionDataSourceConfig {
         cfg.setPassword(properties.getPassword());
         cfg.setDriverClassName(properties.getDriverClassName());
 
-        cfg.setInitializationFailTimeout(30000);  // 30초 (무한 대기 방지)
+        cfg.setInitializationFailTimeout(30000); // 30초 (무한 대기 방지)
         cfg.setConnectionTimeout(15000);
         cfg.setValidationTimeout(5000);
         cfg.setMaximumPoolSize(10);
         cfg.setMinimumIdle(2);
-        cfg.setMaxLifetime(1800000);             // 30분
-        cfg.setIdleTimeout(600000);              // 10분
-        cfg.setLeakDetectionThreshold(60000);   // 커넥션 누수 감지 1분
+        cfg.setMaxLifetime(1800000); // 30분
+        cfg.setIdleTimeout(600000); // 10분
+        cfg.setLeakDetectionThreshold(60000); // 커넥션 누수 감지 1분
 
         return new HikariDataSource(cfg);
     }
 
     @Bean(name = "missionEntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean missionEntityManagerFactory(
-        @Qualifier("missionDataSource") DataSource dataSource) {
+            @Qualifier("missionDataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
         em.setPackagesToScan("io.pinkspider.leveluptogethermvp.missionservice");
@@ -80,7 +79,7 @@ public class MissionDataSourceConfig {
 
     @Bean(name = "missionTransactionManager")
     public PlatformTransactionManager missionTransactionManager(
-        @Qualifier("missionEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            @Qualifier("missionEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 

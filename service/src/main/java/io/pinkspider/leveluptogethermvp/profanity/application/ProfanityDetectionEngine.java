@@ -30,10 +30,7 @@ public class ProfanityDetectionEngine {
      * @return 탐지 결과
      */
     public ProfanityDetectionResult detect(
-            String content,
-            ProfanityDetectionMode mode,
-            boolean checkKoreanJamo,
-            int levenshteinThreshold) {
+            String content, ProfanityDetectionMode mode, boolean checkKoreanJamo, int levenshteinThreshold) {
 
         if (content == null || content.trim().isEmpty()) {
             return ProfanityDetectionResult.notDetected();
@@ -71,8 +68,7 @@ public class ProfanityDetectionEngine {
      * - 공백/특수문자 제거
      * - 한글 초성 매칭
      */
-    private ProfanityDetectionResult detectNormal(
-            String content, Set<String> profanityWords, boolean checkKoreanJamo) {
+    private ProfanityDetectionResult detectNormal(String content, Set<String> profanityWords, boolean checkKoreanJamo) {
 
         String normalizedContent = normalizer.normalize(content);
 
@@ -91,20 +87,20 @@ public class ProfanityDetectionEngine {
                 String wordChosung = normalizer.extractChosung(word);
 
                 // 금칙어가 초성만으로 이루어진 경우 (예: ㅅㅂ)
-                String wordChosungFromOriginal = normalizer.extractChosung(
-                    normalizer.extractKoreanOnly(word)
-                );
+                String wordChosungFromOriginal = normalizer.extractChosung(normalizer.extractKoreanOnly(word));
 
                 if (!wordChosung.isEmpty() && contentChosung.contains(wordChosung)) {
-                    log.debug("CHOSUNG_MATCH 탐지: '{}' (초성: '{}') in content chosung '{}'",
-                        word, wordChosung, contentChosung);
+                    log.debug(
+                            "CHOSUNG_MATCH 탐지: '{}' (초성: '{}') in content chosung '{}'",
+                            word,
+                            wordChosung,
+                            contentChosung);
                     return ProfanityDetectionResult.detected(word, "CHOSUNG_MATCH");
                 }
 
                 // 원본이 이미 초성인 경우도 검사 (예: content에 "ㅅㅂ" 직접 입력)
                 String contentNormalized = normalizer.normalize(content);
-                if (!wordChosungFromOriginal.isEmpty()
-                    && contentNormalized.contains(wordChosungFromOriginal)) {
+                if (!wordChosungFromOriginal.isEmpty() && contentNormalized.contains(wordChosungFromOriginal)) {
                     log.debug("CHOSUNG_DIRECT_MATCH 탐지: '{}' in normalized content", word);
                     return ProfanityDetectionResult.detected(word, "CHOSUNG_MATCH");
                 }
@@ -118,8 +114,7 @@ public class ProfanityDetectionEngine {
      * STRICT 모드: NORMAL + 레벤슈타인 거리 검사 (오타 탐지)
      */
     private ProfanityDetectionResult detectStrict(
-            String content, Set<String> profanityWords,
-            boolean checkKoreanJamo, int levenshteinThreshold) {
+            String content, Set<String> profanityWords, boolean checkKoreanJamo, int levenshteinThreshold) {
 
         // 먼저 NORMAL 모드 검사
         ProfanityDetectionResult normalResult = detectNormal(content, profanityWords, checkKoreanJamo);
@@ -146,8 +141,11 @@ public class ProfanityDetectionEngine {
 
                     int distance = normalizer.levenshteinDistance(substring, normalizedWord);
                     if (distance > 0 && distance <= levenshteinThreshold) {
-                        log.debug("LEVENSHTEIN_MATCH 탐지: '{}' (distance: {}) in substring '{}'",
-                            word, distance, substring);
+                        log.debug(
+                                "LEVENSHTEIN_MATCH 탐지: '{}' (distance: {}) in substring '{}'",
+                                word,
+                                distance,
+                                substring);
                         return ProfanityDetectionResult.detected(word, "LEVENSHTEIN_MATCH", distance);
                     }
                 }

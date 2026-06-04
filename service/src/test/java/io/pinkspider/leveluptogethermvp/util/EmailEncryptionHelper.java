@@ -29,10 +29,10 @@ class EmailEncryptionHelper {
     @BeforeEach
     void setUp() {
         productionCryptoMetaData = CryptoMetaData.builder()
-            .secretKey(PRODUCTION_SECRET_KEY)
-            .iv(PRODUCTION_IV)
-            .cipher(PRODUCTION_CIPHER)
-            .build();
+                .secretKey(PRODUCTION_SECRET_KEY)
+                .iv(PRODUCTION_IV)
+                .cipher(PRODUCTION_CIPHER)
+                .build();
     }
 
     @Test

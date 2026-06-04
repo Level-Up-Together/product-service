@@ -88,7 +88,7 @@ class CurrentUserArgumentResolverTest {
             // given
             String userId = "test-user-123";
             UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(userId, null, java.util.Collections.emptyList());
+                    new UsernamePasswordAuthenticationToken(userId, null, java.util.Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);
@@ -107,11 +107,11 @@ class CurrentUserArgumentResolverTest {
             // given
             String userId = "test-user-123";
             UserDetails userDetails = User.withUsername(userId)
-                .password("password")
-                .authorities("ROLE_USER")
-                .build();
+                    .password("password")
+                    .authorities("ROLE_USER")
+                    .build();
             UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);
@@ -135,7 +135,7 @@ class CurrentUserArgumentResolverTest {
 
             // when & then
             assertThatThrownBy(() -> resolver.resolveArgument(parameter, null, null, null))
-                .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class);
         }
 
         @Test
@@ -158,9 +158,8 @@ class CurrentUserArgumentResolverTest {
         @DisplayName("익명 사용자인 경우 필수가 아니면 null을 반환한다")
         void resolveArgument_anonymousUser_notRequired_returnsNull() throws Exception {
             // given
-            SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("anonymousUser", null)
-            );
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new UsernamePasswordAuthenticationToken("anonymousUser", null));
 
             Method method = TestController.class.getMethod("testMethodOptional", String.class);
             MethodParameter parameter = new MethodParameter(method, 0);
@@ -176,8 +175,7 @@ class CurrentUserArgumentResolverTest {
         @DisplayName("Authentication.isAuthenticated()이 false면 null 반환 (필수 X)")
         void resolveArgument_isAuthenticatedFalse_returnsNull() throws Exception {
             // given: 2-arg 생성자는 isAuthenticated=false로 초기화됨
-            UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken("user-id", null);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("user-id", null);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethodOptional", String.class);
@@ -201,7 +199,7 @@ class CurrentUserArgumentResolverTest {
                 }
             };
             UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(customPrincipal, null, java.util.Collections.emptyList());
+                    new UsernamePasswordAuthenticationToken(customPrincipal, null, java.util.Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);
@@ -218,8 +216,11 @@ class CurrentUserArgumentResolverTest {
     // Test controller for method parameter extraction
     static class TestController {
         public void testMethod(@CurrentUser String userId) {}
+
         public void testMethodOptional(@CurrentUser(required = false) String userId) {}
+
         public void testMethodWithoutAnnotation(String userId) {}
+
         public void testMethodWithLong(@CurrentUser Long userId) {}
     }
 }

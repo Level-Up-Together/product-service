@@ -9,8 +9,7 @@ import java.util.Map;
  */
 public final class SupportedTimezone {
 
-    private SupportedTimezone() {
-    }
+    private SupportedTimezone() {}
 
     public static final String DEFAULT_TIMEZONE = "Asia/Seoul";
 
@@ -18,37 +17,35 @@ public final class SupportedTimezone {
      * locale → 기본 타임존 매핑
      */
     private static final Map<String, String> LOCALE_TO_TIMEZONE = Map.of(
-        "ko", "Asia/Seoul",
-        "ja", "Asia/Tokyo",
-        "ar", "Asia/Riyadh",
-        "en", "UTC"
-    );
+            "ko", "Asia/Seoul",
+            "ja", "Asia/Tokyo",
+            "ar", "Asia/Riyadh",
+            "en", "UTC");
 
     /**
      * ISO 3166-1 alpha-2 국가코드 → 타임존 매핑 (주요 국가)
      */
     private static final Map<String, String> COUNTRY_TO_TIMEZONE = Map.ofEntries(
-        Map.entry("KR", "Asia/Seoul"),
-        Map.entry("JP", "Asia/Tokyo"),
-        Map.entry("SA", "Asia/Riyadh"),
-        Map.entry("AE", "Asia/Dubai"),
-        Map.entry("EG", "Africa/Cairo"),
-        Map.entry("QA", "Asia/Qatar"),
-        Map.entry("KW", "Asia/Kuwait"),
-        Map.entry("BH", "Asia/Bahrain"),
-        Map.entry("OM", "Asia/Muscat"),
-        Map.entry("IQ", "Asia/Baghdad"),
-        Map.entry("JO", "Asia/Amman"),
-        Map.entry("US", "America/New_York"),
-        Map.entry("GB", "Europe/London"),
-        Map.entry("DE", "Europe/Berlin"),
-        Map.entry("FR", "Europe/Paris"),
-        Map.entry("CN", "Asia/Shanghai"),
-        Map.entry("TW", "Asia/Taipei"),
-        Map.entry("IN", "Asia/Kolkata"),
-        Map.entry("AU", "Australia/Sydney"),
-        Map.entry("SG", "Asia/Singapore")
-    );
+            Map.entry("KR", "Asia/Seoul"),
+            Map.entry("JP", "Asia/Tokyo"),
+            Map.entry("SA", "Asia/Riyadh"),
+            Map.entry("AE", "Asia/Dubai"),
+            Map.entry("EG", "Africa/Cairo"),
+            Map.entry("QA", "Asia/Qatar"),
+            Map.entry("KW", "Asia/Kuwait"),
+            Map.entry("BH", "Asia/Bahrain"),
+            Map.entry("OM", "Asia/Muscat"),
+            Map.entry("IQ", "Asia/Baghdad"),
+            Map.entry("JO", "Asia/Amman"),
+            Map.entry("US", "America/New_York"),
+            Map.entry("GB", "Europe/London"),
+            Map.entry("DE", "Europe/Berlin"),
+            Map.entry("FR", "Europe/Paris"),
+            Map.entry("CN", "Asia/Shanghai"),
+            Map.entry("TW", "Asia/Taipei"),
+            Map.entry("IN", "Asia/Kolkata"),
+            Map.entry("AU", "Australia/Sydney"),
+            Map.entry("SG", "Asia/Singapore"));
 
     /**
      * 유효한 IANA timezone ID인지 확인

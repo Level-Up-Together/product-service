@@ -22,10 +22,12 @@ public class GoogleTranslationConfig {
     @Bean
     public Request.Options requestOptions() {
         return new Request.Options(
-            5, TimeUnit.SECONDS,   // connectTimeout
-            10, TimeUnit.SECONDS,  // readTimeout
-            true                    // followRedirects
-        );
+                5,
+                TimeUnit.SECONDS, // connectTimeout
+                10,
+                TimeUnit.SECONDS, // readTimeout
+                true // followRedirects
+                );
     }
 
     /**

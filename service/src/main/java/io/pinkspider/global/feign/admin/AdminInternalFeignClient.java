@@ -7,10 +7,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @FeignClient(
-    name = "admin-internal-client",
-    url = "${app.admin.api-url}",
-    configuration = AdminInternalFeignConfig.class
-)
+        name = "admin-internal-client",
+        url = "${app.admin.api-url}",
+        configuration = AdminInternalFeignConfig.class)
 public interface AdminInternalFeignClient {
 
     @GetMapping("/api/internal/featured-content/players")

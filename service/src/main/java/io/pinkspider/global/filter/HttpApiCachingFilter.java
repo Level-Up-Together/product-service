@@ -31,16 +31,13 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 @Profile({"local", "dev", "stage", "prod"})
 public class HttpApiCachingFilter extends OncePerRequestFilter {
 
-//    @Value("${management.endpoints.web.base-path}")
+    //    @Value("${management.endpoints.web.base-path}")
     private String ACTUATOR_PATH = "/showmethemoney";
 
     private static String APPLICATION_NAME;
 
-    private static final List<String> EXCLUDED_URIS = List.of(
-        "/oauth/uri/**",
-        "/health-check",
-        "/oauth/callback/apple"
-    );
+    private static final List<String> EXCLUDED_URIS =
+            List.of("/oauth/uri/**", "/health-check", "/oauth/callback/apple");
 
     @Value("${spring.application.name}")
     private void setApplicationName(String value) {
@@ -48,16 +45,16 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
     }
 
     // TODO 개발동안 임시로 카프카 로깅 사용하지 않음
-//    private static KafkaHttpLoggerProducer kafkaHttpLoggerProducer;
+    //    private static KafkaHttpLoggerProducer kafkaHttpLoggerProducer;
 
-//    @Autowired
-//    public HttpApiCachingFilter(KafkaHttpLoggerProducer kafkaHttpLoggerProducer) {
-//        HttpApiCachingFilter.kafkaHttpLoggerProducer = kafkaHttpLoggerProducer;
-//    }
+    //    @Autowired
+    //    public HttpApiCachingFilter(KafkaHttpLoggerProducer kafkaHttpLoggerProducer) {
+    //        HttpApiCachingFilter.kafkaHttpLoggerProducer = kafkaHttpLoggerProducer;
+    //    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-        throws ServletException, IOException {
+            throws ServletException, IOException {
 
         String requestUri = request.getRequestURI();
 
@@ -70,14 +67,21 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
         if (isAsyncDispatch(request)) {
             filterChain.doFilter(request, response);
         } else if (isMultipartRequest(request)) {
-            doFilterWrapped(new StandardMultipartHttpServletRequest(request), new CachedHttpServletResponseWrapper(response), filterChain);
+            doFilterWrapped(
+                    new StandardMultipartHttpServletRequest(request),
+                    new CachedHttpServletResponseWrapper(response),
+                    filterChain);
         } else {
-            doFilterWrapped(new CachedHttpServletRequestWrapper(request), new CachedHttpServletResponseWrapper(response), filterChain);
+            doFilterWrapped(
+                    new CachedHttpServletRequestWrapper(request),
+                    new CachedHttpServletResponseWrapper(response),
+                    filterChain);
         }
     }
 
-    protected void doFilterWrapped(HttpServletRequestWrapper request, ContentCachingResponseWrapper response, FilterChain filterChain)
-        throws ServletException, IOException {
+    protected void doFilterWrapped(
+            HttpServletRequestWrapper request, ContentCachingResponseWrapper response, FilterChain filterChain)
+            throws ServletException, IOException {
         try {
             if (request.getRequestURI().contains(ACTUATOR_PATH)) {
                 filterChain.doFilter(request, response);
@@ -97,8 +101,11 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
 
     private static void logRequest(HttpServletRequestWrapper request) throws IOException {
         String queryString = request.getQueryString();
-        log.info("Request : {} uri=[{}] content-type=[{}]", request.getMethod(),
-            queryString == null ? request.getRequestURI() : request.getRequestURI() + queryString, request.getContentType());
+        log.info(
+                "Request : {} uri=[{}] content-type=[{}]",
+                request.getMethod(),
+                queryString == null ? request.getRequestURI() : request.getRequestURI() + queryString,
+                request.getContentType());
         logPayload("REQUEST", request.getContentType(), request.getInputStream(), request.getRequestURI());
     }
 
@@ -106,46 +113,47 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
         logPayload("RESPONSE", response.getContentType(), response.getContentInputStream(), null);
     }
 
-    private static void logPayload(String direction,
-                                   String contentType,
-                                   InputStream inputStream,
-                                   String targetUri
-    ) throws IOException {
+    private static void logPayload(String direction, String contentType, InputStream inputStream, String targetUri)
+            throws IOException {
         boolean visible = isVisible(MediaType.valueOf(contentType == null ? "application/json" : contentType));
         if (visible) {
-//            KafkaHttpLoggerMessageDto httpLogger = KafkaHttpLoggerMessageDto.builder()
-//                .service(APPLICATION_NAME)
-//                .method(targetUri)
-//                .direction(direction)
-//                .createdDate(DateUtils.convertDateFormat(LocalDateTime.now(), DateUtilConstants.DATE_FORMAT_Y_M_D_H_M_S))
-//                .build();
+            //            KafkaHttpLoggerMessageDto httpLogger = KafkaHttpLoggerMessageDto.builder()
+            //                .service(APPLICATION_NAME)
+            //                .method(targetUri)
+            //                .direction(direction)
+            //                .createdDate(DateUtils.convertDateFormat(LocalDateTime.now(),
+            // DateUtilConstants.DATE_FORMAT_Y_M_D_H_M_S))
+            //                .build();
 
             byte[] content = StreamUtils.copyToByteArray(inputStream);
             if (content.length > 0) {
                 String contentString = new String(content);
                 log.info("{} Payload: {}", direction, contentString);
-//                httpLogger.setPayload(contentString);
+                //                httpLogger.setPayload(contentString);
             }
             // TODO 개발동안 임시로 카프카 로깅 사용하지 않음
-//            kafkaHttpLoggerProducer.sendHttpLoggerMessage(httpLogger);
+            //            kafkaHttpLoggerProducer.sendHttpLoggerMessage(httpLogger);
         } else {
             log.info("{} Payload: Binary Content", direction);
         }
     }
 
     private static boolean isVisible(MediaType mediaType) {
-        final List<MediaType> VISIBLE_TYPES = Arrays.asList(MediaType.valueOf("text/*"),
-            MediaType.APPLICATION_FORM_URLENCODED,
-            MediaType.APPLICATION_JSON,
-            MediaType.APPLICATION_XML,
-            MediaType.valueOf("application/*+json"),
-            MediaType.valueOf("application/*+xml"),
-            MediaType.MULTIPART_FORM_DATA);
+        final List<MediaType> VISIBLE_TYPES = Arrays.asList(
+                MediaType.valueOf("text/*"),
+                MediaType.APPLICATION_FORM_URLENCODED,
+                MediaType.APPLICATION_JSON,
+                MediaType.APPLICATION_XML,
+                MediaType.valueOf("application/*+json"),
+                MediaType.valueOf("application/*+xml"),
+                MediaType.MULTIPART_FORM_DATA);
         return VISIBLE_TYPES.stream().anyMatch(visibleType -> visibleType.includes(mediaType));
     }
 
     private boolean isMultipartRequest(HttpServletRequest request) {
         String contentType = request.getContentType();
-        return request.getMethod().equalsIgnoreCase("POST") && contentType != null && contentType.startsWith("multipart/form-data");
+        return request.getMethod().equalsIgnoreCase("POST")
+                && contentType != null
+                && contentType.startsWith("multipart/form-data");
     }
 }

@@ -73,7 +73,7 @@ class ImageModerationAspectTest {
             when(imageModerationService.isEnabled()).thenReturn(true);
             when(imageFile.isEmpty()).thenReturn(false);
             when(imageModerationService.analyzeImage(imageFile)).thenReturn(ImageModerationResult.safe());
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"userId", imageFile});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"userId", imageFile});
             when(joinPoint.proceed()).thenReturn("result");
 
             // when
@@ -94,23 +94,26 @@ class ImageModerationAspectTest {
             Signature signature = mock(Signature.class);
 
             ImageModerationResult unsafeResult = ImageModerationResult.unsafe(
-                "NSFW 콘텐츠 감지",
-                List.of(ModerationLabel.builder().category("NSFW").name("NSFW Content").confidence(95.0).build()),
-                Map.of("NSFW", 95.0),
-                "onnx-nsfw"
-            );
+                    "NSFW 콘텐츠 감지",
+                    List.of(ModerationLabel.builder()
+                            .category("NSFW")
+                            .name("NSFW Content")
+                            .confidence(95.0)
+                            .build()),
+                    Map.of("NSFW", 95.0),
+                    "onnx-nsfw");
 
             when(imageModerationService.isEnabled()).thenReturn(true);
             when(imageFile.isEmpty()).thenReturn(false);
             when(imageModerationService.analyzeImage(imageFile)).thenReturn(unsafeResult);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"userId", imageFile});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"userId", imageFile});
             when(joinPoint.getSignature()).thenReturn(signature);
             when(signature.toShortString()).thenReturn("TestService.upload(..)");
 
             // when & then
             assertThatThrownBy(() -> aspect.moderateImage(joinPoint, annotation))
-                .isInstanceOf(CustomException.class)
-                .hasMessageContaining("error.moderation.inappropriate_image");
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.moderation.inappropriate_image");
 
             verify(joinPoint, never()).proceed();
         }
@@ -125,7 +128,7 @@ class ImageModerationAspectTest {
 
             when(imageModerationService.isEnabled()).thenReturn(true);
             when(emptyFile.isEmpty()).thenReturn(true);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"userId", emptyFile});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"userId", emptyFile});
             when(joinPoint.proceed()).thenReturn("result");
 
             // when
@@ -144,7 +147,7 @@ class ImageModerationAspectTest {
             ModerateImage annotation = mock(ModerateImage.class);
 
             when(imageModerationService.isEnabled()).thenReturn(true);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{"userId", 123L});
+            when(joinPoint.getArgs()).thenReturn(new Object[] {"userId", 123L});
             when(joinPoint.proceed()).thenReturn("result");
 
             // when

@@ -32,17 +32,17 @@ public class ProfanityWordResponse {
 
     public static ProfanityWordResponse from(ProfanityWord entity) {
         return ProfanityWordResponse.builder()
-            .id(entity.getId())
-            .locale(entity.getLocale())
-            .word(entity.getWord())
-            .category(entity.getCategory())
-            .categoryName(entity.getCategory().getName())
-            .severity(entity.getSeverity())
-            .severityName(entity.getSeverity().getName())
-            .isActive(entity.getIsActive())
-            .description(entity.getDescription())
-            .createdAt(entity.getCreatedAt())
-            .modifiedAt(entity.getModifiedAt())
-            .build();
+                .id(entity.getId())
+                .locale(entity.getLocale())
+                .word(entity.getWord())
+                .category(entity.getCategory())
+                .categoryName(entity.getCategory().getName())
+                .severity(entity.getSeverity())
+                .severityName(entity.getSeverity().getName())
+                .isActive(entity.getIsActive())
+                .description(entity.getDescription())
+                .createdAt(entity.getCreatedAt())
+                .modifiedAt(entity.getModifiedAt())
+                .build();
     }
 }
