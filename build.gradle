@@ -35,7 +35,7 @@ subprojects {
         java {
             target 'src/**/*.java'
             targetExclude '**/build/generated/**', '**/build/**'
-            palantirJavaFormat('2.50.0')
+            palantirJavaFormat('2.89.0')
             removeUnusedImports()
             trimTrailingWhitespace()
             endWithNewline()

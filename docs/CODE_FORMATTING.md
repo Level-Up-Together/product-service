@@ -10,7 +10,7 @@
 
 | 항목                     | 값                                                          |
 |------------------------|------------------------------------------------------------|
-| 도구                     | Spotless 6.25 + palantir-java-format 2.50                  |
+| 도구                     | Spotless 6.25 + palantir-java-format 2.89                  |
 | 스타일                    | Palantir Java Style (4-space, 120 column)                  |
 | 미사용 import 제거          | ✓                                                          |
 | trailing whitespace 제거 | ✓                                                          |
