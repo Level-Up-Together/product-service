@@ -177,17 +177,18 @@ All REST endpoints return `ApiResult<T>`:
 - **기본 언어**: 영어 (Default)
 - **커밋 메시지**: `.claude/commands/commit.md` 규칙 — `type: [JIRA-번호] 설명`, 50자 이내, 한글, "with claude" 푸터 금지
 
-### 코드 포맷팅 (Spotless + Palantir)
+### 코드 포맷팅 (Spotless + google-java-format AOSP)
 
-전 Java 저장소는 Spotless + palantir-java-format으로 자동 포맷팅 강제.
+전 Java 저장소는 Spotless + google-java-format(AOSP, 4-space, 100col)으로 자동 포맷팅 강제. Import 정렬 자동.
 
 ```bash
 ./gradlew spotlessApply  # 적용
 ./gradlew spotlessCheck  # CI에서 사용 — 위반 시 빌드 실패
 ```
 
-**IntelliJ 사용자 필수 설정**: Palantir Java Format 플러그인 + VM Options `--add-exports` 추가. 안 하면 IDE on-save와 ping-pong 커밋 발생.
-상세 설정은 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md) 참조.
+**IntelliJ 사용자 권장 설정**: `google-java-format` 플러그인 + AOSP 모드 + VM Options `--add-exports`. 또는 Code Style을 Default IDE로 두기. 상세는 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md).
+
+**Claude는 Java 코드 수정 후 반드시 `./gradlew :모듈:spotlessApply`를 실행하여 형식을 정정한다.** 작성 시 IDE 결과와 어긋날 수 있어 마무리 단계로 spotless 적용 필수.
 
 ## 작업 완료 시 규칙
 

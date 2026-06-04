@@ -408,14 +408,14 @@ erDiagram
 ./gradlew bootRun --args='--spring.profiles.active=test'
 ```
 
-### 코드 포맷팅 (Spotless + Palantir)
+### 코드 포맷팅 (Spotless + google-java-format AOSP)
 
 ```bash
 ./gradlew spotlessApply   # 자동 포맷 적용
 ./gradlew spotlessCheck   # CI에서 사용 (위반 시 빌드 실패)
 ```
 
-**IntelliJ 사용자 필수 설정** — Palantir Java Format 플러그인 설치 + VM Options `--add-exports` 추가. 안 하면 IDE on-save와 포맷터 결과가 어긋나 ping-pong 커밋이 발생합니다. 상세 가이드는 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md) 참조.
+AOSP 스타일(4-space, 100col, alphabet import sort). IntelliJ는 `google-java-format` 플러그인 + AOSP 모드 권장, 또는 Code Style을 Default IDE로 두면 거의 일치. 상세 가이드는 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md).
 
 ### API 문서 생성
 
