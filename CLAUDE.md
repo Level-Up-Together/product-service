@@ -177,6 +177,18 @@ All REST endpoints return `ApiResult<T>`:
 - **기본 언어**: 영어 (Default)
 - **커밋 메시지**: `.claude/commands/commit.md` 규칙 — `type: [JIRA-번호] 설명`, 50자 이내, 한글, "with claude" 푸터 금지
 
+### 코드 포맷팅 (Spotless + Palantir)
+
+전 Java 저장소는 Spotless + palantir-java-format으로 자동 포맷팅 강제.
+
+```bash
+./gradlew spotlessApply  # 적용
+./gradlew spotlessCheck  # CI에서 사용 — 위반 시 빌드 실패
+```
+
+**IntelliJ 사용자 필수 설정**: Palantir Java Format 플러그인 + VM Options `--add-exports` 추가. 안 하면 IDE on-save와 ping-pong 커밋 발생.
+상세 설정은 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md) 참조.
+
 ## 작업 완료 시 규칙
 
 - 작업이 끝나면 반드시 프로젝트별 커밋 메시지를 생성 (커밋은 직접 실행)

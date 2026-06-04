@@ -75,7 +75,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 7. Gradle 빌드
+      # 7. Spotless 포맷 검사
+      - name: Spotless Check
+        run: ./gradlew spotlessCheck --no-daemon
+
+      # 8. Gradle 빌드
       - name: Build with Gradle
         run: |
           RELEASE_VERSION=$(grep lutPlatformReleaseVersion gradle.properties | cut -d= -f2)

@@ -408,6 +408,15 @@ erDiagram
 ./gradlew bootRun --args='--spring.profiles.active=test'
 ```
 
+### 코드 포맷팅 (Spotless + Palantir)
+
+```bash
+./gradlew spotlessApply   # 자동 포맷 적용
+./gradlew spotlessCheck   # CI에서 사용 (위반 시 빌드 실패)
+```
+
+**IntelliJ 사용자 필수 설정** — Palantir Java Format 플러그인 설치 + VM Options `--add-exports` 추가. 안 하면 IDE on-save와 포맷터 결과가 어긋나 ping-pong 커밋이 발생합니다. 상세 가이드는 [`docs/CODE_FORMATTING.md`](docs/CODE_FORMATTING.md) 참조.
+
 ### API 문서 생성
 
 ```bash
