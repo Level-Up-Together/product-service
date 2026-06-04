@@ -76,12 +76,21 @@ public class FeedQueryService {
 
     /**
      * 전체 공개 피드 조회 (다국어 지원)
+     *
+     * QA-168: 사용자가 볼 수 있는 모든 피드를 보여준다.
+     * - PUBLIC 피드 (모든 사람)
+     * - 본인이 작성한 피드 (PRIVATE 제외)
+     * - 친구가 작성한 FRIENDS 공개 피드
+     * - 같은 길드원이 작성한 GUILD 공개 피드
      */
     public Page<ActivityFeedResponse> getPublicFeeds(String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeeds(pageable);
+        List<String> friendIds = resolveFriendIds(currentUserId);
+        List<Long> guildIds = resolveGuildIds(currentUserId);
+        Page<ActivityFeed> feeds = activityFeedRepository.findAccessibleFeeds(
+            currentUserId, friendIds, guildIds, pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
@@ -168,6 +177,32 @@ public class FeedQueryService {
     }
 
     /**
+     * QA-168: 사용자의 친구 ID 목록 조회. 비로그인은 빈 리스트.
+     * 빈 리스트는 JPQL의 IN 절에서 false로 평가되어 친구 피드는 결과에서 제외됨.
+     */
+    private List<String> resolveFriendIds(String userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        List<String> ids = userQueryFacadeService.getFriendIds(userId);
+        return ids != null ? ids : List.of();
+    }
+
+    /**
+     * QA-168: 사용자의 길드 ID 목록 조회. 비로그인은 빈 리스트.
+     */
+    private List<Long> resolveGuildIds(String userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        List<GuildMembershipInfo> memberships = guildQueryFacadeService.getUserGuildMemberships(userId);
+        if (memberships == null) {
+            return List.of();
+        }
+        return memberships.stream().map(GuildMembershipInfo::guildId).toList();
+    }
+
+    /**
      * 피드 목록을 좋아요/신고/번역/다중이미지 정보로 보강 (QA-139: enrich 누락 제거)
      */
     private Page<ActivityFeedResponse> enrichFeeds(Page<ActivityFeed> feeds, String userId, String targetLocale) {
@@ -225,9 +260,11 @@ public class FeedQueryService {
             }
         }
 
-        // 2. 카테고리별 일반 피드 조회
-        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findPublicFeedsByCategoryId(
-            categoryId, pageable);
+        // 2. 카테고리별 일반 피드 조회 (QA-168: 친구 FRIENDS / 길드 GUILD 포함)
+        List<String> friendIds = resolveFriendIds(currentUserId);
+        List<Long> guildIds = resolveGuildIds(currentUserId);
+        Page<ActivityFeed> categoryFeeds = activityFeedRepository.findAccessibleFeedsByCategoryId(
+            categoryId, currentUserId, friendIds, guildIds, pageable);
 
         // 3. Featured 피드와 합치기 (첫 페이지에만 Featured 추가)
         List<ActivityFeed> combinedFeeds = new ArrayList<>();

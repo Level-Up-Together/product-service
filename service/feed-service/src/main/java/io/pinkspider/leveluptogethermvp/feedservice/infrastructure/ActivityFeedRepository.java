@@ -23,6 +23,26 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeeds(Pageable pageable);
 
+    /**
+     * QA-168: 사용자가 볼 수 있는 모든 피드 조회 (홈 '전체' 탭)
+     * - PUBLIC 피드
+     * - 본인이 작성한 피드 (PRIVATE 제외)
+     * - 친구가 작성한 FRIENDS 공개 피드
+     * - 같은 길드원이 작성한 GUILD 공개 피드
+     * 비로그인은 userId=null, friendIds/guildIds=빈 리스트 → PUBLIC만 반환됨
+     */
+    @Query("SELECT f FROM ActivityFeed f WHERE "
+        + "f.visibility = 'PUBLIC' "
+        + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
+        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
+        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD') "
+        + "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findAccessibleFeeds(
+        @Param("userId") String userId,
+        @Param("friendIds") List<String> friendIds,
+        @Param("guildIds") List<Long> guildIds,
+        Pageable pageable);
+
     // 전체 공개 피드 조회 (시간 범위 필터)
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
            "AND f.createdAt >= :startTime AND f.createdAt < :endTime " +
@@ -115,6 +135,23 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
            "AND f.categoryId = :categoryId ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByCategoryId(
         @Param("categoryId") Long categoryId, Pageable pageable);
+
+    /**
+     * QA-168: 카테고리별로 사용자가 볼 수 있는 모든 피드 조회.
+     * findAccessibleFeeds의 카테고리 필터 버전.
+     */
+    @Query("SELECT f FROM ActivityFeed f WHERE f.categoryId = :categoryId AND ("
+        + "f.visibility = 'PUBLIC' "
+        + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
+        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
+        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')"
+        + ") ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findAccessibleFeedsByCategoryId(
+        @Param("categoryId") Long categoryId,
+        @Param("userId") String userId,
+        @Param("friendIds") List<String> friendIds,
+        @Param("guildIds") List<Long> guildIds,
+        Pageable pageable);
 
     // 카테고리별 공개 피드 조회 (시간 범위 필터)
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
