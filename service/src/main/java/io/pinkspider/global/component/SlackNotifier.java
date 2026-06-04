@@ -41,8 +41,10 @@ public class SlackNotifier implements io.pinkspider.global.handler.RestException
     public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request) {
         WebhookResponse response = null;
         try {
-            response = slackClient.send(webhookUrl, payload(p -> p.text("서버 에러 발생! 백엔드 확인 요망")
-                    .attachments(List.of(generateSlackAttachment(exception, request)))));
+            response = slackClient.send(
+                    webhookUrl,
+                    payload(p -> p.text("서버 에러 발생! 백엔드 확인 요망")
+                            .attachments(List.of(generateSlackAttachment(exception, request)))));
         } catch (IOException slackError) {
             log.error("Slack 통신과의 예외 발생");
         }
