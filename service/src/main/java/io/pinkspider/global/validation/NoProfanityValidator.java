@@ -11,9 +11,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * @NoProfanity 어노테이션 검증기
- * <p>
- * Spring Bean으로 등록되어 ProfanityDetectionEngine을 주입받습니다.
- * </p>
+ *
+ * <p>Spring Bean으로 등록되어 ProfanityDetectionEngine을 주입받습니다.
  */
 @Slf4j
 @Component
@@ -42,7 +41,8 @@ public class NoProfanityValidator implements ConstraintValidator<NoProfanity, St
             return true;
         }
 
-        ProfanityDetectionResult result = detectionEngine.detect(value, mode, checkKoreanJamo, levenshteinThreshold);
+        ProfanityDetectionResult result =
+                detectionEngine.detect(value, mode, checkKoreanJamo, levenshteinThreshold);
 
         if (result.isDetected()) {
             log.warn(

@@ -19,14 +19,15 @@ class ProfanityWordTest {
         @DisplayName("모든 필드가 정상적으로 설정된다")
         void builder_setsAllFields() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .id(1L)
-                    .word("테스트금칙어")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.MEDIUM)
-                    .isActive(true)
-                    .description("테스트용 금칙어입니다")
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .id(1L)
+                            .word("테스트금칙어")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.MEDIUM)
+                            .isActive(true)
+                            .description("테스트용 금칙어입니다")
+                            .build();
 
             // then
             assertThat(profanityWord.getId()).isEqualTo(1L);
@@ -41,13 +42,14 @@ class ProfanityWordTest {
         @DisplayName("description 없이도 생성 가능하다")
         void builder_worksWithoutDescription() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .id(1L)
-                    .word("테스트")
-                    .category(ProfanityCategory.SEXUAL)
-                    .severity(ProfanitySeverity.HIGH)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .id(1L)
+                            .word("테스트")
+                            .category(ProfanityCategory.SEXUAL)
+                            .severity(ProfanitySeverity.HIGH)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getWord()).isEqualTo("테스트");
@@ -63,12 +65,13 @@ class ProfanityWordTest {
         @DisplayName("GENERAL 카테고리로 생성할 수 있다")
         void createWithGeneralCategory() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("일반욕설")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.LOW)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("일반욕설")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.LOW)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getCategory()).isEqualTo(ProfanityCategory.GENERAL);
@@ -79,12 +82,13 @@ class ProfanityWordTest {
         @DisplayName("SEXUAL 카테고리로 생성할 수 있다")
         void createWithSexualCategory() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("성적욕설")
-                    .category(ProfanityCategory.SEXUAL)
-                    .severity(ProfanitySeverity.HIGH)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("성적욕설")
+                            .category(ProfanityCategory.SEXUAL)
+                            .severity(ProfanitySeverity.HIGH)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getCategory()).isEqualTo(ProfanityCategory.SEXUAL);
@@ -95,12 +99,13 @@ class ProfanityWordTest {
         @DisplayName("DISCRIMINATION 카테고리로 생성할 수 있다")
         void createWithDiscriminationCategory() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("차별표현")
-                    .category(ProfanityCategory.DISCRIMINATION)
-                    .severity(ProfanitySeverity.HIGH)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("차별표현")
+                            .category(ProfanityCategory.DISCRIMINATION)
+                            .severity(ProfanitySeverity.HIGH)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getCategory()).isEqualTo(ProfanityCategory.DISCRIMINATION);
@@ -111,12 +116,13 @@ class ProfanityWordTest {
         @DisplayName("VIOLENCE 카테고리로 생성할 수 있다")
         void createWithViolenceCategory() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("폭력표현")
-                    .category(ProfanityCategory.VIOLENCE)
-                    .severity(ProfanitySeverity.MEDIUM)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("폭력표현")
+                            .category(ProfanityCategory.VIOLENCE)
+                            .severity(ProfanitySeverity.MEDIUM)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getCategory()).isEqualTo(ProfanityCategory.VIOLENCE);
@@ -127,12 +133,13 @@ class ProfanityWordTest {
         @DisplayName("POLITICS 카테고리로 생성할 수 있다")
         void createWithPoliticsCategory() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("정치표현")
-                    .category(ProfanityCategory.POLITICS)
-                    .severity(ProfanitySeverity.LOW)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("정치표현")
+                            .category(ProfanityCategory.POLITICS)
+                            .severity(ProfanitySeverity.LOW)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getCategory()).isEqualTo(ProfanityCategory.POLITICS);
@@ -148,12 +155,13 @@ class ProfanityWordTest {
         @DisplayName("LOW 심각도로 생성할 수 있다")
         void createWithLowSeverity() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("경미한욕설")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.LOW)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("경미한욕설")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.LOW)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getSeverity()).isEqualTo(ProfanitySeverity.LOW);
@@ -164,12 +172,13 @@ class ProfanityWordTest {
         @DisplayName("MEDIUM 심각도로 생성할 수 있다")
         void createWithMediumSeverity() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("중간욕설")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.MEDIUM)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("중간욕설")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.MEDIUM)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getSeverity()).isEqualTo(ProfanitySeverity.MEDIUM);
@@ -180,12 +189,13 @@ class ProfanityWordTest {
         @DisplayName("HIGH 심각도로 생성할 수 있다")
         void createWithHighSeverity() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("심각한욕설")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.HIGH)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("심각한욕설")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.HIGH)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getSeverity()).isEqualTo(ProfanitySeverity.HIGH);
@@ -201,12 +211,13 @@ class ProfanityWordTest {
         @DisplayName("활성화 상태로 생성할 수 있다")
         void createWithActiveStatus() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("활성금칙어")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.LOW)
-                    .isActive(true)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("활성금칙어")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.LOW)
+                            .isActive(true)
+                            .build();
 
             // then
             assertThat(profanityWord.getIsActive()).isTrue();
@@ -216,12 +227,13 @@ class ProfanityWordTest {
         @DisplayName("비활성화 상태로 생성할 수 있다")
         void createWithInactiveStatus() {
             // given & when
-            ProfanityWord profanityWord = ProfanityWord.builder()
-                    .word("비활성금칙어")
-                    .category(ProfanityCategory.GENERAL)
-                    .severity(ProfanitySeverity.LOW)
-                    .isActive(false)
-                    .build();
+            ProfanityWord profanityWord =
+                    ProfanityWord.builder()
+                            .word("비활성금칙어")
+                            .category(ProfanityCategory.GENERAL)
+                            .severity(ProfanitySeverity.LOW)
+                            .isActive(false)
+                            .build();
 
             // then
             assertThat(profanityWord.getIsActive()).isFalse();

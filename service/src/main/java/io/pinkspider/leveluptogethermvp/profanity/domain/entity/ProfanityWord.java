@@ -21,10 +21,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
-/**
- * 비속어/금칙어 엔티티
- * Admin Internal API를 통해 CRUD 관리
- */
+/** 비속어/금칙어 엔티티 Admin Internal API를 통해 CRUD 관리 */
 @Entity
 @Getter
 @Setter

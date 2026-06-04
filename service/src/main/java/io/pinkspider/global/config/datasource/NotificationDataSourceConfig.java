@@ -33,7 +33,8 @@ public class NotificationDataSourceConfig {
     private final NotificationDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public NotificationDataSourceConfig(NotificationDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
+    public NotificationDataSourceConfig(
+            NotificationDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }
@@ -42,9 +43,11 @@ public class NotificationDataSourceConfig {
     public DataSource notificationDataSource() {
         HikariConfig cfg = new HikariConfig();
 
-        String jdbcUrl = sshTunnel != null
-                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-                : properties.getJdbcUrl();
+        String jdbcUrl =
+                sshTunnel != null
+                        ? DataSourceUtils.replacePortInJdbcUrl(
+                                properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                        : properties.getJdbcUrl();
         log.info("Notification DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);
@@ -79,7 +82,8 @@ public class NotificationDataSourceConfig {
 
     @Bean(name = "notificationTransactionManager")
     public PlatformTransactionManager notificationTransactionManager(
-            @Qualifier("notificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            @Qualifier("notificationEntityManagerFactory")
+                    EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 

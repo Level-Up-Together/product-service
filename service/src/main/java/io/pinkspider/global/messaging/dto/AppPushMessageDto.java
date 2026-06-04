@@ -44,31 +44,17 @@ public class AppPushMessageDto {
     @JsonProperty("notification_type")
     private String notificationType;
 
-    /**
-     * 단일 사용자 푸시
-     */
+    /** 단일 사용자 푸시 */
     public static AppPushMessageDto forUser(String userId, String title, String body) {
-        return AppPushMessageDto.builder()
-                .userId(userId)
-                .title(title)
-                .body(body)
-                .build();
+        return AppPushMessageDto.builder().userId(userId).title(title).body(body).build();
     }
 
-    /**
-     * 여러 사용자 푸시
-     */
+    /** 여러 사용자 푸시 */
     public static AppPushMessageDto forUsers(List<String> userIds, String title, String body) {
-        return AppPushMessageDto.builder()
-                .userIds(userIds)
-                .title(title)
-                .body(body)
-                .build();
+        return AppPushMessageDto.builder().userIds(userIds).title(title).body(body).build();
     }
 
-    /**
-     * 토픽 푸시 (길드 등)
-     */
+    /** 토픽 푸시 (길드 등) */
     public static AppPushMessageDto forTopic(String topic, String title, String body) {
         return AppPushMessageDto.builder().topic(topic).title(title).body(body).build();
     }

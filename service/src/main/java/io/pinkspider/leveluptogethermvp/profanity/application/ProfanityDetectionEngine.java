@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * 비속어 탐지 엔진
- * 다양한 모드로 비속어를 탐지하는 핵심 로직
- */
+/** 비속어 탐지 엔진 다양한 모드로 비속어를 탐지하는 핵심 로직 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -30,7 +27,10 @@ public class ProfanityDetectionEngine {
      * @return 탐지 결과
      */
     public ProfanityDetectionResult detect(
-            String content, ProfanityDetectionMode mode, boolean checkKoreanJamo, int levenshteinThreshold) {
+            String content,
+            ProfanityDetectionMode mode,
+            boolean checkKoreanJamo,
+            int levenshteinThreshold) {
 
         if (content == null || content.trim().isEmpty()) {
             return ProfanityDetectionResult.notDetected();
@@ -45,13 +45,12 @@ public class ProfanityDetectionEngine {
         return switch (mode) {
             case LENIENT -> detectLenient(content, profanityWords);
             case NORMAL -> detectNormal(content, profanityWords, checkKoreanJamo);
-            case STRICT -> detectStrict(content, profanityWords, checkKoreanJamo, levenshteinThreshold);
+            case STRICT ->
+                    detectStrict(content, profanityWords, checkKoreanJamo, levenshteinThreshold);
         };
     }
 
-    /**
-     * LENIENT 모드: 단순 String.contains() 검사
-     */
+    /** LENIENT 모드: 단순 String.contains() 검사 */
     private ProfanityDetectionResult detectLenient(String content, Set<String> profanityWords) {
         for (String word : profanityWords) {
             if (content.contains(word)) {
@@ -62,13 +61,9 @@ public class ProfanityDetectionEngine {
         return ProfanityDetectionResult.notDetected();
     }
 
-    /**
-     * NORMAL 모드: 정규화 + 초성 검사
-     * - 대소문자 무시
-     * - 공백/특수문자 제거
-     * - 한글 초성 매칭
-     */
-    private ProfanityDetectionResult detectNormal(String content, Set<String> profanityWords, boolean checkKoreanJamo) {
+    /** NORMAL 모드: 정규화 + 초성 검사 - 대소문자 무시 - 공백/특수문자 제거 - 한글 초성 매칭 */
+    private ProfanityDetectionResult detectNormal(
+            String content, Set<String> profanityWords, boolean checkKoreanJamo) {
 
         String normalizedContent = normalizer.normalize(content);
 
@@ -87,7 +82,8 @@ public class ProfanityDetectionEngine {
                 String wordChosung = normalizer.extractChosung(word);
 
                 // 금칙어가 초성만으로 이루어진 경우 (예: ㅅㅂ)
-                String wordChosungFromOriginal = normalizer.extractChosung(normalizer.extractKoreanOnly(word));
+                String wordChosungFromOriginal =
+                        normalizer.extractChosung(normalizer.extractKoreanOnly(word));
 
                 if (!wordChosung.isEmpty() && contentChosung.contains(wordChosung)) {
                     log.debug(
@@ -100,7 +96,8 @@ public class ProfanityDetectionEngine {
 
                 // 원본이 이미 초성인 경우도 검사 (예: content에 "ㅅㅂ" 직접 입력)
                 String contentNormalized = normalizer.normalize(content);
-                if (!wordChosungFromOriginal.isEmpty() && contentNormalized.contains(wordChosungFromOriginal)) {
+                if (!wordChosungFromOriginal.isEmpty()
+                        && contentNormalized.contains(wordChosungFromOriginal)) {
                     log.debug("CHOSUNG_DIRECT_MATCH 탐지: '{}' in normalized content", word);
                     return ProfanityDetectionResult.detected(word, "CHOSUNG_MATCH");
                 }
@@ -110,14 +107,16 @@ public class ProfanityDetectionEngine {
         return ProfanityDetectionResult.notDetected();
     }
 
-    /**
-     * STRICT 모드: NORMAL + 레벤슈타인 거리 검사 (오타 탐지)
-     */
+    /** STRICT 모드: NORMAL + 레벤슈타인 거리 검사 (오타 탐지) */
     private ProfanityDetectionResult detectStrict(
-            String content, Set<String> profanityWords, boolean checkKoreanJamo, int levenshteinThreshold) {
+            String content,
+            Set<String> profanityWords,
+            boolean checkKoreanJamo,
+            int levenshteinThreshold) {
 
         // 먼저 NORMAL 모드 검사
-        ProfanityDetectionResult normalResult = detectNormal(content, profanityWords, checkKoreanJamo);
+        ProfanityDetectionResult normalResult =
+                detectNormal(content, profanityWords, checkKoreanJamo);
         if (normalResult.isDetected()) {
             return normalResult;
         }
@@ -136,7 +135,10 @@ public class ProfanityDetectionEngine {
                 // 슬라이딩 윈도우로 부분 문자열 검사
                 int windowSize = normalizedWord.length();
                 for (int i = 0; i <= normalizedContent.length() - windowSize; i++) {
-                    int end = Math.min(i + windowSize + levenshteinThreshold, normalizedContent.length());
+                    int end =
+                            Math.min(
+                                    i + windowSize + levenshteinThreshold,
+                                    normalizedContent.length());
                     String substring = normalizedContent.substring(i, end);
 
                     int distance = normalizer.levenshteinDistance(substring, normalizedWord);
@@ -146,7 +148,8 @@ public class ProfanityDetectionEngine {
                                 word,
                                 distance,
                                 substring);
-                        return ProfanityDetectionResult.detected(word, "LEVENSHTEIN_MATCH", distance);
+                        return ProfanityDetectionResult.detected(
+                                word, "LEVENSHTEIN_MATCH", distance);
                     }
                 }
             }

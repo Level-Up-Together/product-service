@@ -23,27 +23,27 @@ public class AdminInternalFeignConfig {
         return new Retryer.Default(1000, 2000, 3);
     }
 
-    /**
-     * 자체 서명 SSL 인증서를 허용하는 Feign Client 설정
-     * 로컬/개발 환경에서 HTTPS 호출을 위해 필요
-     */
+    /** 자체 서명 SSL 인증서를 허용하는 Feign Client 설정 로컬/개발 환경에서 HTTPS 호출을 위해 필요 */
     @Bean
     public Client adminInternalFeignClient() {
         try {
-            TrustManager[] trustManagers = new TrustManager[] {
-                new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+            TrustManager[] trustManagers =
+                    new TrustManager[] {
+                        new X509TrustManager() {
+                            @Override
+                            public void checkClientTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                            @Override
+                            public void checkServerTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return new X509Certificate[0];
-                    }
-                }
-            };
+                            @Override
+                            public X509Certificate[] getAcceptedIssuers() {
+                                return new X509Certificate[0];
+                            }
+                        }
+                    };
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustManagers, new java.security.SecureRandom());

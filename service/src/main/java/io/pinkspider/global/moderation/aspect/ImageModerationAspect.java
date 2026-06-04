@@ -13,11 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * @ModerateImage 어노테이션이 적용된 메서드에서 MultipartFile 파라미터를
- * 자동으로 탐색하여 이미지 모더레이션을 수행하는 AOP Aspect.
+ * @ModerateImage 어노테이션이 적용된 메서드에서 MultipartFile 파라미터를 자동으로 탐색하여 이미지 모더레이션을 수행하는 AOP Aspect.
  *
- * 모더레이션이 비활성화(provider=none)된 환경에서는 검증을 건너뜁니다.
- * 부적절한 이미지가 감지되면 CustomException을 throw합니다.
+ * <p>모더레이션이 비활성화(provider=none)된 환경에서는 검증을 건너뜁니다. 부적절한 이미지가 감지되면 CustomException을 throw합니다.
  */
 @Aspect
 @Component
@@ -31,7 +29,8 @@ public class ImageModerationAspect {
     private final ImageModerationService imageModerationService;
 
     @Around("@annotation(moderateImage)")
-    public Object moderateImage(ProceedingJoinPoint joinPoint, ModerateImage moderateImage) throws Throwable {
+    public Object moderateImage(ProceedingJoinPoint joinPoint, ModerateImage moderateImage)
+            throws Throwable {
         if (!imageModerationService.isEnabled()) {
             return joinPoint.proceed();
         }

@@ -5,9 +5,7 @@ import java.util.Optional;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 지원 언어 목록
- */
+/** 지원 언어 목록 */
 @Getter
 @RequiredArgsConstructor
 public enum SupportedLocale {
@@ -19,14 +17,10 @@ public enum SupportedLocale {
     private final String code;
     private final String displayName;
 
-    /**
-     * 기본 언어 (영어)
-     */
+    /** 기본 언어 (영어) */
     public static final SupportedLocale DEFAULT = ENGLISH;
 
-    /**
-     * 언어 코드로 SupportedLocale 조회
-     */
+    /** 언어 코드로 SupportedLocale 조회 */
     public static Optional<SupportedLocale> fromCode(String code) {
         if (code == null) {
             return Optional.empty();
@@ -36,17 +30,12 @@ public enum SupportedLocale {
                 .findFirst();
     }
 
-    /**
-     * 지원하는 언어인지 확인
-     */
+    /** 지원하는 언어인지 확인 */
     public static boolean isSupported(String code) {
         return fromCode(code).isPresent();
     }
 
-    /**
-     * Accept-Language 헤더에서 언어 코드 추출
-     * 예: "ko-KR,ko;q=0.9,en;q=0.8" -> "ko"
-     */
+    /** Accept-Language 헤더에서 언어 코드 추출 예: "ko-KR,ko;q=0.9,en;q=0.8" -> "ko" */
     public static String extractLanguageCode(String acceptLanguage) {
         if (acceptLanguage == null || acceptLanguage.isBlank()) {
             return DEFAULT.getCode();

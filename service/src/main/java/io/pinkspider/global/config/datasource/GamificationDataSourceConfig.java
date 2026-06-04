@@ -33,7 +33,8 @@ public class GamificationDataSourceConfig {
     private final GamificationDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public GamificationDataSourceConfig(GamificationDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
+    public GamificationDataSourceConfig(
+            GamificationDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }
@@ -42,9 +43,11 @@ public class GamificationDataSourceConfig {
     public DataSource gamificationDataSource() {
         HikariConfig cfg = new HikariConfig();
 
-        String jdbcUrl = sshTunnel != null
-                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-                : properties.getJdbcUrl();
+        String jdbcUrl =
+                sshTunnel != null
+                        ? DataSourceUtils.replacePortInJdbcUrl(
+                                properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                        : properties.getJdbcUrl();
         log.info("Gamification DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);
@@ -79,7 +82,8 @@ public class GamificationDataSourceConfig {
 
     @Bean(name = "gamificationTransactionManager")
     public PlatformTransactionManager gamificationTransactionManager(
-            @Qualifier("gamificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+            @Qualifier("gamificationEntityManagerFactory")
+                    EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
 

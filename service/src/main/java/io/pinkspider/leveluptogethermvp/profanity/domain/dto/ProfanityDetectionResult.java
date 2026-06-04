@@ -3,36 +3,24 @@ package io.pinkspider.leveluptogethermvp.profanity.domain.dto;
 import lombok.Builder;
 import lombok.Getter;
 
-/**
- * 비속어 탐지 결과 DTO
- */
+/** 비속어 탐지 결과 DTO */
 @Getter
 @Builder
 public class ProfanityDetectionResult {
 
-    /**
-     * 비속어 탐지 여부
-     */
+    /** 비속어 탐지 여부 */
     private final boolean detected;
 
-    /**
-     * 탐지된 비속어
-     */
+    /** 탐지된 비속어 */
     private final String detectedWord;
 
-    /**
-     * 매칭 유형 (LENIENT_MATCH, NORMALIZED_MATCH, CHOSUNG_MATCH, LEVENSHTEIN_MATCH)
-     */
+    /** 매칭 유형 (LENIENT_MATCH, NORMALIZED_MATCH, CHOSUNG_MATCH, LEVENSHTEIN_MATCH) */
     private final String matchType;
 
-    /**
-     * 레벤슈타인 거리 (LEVENSHTEIN_MATCH인 경우에만 유효)
-     */
+    /** 레벤슈타인 거리 (LEVENSHTEIN_MATCH인 경우에만 유효) */
     private final int levenshteinDistance;
 
-    /**
-     * 탐지되지 않은 결과 생성
-     */
+    /** 탐지되지 않은 결과 생성 */
     public static ProfanityDetectionResult notDetected() {
         return ProfanityDetectionResult.builder().detected(false).build();
     }

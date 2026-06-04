@@ -22,7 +22,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class SlackNotifier implements io.pinkspider.global.handler.RestExceptionHandler.ErrorNotifier {
+public class SlackNotifier
+        implements io.pinkspider.global.handler.RestExceptionHandler.ErrorNotifier {
 
     @Value("${app.slack.webhook.url}")
     private String webhookUrl;
@@ -38,13 +39,20 @@ public class SlackNotifier implements io.pinkspider.global.handler.RestException
     }
 
     @Async
-    public CompletableFuture<WebhookResponse> sendSlackAlert(Exception exception, HttpServletRequest request) {
+    public CompletableFuture<WebhookResponse> sendSlackAlert(
+            Exception exception, HttpServletRequest request) {
         WebhookResponse response = null;
         try {
-            response = slackClient.send(
-                    webhookUrl,
-                    payload(p -> p.text("서버 에러 발생! 백엔드 확인 요망")
-                            .attachments(List.of(generateSlackAttachment(exception, request)))));
+            response =
+                    slackClient.send(
+                            webhookUrl,
+                            payload(
+                                    p ->
+                                            p.text("서버 에러 발생! 백엔드 확인 요망")
+                                                    .attachments(
+                                                            List.of(
+                                                                    generateSlackAttachment(
+                                                                            exception, request)))));
         } catch (IOException slackError) {
             log.error("Slack 통신과의 예외 발생");
         }
@@ -60,14 +68,19 @@ public class SlackNotifier implements io.pinkspider.global.handler.RestException
         return Attachment.builder()
                 .color("danger")
                 .title(requestTime + " 발생 에러 로그")
-                .fields(List.of(
-                        generateSlackField("Service Name", applicationName),
-                        generateSlackField("Target Name", targetName),
-                        generateSlackField("Request IP", xffHeader == null ? request.getRemoteAddr() : xffHeader),
-                        generateSlackField("Request URL", request.getMethod() + " " + request.getRequestURI()),
-                        //                    generateSlackField("Trace ID", traceId),
-                        //                    generateSlackField("Span ID", spanId),
-                        generateSlackField("Error Message", exception.getMessage())))
+                .fields(
+                        List.of(
+                                generateSlackField("Service Name", applicationName),
+                                generateSlackField("Target Name", targetName),
+                                generateSlackField(
+                                        "Request IP",
+                                        xffHeader == null ? request.getRemoteAddr() : xffHeader),
+                                generateSlackField(
+                                        "Request URL",
+                                        request.getMethod() + " " + request.getRequestURI()),
+                                //                    generateSlackField("Trace ID", traceId),
+                                //                    generateSlackField("Span ID", spanId),
+                                generateSlackField("Error Message", exception.getMessage())))
                 .build();
     }
 

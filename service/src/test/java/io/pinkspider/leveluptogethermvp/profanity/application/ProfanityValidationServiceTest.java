@@ -25,20 +25,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("ProfanityValidationService 단위 테스트")
 class ProfanityValidationServiceTest {
 
-    @Mock
-    private ProfanityWordRepository profanityWordRepository;
+    @Mock private ProfanityWordRepository profanityWordRepository;
 
-    @InjectMocks
-    private ProfanityValidationService profanityValidationService;
+    @InjectMocks private ProfanityValidationService profanityValidationService;
 
     private List<ProfanityWord> activeProfanityWords;
 
     @BeforeEach
     void setUp() {
-        activeProfanityWords = List.of(
-                createProfanityWord(1L, "금칙어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW),
-                createProfanityWord(2L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM),
-                createProfanityWord(3L, "비속어", ProfanityCategory.GENERAL, ProfanitySeverity.HIGH));
+        activeProfanityWords =
+                List.of(
+                        createProfanityWord(
+                                1L, "금칙어1", ProfanityCategory.GENERAL, ProfanitySeverity.LOW),
+                        createProfanityWord(
+                                2L, "욕설단어", ProfanityCategory.GENERAL, ProfanitySeverity.MEDIUM),
+                        createProfanityWord(
+                                3L, "비속어", ProfanityCategory.GENERAL, ProfanitySeverity.HIGH));
     }
 
     private ProfanityWord createProfanityWord(

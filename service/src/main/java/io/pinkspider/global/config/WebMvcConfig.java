@@ -38,7 +38,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(localeInterceptor).addPathPatterns("/**");
 
-        registry.addInterceptor(jwtInterceptor).addPathPatterns("/**").excludePathPatterns(JWT_EXCLUDE_PATTERNS);
+        registry.addInterceptor(jwtInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns(JWT_EXCLUDE_PATTERNS);
 
         registry.addInterceptor(multipartInterceptor).addPathPatterns("/**");
     }

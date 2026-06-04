@@ -10,8 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * DML 파일용 암호화된 이메일 값 생성 유틸리티
  *
- * 이 클래스는 테스트 환경에서 사용되는 암호화 키를 사용하여
- * 샘플 이메일을 암호화합니다.
+ * <p>이 클래스는 테스트 환경에서 사용되는 암호화 키를 사용하여 샘플 이메일을 암호화합니다.
  */
 public class EmailEncryptionGenerator {
 

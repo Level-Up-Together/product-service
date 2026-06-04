@@ -20,21 +20,19 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * UserLevelConfig 조회 성능 벤치마크 테스트
  *
- * 실행 방법:
- * ./gradlew test --tests "*UserLevelConfigCacheBenchmarkTest" -Dspring.profiles.active=local
+ * <p>실행 방법: ./gradlew test --tests "*UserLevelConfigCacheBenchmarkTest"
+ * -Dspring.profiles.active=local
  *
- * 주의: 실제 DB/Redis 연결이 필요합니다. @Disabled를 제거하고 실행하세요.
+ * <p>주의: 실제 DB/Redis 연결이 필요합니다. @Disabled를 제거하고 실행하세요.
  */
 @SpringBootTest
 @ActiveProfiles("local")
 @Disabled("벤치마크 테스트는 수동으로 실행")
 class UserLevelConfigCacheBenchmarkTest {
 
-    @Autowired
-    private UserLevelConfigRepository userLevelConfigRepository;
+    @Autowired private UserLevelConfigRepository userLevelConfigRepository;
 
-    @Autowired
-    private UserLevelConfigCacheService userLevelConfigCacheService;
+    @Autowired private UserLevelConfigCacheService userLevelConfigCacheService;
 
     private static final int WARMUP_ITERATIONS = 100;
     private static final int BENCHMARK_ITERATIONS = 1000;
@@ -132,23 +130,33 @@ class UserLevelConfigCacheBenchmarkTest {
 
         // DB 직접 조회 - 동시 요청
         System.out.println("[1] DB 직접 조회 - 동시 요청");
-        long dbTotalTime = runConcurrentBenchmark(requestsPerThread, () -> {
-            userLevelConfigRepository.findAllByOrderByLevelAsc();
-        });
+        long dbTotalTime =
+                runConcurrentBenchmark(
+                        requestsPerThread,
+                        () -> {
+                            userLevelConfigRepository.findAllByOrderByLevelAsc();
+                        });
         double dbAvgMs = dbTotalTime / 1_000_000.0 / BENCHMARK_ITERATIONS;
         System.out.printf(
                 "   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
-                dbTotalTime / 1_000_000.0, dbAvgMs, BENCHMARK_ITERATIONS / (dbTotalTime / 1_000_000_000.0));
+                dbTotalTime / 1_000_000.0,
+                dbAvgMs,
+                BENCHMARK_ITERATIONS / (dbTotalTime / 1_000_000_000.0));
 
         // Redis 캐시 조회 - 동시 요청
         System.out.println("\n[2] Redis 캐시 조회 - 동시 요청");
-        long cacheTotalTime = runConcurrentBenchmark(requestsPerThread, () -> {
-            userLevelConfigCacheService.getAllLevelConfigs();
-        });
+        long cacheTotalTime =
+                runConcurrentBenchmark(
+                        requestsPerThread,
+                        () -> {
+                            userLevelConfigCacheService.getAllLevelConfigs();
+                        });
         double cacheAvgMs = cacheTotalTime / 1_000_000.0 / BENCHMARK_ITERATIONS;
         System.out.printf(
                 "   총 시간: %.2f ms, 평균: %.4f ms/req, 처리량: %.0f req/s%n",
-                cacheTotalTime / 1_000_000.0, cacheAvgMs, BENCHMARK_ITERATIONS / (cacheTotalTime / 1_000_000_000.0));
+                cacheTotalTime / 1_000_000.0,
+                cacheAvgMs,
+                BENCHMARK_ITERATIONS / (cacheTotalTime / 1_000_000_000.0));
 
         // 비교
         System.out.println("\n[비교 결과]");
@@ -160,22 +168,24 @@ class UserLevelConfigCacheBenchmarkTest {
         }
     }
 
-    private long runConcurrentBenchmark(int requestsPerThread, Runnable task) throws InterruptedException {
+    private long runConcurrentBenchmark(int requestsPerThread, Runnable task)
+            throws InterruptedException {
         ExecutorService executor = Executors.newFixedThreadPool(CONCURRENT_THREADS);
         CountDownLatch latch = new CountDownLatch(CONCURRENT_THREADS);
 
         long startTime = System.nanoTime();
 
         for (int t = 0; t < CONCURRENT_THREADS; t++) {
-            executor.submit(() -> {
-                try {
-                    for (int i = 0; i < requestsPerThread; i++) {
-                        task.run();
-                    }
-                } finally {
-                    latch.countDown();
-                }
-            });
+            executor.submit(
+                    () -> {
+                        try {
+                            for (int i = 0; i < requestsPerThread; i++) {
+                                task.run();
+                            }
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
         }
 
         latch.await(60, TimeUnit.SECONDS);
@@ -206,8 +216,7 @@ class UserLevelConfigCacheBenchmarkTest {
 
     private void printComparison(List<Long> dbTimes, List<Long> cacheTimes) {
         double dbAvg = dbTimes.stream().mapToLong(Long::longValue).average().orElse(0);
-        double cacheAvg =
-                cacheTimes.stream().mapToLong(Long::longValue).average().orElse(0);
+        double cacheAvg = cacheTimes.stream().mapToLong(Long::longValue).average().orElse(0);
 
         System.out.println("\n========================================");
         System.out.println("비교 결과");

@@ -31,25 +31,32 @@ public class CommonCodeHelper {
 
         Object obj = redisTemplateForObject.opsForValue().get(MetaServiceConstants.COMMON_CODE);
 
-        List<CommonCodeDto> commonCodeDtoList = convertObjectList(obj, new TypeReference<List<CommonCodeDto>>() {});
+        List<CommonCodeDto> commonCodeDtoList =
+                convertObjectList(obj, new TypeReference<List<CommonCodeDto>>() {});
 
-        Optional<CommonCodeDto> filteredCommonCode = commonCodeDtoList.stream()
-                .filter(commonCode -> commonCode.getId().equals(id))
-                .findAny();
+        Optional<CommonCodeDto> filteredCommonCode =
+                commonCodeDtoList.stream()
+                        .filter(commonCode -> commonCode.getId().equals(id))
+                        .findAny();
 
-        return filteredCommonCode.orElseThrow(() -> new NoCommonCodeException(
-                ApiStatus.NOT_EXIST_COMMON_CODE.getResultCode(), ApiStatus.NOT_EXIST_COMMON_CODE.getResultMessage()));
+        return filteredCommonCode.orElseThrow(
+                () ->
+                        new NoCommonCodeException(
+                                ApiStatus.NOT_EXIST_COMMON_CODE.getResultCode(),
+                                ApiStatus.NOT_EXIST_COMMON_CODE.getResultMessage()));
     }
 
     public static List<CommonCodeDto> getChildCommonCodeByParentId(String parentId) {
 
         Object obj = redisTemplateForObject.opsForValue().get(MetaServiceConstants.COMMON_CODE);
 
-        List<CommonCodeDto> commonCodeDtoList = convertObjectList(obj, new TypeReference<List<CommonCodeDto>>() {});
+        List<CommonCodeDto> commonCodeDtoList =
+                convertObjectList(obj, new TypeReference<List<CommonCodeDto>>() {});
 
-        List<CommonCodeDto> filteredCommonCodeList = commonCodeDtoList.stream()
-                .filter(commonCode -> commonCode.getParentId().equals(parentId))
-                .toList();
+        List<CommonCodeDto> filteredCommonCodeList =
+                commonCodeDtoList.stream()
+                        .filter(commonCode -> commonCode.getParentId().equals(parentId))
+                        .toList();
 
         return filteredCommonCodeList;
     }

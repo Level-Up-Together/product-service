@@ -14,14 +14,11 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * AWS Rekognition 기반 이미지 검증 서비스
  *
- * 운영 환경에서 AWS Rekognition DetectModerationLabels API를 사용하여
- * 부적절한 이미지를 감지합니다.
+ * <p>운영 환경에서 AWS Rekognition DetectModerationLabels API를 사용하여 부적절한 이미지를 감지합니다.
  *
- * 필요 의존성 (운영 시 추가):
- * - software.amazon.awssdk:rekognition
+ * <p>필요 의존성 (운영 시 추가): - software.amazon.awssdk:rekognition
  *
- * 필요 IAM 권한:
- * - rekognition:DetectModerationLabels
+ * <p>필요 IAM 권한: - rekognition:DetectModerationLabels
  */
 @Slf4j
 public class AwsRekognitionModerationService implements ImageModerationService {
@@ -38,7 +35,10 @@ public class AwsRekognitionModerationService implements ImageModerationService {
 
     @Override
     public ImageModerationResult analyzeImage(MultipartFile imageFile) {
-        log.info("AWS Rekognition 이미지 분석 시작: 파일={}, 크기={} bytes", imageFile.getOriginalFilename(), imageFile.getSize());
+        log.info(
+                "AWS Rekognition 이미지 분석 시작: 파일={}, 크기={} bytes",
+                imageFile.getOriginalFilename(),
+                imageFile.getSize());
 
         try {
             byte[] imageBytes = imageFile.getBytes();
@@ -82,7 +82,8 @@ public class AwsRekognitionModerationService implements ImageModerationService {
 
         if (hasBlockedContent) {
             log.warn("부적절한 이미지 감지: {}", rejectionReason);
-            return ImageModerationResult.unsafe(rejectionReason, detectedLabels, categoryScores, getProviderName());
+            return ImageModerationResult.unsafe(
+                    rejectionReason, detectedLabels, categoryScores, getProviderName());
         }
 
         return ImageModerationResult.builder()

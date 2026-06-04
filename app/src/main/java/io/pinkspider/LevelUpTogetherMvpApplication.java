@@ -34,13 +34,15 @@ public class LevelUpTogetherMvpApplication {
         return args -> {
             try (var c = ds.getConnection();
                     var st = c.createStatement();
-                    var rs = st.executeQuery("""
-                                select current_database() as db,
-                                       current_user as usr,
-                                       inet_server_addr()::text as srv,
-                                       inet_server_port() as port,
-                                       current_setting('search_path') as path
-                        """)) {
+                    var rs =
+                            st.executeQuery(
+                                    """
+                                            select current_database() as db,
+                                                   current_user as usr,
+                                                   inet_server_addr()::text as srv,
+                                                   inet_server_port() as port,
+                                                   current_setting('search_path') as path
+                                    """)) {
                 if (rs.next()) {
                     log.info(
                             "DB={} user={} server={}}:{} search_path={}}",

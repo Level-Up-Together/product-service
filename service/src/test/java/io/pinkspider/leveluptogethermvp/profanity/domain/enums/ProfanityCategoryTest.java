@@ -76,7 +76,8 @@ class ProfanityCategoryTest {
         // then
         assertThat(ProfanityCategory.valueOf("GENERAL")).isEqualTo(ProfanityCategory.GENERAL);
         assertThat(ProfanityCategory.valueOf("SEXUAL")).isEqualTo(ProfanityCategory.SEXUAL);
-        assertThat(ProfanityCategory.valueOf("DISCRIMINATION")).isEqualTo(ProfanityCategory.DISCRIMINATION);
+        assertThat(ProfanityCategory.valueOf("DISCRIMINATION"))
+                .isEqualTo(ProfanityCategory.DISCRIMINATION);
         assertThat(ProfanityCategory.valueOf("VIOLENCE")).isEqualTo(ProfanityCategory.VIOLENCE);
         assertThat(ProfanityCategory.valueOf("POLITICS")).isEqualTo(ProfanityCategory.POLITICS);
     }

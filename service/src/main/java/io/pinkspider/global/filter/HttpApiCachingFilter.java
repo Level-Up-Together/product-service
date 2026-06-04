@@ -53,7 +53,8 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
     //    }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String requestUri = request.getRequestURI();
@@ -80,7 +81,9 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
     }
 
     protected void doFilterWrapped(
-            HttpServletRequestWrapper request, ContentCachingResponseWrapper response, FilterChain filterChain)
+            HttpServletRequestWrapper request,
+            ContentCachingResponseWrapper response,
+            FilterChain filterChain)
             throws ServletException, IOException {
         try {
             if (request.getRequestURI().contains(ACTUATOR_PATH)) {
@@ -104,18 +107,27 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
         log.info(
                 "Request : {} uri=[{}] content-type=[{}]",
                 request.getMethod(),
-                queryString == null ? request.getRequestURI() : request.getRequestURI() + queryString,
+                queryString == null
+                        ? request.getRequestURI()
+                        : request.getRequestURI() + queryString,
                 request.getContentType());
-        logPayload("REQUEST", request.getContentType(), request.getInputStream(), request.getRequestURI());
+        logPayload(
+                "REQUEST",
+                request.getContentType(),
+                request.getInputStream(),
+                request.getRequestURI());
     }
 
     private static void logResponse(ContentCachingResponseWrapper response) throws IOException {
         logPayload("RESPONSE", response.getContentType(), response.getContentInputStream(), null);
     }
 
-    private static void logPayload(String direction, String contentType, InputStream inputStream, String targetUri)
+    private static void logPayload(
+            String direction, String contentType, InputStream inputStream, String targetUri)
             throws IOException {
-        boolean visible = isVisible(MediaType.valueOf(contentType == null ? "application/json" : contentType));
+        boolean visible =
+                isVisible(
+                        MediaType.valueOf(contentType == null ? "application/json" : contentType));
         if (visible) {
             //            KafkaHttpLoggerMessageDto httpLogger = KafkaHttpLoggerMessageDto.builder()
             //                .service(APPLICATION_NAME)
@@ -139,14 +151,15 @@ public class HttpApiCachingFilter extends OncePerRequestFilter {
     }
 
     private static boolean isVisible(MediaType mediaType) {
-        final List<MediaType> VISIBLE_TYPES = Arrays.asList(
-                MediaType.valueOf("text/*"),
-                MediaType.APPLICATION_FORM_URLENCODED,
-                MediaType.APPLICATION_JSON,
-                MediaType.APPLICATION_XML,
-                MediaType.valueOf("application/*+json"),
-                MediaType.valueOf("application/*+xml"),
-                MediaType.MULTIPART_FORM_DATA);
+        final List<MediaType> VISIBLE_TYPES =
+                Arrays.asList(
+                        MediaType.valueOf("text/*"),
+                        MediaType.APPLICATION_FORM_URLENCODED,
+                        MediaType.APPLICATION_JSON,
+                        MediaType.APPLICATION_XML,
+                        MediaType.valueOf("application/*+json"),
+                        MediaType.valueOf("application/*+xml"),
+                        MediaType.MULTIPART_FORM_DATA);
         return VISIBLE_TYPES.stream().anyMatch(visibleType -> visibleType.includes(mediaType));
     }
 

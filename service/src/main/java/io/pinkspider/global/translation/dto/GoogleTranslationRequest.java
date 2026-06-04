@@ -17,30 +17,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GoogleTranslationRequest {
 
-    /**
-     * 번역할 텍스트 목록
-     */
+    /** 번역할 텍스트 목록 */
     @JsonProperty("q")
     private List<String> queries;
 
-    /**
-     * 대상 언어 코드 (ISO 639-1)
-     * 예: en, ko, ar
-     */
+    /** 대상 언어 코드 (ISO 639-1) 예: en, ko, ar */
     @JsonProperty("target")
     private String targetLanguage;
 
-    /**
-     * 원본 언어 코드 (선택사항, 자동 감지됨)
-     */
+    /** 원본 언어 코드 (선택사항, 자동 감지됨) */
     @JsonProperty("source")
     private String sourceLanguage;
 
-    /**
-     * 응답 형식
-     * text: 일반 텍스트 (기본값)
-     * html: HTML 태그 보존
-     */
+    /** 응답 형식 text: 일반 텍스트 (기본값) html: HTML 태그 보존 */
     @JsonProperty("format")
     private String format;
 
@@ -52,7 +41,8 @@ public class GoogleTranslationRequest {
                 .build();
     }
 
-    public static GoogleTranslationRequest of(String text, String sourceLanguage, String targetLanguage) {
+    public static GoogleTranslationRequest of(
+            String text, String sourceLanguage, String targetLanguage) {
         return GoogleTranslationRequest.builder()
                 .queries(List.of(text))
                 .sourceLanguage(sourceLanguage)

@@ -23,9 +23,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 @Profile("!test & !unit-test")
 public class ShedLockConfig {
 
-    /**
-     * Redis 기반 LockProvider. 환경별로 다른 prefix(env)를 적용해 dev/prod 충돌을 방지한다.
-     */
+    /** Redis 기반 LockProvider. 환경별로 다른 prefix(env)를 적용해 dev/prod 충돌을 방지한다. */
     @Bean
     public LockProvider lockProvider(RedisConnectionFactory connectionFactory) {
         return new RedisLockProvider(connectionFactory, "lut");

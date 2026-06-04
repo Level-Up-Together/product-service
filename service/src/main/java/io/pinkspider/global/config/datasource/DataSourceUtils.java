@@ -1,8 +1,6 @@
 package io.pinkspider.global.config.datasource;
 
-/**
- * DataSource 관련 유틸리티 클래스
- */
+/** DataSource 관련 유틸리티 클래스 */
 public final class DataSourceUtils {
 
     private DataSourceUtils() {
@@ -10,8 +8,8 @@ public final class DataSourceUtils {
     }
 
     /**
-     * JDBC URL에서 localhost 포트를 동적 포트로 교체합니다.
-     * 예: jdbc:postgresql://localhost:15432/user_db -> jdbc:postgresql://localhost:54321/user_db
+     * JDBC URL에서 localhost 포트를 동적 포트로 교체합니다. 예: jdbc:postgresql://localhost:15432/user_db ->
+     * jdbc:postgresql://localhost:54321/user_db
      *
      * @param jdbcUrl 원본 JDBC URL
      * @param newPort 새로운 포트 번호

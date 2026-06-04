@@ -53,7 +53,8 @@ class CurrentUserArgumentResolverTest {
         @DisplayName("@CurrentUser 어노테이션이 없으면 false를 반환한다")
         void supportsParameter_withoutCurrentUser_returnsFalse() throws NoSuchMethodException {
             // given
-            Method method = TestController.class.getMethod("testMethodWithoutAnnotation", String.class);
+            Method method =
+                    TestController.class.getMethod("testMethodWithoutAnnotation", String.class);
             MethodParameter parameter = new MethodParameter(method, 0);
 
             // when
@@ -88,7 +89,8 @@ class CurrentUserArgumentResolverTest {
             // given
             String userId = "test-user-123";
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userId, null, java.util.Collections.emptyList());
+                    new UsernamePasswordAuthenticationToken(
+                            userId, null, java.util.Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);
@@ -106,12 +108,11 @@ class CurrentUserArgumentResolverTest {
         void resolveArgument_withUserDetailsPrincipal_returnsUserId() throws Exception {
             // given
             String userId = "test-user-123";
-            UserDetails userDetails = User.withUsername(userId)
-                    .password("password")
-                    .authorities("ROLE_USER")
-                    .build();
+            UserDetails userDetails =
+                    User.withUsername(userId).password("password").authorities("ROLE_USER").build();
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);
@@ -159,7 +160,8 @@ class CurrentUserArgumentResolverTest {
         void resolveArgument_anonymousUser_notRequired_returnsNull() throws Exception {
             // given
             SecurityContextHolder.getContext()
-                    .setAuthentication(new UsernamePasswordAuthenticationToken("anonymousUser", null));
+                    .setAuthentication(
+                            new UsernamePasswordAuthenticationToken("anonymousUser", null));
 
             Method method = TestController.class.getMethod("testMethodOptional", String.class);
             MethodParameter parameter = new MethodParameter(method, 0);
@@ -175,7 +177,8 @@ class CurrentUserArgumentResolverTest {
         @DisplayName("Authentication.isAuthenticated()이 false면 null 반환 (필수 X)")
         void resolveArgument_isAuthenticatedFalse_returnsNull() throws Exception {
             // given: 2-arg 생성자는 isAuthenticated=false로 초기화됨
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("user-id", null);
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken("user-id", null);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethodOptional", String.class);
@@ -192,14 +195,16 @@ class CurrentUserArgumentResolverTest {
         @DisplayName("기타 principal 타입일 경우 toString()을 반환한다")
         void resolveArgument_withOtherPrincipal_returnsToString() throws Exception {
             // given
-            Object customPrincipal = new Object() {
-                @Override
-                public String toString() {
-                    return "custom-user-id";
-                }
-            };
+            Object customPrincipal =
+                    new Object() {
+                        @Override
+                        public String toString() {
+                            return "custom-user-id";
+                        }
+                    };
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(customPrincipal, null, java.util.Collections.emptyList());
+                    new UsernamePasswordAuthenticationToken(
+                            customPrincipal, null, java.util.Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             Method method = TestController.class.getMethod("testMethod", String.class);

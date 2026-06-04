@@ -11,16 +11,14 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * 이메일을 현재 키로 암호화하는 헬퍼 테스트
- * DML 파일 수정 시 사용
- */
+/** 이메일을 현재 키로 암호화하는 헬퍼 테스트 DML 파일 수정 시 사용 */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("이메일 암호화 헬퍼")
 class EmailEncryptionHelper {
 
     // 테스트 전용 키 (운영 환경과 무관)
-    private static final String PRODUCTION_SECRET_KEY = "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
+    private static final String PRODUCTION_SECRET_KEY =
+            "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
     private static final String PRODUCTION_IV = "K4Dw+xcX91fMfi3SNU0gQg==";
     private static final String PRODUCTION_CIPHER = "AES/CBC/PKCS5Padding";
 
@@ -28,18 +26,22 @@ class EmailEncryptionHelper {
 
     @BeforeEach
     void setUp() {
-        productionCryptoMetaData = CryptoMetaData.builder()
-                .secretKey(PRODUCTION_SECRET_KEY)
-                .iv(PRODUCTION_IV)
-                .cipher(PRODUCTION_CIPHER)
-                .build();
+        productionCryptoMetaData =
+                CryptoMetaData.builder()
+                        .secretKey(PRODUCTION_SECRET_KEY)
+                        .iv(PRODUCTION_IV)
+                        .cipher(PRODUCTION_CIPHER)
+                        .build();
     }
 
     @Test
     @DisplayName("새 이메일 암호화 - DML용 암호화 값 생성")
     void generateEncryptedEmails() {
-        try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-            mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(productionCryptoMetaData);
+        try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+            mockedLoader
+                    .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                    .thenReturn(productionCryptoMetaData);
 
             System.out.println("=== 이메일 암호화 결과 (DML용) ===\n");
 

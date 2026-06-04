@@ -12,10 +12,8 @@ import org.springframework.context.annotation.Configuration;
 /**
  * 이미지 검증 서비스 설정
  *
- * moderation.image.provider 값에 따라 적절한 구현체를 빈으로 등록합니다.
- * - none (기본값): NoOpImageModerationService
- * - onnx-nsfw: OnnxNsfwModerationService
- * - aws-rekognition: AwsRekognitionModerationService
+ * <p>moderation.image.provider 값에 따라 적절한 구현체를 빈으로 등록합니다. - none (기본값): NoOpImageModerationService -
+ * onnx-nsfw: OnnxNsfwModerationService - aws-rekognition: AwsRekognitionModerationService
  */
 @Slf4j
 @Configuration

@@ -33,7 +33,8 @@ public class MissionDataSourceConfig {
     private final MissionDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public MissionDataSourceConfig(MissionDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
+    public MissionDataSourceConfig(
+            MissionDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }
@@ -42,9 +43,11 @@ public class MissionDataSourceConfig {
     public DataSource missionDataSource() {
         HikariConfig cfg = new HikariConfig();
 
-        String jdbcUrl = sshTunnel != null
-                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-                : properties.getJdbcUrl();
+        String jdbcUrl =
+                sshTunnel != null
+                        ? DataSourceUtils.replacePortInJdbcUrl(
+                                properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                        : properties.getJdbcUrl();
         log.info("Mission DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);

@@ -21,10 +21,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 번역 서비스
- * Google Cloud Translation API를 통한 번역 및 캐싱 처리
- */
+/** 번역 서비스 Google Cloud Translation API를 통한 번역 및 캐싱 처리 */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -40,19 +37,13 @@ public class TranslationService {
     @Value("${google.translation.enabled:false}")
     private boolean translationEnabled;
 
-    /**
-     * 최소 번역 대상 텍스트 길이
-     */
+    /** 최소 번역 대상 텍스트 길이 */
     private static final int MIN_TEXT_LENGTH = 10;
 
-    /**
-     * Redis 캐시 TTL (7일)
-     */
+    /** Redis 캐시 TTL (7일) */
     private static final Duration REDIS_CACHE_TTL = Duration.ofDays(7);
 
-    /**
-     * Redis 캐시 키 프리픽스
-     */
+    /** Redis 캐시 키 프리픽스 */
     private static final String CACHE_KEY_PREFIX = "translation:";
 
     /**
@@ -66,7 +57,11 @@ public class TranslationService {
      * @return 번역 결과 정보
      */
     public TranslationInfo translateContent(
-            ContentType contentType, Long contentId, String title, String content, String targetLocale) {
+            ContentType contentType,
+            Long contentId,
+            String title,
+            String content,
+            String targetLocale) {
         if (!translationEnabled || !SupportedLocale.isSupported(targetLocale)) {
             return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
         }
@@ -83,18 +78,21 @@ public class TranslationService {
 
             // 제목 번역 (있는 경우)
             if (title != null && !title.isBlank()) {
-                translatedTitle = translateField(contentType, contentId, "title", title, targetLocale);
+                translatedTitle =
+                        translateField(contentType, contentId, "title", title, targetLocale);
             }
 
             // 내용 번역
-            translatedContent = translateField(contentType, contentId, "content", content, targetLocale);
+            translatedContent =
+                    translateField(contentType, contentId, "content", content, targetLocale);
 
             // 번역이 원문과 동일한 경우 (같은 언어)
             if (translatedContent.equals(content)) {
                 return TranslationInfo.notTranslated(sourceLocale);
             }
 
-            return TranslationInfo.translated(translatedTitle, translatedContent, sourceLocale, targetLocale);
+            return TranslationInfo.translated(
+                    translatedTitle, translatedContent, sourceLocale, targetLocale);
 
         } catch (Exception e) {
             log.error(
@@ -107,31 +105,33 @@ public class TranslationService {
         }
     }
 
-    /**
-     * 단일 내용만 번역 (댓글 등)
-     */
+    /** 단일 내용만 번역 (댓글 등) */
     public TranslationInfo translateContent(
             ContentType contentType, Long contentId, String content, String targetLocale) {
         return translateContent(contentType, contentId, null, content, targetLocale);
     }
 
-    /**
-     * 개별 필드 번역 (캐시 우선)
-     */
+    /** 개별 필드 번역 (캐시 우선) */
     private String translateField(
-            ContentType contentType, Long contentId, String fieldName, String originalText, String targetLocale) {
+            ContentType contentType,
+            Long contentId,
+            String fieldName,
+            String originalText,
+            String targetLocale) {
         String originalHash = computeHash(originalText);
 
         // 1. Redis 캐시 확인
-        String cachedTranslation = getCachedTranslation(contentType, contentId, fieldName, targetLocale);
+        String cachedTranslation =
+                getCachedTranslation(contentType, contentId, fieldName, targetLocale);
         if (cachedTranslation != null) {
             return cachedTranslation;
         }
 
         // 2. DB 캐시 확인
         Optional<ContentTranslation> dbCache =
-                translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-                        contentType, contentId, fieldName, targetLocale, originalHash);
+                translationRepository
+                        .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                contentType, contentId, fieldName, targetLocale, originalHash);
 
         if (dbCache.isPresent()) {
             String translatedText = dbCache.get().getTranslatedText();
@@ -144,14 +144,13 @@ public class TranslationService {
         String translatedText = callGoogleTranslateApi(originalText, targetLocale);
 
         // 4. 캐시 저장 (Redis + DB)
-        saveTranslationCache(contentType, contentId, fieldName, targetLocale, originalHash, translatedText);
+        saveTranslationCache(
+                contentType, contentId, fieldName, targetLocale, originalHash, translatedText);
 
         return translatedText;
     }
 
-    /**
-     * Google Translation API 호출
-     */
+    /** Google Translation API 호출 */
     private String callGoogleTranslateApi(String text, String targetLocale) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new GoogleTranslationException("Google Translation API Key가 설정되지 않았습니다.");
@@ -174,9 +173,7 @@ public class TranslationService {
         return translatedText;
     }
 
-    /**
-     * Redis 캐시에서 번역 조회
-     */
+    /** Redis 캐시에서 번역 조회 */
     private String getCachedTranslation(
             ContentType contentType, Long contentId, String fieldName, String targetLocale) {
         String cacheKey = buildCacheKey(contentType, contentId, fieldName, targetLocale);
@@ -192,11 +189,13 @@ public class TranslationService {
         return null;
     }
 
-    /**
-     * Redis 캐시에 번역 저장
-     */
+    /** Redis 캐시에 번역 저장 */
     private void cacheTranslation(
-            ContentType contentType, Long contentId, String fieldName, String targetLocale, String translatedText) {
+            ContentType contentType,
+            Long contentId,
+            String fieldName,
+            String targetLocale,
+            String translatedText) {
         String cacheKey = buildCacheKey(contentType, contentId, fieldName, targetLocale);
         try {
             redisTemplate.opsForValue().set(cacheKey, translatedText, REDIS_CACHE_TTL);
@@ -206,9 +205,7 @@ public class TranslationService {
         }
     }
 
-    /**
-     * 번역 캐시 저장 (Redis + DB)
-     */
+    /** 번역 캐시 저장 (Redis + DB) */
     @Transactional(transactionManager = "metaTransactionManager")
     public void saveTranslationCache(
             ContentType contentType,
@@ -228,22 +225,21 @@ public class TranslationService {
         if (existing.isPresent()) {
             existing.get().updateTranslation(originalHash, translatedText);
         } else {
-            ContentTranslation translation = ContentTranslation.builder()
-                    .contentType(contentType)
-                    .contentId(contentId)
-                    .fieldName(fieldName)
-                    .sourceLocale(SupportedLocale.DEFAULT.getCode())
-                    .targetLocale(targetLocale)
-                    .originalHash(originalHash)
-                    .translatedText(translatedText)
-                    .build();
+            ContentTranslation translation =
+                    ContentTranslation.builder()
+                            .contentType(contentType)
+                            .contentId(contentId)
+                            .fieldName(fieldName)
+                            .sourceLocale(SupportedLocale.DEFAULT.getCode())
+                            .targetLocale(targetLocale)
+                            .originalHash(originalHash)
+                            .translatedText(translatedText)
+                            .build();
             translationRepository.save(translation);
         }
     }
 
-    /**
-     * 콘텐츠 삭제 시 번역 캐시 삭제
-     */
+    /** 콘텐츠 삭제 시 번역 캐시 삭제 */
     @Transactional(transactionManager = "metaTransactionManager")
     public void deleteTranslationCache(ContentType contentType, Long contentId) {
         // DB 삭제
@@ -262,17 +258,20 @@ public class TranslationService {
         }
     }
 
-    /**
-     * Redis 캐시 키 생성
-     * 형식: translation:{contentType}:{contentId}:{fieldName}:{targetLocale}
-     */
-    private String buildCacheKey(ContentType contentType, Long contentId, String fieldName, String targetLocale) {
-        return CACHE_KEY_PREFIX + contentType.name() + ":" + contentId + ":" + fieldName + ":" + targetLocale;
+    /** Redis 캐시 키 생성 형식: translation:{contentType}:{contentId}:{fieldName}:{targetLocale} */
+    private String buildCacheKey(
+            ContentType contentType, Long contentId, String fieldName, String targetLocale) {
+        return CACHE_KEY_PREFIX
+                + contentType.name()
+                + ":"
+                + contentId
+                + ":"
+                + fieldName
+                + ":"
+                + targetLocale;
     }
 
-    /**
-     * SHA-256 해시 계산
-     */
+    /** SHA-256 해시 계산 */
     private String computeHash(String text) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

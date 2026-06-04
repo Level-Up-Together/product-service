@@ -29,11 +29,12 @@ class CryptoUtilsTest {
 
     @BeforeEach
     void setUp() {
-        testCryptoMetaData = CryptoMetaData.builder()
-                .secretKey(TEST_SECRET_KEY)
-                .iv(TEST_IV)
-                .cipher(TEST_CIPHER)
-                .build();
+        testCryptoMetaData =
+                CryptoMetaData.builder()
+                        .secretKey(TEST_SECRET_KEY)
+                        .iv(TEST_IV)
+                        .cipher(TEST_CIPHER)
+                        .build();
     }
 
     @Nested
@@ -43,8 +44,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("문자열을 AES로 암호화한다")
         void encryptString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "test@example.com";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -60,8 +64,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("동일한 문자열은 동일한 암호문을 생성한다")
         void encryptSameStringProducesSameResult() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "consistent@test.com";
                 String encrypted1 = CryptoUtils.encryptAes(plainText);
@@ -74,8 +81,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("한글 문자열을 암호화한다")
         void encryptKoreanString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "안녕하세요 테스트입니다";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -89,8 +99,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("빈 문자열을 암호화한다")
         void encryptEmptyString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -103,8 +116,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("특수문자가 포함된 문자열을 암호화한다")
         void encryptStringWithSpecialCharacters() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "test!@#$%^&*()_+-=[]{}|;':\",./<>?";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -117,16 +133,21 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("잘못된 키로 암호화 시 CryptoException 발생")
         void encryptWithInvalidKeyThrowsException() {
-            CryptoMetaData invalidMetaData = CryptoMetaData.builder()
-                    .secretKey("invalidKey")
-                    .iv(TEST_IV)
-                    .cipher(TEST_CIPHER)
-                    .build();
+            CryptoMetaData invalidMetaData =
+                    CryptoMetaData.builder()
+                            .secretKey("invalidKey")
+                            .iv(TEST_IV)
+                            .cipher(TEST_CIPHER)
+                            .build();
 
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(invalidMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(invalidMetaData);
 
-                assertThatThrownBy(() -> CryptoUtils.encryptAes("test")).isInstanceOf(CryptoException.class);
+                assertThatThrownBy(() -> CryptoUtils.encryptAes("test"))
+                        .isInstanceOf(CryptoException.class);
             }
         }
     }
@@ -138,8 +159,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("암호화된 문자열을 복호화한다")
         void decryptEncryptedString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "test@example.com";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -152,8 +176,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("한글 문자열을 암호화 후 복호화한다")
         void decryptKoreanString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "안녕하세요 테스트입니다 123";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -166,8 +193,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("빈 문자열을 암호화 후 복호화한다")
         void decryptEmptyString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -180,8 +210,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("특수문자가 포함된 문자열을 암호화 후 복호화한다")
         void decryptStringWithSpecialCharacters() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "!@#$%^&*()_+-=[]{}|;':\",./<>?";
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -194,8 +227,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("긴 문자열을 암호화 후 복호화한다")
         void decryptLongString() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "a".repeat(1000);
                 String encrypted = CryptoUtils.encryptAes(plainText);
@@ -208,8 +244,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("잘못된 암호문으로 복호화 시 CryptoException 발생")
         void decryptInvalidCipherTextThrowsException() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 assertThatThrownBy(() -> CryptoUtils.decryptAes("invalidCipherText"))
                         .isInstanceOf(CryptoException.class);
@@ -221,23 +260,31 @@ class CryptoUtilsTest {
         void decryptWithDifferentKeyThrowsException() {
             String encrypted;
             // 첫 번째 키로 암호화
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
                 encrypted = CryptoUtils.encryptAes("test@example.com");
             }
 
             // 다른 키로 복호화 시도 (테스트 전용)
-            CryptoMetaData differentKeyMetaData = CryptoMetaData.builder()
-                    .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
-                    .iv(TEST_IV)
-                    .cipher(TEST_CIPHER)
-                    .build();
+            CryptoMetaData differentKeyMetaData =
+                    CryptoMetaData.builder()
+                            .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
+                            .iv(TEST_IV)
+                            .cipher(TEST_CIPHER)
+                            .build();
 
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(differentKeyMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(differentKeyMetaData);
 
                 String finalEncrypted = encrypted;
-                assertThatThrownBy(() -> CryptoUtils.decryptAes(finalEncrypted)).isInstanceOf(CryptoException.class);
+                assertThatThrownBy(() -> CryptoUtils.decryptAes(finalEncrypted))
+                        .isInstanceOf(CryptoException.class);
             }
         }
     }
@@ -284,7 +331,8 @@ class CryptoUtilsTest {
             assertThat(hashed).isNotNull();
             assertThat(hashed).hasSize(64);
             // 빈 문자열의 SHA-256 해시값
-            assertThat(hashed).isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+            assertThat(hashed)
+                    .isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
         }
 
         @Test
@@ -321,7 +369,8 @@ class CryptoUtilsTest {
             // "hello"의 SHA-256 해시값
             String hashed = CryptoUtils.encryptSha256("hello");
 
-            assertThat(hashed).isEqualTo("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+            assertThat(hashed)
+                    .isEqualTo("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
         }
     }
 
@@ -332,10 +381,18 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("이메일 형식 문자열의 암호화/복호화 라운드트립")
         void emailRoundTrip() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
-                String[] emails = {"test@example.com", "user.name@domain.co.kr", "user+tag@gmail.com", "한글이메일@테스트.kr"};
+                String[] emails = {
+                    "test@example.com",
+                    "user.name@domain.co.kr",
+                    "user+tag@gmail.com",
+                    "한글이메일@테스트.kr"
+                };
 
                 for (String email : emails) {
                     String encrypted = CryptoUtils.encryptAes(email);
@@ -348,8 +405,11 @@ class CryptoUtilsTest {
         @Test
         @DisplayName("다양한 유니코드 문자의 암호화/복호화 라운드트립")
         void unicodeRoundTrip() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String[] texts = {"日本語テスト", "中文测试", "العربية", "🎉🎊🎁", "Привет мир"};
 

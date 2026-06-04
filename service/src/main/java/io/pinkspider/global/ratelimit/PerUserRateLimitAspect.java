@@ -14,10 +14,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-/**
- * 사용자별 Rate Limit Aspect
- * Redis를 사용한 Sliding Window Counter 방식
- */
+/** 사용자별 Rate Limit Aspect Redis를 사용한 Sliding Window Counter 방식 */
 @Aspect
 @Component
 @RequiredArgsConstructor
@@ -28,7 +25,8 @@ public class PerUserRateLimitAspect {
     private static final String RATE_LIMIT_KEY_PREFIX = "ratelimit:";
 
     @Around("@annotation(perUserRateLimit)")
-    public Object rateLimit(ProceedingJoinPoint joinPoint, PerUserRateLimit perUserRateLimit) throws Throwable {
+    public Object rateLimit(ProceedingJoinPoint joinPoint, PerUserRateLimit perUserRateLimit)
+            throws Throwable {
         String userId = extractUserId(joinPoint);
 
         if (userId == null) {
@@ -78,10 +76,7 @@ public class PerUserRateLimitAspect {
         return joinPoint.proceed();
     }
 
-    /**
-     * 메소드 파라미터에서 userId 추출
-     * @CurrentUser 어노테이션이 붙은 String 파라미터를 찾음
-     */
+    /** 메소드 파라미터에서 userId 추출 @CurrentUser 어노테이션이 붙은 String 파라미터를 찾음 */
     private String extractUserId(ProceedingJoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
@@ -90,7 +85,8 @@ public class PerUserRateLimitAspect {
 
         for (int i = 0; i < parameters.length; i++) {
             // @CurrentUser 어노테이션 확인
-            if (parameters[i].isAnnotationPresent(io.pinkspider.global.annotation.CurrentUser.class)) {
+            if (parameters[i].isAnnotationPresent(
+                    io.pinkspider.global.annotation.CurrentUser.class)) {
                 if (args[i] instanceof String) {
                     return (String) args[i];
                 }
@@ -108,9 +104,7 @@ public class PerUserRateLimitAspect {
         return RATE_LIMIT_KEY_PREFIX + name + ":" + userId;
     }
 
-    /**
-     * Rate Limit 초과 응답 생성
-     */
+    /** Rate Limit 초과 응답 생성 */
     @SuppressWarnings("unchecked")
     private Object createRateLimitExceededResponse(ProceedingJoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
@@ -119,19 +113,18 @@ public class PerUserRateLimitAspect {
         // ResponseEntity<ApiResult<T>> 타입인 경우
         if (ResponseEntity.class.isAssignableFrom(returnType)) {
             return ResponseEntity.status(429)
-                    .body(ApiResult.builder()
-                            .code("TOO_MANY_REQUESTS")
-                            .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
-                            .build());
+                    .body(
+                            ApiResult.builder()
+                                    .code("TOO_MANY_REQUESTS")
+                                    .message("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+                                    .build());
         }
 
         // 그 외의 경우 예외 발생
         throw new RateLimitExceededException("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
     }
 
-    /**
-     * Rate Limit 초과 예외
-     */
+    /** Rate Limit 초과 예외 */
     public static class RateLimitExceededException extends RuntimeException {
         public RateLimitExceededException(String message) {
             super(message);

@@ -35,20 +35,15 @@ import org.springframework.data.redis.core.ValueOperations;
 @DisplayName("TranslationService 테스트")
 class TranslationServiceTest {
 
-    @Mock
-    private GoogleTranslationFeignClient translationClient;
+    @Mock private GoogleTranslationFeignClient translationClient;
 
-    @Mock
-    private ContentTranslationRepository translationRepository;
+    @Mock private ContentTranslationRepository translationRepository;
 
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    @Mock private RedisTemplate<String, Object> redisTemplate;
 
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
+    @Mock private ValueOperations<String, Object> valueOperations;
 
-    @InjectMocks
-    private TranslationService translationService;
+    @InjectMocks private TranslationService translationService;
 
     @BeforeEach
     void setUp() {
@@ -69,7 +64,8 @@ class TranslationServiceTest {
             String content = "이것은 테스트 콘텐츠입니다.";
 
             // when
-            TranslationInfo result = translationService.translateContent(ContentType.FEED, 1L, content, "en");
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, content, "en");
 
             // then
             assertThat(result.isTranslated()).isFalse();
@@ -84,7 +80,8 @@ class TranslationServiceTest {
 
             // when
             TranslationInfo result =
-                    translationService.translateContent(ContentType.FEED, 1L, content, "xx"); // 지원하지 않는 언어
+                    translationService.translateContent(
+                            ContentType.FEED, 1L, content, "xx"); // 지원하지 않는 언어
 
             // then
             assertThat(result.isTranslated()).isFalse();
@@ -98,7 +95,8 @@ class TranslationServiceTest {
             String shortContent = "짧은글"; // 10자 미만
 
             // when
-            TranslationInfo result = translationService.translateContent(ContentType.FEED, 1L, shortContent, "en");
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, shortContent, "en");
 
             // then
             assertThat(result.isTranslated()).isFalse();
@@ -116,7 +114,8 @@ class TranslationServiceTest {
             when(valueOperations.get(anyString())).thenReturn(cachedTranslation);
 
             // when
-            TranslationInfo result = translationService.translateContent(ContentType.FEED, 1L, content, "en");
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, content, "en");
 
             // then
             assertThat(result.isTranslated()).isTrue();
@@ -134,21 +133,24 @@ class TranslationServiceTest {
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
             when(valueOperations.get(anyString())).thenReturn(null); // Redis 캐시 미스
 
-            ContentTranslation cachedEntity = ContentTranslation.builder()
-                    .contentType(ContentType.FEED)
-                    .contentId(1L)
-                    .fieldName("content")
-                    .sourceLocale("ko")
-                    .targetLocale("en")
-                    .translatedText(dbTranslation)
-                    .build();
+            ContentTranslation cachedEntity =
+                    ContentTranslation.builder()
+                            .contentType(ContentType.FEED)
+                            .contentId(1L)
+                            .fieldName("content")
+                            .sourceLocale("ko")
+                            .targetLocale("en")
+                            .translatedText(dbTranslation)
+                            .build();
 
-            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-                            any(), any(), any(), any(), any()))
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
                     .thenReturn(Optional.of(cachedEntity));
 
             // when
-            TranslationInfo result = translationService.translateContent(ContentType.FEED, 1L, content, "en");
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, content, "en");
 
             // then
             assertThat(result.isTranslated()).isTrue();
@@ -165,8 +167,9 @@ class TranslationServiceTest {
 
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
             when(valueOperations.get(anyString())).thenReturn(null); // Redis 캐시 미스
-            when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-                            any(), any(), any(), any(), any()))
+            when(translationRepository
+                            .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
+                                    any(), any(), any(), any(), any()))
                     .thenReturn(Optional.empty()); // DB 캐시 미스
 
             GoogleTranslationResponse.Translation translation =
@@ -175,7 +178,8 @@ class TranslationServiceTest {
                     new GoogleTranslationResponse.TranslationData(List.of(translation));
             GoogleTranslationResponse response = new GoogleTranslationResponse(data);
 
-            when(translationClient.translate(eq("test-api-key"), any(GoogleTranslationRequest.class)))
+            when(translationClient.translate(
+                            eq("test-api-key"), any(GoogleTranslationRequest.class)))
                     .thenReturn(response);
 
             when(translationRepository.findByContentTypeAndContentIdAndFieldNameAndTargetLocale(
@@ -183,12 +187,14 @@ class TranslationServiceTest {
                     .thenReturn(Optional.empty());
 
             // when
-            TranslationInfo result = translationService.translateContent(ContentType.FEED, 1L, content, "en");
+            TranslationInfo result =
+                    translationService.translateContent(ContentType.FEED, 1L, content, "en");
 
             // then
             assertThat(result.isTranslated()).isTrue();
             assertThat(result.getContent()).isEqualTo(translatedText);
-            verify(translationClient).translate(eq("test-api-key"), any(GoogleTranslationRequest.class));
+            verify(translationClient)
+                    .translate(eq("test-api-key"), any(GoogleTranslationRequest.class));
         }
     }
 

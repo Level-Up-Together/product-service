@@ -6,20 +6,14 @@ import java.time.Duration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Rate Limiter 설정
- * API 어뷰징 방지를 위한 요청 제한 설정
- */
+/** Rate Limiter 설정 API 어뷰징 방지를 위한 요청 제한 설정 */
 @Configuration
 public class RateLimiterConfig {
 
     // 출석 체크, 미션 완료는 @PerUserRateLimit (Redis 기반) 사용
     // io.pinkspider.global.ratelimit 패키지 참조
 
-    /**
-     * 길드 생성 Rate Limiter
-     * 사용자당 1시간에 최대 3회 요청 허용
-     */
+    /** 길드 생성 Rate Limiter 사용자당 1시간에 최대 3회 요청 허용 */
     @Bean
     public RateLimiter guildCreationRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =
@@ -32,10 +26,7 @@ public class RateLimiterConfig {
         return rateLimiterRegistry.rateLimiter("guildCreation", config);
     }
 
-    /**
-     * 일반 API Rate Limiter
-     * 사용자당 1초에 최대 20회 요청 허용
-     */
+    /** 일반 API Rate Limiter 사용자당 1초에 최대 20회 요청 허용 */
     @Bean
     public RateLimiter generalApiRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
         io.github.resilience4j.ratelimiter.RateLimiterConfig config =

@@ -76,7 +76,8 @@ class OnnxNsfwModerationServiceTest {
             OrtEnvironment env = mock(OrtEnvironment.class);
             OrtSession session = mock(OrtSession.class);
 
-            OnnxNsfwModerationService service = new OnnxNsfwModerationService(properties, env, session);
+            OnnxNsfwModerationService service =
+                    new OnnxNsfwModerationService(properties, env, session);
             BufferedImage testImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
 
             // when
@@ -102,13 +103,15 @@ class OnnxNsfwModerationServiceTest {
             OrtEnvironment env = mock(OrtEnvironment.class);
             OrtSession session = mock(OrtSession.class);
 
-            OnnxNsfwModerationService service = new OnnxNsfwModerationService(properties, env, session);
+            OnnxNsfwModerationService service =
+                    new OnnxNsfwModerationService(properties, env, session);
 
             MultipartFile mockFile = mock(MultipartFile.class);
             when(mockFile.getOriginalFilename()).thenReturn("invalid.txt");
             when(mockFile.getSize()).thenReturn(100L);
             // Return invalid image data that ImageIO can't parse
-            when(mockFile.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[] {0, 1, 2, 3}));
+            when(mockFile.getInputStream())
+                    .thenReturn(new ByteArrayInputStream(new byte[] {0, 1, 2, 3}));
 
             // when
             ImageModerationResult result = service.analyzeImage(mockFile);
@@ -125,7 +128,8 @@ class OnnxNsfwModerationServiceTest {
             OrtEnvironment env = mock(OrtEnvironment.class);
             OrtSession session = mock(OrtSession.class);
 
-            OnnxNsfwModerationService service = new OnnxNsfwModerationService(properties, env, session);
+            OnnxNsfwModerationService service =
+                    new OnnxNsfwModerationService(properties, env, session);
 
             MultipartFile mockFile = mock(MultipartFile.class);
             when(mockFile.getOriginalFilename()).thenReturn("test.jpg");
@@ -153,7 +157,8 @@ class OnnxNsfwModerationServiceTest {
             OrtEnvironment env = OrtEnvironment.getEnvironment();
 
             // null session을 사용하여 OrtException 유발
-            OnnxNsfwModerationService service = new OnnxNsfwModerationService(properties, env, null);
+            OnnxNsfwModerationService service =
+                    new OnnxNsfwModerationService(properties, env, null);
             BufferedImage testImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
 
             // when

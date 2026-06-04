@@ -33,7 +33,8 @@ public class FeedDataSourceConfig {
     private final FeedDataSourceProperties properties;
     private final SshTunnel sshTunnel;
 
-    public FeedDataSourceConfig(FeedDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
+    public FeedDataSourceConfig(
+            FeedDataSourceProperties properties, @Nullable SshTunnel sshTunnel) {
         this.properties = properties;
         this.sshTunnel = sshTunnel;
     }
@@ -42,9 +43,11 @@ public class FeedDataSourceConfig {
     public DataSource feedDataSource() {
         HikariConfig cfg = new HikariConfig();
 
-        String jdbcUrl = sshTunnel != null
-                ? DataSourceUtils.replacePortInJdbcUrl(properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
-                : properties.getJdbcUrl();
+        String jdbcUrl =
+                sshTunnel != null
+                        ? DataSourceUtils.replacePortInJdbcUrl(
+                                properties.getJdbcUrl(), sshTunnel.getActualLocalPort())
+                        : properties.getJdbcUrl();
         log.info("Feed DataSource JDBC URL: {}", jdbcUrl);
 
         cfg.setJdbcUrl(jdbcUrl);

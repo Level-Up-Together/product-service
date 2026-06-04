@@ -2,9 +2,7 @@ package io.pinkspider.global.validation;
 
 import org.springframework.stereotype.Component;
 
-/**
- * 한글 텍스트 정규화 및 초성 추출 유틸리티
- */
+/** 한글 텍스트 정규화 및 초성 추출 유틸리티 */
 @Component
 public class KoreanTextNormalizer {
 
@@ -14,7 +12,8 @@ public class KoreanTextNormalizer {
 
     // 초성 (Chosung) 배열 - 19개
     private static final char[] CHOSUNG = {
-        'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
+        'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ',
+        'ㅎ'
     };
 
     // 중성 개수: 21, 종성 개수: 28
@@ -22,10 +21,7 @@ public class KoreanTextNormalizer {
     private static final int JONGSUNG_COUNT = 28;
 
     /**
-     * 텍스트 정규화: 비교를 위한 전처리
-     * - 소문자 변환
-     * - 공백 및 특수문자 제거
-     * - 한글, 영문, 숫자, 자모만 유지
+     * 텍스트 정규화: 비교를 위한 전처리 - 소문자 변환 - 공백 및 특수문자 제거 - 한글, 영문, 숫자, 자모만 유지
      *
      * @param text 원본 텍스트
      * @return 정규화된 텍스트
@@ -39,9 +35,7 @@ public class KoreanTextNormalizer {
     }
 
     /**
-     * 한글 초성(Chosung) 추출
-     * 예: "안녕하세요" → "ㅇㄴㅎㅅㅇ"
-     * 예: "시발" → "ㅅㅂ"
+     * 한글 초성(Chosung) 추출 예: "안녕하세요" → "ㅇㄴㅎㅅㅇ" 예: "시발" → "ㅅㅂ"
      *
      * @param text 원본 텍스트
      * @return 초성만 추출된 문자열
@@ -99,8 +93,7 @@ public class KoreanTextNormalizer {
     }
 
     /**
-     * 레벤슈타인 거리 계산 (편집 거리)
-     * 두 문자열의 유사도를 측정
+     * 레벤슈타인 거리 계산 (편집 거리) 두 문자열의 유사도를 측정
      *
      * @param s1 문자열 1
      * @param s2 문자열 2
@@ -127,13 +120,14 @@ public class KoreanTextNormalizer {
         for (int i = 1; i <= len1; i++) {
             for (int j = 1; j <= len2; j++) {
                 int cost = (s1.charAt(i - 1) == s2.charAt(j - 1)) ? 0 : 1;
-                dp[i][j] = Math.min(
+                dp[i][j] =
                         Math.min(
-                                dp[i - 1][j] + 1, // 삭제
-                                dp[i][j - 1] + 1 // 삽입
-                                ),
-                        dp[i - 1][j - 1] + cost // 대체
-                        );
+                                Math.min(
+                                        dp[i - 1][j] + 1, // 삭제
+                                        dp[i][j - 1] + 1 // 삽입
+                                        ),
+                                dp[i - 1][j - 1] + cost // 대체
+                                );
             }
         }
 

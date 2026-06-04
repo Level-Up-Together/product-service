@@ -23,6 +23,13 @@ public class SshTunnelConfig {
             @Value("${app.ssh.tunnel.remote-port}") int remotePort,
             @Value("${app.ssh.tunnel.passphrase:}") String passphrase) {
         return new SshTunnel(
-                sshHost, sshPort, sshUsername, privateKeyPath, localPort, remoteHost, remotePort, passphrase);
+                sshHost,
+                sshPort,
+                sshUsername,
+                privateKeyPath,
+                localPort,
+                remoteHost,
+                remotePort,
+                passphrase);
     }
 }

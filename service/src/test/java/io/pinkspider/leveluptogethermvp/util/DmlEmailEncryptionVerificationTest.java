@@ -13,15 +13,14 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * user_db_dml.sql 파일의 암호화된 이메일이 실제 키로 복호화되는지 검증하는 테스트
- */
+/** user_db_dml.sql 파일의 암호화된 이메일이 실제 키로 복호화되는지 검증하는 테스트 */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DML 이메일 암호화 검증 테스트")
 class DmlEmailEncryptionVerificationTest {
 
     // 테스트 전용 키 (운영 환경과 무관)
-    private static final String PRODUCTION_SECRET_KEY = "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
+    private static final String PRODUCTION_SECRET_KEY =
+            "km2c/ZNA4pyuLXQYVeiq7wsOE6+PPrpPzIx9EUM7uEc=";
     private static final String PRODUCTION_IV = "K4Dw+xcX91fMfi3SNU0gQg==";
     private static final String PRODUCTION_CIPHER = "AES/CBC/PKCS5Padding";
 
@@ -29,18 +28,22 @@ class DmlEmailEncryptionVerificationTest {
 
     @BeforeEach
     void setUp() {
-        productionCryptoMetaData = CryptoMetaData.builder()
-                .secretKey(PRODUCTION_SECRET_KEY)
-                .iv(PRODUCTION_IV)
-                .cipher(PRODUCTION_CIPHER)
-                .build();
+        productionCryptoMetaData =
+                CryptoMetaData.builder()
+                        .secretKey(PRODUCTION_SECRET_KEY)
+                        .iv(PRODUCTION_IV)
+                        .cipher(PRODUCTION_CIPHER)
+                        .build();
     }
 
     @Test
     @DisplayName("DML의 암호화된 이메일들이 실제 키로 복호화되는지 확인")
     void verifyDmlEncryptedEmailsCanBeDecrypted() {
-        try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-            mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(productionCryptoMetaData);
+        try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+            mockedLoader
+                    .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                    .thenReturn(productionCryptoMetaData);
 
             // DML 파일의 모든 암호화된 이메일 (닉네임 포함)
             String[][] emailData = {
@@ -97,7 +100,8 @@ class DmlEmailEncryptionVerificationTest {
             }
 
             System.out.println("\n=== 결과 ===");
-            System.out.println("총 " + emailData.length + "개 중 성공: " + successCount + ", 실패: " + failCount);
+            System.out.println(
+                    "총 " + emailData.length + "개 중 성공: " + successCount + ", 실패: " + failCount);
 
             if (failCount > 0) {
                 System.out.println("\n⚠️ 실패한 이메일들은 다른 암호화 키로 암호화되어 있습니다.");
@@ -109,8 +113,11 @@ class DmlEmailEncryptionVerificationTest {
     @Test
     @DisplayName("이메일을 암호화하고 복호화하면 원본과 일치하는지 확인")
     void verifyEncryptDecryptRoundTrip() {
-        try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-            mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(productionCryptoMetaData);
+        try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+            mockedLoader
+                    .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                    .thenReturn(productionCryptoMetaData);
 
             String[] testEmails = {"dev@pinkspider.io", "test@example.com", "user@gmail.com"};
 

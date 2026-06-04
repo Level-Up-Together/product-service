@@ -29,11 +29,12 @@ class CryptoConverterTest {
     @BeforeEach
     void setUp() {
         cryptoConverter = new CryptoConverter();
-        testCryptoMetaData = CryptoMetaData.builder()
-                .secretKey(TEST_SECRET_KEY)
-                .iv(TEST_IV)
-                .cipher(TEST_CIPHER)
-                .build();
+        testCryptoMetaData =
+                CryptoMetaData.builder()
+                        .secretKey(TEST_SECRET_KEY)
+                        .iv(TEST_IV)
+                        .cipher(TEST_CIPHER)
+                        .build();
     }
 
     @Nested
@@ -43,8 +44,11 @@ class CryptoConverterTest {
         @Test
         @DisplayName("문자열을 암호화하여 DB 컬럼값으로 변환한다")
         void convertStringToDbColumn() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "test@example.com";
                 String encrypted = cryptoConverter.convertToDatabaseColumn(plainText);
@@ -71,8 +75,11 @@ class CryptoConverterTest {
         @Test
         @DisplayName("암호화된 DB값을 복호화하여 엔티티 속성으로 변환한다")
         void convertDbColumnToEntityAttribute() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String plainText = "test@example.com";
                 String encrypted = cryptoConverter.convertToDatabaseColumn(plainText);
@@ -93,8 +100,11 @@ class CryptoConverterTest {
         @Test
         @DisplayName("평문 이메일 데이터 감지 시 그대로 반환")
         void returnPlainEmailAsIs() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 // @ 포함, = 미포함 → 평문 이메일로 판단
                 String plainEmail = "plaintext@example.com";
@@ -109,20 +119,27 @@ class CryptoConverterTest {
         void returnPlaceholderOnDecryptionFailure() {
             String encrypted;
             // 첫 번째 키로 암호화
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
                 encrypted = cryptoConverter.convertToDatabaseColumn("test@example.com");
             }
 
             // 다른 키로 복호화 시도 (테스트 전용)
-            CryptoMetaData differentKeyMetaData = CryptoMetaData.builder()
-                    .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
-                    .iv(TEST_IV)
-                    .cipher(TEST_CIPHER)
-                    .build();
+            CryptoMetaData differentKeyMetaData =
+                    CryptoMetaData.builder()
+                            .secretKey("cFSXGDjBl5gNFLOHP+5WVdktX5d7xt9seNAwrUPVwns=") // 다른 테스트 키
+                            .iv(TEST_IV)
+                            .cipher(TEST_CIPHER)
+                            .build();
 
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(differentKeyMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(differentKeyMetaData);
 
                 String result = cryptoConverter.convertToEntityAttribute(encrypted);
 
@@ -139,11 +156,17 @@ class CryptoConverterTest {
         @Test
         @DisplayName("암호화/복호화 라운드트립이 정상 동작한다")
         void encryptDecryptRoundTrip() {
-            try (MockedStatic<CryptoMetaDataLoader> mockedLoader = Mockito.mockStatic(CryptoMetaDataLoader.class)) {
-                mockedLoader.when(CryptoMetaDataLoader::getCryptoMetaDataDto).thenReturn(testCryptoMetaData);
+            try (MockedStatic<CryptoMetaDataLoader> mockedLoader =
+                    Mockito.mockStatic(CryptoMetaDataLoader.class)) {
+                mockedLoader
+                        .when(CryptoMetaDataLoader::getCryptoMetaDataDto)
+                        .thenReturn(testCryptoMetaData);
 
                 String[] testData = {
-                    "test@example.com", "user.name+tag@domain.co.kr", "한글이메일@테스트.kr", "special!@#$%^&*()chars@test.com"
+                    "test@example.com",
+                    "user.name+tag@domain.co.kr",
+                    "한글이메일@테스트.kr",
+                    "special!@#$%^&*()chars@test.com"
                 };
 
                 for (String original : testData) {

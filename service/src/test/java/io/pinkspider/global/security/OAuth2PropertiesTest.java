@@ -47,7 +47,8 @@ class OAuth2PropertiesTest {
         @DisplayName("허용된 origin이면 true를 반환한다")
         void isAllowedOrigin_allowedOrigin_returnsTrue() {
             // given
-            properties.setAllowedOrigins(List.of("https://level-up-together.com", "https://dev.level-up-together.com"));
+            properties.setAllowedOrigins(
+                    List.of("https://level-up-together.com", "https://dev.level-up-together.com"));
 
             // when
             boolean result = properties.isAllowedOrigin("https://level-up-together.com");

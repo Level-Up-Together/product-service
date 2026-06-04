@@ -14,10 +14,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 비속어/금칙어 검증 서비스
- * 활성화된 금칙어 목록을 캐싱하여 성능 최적화
- */
+/** 비속어/금칙어 검증 서비스 활성화된 금칙어 목록을 캐싱하여 성능 최적화 */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -37,20 +34,18 @@ public class ProfanityValidationService {
         }
     }
 
-    /**
-     * 전체 언어의 활성화된 금칙어 목록 조회 (캐싱)
-     * 캐시명: profanityWords
-     */
+    /** 전체 언어의 활성화된 금칙어 목록 조회 (캐싱) 캐시명: profanityWords */
     @Cacheable(value = "profanityWords", unless = "#result == null || #result.isEmpty()")
     public Set<String> getActiveProfanityWords() {
         List<ProfanityWord> words = profanityWordRepository.findAllByIsActiveTrue();
         return words.stream().map(ProfanityWord::getWord).collect(Collectors.toSet());
     }
 
-    /**
-     * 특정 언어의 활성화된 금칙어 목록 조회 (캐싱)
-     */
-    @Cacheable(value = "profanityWords", key = "#locale", unless = "#result == null || #result.isEmpty()")
+    /** 특정 언어의 활성화된 금칙어 목록 조회 (캐싱) */
+    @Cacheable(
+            value = "profanityWords",
+            key = "#locale",
+            unless = "#result == null || #result.isEmpty()")
     public Set<String> getActiveProfanityWordsByLocale(String locale) {
         List<ProfanityWord> words = profanityWordRepository.findAllByLocaleAndIsActiveTrue(locale);
         return words.stream().map(ProfanityWord::getWord).collect(Collectors.toSet());

@@ -19,12 +19,15 @@ public class CommonCodeDataLoader {
     private static Environment environment;
 
     @Autowired
-    public CommonCodeDataLoader(RedisTemplate<String, Object> redisTemplateForObject, Environment environment) {
+    public CommonCodeDataLoader(
+            RedisTemplate<String, Object> redisTemplateForObject, Environment environment) {
         CommonCodeDataLoader.redisTemplateForObject = redisTemplateForObject;
         CommonCodeDataLoader.environment = environment;
     }
 
     public static void createCommonCodeListInRedis(List<CommonCodeDto> commonCodeDtoList) {
-        redisTemplateForObject.opsForValue().set(MetaServiceConstants.COMMON_CODE, commonCodeDtoList);
+        redisTemplateForObject
+                .opsForValue()
+                .set(MetaServiceConstants.COMMON_CODE, commonCodeDtoList);
     }
 }

@@ -28,23 +28,17 @@ import org.springframework.http.ResponseEntity;
 @ExtendWith(MockitoExtension.class)
 class PerUserRateLimitAspectTest {
 
-    @Mock
-    private StringRedisTemplate redisTemplate;
+    @Mock private StringRedisTemplate redisTemplate;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+    @Mock private ValueOperations<String, String> valueOperations;
 
-    @Mock
-    private ProceedingJoinPoint joinPoint;
+    @Mock private ProceedingJoinPoint joinPoint;
 
-    @Mock
-    private MethodSignature methodSignature;
+    @Mock private MethodSignature methodSignature;
 
-    @Mock
-    private PerUserRateLimit perUserRateLimit;
+    @Mock private PerUserRateLimit perUserRateLimit;
 
-    @InjectMocks
-    private PerUserRateLimitAspect aspect;
+    @InjectMocks private PerUserRateLimitAspect aspect;
 
     @Nested
     @DisplayName("rateLimit 테스트")

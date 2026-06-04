@@ -51,7 +51,8 @@ public class TestDataSourceConfig {
         @Primary
         public LocalContainerEntityManagerFactoryBean userEntityManagerFactory(
                 @Qualifier("userDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.userservice");
             em.setPersistenceUnitName("user");
@@ -96,7 +97,8 @@ public class TestDataSourceConfig {
         @Bean(name = "missionEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean missionEntityManagerFactory(
                 @Qualifier("missionDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.missionservice");
             em.setPersistenceUnitName("mission");
@@ -108,7 +110,8 @@ public class TestDataSourceConfig {
 
         @Bean(name = "missionTransactionManager")
         public PlatformTransactionManager missionTransactionManager(
-                @Qualifier("missionEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+                @Qualifier("missionEntityManagerFactory")
+                        EntityManagerFactory entityManagerFactory) {
             return new JpaTransactionManager(entityManagerFactory);
         }
 
@@ -140,7 +143,8 @@ public class TestDataSourceConfig {
         @Bean(name = "guildEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean guildEntityManagerFactory(
                 @Qualifier("guildDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.guildservice");
             em.setPersistenceUnitName("guild");
@@ -188,7 +192,8 @@ public class TestDataSourceConfig {
         @Bean(name = "metaEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean metaEntityManagerFactory(
                 @Qualifier("metaDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan(
                     "io.pinkspider.leveluptogethermvp.metaservice",
@@ -235,7 +240,8 @@ public class TestDataSourceConfig {
         @Bean(name = "sagaEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean sagaEntityManagerFactory(
                 @Qualifier("sagaDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.global.saga.persistence");
             em.setPersistenceUnitName("saga");
@@ -279,7 +285,8 @@ public class TestDataSourceConfig {
         @Bean(name = "notificationEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean notificationEntityManagerFactory(
                 @Qualifier("notificationDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.notificationservice");
             em.setPersistenceUnitName("notification");
@@ -291,7 +298,8 @@ public class TestDataSourceConfig {
 
         @Bean(name = "notificationTransactionManager")
         public PlatformTransactionManager notificationTransactionManager(
-                @Qualifier("notificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+                @Qualifier("notificationEntityManagerFactory")
+                        EntityManagerFactory entityManagerFactory) {
             return new JpaTransactionManager(entityManagerFactory);
         }
 
@@ -323,7 +331,8 @@ public class TestDataSourceConfig {
         @Bean(name = "feedEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean feedEntityManagerFactory(
                 @Qualifier("feedDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.feedservice");
             em.setPersistenceUnitName("feed");
@@ -367,7 +376,8 @@ public class TestDataSourceConfig {
         @Bean(name = "chatEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean chatEntityManagerFactory(
                 @Qualifier("chatDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.chatservice");
             em.setPersistenceUnitName("chat");
@@ -411,7 +421,8 @@ public class TestDataSourceConfig {
         @Bean(name = "gamificationEntityManagerFactory")
         public LocalContainerEntityManagerFactoryBean gamificationEntityManagerFactory(
                 @Qualifier("gamificationDataSource") DataSource dataSource) {
-            LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+            LocalContainerEntityManagerFactoryBean em =
+                    new LocalContainerEntityManagerFactoryBean();
             em.setDataSource(dataSource);
             em.setPackagesToScan("io.pinkspider.leveluptogethermvp.gamificationservice");
             em.setPersistenceUnitName("gamification");
@@ -423,7 +434,8 @@ public class TestDataSourceConfig {
 
         @Bean(name = "gamificationTransactionManager")
         public PlatformTransactionManager gamificationTransactionManager(
-                @Qualifier("gamificationEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+                @Qualifier("gamificationEntityManagerFactory")
+                        EntityManagerFactory entityManagerFactory) {
             return new JpaTransactionManager(entityManagerFactory);
         }
 

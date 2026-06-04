@@ -27,16 +27,22 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        StompHeaderAccessor accessor =
+                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = extractToken(accessor);
 
-            if (token != null && jwtUtil.validateToken(token) && !tokenBlacklistChecker.isTokenBlacklisted(token)) {
+            if (token != null
+                    && jwtUtil.validateToken(token)
+                    && !tokenBlacklistChecker.isTokenBlacklisted(token)) {
                 String userId = jwtUtil.getUserIdFromToken(token);
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userId, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userId,
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
                 accessor.setUser(authentication);
                 log.debug("WebSocket 인증 성공: userId={}", userId);
@@ -62,7 +68,8 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         // Fallback: handshake 단계에서 쿠키로부터 추출해둔 access_token (httpOnly 쿠키 경로)
         if (accessor.getSessionAttributes() != null) {
             Object cookieToken =
-                    accessor.getSessionAttributes().get(WebSocketCookieHandshakeInterceptor.ATTR_ACCESS_TOKEN);
+                    accessor.getSessionAttributes()
+                            .get(WebSocketCookieHandshakeInterceptor.ATTR_ACCESS_TOKEN);
             if (cookieToken instanceof String s && !s.isEmpty()) {
                 return s;
             }

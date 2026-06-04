@@ -14,10 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * AES 키 생성 유틸리티 테스트
- * Spring 컨텍스트 불필요 - 순수 Java 암호화 기능 테스트
- */
+/** AES 키 생성 유틸리티 테스트 Spring 컨텍스트 불필요 - 순수 Java 암호화 기능 테스트 */
 @Slf4j
 public class AesKeyGenerator {
 
@@ -31,7 +28,9 @@ public class AesKeyGenerator {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextBytes(iv);
 
-        log.info("Secret Key (Base64} : {}", Base64.getEncoder().encodeToString(secretKey.getEncoded()));
+        log.info(
+                "Secret Key (Base64} : {}",
+                Base64.getEncoder().encodeToString(secretKey.getEncoded()));
         log.info("Secret Key (native} : {}", secretKey);
         log.info("IV (Base64} : {}", Base64.getEncoder().encodeToString(iv));
     }
@@ -81,7 +80,8 @@ public class AesKeyGenerator {
 
     @Test
     public void generateRandomString() {
-        String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+";
+        String CHARACTERS =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+";
         SecureRandom random = new SecureRandom();
         StringBuilder sb = new StringBuilder(32);
 
@@ -96,7 +96,8 @@ public class AesKeyGenerator {
     @DisplayName("32자리 랜덤문자열 만들고 그걸로 secretkey 만들기")
     public void generateRandomStringAndGenerateKey() {
         int size = 32;
-        String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+";
+        String CHARACTERS =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+";
         SecureRandom random = new SecureRandom();
         StringBuilder sb = new StringBuilder(size);
 
@@ -108,8 +109,7 @@ public class AesKeyGenerator {
         log.info(String.valueOf(sb.length()));
         log.info("16자 문자열: {}", sb.substring(0, 16));
 
-        String secretKeyBase64 =
-                Base64.getEncoder().encodeToString(sb.toString().getBytes());
+        String secretKeyBase64 = Base64.getEncoder().encodeToString(sb.toString().getBytes());
         String ivBase64 = Base64.getEncoder().encodeToString(sb.substring(0, 16).getBytes());
         String decoded = new String(Base64.getDecoder().decode(secretKeyBase64));
 
@@ -126,8 +126,7 @@ public class AesKeyGenerator {
         log.info(String.valueOf(input.length()));
 
         String secretKeyBase64 = Base64.getEncoder().encodeToString(input.getBytes());
-        String ivBase64 =
-                Base64.getEncoder().encodeToString(input.substring(0, 16).getBytes());
+        String ivBase64 = Base64.getEncoder().encodeToString(input.substring(0, 16).getBytes());
         String decoded = new String(Base64.getDecoder().decode(secretKeyBase64));
 
         log.info("secretKeyBase64: {}", secretKeyBase64);

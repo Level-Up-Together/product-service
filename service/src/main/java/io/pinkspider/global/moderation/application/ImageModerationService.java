@@ -6,10 +6,8 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 이미지 콘텐츠 검증 서비스 인터페이스
  *
- * 구현체:
- * - NoOpImageModerationService: 검증 비활성화 (개발/테스트용)
- * - AwsRekognitionModerationService: AWS Rekognition 기반 검증 (운영용)
- * - OnnxNsfwModerationService: ONNX NSFW 모델 기반 검증 (비용 절감)
+ * <p>구현체: - NoOpImageModerationService: 검증 비활성화 (개발/테스트용) - AwsRekognitionModerationService: AWS
+ * Rekognition 기반 검증 (운영용) - OnnxNsfwModerationService: ONNX NSFW 모델 기반 검증 (비용 절감)
  */
 public interface ImageModerationService {
 

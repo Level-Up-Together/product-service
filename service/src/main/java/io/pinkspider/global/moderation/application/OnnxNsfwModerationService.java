@@ -22,11 +22,9 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * ONNX Runtime 기반 NSFW 이미지 검증 서비스
  *
- * OpenNSFW2 모델을 사용하여 로컬에서 NSFW 이미지를 감지합니다.
- * AWS Rekognition 대비 $0 비용으로 동작하며, CPU 기반 추론을 수행합니다.
+ * <p>OpenNSFW2 모델을 사용하여 로컬에서 NSFW 이미지를 감지합니다. AWS Rekognition 대비 $0 비용으로 동작하며, CPU 기반 추론을 수행합니다.
  *
- * 모델 입력: 224x224 RGB 이미지 (NCHW 포맷, 정규화됨)
- * 모델 출력: [sfw_score, nsfw_score] (합계 = 1.0)
+ * <p>모델 입력: 224x224 RGB 이미지 (NCHW 포맷, 정규화됨) 모델 출력: [sfw_score, nsfw_score] (합계 = 1.0)
  */
 @Slf4j
 public class OnnxNsfwModerationService implements ImageModerationService {
@@ -56,7 +54,8 @@ public class OnnxNsfwModerationService implements ImageModerationService {
     }
 
     // 테스트용 생성자
-    OnnxNsfwModerationService(ModerationProperties properties, OrtEnvironment env, OrtSession session) {
+    OnnxNsfwModerationService(
+            ModerationProperties properties, OrtEnvironment env, OrtSession session) {
         this.properties = properties;
         this.env = env;
         this.session = session;
@@ -64,7 +63,10 @@ public class OnnxNsfwModerationService implements ImageModerationService {
 
     @Override
     public ImageModerationResult analyzeImage(MultipartFile imageFile) {
-        log.debug("ONNX NSFW 이미지 분석 시작: 파일={}, 크기={} bytes", imageFile.getOriginalFilename(), imageFile.getSize());
+        log.debug(
+                "ONNX NSFW 이미지 분석 시작: 파일={}, 크기={} bytes",
+                imageFile.getOriginalFilename(),
+                imageFile.getSize());
 
         try {
             BufferedImage image = ImageIO.read(imageFile.getInputStream());
@@ -95,9 +97,7 @@ public class OnnxNsfwModerationService implements ImageModerationService {
         return "onnx-nsfw";
     }
 
-    /**
-     * ONNX 모델 추론 실행
-     */
+    /** ONNX 모델 추론 실행 */
     ImageModerationResult runInference(BufferedImage image) {
         try {
             float[][][][] inputTensor = preprocessImage(image);
@@ -119,14 +119,17 @@ public class OnnxNsfwModerationService implements ImageModerationService {
 
                 if (nsfwScore >= nsfwThreshold) {
                     double confidencePercent = nsfwScore * 100.0;
-                    ModerationLabel label = ModerationLabel.builder()
-                            .category(NSFW_CATEGORY)
-                            .name("NSFW Content")
-                            .confidence(confidencePercent)
-                            .build();
+                    ModerationLabel label =
+                            ModerationLabel.builder()
+                                    .category(NSFW_CATEGORY)
+                                    .name("NSFW Content")
+                                    .confidence(confidencePercent)
+                                    .build();
 
                     return ImageModerationResult.unsafe(
-                            "부적절한 콘텐츠가 감지되었습니다 (NSFW: " + String.format("%.1f", confidencePercent) + "%)",
+                            "부적절한 콘텐츠가 감지되었습니다 (NSFW: "
+                                    + String.format("%.1f", confidencePercent)
+                                    + "%)",
                             List.of(label),
                             Map.of(NSFW_CATEGORY, confidencePercent),
                             getProviderName());
@@ -146,12 +149,10 @@ public class OnnxNsfwModerationService implements ImageModerationService {
         }
     }
 
-    /**
-     * 이미지 전처리: 224x224 리사이즈 + NCHW 정규화
-     * OpenNSFW2 모델 기준: BGR 채널 순서, ImageNet mean 차감
-     */
+    /** 이미지 전처리: 224x224 리사이즈 + NCHW 정규화 OpenNSFW2 모델 기준: BGR 채널 순서, ImageNet mean 차감 */
     float[][][][] preprocessImage(BufferedImage original) {
-        BufferedImage resized = new BufferedImage(IMAGE_SIZE, IMAGE_SIZE, BufferedImage.TYPE_INT_RGB);
+        BufferedImage resized =
+                new BufferedImage(IMAGE_SIZE, IMAGE_SIZE, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = resized.createGraphics();
         g.drawImage(original, 0, 0, IMAGE_SIZE, IMAGE_SIZE, null);
         g.dispose();

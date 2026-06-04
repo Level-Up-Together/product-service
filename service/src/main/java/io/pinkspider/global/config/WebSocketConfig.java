@@ -25,7 +25,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .addInterceptors(cookieHandshakeInterceptor)
                 .withSockJS();
 
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").addInterceptors(cookieHandshakeInterceptor);
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(cookieHandshakeInterceptor);
     }
 
     @Override

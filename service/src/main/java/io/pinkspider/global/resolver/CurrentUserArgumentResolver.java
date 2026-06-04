@@ -15,7 +15,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 /**
  * @CurrentUser 어노테이션이 붙은 파라미터에 JWT에서 추출한 사용자 ID를 주입하는 Resolver.
  *
- * <p>SecurityContext에서 Authentication principal을 추출하여 사용자 ID를 반환합니다.</p>
+ * <p>SecurityContext에서 Authentication principal을 추출하여 사용자 ID를 반환합니다.
  */
 @Slf4j
 @Component
@@ -47,7 +47,9 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
             Object principal = authentication.getPrincipal();
             if (principal instanceof String) {
                 userId = (String) principal;
-            } else if (principal instanceof org.springframework.security.core.userdetails.UserDetails userDetails) {
+            } else if (principal
+                    instanceof
+                    org.springframework.security.core.userdetails.UserDetails userDetails) {
                 userId = userDetails.getUsername();
             } else {
                 userId = principal.toString();

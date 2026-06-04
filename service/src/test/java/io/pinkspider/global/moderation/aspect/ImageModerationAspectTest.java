@@ -30,11 +30,9 @@ import org.springframework.web.multipart.MultipartFile;
 @DisplayName("ImageModerationAspect 테스트")
 class ImageModerationAspectTest {
 
-    @Mock
-    private ImageModerationService imageModerationService;
+    @Mock private ImageModerationService imageModerationService;
 
-    @InjectMocks
-    private ImageModerationAspect aspect;
+    @InjectMocks private ImageModerationAspect aspect;
 
     @Nested
     @DisplayName("모더레이션 비활성화 시")
@@ -72,7 +70,8 @@ class ImageModerationAspectTest {
 
             when(imageModerationService.isEnabled()).thenReturn(true);
             when(imageFile.isEmpty()).thenReturn(false);
-            when(imageModerationService.analyzeImage(imageFile)).thenReturn(ImageModerationResult.safe());
+            when(imageModerationService.analyzeImage(imageFile))
+                    .thenReturn(ImageModerationResult.safe());
             when(joinPoint.getArgs()).thenReturn(new Object[] {"userId", imageFile});
             when(joinPoint.proceed()).thenReturn("result");
 
@@ -93,15 +92,17 @@ class ImageModerationAspectTest {
             MultipartFile imageFile = mock(MultipartFile.class);
             Signature signature = mock(Signature.class);
 
-            ImageModerationResult unsafeResult = ImageModerationResult.unsafe(
-                    "NSFW 콘텐츠 감지",
-                    List.of(ModerationLabel.builder()
-                            .category("NSFW")
-                            .name("NSFW Content")
-                            .confidence(95.0)
-                            .build()),
-                    Map.of("NSFW", 95.0),
-                    "onnx-nsfw");
+            ImageModerationResult unsafeResult =
+                    ImageModerationResult.unsafe(
+                            "NSFW 콘텐츠 감지",
+                            List.of(
+                                    ModerationLabel.builder()
+                                            .category("NSFW")
+                                            .name("NSFW Content")
+                                            .confidence(95.0)
+                                            .build()),
+                            Map.of("NSFW", 95.0),
+                            "onnx-nsfw");
 
             when(imageModerationService.isEnabled()).thenReturn(true);
             when(imageFile.isEmpty()).thenReturn(false);

@@ -27,11 +27,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 @DisplayName("SlackNotifier 단위 테스트")
 class SlackNotifierTest {
 
-    @InjectMocks
-    private SlackNotifier slackNotifier;
+    @InjectMocks private SlackNotifier slackNotifier;
 
-    @Mock
-    private HttpServletRequest httpServletRequest;
+    @Mock private HttpServletRequest httpServletRequest;
 
     @BeforeEach
     void setUp() {
@@ -61,7 +59,8 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/test");
 
             // when
-            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result =
+                    slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             assertThat(result).isNotNull();
@@ -86,7 +85,8 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/users");
 
             // when
-            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result =
+                    slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             assertThat(result.get()).isNotNull();
@@ -100,7 +100,8 @@ class SlackNotifierTest {
             Exception exception = new RuntimeException("IO 예외 테스트");
 
             Slack mockSlack = mock(Slack.class);
-            when(mockSlack.send(anyString(), any(Payload.class))).thenThrow(new IOException("Slack 통신 오류"));
+            when(mockSlack.send(anyString(), any(Payload.class)))
+                    .thenThrow(new IOException("Slack 통신 오류"));
             ReflectionTestUtils.setField(slackNotifier, "slackClient", mockSlack);
 
             when(httpServletRequest.getHeader("X-FORWARDED-FOR")).thenReturn(null);
@@ -109,7 +110,8 @@ class SlackNotifierTest {
             when(httpServletRequest.getRequestURI()).thenReturn("/api/v1/resource");
 
             // when
-            CompletableFuture<WebhookResponse> result = slackNotifier.sendSlackAlert(exception, httpServletRequest);
+            CompletableFuture<WebhookResponse> result =
+                    slackNotifier.sendSlackAlert(exception, httpServletRequest);
 
             // then
             // IOException 발생 시 null response를 CompletableFuture로 감싸 반환

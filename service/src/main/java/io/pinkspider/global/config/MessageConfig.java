@@ -10,8 +10,10 @@ public class MessageConfig {
 
     @Bean
     public MessageSource messageSource() {
-        ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-        messageSource.setBasenames("classpath:i18n/errors", "classpath:i18n/notifications", "classpath:i18n/messages");
+        ReloadableResourceBundleMessageSource messageSource =
+                new ReloadableResourceBundleMessageSource();
+        messageSource.setBasenames(
+                "classpath:i18n/errors", "classpath:i18n/notifications", "classpath:i18n/messages");
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setFallbackToSystemLocale(false);
         messageSource.setUseCodeAsDefaultMessage(true);

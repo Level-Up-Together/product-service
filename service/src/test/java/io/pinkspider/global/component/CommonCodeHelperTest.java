@@ -141,11 +141,14 @@ class CommonCodeHelperTest {
             when(mockValueOperations.get("common:codes")).thenReturn(codes);
 
             // when
-            List<CommonCodeDto> result = CommonCodeHelper.getChildCommonCodeByParentId("PARENT-001");
+            List<CommonCodeDto> result =
+                    CommonCodeHelper.getChildCommonCodeByParentId("PARENT-001");
 
             // then
             assertThat(result).hasSize(2);
-            assertThat(result).extracting(CommonCodeDto::getId).containsExactlyInAnyOrder("CODE-001", "CODE-002");
+            assertThat(result)
+                    .extracting(CommonCodeDto::getId)
+                    .containsExactlyInAnyOrder("CODE-001", "CODE-002");
         }
 
         @Test
@@ -157,7 +160,8 @@ class CommonCodeHelperTest {
             when(mockValueOperations.get("common:codes")).thenReturn(codes);
 
             // when
-            List<CommonCodeDto> result = CommonCodeHelper.getChildCommonCodeByParentId("NOT-EXIST-PARENT");
+            List<CommonCodeDto> result =
+                    CommonCodeHelper.getChildCommonCodeByParentId("NOT-EXIST-PARENT");
 
             // then
             assertThat(result).isEmpty();
@@ -172,7 +176,8 @@ class CommonCodeHelperTest {
             when(mockValueOperations.get("common:codes")).thenReturn(codes);
 
             // when
-            List<CommonCodeDto> result = CommonCodeHelper.getChildCommonCodeByParentId("PARENT-002");
+            List<CommonCodeDto> result =
+                    CommonCodeHelper.getChildCommonCodeByParentId("PARENT-002");
 
             // then
             assertThat(result).hasSize(1);

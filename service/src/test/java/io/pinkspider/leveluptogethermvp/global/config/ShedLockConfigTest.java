@@ -29,7 +29,8 @@ class ShedLockConfigTest {
     @Test
     @DisplayName("@EnableSchedulerLock의 defaultLockAtMostFor가 PT10M으로 설정되어 있다")
     void enableSchedulerLock_hasDefaultLockAtMostFor() {
-        EnableSchedulerLock annotation = ShedLockConfig.class.getAnnotation(EnableSchedulerLock.class);
+        EnableSchedulerLock annotation =
+                ShedLockConfig.class.getAnnotation(EnableSchedulerLock.class);
 
         assertThat(annotation).isNotNull();
         assertThat(annotation.defaultLockAtMostFor()).isEqualTo("PT10M");

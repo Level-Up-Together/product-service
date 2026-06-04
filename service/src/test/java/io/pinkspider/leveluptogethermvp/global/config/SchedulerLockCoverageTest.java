@@ -31,12 +31,12 @@ import org.springframework.stereotype.Component;
 class SchedulerLockCoverageTest {
 
     /**
-     * @SchedulerLock 적용이 의도적으로 제외된 클래스+메서드 화이트리스트.
-     * 형식: "FQCN#methodName"
+     * @SchedulerLock 적용이 의도적으로 제외된 클래스+메서드 화이트리스트. 형식: "FQCN#methodName"
      */
-    private static final Set<String> EXEMPT_METHODS = Set.of(
-            // 현재 예외 없음. 향후 인스턴스별 로컬 작업이 필요하면 여기에 추가.
-            );
+    private static final Set<String> EXEMPT_METHODS =
+            Set.of(
+                    // 현재 예외 없음. 향후 인스턴스별 로컬 작업이 필요하면 여기에 추가.
+                    );
 
     @Test
     @DisplayName("@Scheduled가 붙은 모든 메서드에는 @SchedulerLock이 적용되어야 한다")
@@ -57,8 +57,9 @@ class SchedulerLockCoverageTest {
         }
 
         assertThat(missing)
-                .as("@Scheduled 메서드는 @SchedulerLock도 함께 선언되어야 합니다 (멀티 인스턴스 동시 실행 방지). "
-                        + "예외가 필요하면 SchedulerLockCoverageTest.EXEMPT_METHODS에 등록하세요.")
+                .as(
+                        "@Scheduled 메서드는 @SchedulerLock도 함께 선언되어야 합니다 (멀티 인스턴스 동시 실행 방지). "
+                                + "예외가 필요하면 SchedulerLockCoverageTest.EXEMPT_METHODS에 등록하세요.")
                 .isEmpty();
     }
 
@@ -82,7 +83,8 @@ class SchedulerLockCoverageTest {
     }
 
     private List<Method> findAllScheduledMethods() {
-        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
+        ClassPathScanningCandidateComponentProvider scanner =
+                new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(Component.class));
 
         List<Method> result = new ArrayList<>();
@@ -108,15 +110,18 @@ class SchedulerLockCoverageTest {
         // resource 직접 스캔으로 동일 결과 보강 (ClassPathScanning이 누락하는 경우 대비)
         try {
             MetadataReaderFactory metadataReaderFactory = new SimpleMetadataReaderFactory();
-            Resource[] resources = ResourcePatternUtils.getResourcePatternResolver(null)
-                    .getResources("classpath*:io/pinkspider/leveluptogethermvp/**/*Scheduler.class");
+            Resource[] resources =
+                    ResourcePatternUtils.getResourcePatternResolver(null)
+                            .getResources(
+                                    "classpath*:io/pinkspider/leveluptogethermvp/**/*Scheduler.class");
             for (Resource resource : resources) {
                 try {
                     MetadataReader reader = metadataReaderFactory.getMetadataReader(resource);
                     String className = reader.getClassMetadata().getClassName();
                     Class<?> clazz = Class.forName(className);
                     for (Method method : clazz.getDeclaredMethods()) {
-                        if (method.isAnnotationPresent(Scheduled.class) && !result.contains(method)) {
+                        if (method.isAnnotationPresent(Scheduled.class)
+                                && !result.contains(method)) {
                             result.add(method);
                         }
                     }

@@ -16,9 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
-/**
- * Firebase Admin SDK 설정
- */
+/** Firebase Admin SDK 설정 */
 @Slf4j
 @Configuration
 public class FirebaseConfig {
@@ -44,13 +42,15 @@ public class FirebaseConfig {
                 InputStream serviceAccount = getCredentialsInputStream();
 
                 if (serviceAccount == null) {
-                    log.warn("Firebase credentials not found. Push notifications will be disabled.");
+                    log.warn(
+                            "Firebase credentials not found. Push notifications will be disabled.");
                     return;
                 }
 
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                        .build();
+                FirebaseOptions options =
+                        FirebaseOptions.builder()
+                                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                                .build();
 
                 FirebaseApp.initializeApp(options);
                 log.info("Firebase Admin SDK initialized successfully.");

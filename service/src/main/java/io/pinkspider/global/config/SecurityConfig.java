@@ -38,7 +38,8 @@ public class SecurityConfig {
     private final OAuth2Properties oAuth2Properties;
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig)
+            throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
@@ -54,21 +55,23 @@ public class SecurityConfig {
             configuration.setAllowedOrigins(List.of("*"));
             configuration.setAllowCredentials(false);
         }
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList(
-                "X-Requested-With",
-                "Content-Type",
-                "Authorization",
-                "X-XSRF-token",
-                "Origin",
-                "Accept",
-                // 커스텀 헤더 (브라우저 직접 호출 + admin-service Feign 통합)
-                "X-Signup-Token", // OAuth 신규 가입 세션 토큰
-                "X-Timezone", // 홈/오늘의 미션 등 사용자 타임존
-                "X-Admin-Id", // 어드민 인증 컨텍스트
-                "X-User-Id", // 어드민 → 사용자 위임 호출
-                "X-User-Email",
-                "X-User-Nickname"));
+        configuration.setAllowedMethods(
+                Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(
+                Arrays.asList(
+                        "X-Requested-With",
+                        "Content-Type",
+                        "Authorization",
+                        "X-XSRF-token",
+                        "Origin",
+                        "Accept",
+                        // 커스텀 헤더 (브라우저 직접 호출 + admin-service Feign 통합)
+                        "X-Signup-Token", // OAuth 신규 가입 세션 토큰
+                        "X-Timezone", // 홈/오늘의 미션 등 사용자 타임존
+                        "X-Admin-Id", // 어드민 인증 컨텍스트
+                        "X-User-Id", // 어드민 → 사용자 위임 호출
+                        "X-User-Email",
+                        "X-User-Nickname"));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -77,99 +80,111 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, AuthEntryPointJwt entryPoint) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, AuthEntryPointJwt entryPoint)
+            throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-                .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
-                        // 공개 엔드포인트
-                        .requestMatchers(new AntPathRequestMatcher(ACTUATOR_PATH + "/**"))
-                        .permitAll()
-                        .requestMatchers("/favicon.ico", "/error")
-                        .permitAll()
-                        // 정적 리소스 (이미지 업로드)
-                        .requestMatchers("/uploads/**")
-                        .permitAll()
-                        // WebSocket 엔드포인트
-                        .requestMatchers("/ws/**")
-                        .permitAll()
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(
+                        exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .authorizeHttpRequests(
+                        authorizeHttpRequests ->
+                                authorizeHttpRequests
+                                        // 공개 엔드포인트
+                                        .requestMatchers(
+                                                new AntPathRequestMatcher(ACTUATOR_PATH + "/**"))
+                                        .permitAll()
+                                        .requestMatchers("/favicon.ico", "/error")
+                                        .permitAll()
+                                        // 정적 리소스 (이미지 업로드)
+                                        .requestMatchers("/uploads/**")
+                                        .permitAll()
+                                        // WebSocket 엔드포인트
+                                        .requestMatchers("/ws/**")
+                                        .permitAll()
 
-                        // 인증 관련 API (로그인, 회원가입, OAuth)
-                        .requestMatchers("/api/v1/auth/**")
-                        .permitAll()
-                        .requestMatchers("/api/v1/oauth/**")
-                        .permitAll()
-                        .requestMatchers("/oauth/**")
-                        .permitAll() // OAuth 컨트롤러 (/oauth/uri/*, /oauth/callback/*)
-                        .requestMatchers("/oauth2/**")
-                        .permitAll()
-                        .requestMatchers("/login/oauth2/**")
-                        .permitAll()
-                        // JWT 토큰 재발급 - refresh_token 검증으로 보안 확보
-                        .requestMatchers("/jwt/reissue")
-                        .permitAll()
+                                        // 인증 관련 API (로그인, 회원가입, OAuth)
+                                        .requestMatchers("/api/v1/auth/**")
+                                        .permitAll()
+                                        .requestMatchers("/api/v1/oauth/**")
+                                        .permitAll()
+                                        .requestMatchers("/oauth/**")
+                                        .permitAll() // OAuth 컨트롤러 (/oauth/uri/*, /oauth/callback/*)
+                                        .requestMatchers("/oauth2/**")
+                                        .permitAll()
+                                        .requestMatchers("/login/oauth2/**")
+                                        .permitAll()
+                                        // JWT 토큰 재발급 - refresh_token 검증으로 보안 확보
+                                        .requestMatchers("/jwt/reissue")
+                                        .permitAll()
 
-                        // 테스트 로그인 API (dev/test/local 환경에서만 컨트롤러가 활성화됨)
-                        .requestMatchers("/api/test/**")
-                        .permitAll()
+                                        // 테스트 로그인 API (dev/test/local 환경에서만 컨트롤러가 활성화됨)
+                                        .requestMatchers("/api/test/**")
+                                        .permitAll()
 
-                        // 약관 목록 API (공개)
-                        .requestMatchers("/terms/list")
-                        .permitAll()
+                                        // 약관 목록 API (공개)
+                                        .requestMatchers("/terms/list")
+                                        .permitAll()
 
-                        // 내부 캐시 관리 API (운영용)
-                        .requestMatchers("/api/v1/bff/season/cache")
-                        .permitAll()
+                                        // 내부 캐시 관리 API (운영용)
+                                        .requestMatchers("/api/v1/bff/season/cache")
+                                        .permitAll()
 
-                        // 내부 서비스 간 API (Admin Backend → MVP)
-                        .requestMatchers("/api/internal/**")
-                        .permitAll()
+                                        // 내부 서비스 간 API (Admin Backend → MVP)
+                                        .requestMatchers("/api/internal/**")
+                                        .permitAll()
 
-                        // Browse-first: 비인증 열람 허용 API (GET만)
-                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/home")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/list")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/{guildId}")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/public")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/{feedId}")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/{feedId}/comments")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/search")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/category/**")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/mypage/profile/{userId}")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/mypage/nickname/check")
-                        .permitAll() // QA-108: 신규 가입 닉네임 중복 체크
-                        .requestMatchers(HttpMethod.GET, "/api/v1/notices")
-                        .permitAll() // QA-117: 비로그인 공지사항 목록
-                        .requestMatchers(HttpMethod.GET, "/api/v1/notices/{id}")
-                        .permitAll() // QA-117: 비로그인 공지사항 상세
+                                        // Browse-first: 비인증 열람 허용 API (GET만)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/home")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/list")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/bff/guild/{guildId}")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/public")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/{feedId}")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/feeds/{feedId}/comments")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/feeds/search")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/feeds/category/**")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/mypage/profile/{userId}")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/mypage/nickname/check")
+                                        .permitAll() // QA-108: 신규 가입 닉네임 중복 체크
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/notices")
+                                        .permitAll() // QA-117: 비로그인 공지사항 목록
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/notices/{id}")
+                                        .permitAll() // QA-117: 비로그인 공지사항 상세
 
-                        // 관리자 전용 API
-                        .requestMatchers("/api/v1/users/experience/levels")
-                        .hasRole("ADMIN")
-                        .requestMatchers("/api/v1/attendance/init")
-                        .hasRole("ADMIN")
+                                        // 관리자 전용 API
+                                        .requestMatchers("/api/v1/users/experience/levels")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers("/api/v1/attendance/init")
+                                        .hasRole("ADMIN")
 
-                        // 나머지는 인증 필요
-                        .anyRequest()
-                        .authenticated())
+                                        // 나머지는 인증 필요
+                                        .anyRequest()
+                                        .authenticated())
                 .logout(logout -> logout.logoutSuccessUrl("/"))
                 // JWT 필터 추가
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(
+                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         http.exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint));
 
