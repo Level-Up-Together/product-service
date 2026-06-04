@@ -4,13 +4,14 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminPageResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
@@ -42,28 +43,29 @@ class MissionParticipantAdminServiceTest {
     @InjectMocks
     private MissionParticipantAdminService service;
 
-    private Mission createTestMission(Long id) {
+    private Mission createMission(Long id, MissionSource source, String guildName, boolean deleted) {
         Mission mission = Mission.builder()
             .title("테스트 미션")
             .description("설명")
             .status(MissionStatus.OPEN)
-            .type(MissionType.PERSONAL)
-            .source(MissionSource.SYSTEM)
+            .type(source == MissionSource.GUILD ? MissionType.GUILD : MissionType.PERSONAL)
+            .source(source)
             .missionInterval(MissionInterval.DAILY)
             .creatorId("admin-1")
+            .guildName(guildName)
+            .isDeleted(deleted)
             .build();
         setId(mission, id);
         return mission;
     }
 
-    private MissionParticipant createTestParticipant(Long id) {
-        Mission mission = createTestMission(1L);
+    private MissionParticipant createParticipant(Long id, Mission mission, ParticipantStatus status) {
         MissionParticipant participant = MissionParticipant.builder()
             .mission(mission)
             .userId("user-1")
-            .status(ParticipantStatus.IN_PROGRESS)
+            .status(status)
             .progress(50)
-            .joinedAt(LocalDateTime.now())
+            .joinedAt(LocalDateTime.of(2026, 6, 1, 9, 0, 0))
             .build();
         setId(participant, id);
         return participant;
@@ -74,47 +76,149 @@ class MissionParticipantAdminServiceTest {
     class GetUserMissionHistoryTest {
 
         @Test
-        @DisplayName("사용자의 미션 참여 이력을 조회한다")
-        void getUserMissionHistory() {
+        @DisplayName("IN_PROGRESS 참여자는 STARTED 상태, exp_earned=null 로 매핑된다")
+        void mapsInProgressToStarted() {
             Pageable pageable = PageRequest.of(0, 10);
-            MissionParticipant participant = createTestParticipant(1L);
-            when(participantRepository.findByUserIdWithMissionPaged("user-1", pageable))
+            MissionParticipant participant = createParticipant(1L,
+                createMission(10L, MissionSource.USER, null, false), ParticipantStatus.IN_PROGRESS);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(participant)));
-            when(executionRepository.countByParticipantIdAndStatus(eq(1L), any(ExecutionStatus.class)))
-                .thenReturn(0L);
             when(executionRepository.sumExpEarnedByParticipantId(1L)).thenReturn(100);
 
-            UserMissionHistoryAdminPageResponse result = service.getUserMissionHistory("user-1", pageable);
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
 
-            assertThat(result).isNotNull();
+            assertThat(result.content()).hasSize(1);
+            UserMissionHistoryAdminResponse row = result.content().get(0);
+            assertThat(row.status()).isEqualTo("STARTED");
+            assertThat(row.missionType()).isEqualTo("PERSONAL");
+            assertThat(row.guildName()).isNull();
+            assertThat(row.expEarned()).isNull();
+            assertThat(row.eventAt()).isEqualTo(LocalDateTime.of(2026, 6, 1, 9, 0, 0));
         }
 
         @Test
-        @DisplayName("경험치가 null이면 0으로 반환한다")
-        void nullExpReturnsZero() {
+        @DisplayName("COMPLETED 참여자는 COMPLETED 상태, exp_earned=합계 로 매핑된다")
+        void mapsCompletedToCompleted() {
             Pageable pageable = PageRequest.of(0, 10);
-            MissionParticipant participant = createTestParticipant(1L);
-            when(participantRepository.findByUserIdWithMissionPaged("user-1", pageable))
+            MissionParticipant participant = createParticipant(2L,
+                createMission(11L, MissionSource.SYSTEM, null, false), ParticipantStatus.COMPLETED);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(participant)));
-            when(executionRepository.countByParticipantIdAndStatus(eq(1L), any(ExecutionStatus.class)))
-                .thenReturn(0L);
-            when(executionRepository.sumExpEarnedByParticipantId(1L)).thenReturn(null);
+            when(executionRepository.sumExpEarnedByParticipantId(2L)).thenReturn(120);
 
-            UserMissionHistoryAdminPageResponse result = service.getUserMissionHistory("user-1", pageable);
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
 
-            assertThat(result).isNotNull();
+            UserMissionHistoryAdminResponse row = result.content().get(0);
+            assertThat(row.status()).isEqualTo("COMPLETED");
+            assertThat(row.missionType()).isEqualTo("MISSION_BOOK");
+            assertThat(row.expEarned()).isEqualTo(120);
+        }
+
+        @Test
+        @DisplayName("FAILED 참여자도 COMPLETED 상태로 매핑된다")
+        void mapsFailedToCompleted() {
+            Pageable pageable = PageRequest.of(0, 10);
+            MissionParticipant participant = createParticipant(3L,
+                createMission(12L, MissionSource.USER, null, false), ParticipantStatus.FAILED);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(participant)));
+            when(executionRepository.sumExpEarnedByParticipantId(3L)).thenReturn(null);
+
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
+
+            UserMissionHistoryAdminResponse row = result.content().get(0);
+            assertThat(row.status()).isEqualTo("COMPLETED");
+            assertThat(row.expEarned()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("WITHDRAWN 참여자는 DELETED 상태로 매핑된다")
+        void mapsWithdrawnToDeleted() {
+            Pageable pageable = PageRequest.of(0, 10);
+            MissionParticipant participant = createParticipant(4L,
+                createMission(13L, MissionSource.USER, null, false), ParticipantStatus.WITHDRAWN);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(participant)));
+
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
+
+            UserMissionHistoryAdminResponse row = result.content().get(0);
+            assertThat(row.status()).isEqualTo("DELETED");
+            assertThat(row.expEarned()).isNull();
+        }
+
+        @Test
+        @DisplayName("Mission.isDeleted=true 인 미션은 참여 상태와 무관하게 DELETED 로 매핑된다")
+        void deletedMissionOverridesStatus() {
+            Pageable pageable = PageRequest.of(0, 10);
+            MissionParticipant participant = createParticipant(5L,
+                createMission(14L, MissionSource.USER, null, true), ParticipantStatus.IN_PROGRESS);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(participant)));
+
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
+
+            assertThat(result.content().get(0).status()).isEqualTo("DELETED");
+        }
+
+        @Test
+        @DisplayName("GUILD 소스의 미션은 guild_name 을 함께 노출한다")
+        void guildMissionExposesGuildName() {
+            Pageable pageable = PageRequest.of(0, 10);
+            MissionParticipant participant = createParticipant(6L,
+                createMission(15L, MissionSource.GUILD, "확신의루미길드", false),
+                ParticipantStatus.IN_PROGRESS);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(participant)));
+            when(executionRepository.sumExpEarnedByParticipantId(6L)).thenReturn(0);
+
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
+
+            UserMissionHistoryAdminResponse row = result.content().get(0);
+            assertThat(row.missionType()).isEqualTo("GUILD");
+            assertThat(row.guildName()).isEqualTo("확신의루미길드");
+        }
+
+        @Test
+        @DisplayName("source/날짜 필터가 Repository 로 그대로 전달된다")
+        void forwardsFiltersToRepository() {
+            Pageable pageable = PageRequest.of(0, 10);
+            LocalDateTime start = LocalDateTime.of(2026, 6, 1, 0, 0);
+            LocalDateTime end = LocalDateTime.of(2026, 6, 30, 0, 0);
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), eq(MissionSource.SYSTEM), eq(start), eq(end), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", MissionSource.SYSTEM, start, end, pageable);
+
+            assertThat(result.content()).isEmpty();
         }
 
         @Test
         @DisplayName("빈 목록을 반환한다")
         void emptyHistory() {
             Pageable pageable = PageRequest.of(0, 10);
-            when(participantRepository.findByUserIdWithMissionPaged("user-1", pageable))
+            when(participantRepository.searchUserMissionHistory(
+                eq("user-1"), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
-            UserMissionHistoryAdminPageResponse result = service.getUserMissionHistory("user-1", pageable);
+            UserMissionHistoryAdminPageResponse result =
+                service.getUserMissionHistory("user-1", null, null, null, pageable);
 
-            assertThat(result).isNotNull();
+            assertThat(result.content()).isEmpty();
         }
     }
 

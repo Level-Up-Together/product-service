@@ -1,7 +1,9 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -43,6 +45,28 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
     @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId ORDER BY mp.joinedAt DESC",
         countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp WHERE mp.userId = :userId")
     Page<MissionParticipant> findByUserIdWithMissionPaged(@Param("userId") String userId, Pageable pageable);
+
+    /**
+     * QA-165: 어드민 미션 기록 검색용 — Mission.source 및 joinedAt 범위 필터.
+     * source / startDate / endDate 가 null 이면 해당 조건 무시.
+     */
+    @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m "
+        + "WHERE mp.userId = :userId "
+        + "AND (:source IS NULL OR m.source = :source) "
+        + "AND (:startDate IS NULL OR mp.joinedAt >= :startDate) "
+        + "AND (:endDate IS NULL OR mp.joinedAt < :endDate) "
+        + "ORDER BY mp.joinedAt DESC",
+        countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp JOIN mp.mission m "
+            + "WHERE mp.userId = :userId "
+            + "AND (:source IS NULL OR m.source = :source) "
+            + "AND (:startDate IS NULL OR mp.joinedAt >= :startDate) "
+            + "AND (:endDate IS NULL OR mp.joinedAt < :endDate)")
+    Page<MissionParticipant> searchUserMissionHistory(
+        @Param("userId") String userId,
+        @Param("source") MissionSource source,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        Pageable pageable);
 
     @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId AND mp.status = :status ORDER BY mp.joinedAt DESC")
     List<MissionParticipant> findByUserIdAndStatusWithMission(@Param("userId") String userId, @Param("status") ParticipantStatus status);
