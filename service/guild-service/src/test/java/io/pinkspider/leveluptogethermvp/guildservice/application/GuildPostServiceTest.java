@@ -351,6 +351,48 @@ class GuildPostServiceTest {
         }
 
         @Test
+        @DisplayName("비로그인 유저가 공개 길드 게시글 목록을 조회한다 (QA-172)")
+        void getPosts_anonymous_publicGuild_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<GuildPost> postPage = new PageImpl<>(List.of(testPost), pageable, 1);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(1L, pageable)).thenReturn(postPage);
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<GuildPostListResponse> result = guildPostService.getPosts(1L, null, pageable, null);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            verify(guildMemberRepository, never()).findByGuildIdAndUserId(any(), any());
+        }
+
+        @Test
+        @DisplayName("비로그인 유저가 비공개 길드 게시글 목록 조회 시 예외 (QA-172)")
+        void getPosts_anonymous_privateGuild_throws() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(masterId)
+                .maxMembers(50)
+                .categoryId(1L)
+                .build();
+            setId(privateGuild, 1L);
+            Pageable pageable = PageRequest.of(0, 10);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(privateGuild));
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.getPosts(1L, null, pageable, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("길드원만 접근할 수 있습니다.");
+        }
+
+        @Test
         @DisplayName("게시글 상세를 조회하면 조회수가 증가한다")
         void getPost_incrementViewCount() {
             // given

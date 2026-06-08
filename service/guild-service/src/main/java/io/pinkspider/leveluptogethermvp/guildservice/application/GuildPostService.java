@@ -90,11 +90,11 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 목록 조회 (상단 고정 우선, 최신순)
+     * 게시글 목록 조회 (상단 고정 우선, 최신순). QA-172: 비로그인은 공개 길드만 허용.
      */
     public Page<GuildPostListResponse> getPosts(Long guildId, String userId, Pageable pageable, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(guildId, pageable);
@@ -430,6 +430,19 @@ public class GuildPostService {
         return guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
             .filter(GuildMember::isActive)
             .orElseThrow(() -> new IllegalStateException("길드원만 접근할 수 있습니다."));
+    }
+
+    /**
+     * 게시판 읽기 권한 검증. QA-172: 비로그인은 공개 길드만 허용, 로그인은 멤버십 필수.
+     */
+    private void validateReadAccess(Guild guild, String userId) {
+        if (userId == null) {
+            if (!guild.isPublic()) {
+                throw new IllegalStateException("길드원만 접근할 수 있습니다.");
+            }
+            return;
+        }
+        validateMembership(guild.getId(), userId);
     }
 
     private GuildPost findActivePost(Long postId) {

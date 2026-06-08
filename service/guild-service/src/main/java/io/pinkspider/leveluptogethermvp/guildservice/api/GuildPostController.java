@@ -58,12 +58,12 @@ public class GuildPostController {
     }
 
     /**
-     * 게시글 목록 조회 (상단 고정 우선, 최신순)
+     * 게시글 목록 조회 (상단 고정 우선, 최신순). 공개 길드는 비로그인도 조회 가능 (QA-172).
      */
     @GetMapping
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPosts(
         @PathVariable Long guildId,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 

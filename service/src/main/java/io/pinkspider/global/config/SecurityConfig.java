@@ -162,6 +162,12 @@ public class SecurityConfig {
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}")
                                         .permitAll()
                                         .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/guilds/{guildId}/posts")
+                                        .permitAll() // QA-172: 비로그인 공개 길드 게시판 목록
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/mission-categories")
+                                        .permitAll() // QA-172: 비로그인 길드 카테고리 셀렉터
+                                        .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mypage/profile/{userId}")
                                         .permitAll()
                                         .requestMatchers(
