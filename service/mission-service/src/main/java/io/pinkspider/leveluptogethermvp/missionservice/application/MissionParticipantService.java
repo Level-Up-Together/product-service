@@ -182,7 +182,10 @@ public class MissionParticipantService {
     }
 
     public List<MissionParticipantResponse> getMissionParticipants(Long missionId) {
+        // QA-176: 탈퇴/실패 상태 참여자는 노출하지 않는다.
         return participantRepository.findByMissionId(missionId).stream()
+            .filter(p -> p.getStatus() != ParticipantStatus.WITHDRAWN
+                && p.getStatus() != ParticipantStatus.FAILED)
             .map(MissionParticipantResponse::from)
             .toList();
     }

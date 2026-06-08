@@ -71,6 +71,9 @@ public class MissionResponse {
     // 신고 처리중 여부
     private Boolean isUnderReview;
 
+    /** QA-176: 미션 누적 EXP (탈퇴/실패 참여자 제외). 응답 시점에 채워진다. */
+    private Integer totalExpEarned;
+
     public static MissionResponse from(Mission mission) {
         return MissionResponse.builder()
             .id(mission.getId())

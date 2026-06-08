@@ -187,6 +187,9 @@ public class MissionService {
         int participantCount = (int) participantRepository.countActiveParticipants(missionId);
         MissionResponse response = MissionResponse.from(mission, participantCount);
 
+        // QA-176: 미션 누적 EXP (탈퇴/실패 참여자 제외)
+        fillTotalExpEarned(response);
+
         // 신고 처리중 여부 확인
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.MISSION, String.valueOf(missionId)));
 
@@ -317,6 +320,9 @@ public class MissionService {
             .map(MissionResponse::from)
             .toList();
 
+        // QA-176: 미션별 누적 EXP 채우기 (탈퇴/실패 참여자 제외)
+        result.forEach(this::fillTotalExpEarned);
+
         // 배치로 신고 상태 조회
         if (!result.isEmpty()) {
             List<String> missionIds = result.stream()
@@ -327,6 +333,13 @@ public class MissionService {
         }
 
         return result;
+    }
+
+    /** QA-176: 미션 응답에 누적 EXP 를 채운다 (탈퇴/실패 참여자 제외). */
+    private void fillTotalExpEarned(MissionResponse response) {
+        if (response == null || response.getId() == null) return;
+        Integer total = executionRepository.sumExpEarnedByMissionIdExcludingWithdrawn(response.getId());
+        response.setTotalExpEarned(total != null ? total : 0);
     }
 
     /**

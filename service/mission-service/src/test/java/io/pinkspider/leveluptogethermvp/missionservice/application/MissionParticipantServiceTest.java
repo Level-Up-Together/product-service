@@ -470,6 +470,49 @@ class MissionParticipantServiceTest {
             // then
             assertThat(response).isEmpty();
         }
+
+        @Test
+        @DisplayName("[QA-176] WITHDRAWN/FAILED 참여자는 응답에서 제외된다")
+        void getMissionParticipants_excludesWithdrawnAndFailed() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant active = MissionParticipant.builder()
+                .mission(mission)
+                .userId("user-active")
+                .status(ParticipantStatus.ACCEPTED)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(active, 1L);
+
+            MissionParticipant withdrawn = MissionParticipant.builder()
+                .mission(mission)
+                .userId("user-withdrawn")
+                .status(ParticipantStatus.WITHDRAWN)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(withdrawn, 2L);
+
+            MissionParticipant failed = MissionParticipant.builder()
+                .mission(mission)
+                .userId("user-failed")
+                .status(ParticipantStatus.FAILED)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(failed, 3L);
+
+            when(participantRepository.findByMissionId(missionId))
+                .thenReturn(List.of(active, withdrawn, failed));
+
+            // when
+            List<MissionParticipantResponse> response =
+                missionParticipantService.getMissionParticipants(missionId);
+
+            // then
+            assertThat(response).hasSize(1);
+            assertThat(response.get(0).getUserId()).isEqualTo("user-active");
+        }
     }
 
     @Nested
