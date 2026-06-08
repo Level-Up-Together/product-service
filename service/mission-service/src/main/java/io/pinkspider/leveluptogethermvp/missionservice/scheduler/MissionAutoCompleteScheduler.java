@@ -48,11 +48,6 @@ public class MissionAutoCompleteScheduler {
     private final GamificationQueryFacade gamificationQueryFacade;
 
     /**
-     * 최대 미션 수행 시간 (분) - 2시간
-     */
-    private static final long MAXIMUM_EXECUTION_MINUTES = 120;
-
-    /**
      * 5분마다 실행: 미션 자동 종료
      */
     @Scheduled(fixedRate = 300000) // 5분 = 300,000ms
@@ -62,7 +57,7 @@ public class MissionAutoCompleteScheduler {
         log.debug("=== 미션 자동 종료 스케줄러 시작 ===");
 
         try {
-            // 0. 자동종료 임박 경고 알림 발송 (2시간 - N분 전)
+            // 0. 자동종료 임박 경고 알림 발송 (자동종료 - N분 전)
             int warningCount = sendAutoEndWarnings();
 
             // 1. 목표시간 도달 인스턴스 자동 종료 (Saga 경유)
@@ -71,8 +66,10 @@ public class MissionAutoCompleteScheduler {
             // 2. 목표시간 도달 실행 자동 종료 (Saga 경유)
             int targetExecutionCount = autoCompleteTargetReachedExecutions();
 
-            // 3. 2시간 초과 일반 미션 자동 종료 (목표시간 미설정)
-            LocalDateTime expireThreshold = LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(MAXIMUM_EXECUTION_MINUTES);
+            // 3. maxExecutionMinutes 초과 일반 미션 자동 종료 (목표시간 미설정)
+            int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
+            LocalDateTime expireThreshold =
+                LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(maxExecutionMinutes);
             int executionCount = autoCompleteExpiredExecutions(expireThreshold);
             int instanceCount = autoCompleteExpiredInstances(expireThreshold);
 

@@ -174,14 +174,15 @@ public class DailyMissionInstanceScheduler {
     private int autoCompletePastDayInProgressInstances(LocalDate today) {
         List<DailyMissionInstance> inProgressInstances = instanceRepository.findInProgressBeforeDate(today);
 
+        int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
         int count = 0;
         for (DailyMissionInstance instance : inProgressInstances) {
-            // 시작 후 2시간 미경과 미션은 사용자가 직접 종료하도록 유지
+            // 시작 후 maxExecutionMinutes 미경과 미션은 사용자가 직접 종료하도록 유지
             if (instance.getStartedAt() != null) {
                 long elapsedMinutes = java.time.Duration.between(instance.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
-                if (elapsedMinutes < 120) {
-                    log.info("자정 자동 완료 스킵 (2시간 미경과, 고정 미션): instanceId={}, elapsed={}분",
-                        instance.getId(), elapsedMinutes);
+                if (elapsedMinutes < maxExecutionMinutes) {
+                    log.info("자정 자동 완료 스킵 (최대 수행시간 미경과, 고정 미션): instanceId={}, elapsed={}분, threshold={}분",
+                        instance.getId(), elapsedMinutes, maxExecutionMinutes);
                     continue;
                 }
             }
@@ -220,14 +221,15 @@ public class DailyMissionInstanceScheduler {
     private int autoCompletePastDayInProgressExecutions(LocalDate today) {
         List<MissionExecution> inProgressExecutions = executionRepository.findInProgressBeforeDate(today);
 
+        int maxExecutionMinutes = missionExecutionProperties.getMaxExecutionMinutes();
         int count = 0;
         for (MissionExecution execution : inProgressExecutions) {
-            // 시작 후 2시간 미경과 미션은 사용자가 직접 종료하도록 유지
+            // 시작 후 maxExecutionMinutes 미경과 미션은 사용자가 직접 종료하도록 유지
             if (execution.getStartedAt() != null) {
                 long elapsedMinutes = java.time.Duration.between(execution.getStartedAt(), java.time.LocalDateTime.now()).toMinutes();
-                if (elapsedMinutes < 120) {
-                    log.info("자정 자동 완료 스킵 (2시간 미경과, 일반 미션): executionId={}, elapsed={}분",
-                        execution.getId(), elapsedMinutes);
+                if (elapsedMinutes < maxExecutionMinutes) {
+                    log.info("자정 자동 완료 스킵 (최대 수행시간 미경과, 일반 미션): executionId={}, elapsed={}분, threshold={}분",
+                        execution.getId(), elapsedMinutes, maxExecutionMinutes);
                     continue;
                 }
             }
