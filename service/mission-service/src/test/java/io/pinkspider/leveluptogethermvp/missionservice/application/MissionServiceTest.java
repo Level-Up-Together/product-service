@@ -1502,6 +1502,108 @@ class MissionServiceTest {
             assertThat(mission.getIsDeleted()).isTrue();
             assertThat(mission.getDeletedAt()).isNotNull();
         }
+
+        @Test
+        @DisplayName("[QA-175] 길드 관리자는 진행 중인 길드 미션을 삭제할 수 있다")
+        void deleteMission_guildAdmin_inProgress_success() {
+            // given
+            Long missionId = 1L;
+            Long guildId = 100L;
+            String guildMasterId = "guild-master";
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId.toString())
+                .creatorId("other-creator")
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.global.facade.dto.GuildPermissionCheck permissionCheck =
+                new io.pinkspider.global.facade.dto.GuildPermissionCheck(true, true, false);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(guildId, guildMasterId))
+                .thenReturn(permissionCheck);
+
+            // when
+            missionService.deleteMission(missionId, guildMasterId);
+
+            // then
+            verify(missionRepository).save(mission);
+            assertThat(mission.getIsDeleted()).isTrue();
+            // QA-175: 길드 관리자는 진행중 execution 검증을 우회하므로 호출되지 않는다
+            verify(executionRepository, never()).existsInProgressByMissionId(missionId);
+            verify(dailyMissionInstanceRepository, never()).existsInProgressByMissionId(missionId);
+        }
+
+        @Test
+        @DisplayName("[QA-175] 길드 관리자는 진행 중인 길드 미션을 종료할 수 있다")
+        void completeMission_guildAdmin_inProgress_success() {
+            // given
+            Long missionId = 1L;
+            Long guildId = 100L;
+            String guildMasterId = "guild-master";
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId.toString())
+                .creatorId("other-creator")
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.global.facade.dto.GuildPermissionCheck permissionCheck =
+                new io.pinkspider.global.facade.dto.GuildPermissionCheck(true, true, false);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(guildId, guildMasterId))
+                .thenReturn(permissionCheck);
+
+            // when
+            MissionResponse response = missionService.completeMission(missionId, guildMasterId);
+
+            // then
+            assertThat(response.getStatus()).isEqualTo(MissionStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("[QA-175] 길드 일반 멤버는 길드 미션을 종료할 수 없다")
+        void completeMission_guildRegularMember_throwsException() {
+            // given
+            Long missionId = 1L;
+            Long guildId = 100L;
+            String memberId = "regular-member";
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId(guildId.toString())
+                .creatorId("other-creator")
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            // 활성 멤버이지만 마스터/서브마스터 아님
+            io.pinkspider.global.facade.dto.GuildPermissionCheck permissionCheck =
+                new io.pinkspider.global.facade.dto.GuildPermissionCheck(true, false, false);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(guildQueryFacadeService.checkPermissions(guildId, memberId))
+                .thenReturn(permissionCheck);
+
+            // when & then
+            assertThatThrownBy(() -> missionService.completeMission(missionId, memberId))
+                .isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested

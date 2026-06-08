@@ -553,11 +553,16 @@ public class MissionService {
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionResponse completeMission(Long missionId, String userId) {
         Mission mission = findMissionById(missionId);
-        validateMissionOwner(mission, userId);
+        // QA-175: 길드 미션은 길드 관리자(마스터/서브마스터)도 종료할 수 있다.
+        boolean isCreator = mission.getCreatorId().equals(userId);
+        boolean isGuildAdmin = isGuildAdmin(mission, userId);
+        if (!isCreator && !isGuildAdmin) {
+            throw new IllegalStateException("미션 생성자 또는 길드 관리자만 종료할 수 있습니다.");
+        }
 
         MissionStatus fromStatus = mission.getStatus();
         mission.complete();
-        log.info("미션 완료: id={}", missionId);
+        log.info("미션 완료: id={}, by={}", missionId, userId);
 
         // 상태 히스토리 이벤트 발행
         eventPublisher.publishEvent(MissionStateChangedEvent.ofComplete(userId, missionId, fromStatus));
@@ -594,23 +599,20 @@ public class MissionService {
 
         // 미션 생성자이거나 길드 관리자인 경우: 미션 자체를 삭제
         boolean isCreator = mission.getCreatorId().equals(userId);
-        boolean isGuildAdmin = false;
-
-        if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
-            GuildPermissionCheck perm = guildQueryFacadeService.checkPermissions(mission.getGuildIdAsLong(), userId);
-            if (perm.isActiveMember() && perm.isMasterOrSubMaster()) {
-                isGuildAdmin = true;
-            }
-        }
+        boolean isGuildAdmin = isGuildAdmin(mission, userId);
 
         if (isCreator || isGuildAdmin) {
-            if (!mission.getStatus().isDeletable()) {
+            // QA-175: 길드 관리자는 진행 중(IN_PROGRESS) 미션도 강제 삭제할 수 있다.
+            // (이미 수행한 execution/instance 는 그대로 보존된다.)
+            if (!isGuildAdmin && !mission.getStatus().isDeletable()) {
                 throw new IllegalStateException("진행중인 미션은 삭제할 수 없습니다.");
             }
-            validateNoInProgressForMission(missionId);
+            if (!isGuildAdmin) {
+                validateNoInProgressForMission(missionId);
+            }
             mission.delete();
             missionRepository.save(mission);
-            log.info("미션 소프트 삭제: id={}, deletedBy={}", missionId, userId);
+            log.info("미션 소프트 삭제: id={}, deletedBy={}, guildAdmin={}", missionId, userId, isGuildAdmin);
 
             eventPublisher.publishEvent(new MissionDeletedEvent(userId, missionId));
             return;
@@ -618,6 +620,18 @@ public class MissionService {
 
         // 그 외의 경우: 권한 없음
         throw new IllegalStateException("미션 생성자 또는 길드 관리자만 이 작업을 수행할 수 있습니다.");
+    }
+
+    /**
+     * 호출 유저가 해당 미션의 길드 관리자(마스터/서브마스터)인지 확인. QA-175.
+     */
+    private boolean isGuildAdmin(Mission mission, String userId) {
+        if (!mission.isGuildMission() || mission.getGuildIdAsLong() == null) {
+            return false;
+        }
+        GuildPermissionCheck perm =
+                guildQueryFacadeService.checkPermissions(mission.getGuildIdAsLong(), userId);
+        return perm.isActiveMember() && perm.isMasterOrSubMaster();
     }
 
     /**
