@@ -79,8 +79,8 @@ public class LoadMissionDataStep implements SagaStep<MissionCompletionContext> {
 
             if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
                 context.setGuildId(mission.getGuildIdAsLong());
-                int guildExp = mission.getGuildExpPerCompletion() != null ? mission.getGuildExpPerCompletion() : 5;
-                context.setGuildExpEarned(guildExp);
+                // QA-174: 길드 EXP 는 사용자 EXP 와 동일하게 미션 수행 시간(분) 기반으로 부여.
+                // 실제 값은 CompleteExecutionStep 에서 execution.getExpEarned() 확정 후 세팅한다.
             }
 
             // 보상을 위한 현재 상태 저장

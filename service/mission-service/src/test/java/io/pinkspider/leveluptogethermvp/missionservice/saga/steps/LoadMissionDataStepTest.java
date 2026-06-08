@@ -180,7 +180,8 @@ class LoadMissionDataStepTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(context.isGuildMission()).isTrue();
             assertThat(context.getGuildId()).isEqualTo(123L);
-            assertThat(context.getGuildExpEarned()).isEqualTo(10);
+            // QA-174: 길드 EXP 는 LoadMissionDataStep 에서 더 이상 세팅하지 않는다.
+            assertThat(context.getGuildExpEarned()).isEqualTo(0);
         }
 
         @Test
@@ -319,50 +320,6 @@ class LoadMissionDataStepTest {
             assertThat(result.isSuccess()).isTrue();
             assertThat(context.getGuildId()).isNull();
             assertThat(context.getGuildExpEarned()).isEqualTo(0);
-        }
-
-        @Test
-        @DisplayName("길드 미션에서 guildExpPerCompletion이 null이면 기본값 5를 사용한다")
-        void execute_guildMission_nullGuildExp_usesDefault() {
-            // given
-            Mission guildMission = Mission.builder()
-                .title("길드 미션 (기본 경험치)")
-                .creatorId(TEST_USER_ID)
-                .status(MissionStatus.IN_PROGRESS)
-                .visibility(MissionVisibility.GUILD_ONLY)
-                .type(MissionType.GUILD)
-                .guildId("200")
-                .categoryId(1L)
-                .categoryName("운동")
-                .expPerCompletion(50)
-                .guildExpPerCompletion(null)
-                .build();
-            setId(guildMission, 6L);
-
-            MissionParticipant guildParticipant = MissionParticipant.builder()
-                .mission(guildMission)
-                .userId(TEST_USER_ID)
-                .status(ParticipantStatus.IN_PROGRESS)
-                .build();
-            setId(guildParticipant, 6L);
-
-            MissionExecution guildExecution = MissionExecution.builder()
-                .participant(guildParticipant)
-                .executionDate(LocalDate.now())
-                .status(ExecutionStatus.IN_PROGRESS)
-                .build();
-            setId(guildExecution, 6L);
-
-            MissionCompletionContext context = new MissionCompletionContext(6L, TEST_USER_ID, null);
-            when(executionRepository.findByIdWithParticipantAndMission(6L))
-                .thenReturn(Optional.of(guildExecution));
-
-            // when
-            SagaStepResult result = loadMissionDataStep.execute(context);
-
-            // then
-            assertThat(result.isSuccess()).isTrue();
-            assertThat(context.getGuildExpEarned()).isEqualTo(5);
         }
 
         @Test

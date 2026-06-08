@@ -292,6 +292,74 @@ class CompleteExecutionStepTest {
         }
 
         @Test
+        @DisplayName("길드 미션이면 사용자 EXP 와 동일한 시간 기반 길드 EXP 를 컨텍스트에 세팅한다 (QA-174)")
+        void execute_guildMission_setsGuildExpEqualToTimeBasedExp() {
+            // given
+            Mission guildMission = Mission.builder()
+                .title("길드 미션")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("777")
+                .expPerCompletion(50)
+                .build();
+            setId(guildMission, 7L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 7L);
+
+            MissionExecution guildExecution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(guildExecution, 7L);
+            guildExecution.setStartedAt(LocalDateTime.now().minusMinutes(45));
+
+            MissionCompletionContext guildContext = new MissionCompletionContext(7L, TEST_USER_ID, null);
+            guildContext.setExecution(guildExecution);
+            guildContext.setParticipant(guildParticipant);
+            guildContext.setMission(guildMission);
+            guildContext.setGuildId(777L);
+            guildContext.addCompensationData(
+                MissionCompletionContext.CompensationKeys.EXECUTION_STATUS_BEFORE,
+                ExecutionStatus.IN_PROGRESS);
+
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(guildContext);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            int expectedExp = guildExecution.getExpEarned();
+            assertThat(expectedExp).isGreaterThan(0);
+            assertThat(guildContext.getUserExpEarned()).isEqualTo(expectedExp);
+            assertThat(guildContext.getGuildExpEarned()).isEqualTo(expectedExp);
+        }
+
+        @Test
+        @DisplayName("일반 미션은 길드 EXP 를 세팅하지 않는다 (QA-174)")
+        void execute_nonGuildMission_keepsGuildExpZero() {
+            // given
+            when(executionRepository.save(any(MissionExecution.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completeExecutionStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildExpEarned()).isEqualTo(0);
+        }
+
+        @Test
         @DisplayName("2시간 초과 수행이면 기본 경험치를 지급하고 자동완료 처리한다")
         void execute_over2Hours_grantBaseExpAndAutoComplete() {
             // given

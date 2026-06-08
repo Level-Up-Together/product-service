@@ -109,6 +109,10 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
 
             // complete()에서 계산된 시간 기반 경험치를 context에 반영
             context.setUserExpEarned(execution.getExpEarned());
+            // QA-174: 길드 미션은 사용자 EXP 와 동일한 시간 기반 값을 길드 EXP 로 부여한다.
+            if (context.isGuildMission()) {
+                context.setGuildExpEarned(execution.getExpEarned());
+            }
 
             executionRepository.save(execution);
 
