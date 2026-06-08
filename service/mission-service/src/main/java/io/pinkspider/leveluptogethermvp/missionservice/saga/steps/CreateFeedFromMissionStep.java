@@ -86,6 +86,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
 
             Integer durationMinutes = execution.calculateExpByDuration();
             Long categoryId = mission.getCategoryId();
+            // QA-168: visibility=GUILD 일 때만 길드 정보 채움 (그 외는 null 로 두어 무관한 피드의 guild_id 오염 방지)
+            Long guildId = visibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+            String guildName = visibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
             ActivityFeed feed = feedCommandService.createMissionSharedFeed(
                 userId,
@@ -104,7 +107,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 execution.getImageUrl(),
                 durationMinutes,
                 execution.getExpEarned(),
-                visibility
+                visibility,
+                guildId,
+                guildName
             );
 
             context.setCreatedFeedId(feed.getId());
@@ -138,6 +143,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
 
             Integer durationMinutes = instance.getDurationMinutes();
+            // QA-168: 고정 미션도 동일하게 GUILD 일 때 길드 정보 채움.
+            Long guildId = visibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+            String guildName = visibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
             ActivityFeed feed = feedCommandService.createMissionSharedFeed(
                 userId,
@@ -156,7 +164,9 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
                 instance.getImageUrl(),
                 durationMinutes,
                 instance.getExpEarned(),
-                visibility
+                visibility,
+                guildId,
+                guildName
             );
 
             context.setCreatedFeedId(feed.getId());
@@ -253,5 +263,22 @@ public class CreateFeedFromMissionStep implements SagaStep<MissionCompletionCont
         return context.getFeedVisibility() != null
             ? context.getFeedVisibility()
             : FeedVisibility.PRIVATE;
+    }
+
+    /**
+     * QA-168: Mission.guildId(String) 를 ActivityFeed.guildId(Long) 으로 변환.
+     * 개인 미션이거나 길드 ID 파싱 실패 시 null 반환 (그 경우 GUILD 공개로 만들어도 길드원에게 보이지 않음).
+     */
+    private Long resolveGuildIdLong(Mission mission) {
+        String raw = mission.getGuildId();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot parse mission.guildId to Long: missionId={}, guildId={}", mission.getId(), raw);
+            return null;
+        }
     }
 }

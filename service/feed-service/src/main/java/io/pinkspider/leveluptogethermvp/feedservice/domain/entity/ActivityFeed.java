@@ -127,6 +127,10 @@ public class ActivityFeed extends LocalDateTimeBaseEntity {
     @Comment("관련 길드 ID")
     private Long guildId;
 
+    @Column(name = "guild_name", length = 100)
+    @Comment("관련 길드명 (QA-168: visibility=GUILD 표시용 비정규화)")
+    private String guildName;
+
     @Column(name = "category_id")
     @Comment("미션 카테고리 ID")
     private Long categoryId;

@@ -174,7 +174,7 @@ class CreateFeedFromMissionStepTest {
             verify(feedCommandService, never()).createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
+                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
             );
         }
 
@@ -186,7 +186,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
+                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -206,7 +206,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
+                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -324,7 +324,7 @@ class CreateFeedFromMissionStepTest {
             verify(feedCommandService, never()).createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
+                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
             );
         }
 
@@ -341,7 +341,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -366,7 +366,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -391,7 +391,7 @@ class CreateFeedFromMissionStepTest {
             when(feedCommandService.createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture()
+                anyString(), anyString(), any(Integer.class), anyInt(), visibilityCaptor.capture(), any(), any()
             )).thenReturn(activityFeed);
             doNothing().when(selfMock).updateExecutionSharedStatus(anyLong(), eq(true));
 
@@ -419,7 +419,7 @@ class CreateFeedFromMissionStepTest {
             verify(feedCommandService, never()).createMissionSharedFeed(
                 anyString(), anyString(), anyString(), anyInt(), anyString(), any(TitleRarity.class),
                 anyString(), any(Long.class), any(Long.class), anyString(), anyString(), any(Long.class),
-                anyString(), anyString(), any(Integer.class), anyInt(), any()
+                anyString(), anyString(), any(Integer.class), anyInt(), any(), any(), any()
             );
         }
     }

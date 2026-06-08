@@ -459,7 +459,7 @@ public class FeedCommandService {
                                                 Integer durationMinutes, Integer expEarned) {
         return createMissionSharedFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle,
             userTitleRarity, userTitleColorCode, executionId, missionId, missionTitle, missionDescription,
-            categoryId, note, imageUrl, durationMinutes, expEarned, FeedVisibility.PUBLIC);
+            categoryId, note, imageUrl, durationMinutes, expEarned, FeedVisibility.PUBLIC, null, null);
     }
 
     @Transactional(transactionManager = "feedTransactionManager")
@@ -471,6 +471,25 @@ public class FeedCommandService {
                                                 String note, String imageUrl,
                                                 Integer durationMinutes, Integer expEarned,
                                                 FeedVisibility visibility) {
+        return createMissionSharedFeed(userId, userNickname, userProfileImageUrl, userLevel, userTitle,
+            userTitleRarity, userTitleColorCode, executionId, missionId, missionTitle, missionDescription,
+            categoryId, note, imageUrl, durationMinutes, expEarned, visibility, null, null);
+    }
+
+    /**
+     * QA-168: visibility=GUILD 일 때 guildId/guildName 을 함께 저장하여 길드원 조회 쿼리에 매치되도록 한다.
+     * 그 외 visibility 는 호출 측에서 null 전달하면 됨.
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public ActivityFeed createMissionSharedFeed(String userId, String userNickname, String userProfileImageUrl,
+                                                Integer userLevel, String userTitle, TitleRarity userTitleRarity,
+                                                String userTitleColorCode,
+                                                Long executionId, Long missionId, String missionTitle,
+                                                String missionDescription, Long categoryId,
+                                                String note, String imageUrl,
+                                                Integer durationMinutes, Integer expEarned,
+                                                FeedVisibility visibility,
+                                                Long guildId, String guildName) {
         String title = missionTitle;
 
         // 좌/우 칭호 상세 정보 조회
@@ -495,6 +514,8 @@ public class FeedCommandService {
             .referenceId(executionId)
             .referenceName(missionTitle)
             .visibility(visibility)
+            .guildId(guildId)
+            .guildName(guildName)
             .categoryId(categoryId)
             .imageUrl(imageUrl)
             .missionId(missionId)
@@ -506,8 +527,8 @@ public class FeedCommandService {
             .build();
 
         ActivityFeed saved = activityFeedRepository.save(feed);
-        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}, visibility={}",
-            userId, missionId, executionId, saved.getId(), visibility);
+        log.info("Mission shared feed created: userId={}, missionId={}, executionId={}, feedId={}, visibility={}, guildId={}",
+            userId, missionId, executionId, saved.getId(), visibility, guildId);
         return saved;
     }
 
