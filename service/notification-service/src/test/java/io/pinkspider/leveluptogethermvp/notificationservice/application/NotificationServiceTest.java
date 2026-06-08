@@ -575,8 +575,8 @@ class NotificationServiceTest {
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             Notification savedNotification = createTestNotification(1L, TEST_USER_ID, NotificationType.TITLE_ACQUIRED);
 
-            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                TEST_USER_ID, "TITLE", 1L)).thenReturn(false);
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L)).thenReturn(false);
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
             when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(savedNotification);
 
@@ -593,8 +593,8 @@ class NotificationServiceTest {
         @DisplayName("중복 알림이 이미 존재하면 스킵한다")
         void sendNotification_duplicateExists_skips() {
             // given
-            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                TEST_USER_ID, "ACHIEVEMENT", 1L)).thenReturn(true);
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED, 1L)).thenReturn(true);
 
             // when
             notificationService.sendNotification(TEST_USER_ID, NotificationType.ACHIEVEMENT_COMPLETED,
@@ -609,8 +609,8 @@ class NotificationServiceTest {
         @DisplayName("DataIntegrityViolationException 발생 시 무시한다")
         void sendNotification_dataIntegrityViolation_ignored() {
             // given
-            when(notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                TEST_USER_ID, "TITLE", 1L)).thenReturn(false);
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                TEST_USER_ID, NotificationType.TITLE_ACQUIRED, 1L)).thenReturn(false);
             NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
             when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
             when(notificationRepository.saveAndFlush(any(Notification.class)))

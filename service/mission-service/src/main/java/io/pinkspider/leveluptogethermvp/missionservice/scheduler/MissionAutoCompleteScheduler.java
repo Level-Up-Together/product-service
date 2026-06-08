@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
 import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
@@ -246,8 +247,12 @@ public class MissionAutoCompleteScheduler {
 
         int count = 0;
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        int lastIndex = warningPoints.size() - 1;
 
-        for (int warningMinute : warningPoints) {
+        for (int i = 0; i < warningPoints.size(); i++) {
+            int warningMinute = warningPoints.get(i);
+            MissionAutoEndMilestone milestone =
+                (i == lastIndex) ? MissionAutoEndMilestone.FINAL : MissionAutoEndMilestone.FIRST;
             // 해당 시점 ± 스케줄러 주기(5분) 범위의 미션 탐색
             LocalDateTime rangeStart = now.minusMinutes(warningMinute + 5);
             LocalDateTime rangeEnd = now.minusMinutes(warningMinute);
@@ -265,11 +270,12 @@ public class MissionAutoCompleteScheduler {
                     String userId = execution.getParticipant().getUserId();
                     String missionTitle = execution.getParticipant().getMission().getTitle();
                     Long missionId = execution.getParticipant().getMission().getId();
-                    eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                    eventPublisher.publishEvent(
+                        new MissionAutoEndWarningEvent(userId, missionId, missionTitle, milestone));
                     count++;
                 } catch (Exception e) {
-                    log.warn("경고 알림 실패 (일반, {}분): executionId={}, error={}",
-                        warningMinute, execution.getId(), e.getMessage());
+                    log.warn("경고 알림 실패 (일반, {}분, {}): executionId={}, error={}",
+                        warningMinute, milestone, execution.getId(), e.getMessage());
                 }
             }
 
@@ -284,11 +290,12 @@ public class MissionAutoCompleteScheduler {
                     String userId = instance.getParticipant().getUserId();
                     String missionTitle = instance.getMissionTitle();
                     Long missionId = instance.getParticipant().getMission().getId();
-                    eventPublisher.publishEvent(new MissionAutoEndWarningEvent(userId, missionId, missionTitle));
+                    eventPublisher.publishEvent(
+                        new MissionAutoEndWarningEvent(userId, missionId, missionTitle, milestone));
                     count++;
                 } catch (Exception e) {
-                    log.warn("경고 알림 실패 (고정, {}분): instanceId={}, error={}",
-                        warningMinute, instance.getId(), e.getMessage());
+                    log.warn("경고 알림 실패 (고정, {}분, {}): instanceId={}, error={}",
+                        warningMinute, milestone, instance.getId(), e.getMessage());
                 }
             }
         }

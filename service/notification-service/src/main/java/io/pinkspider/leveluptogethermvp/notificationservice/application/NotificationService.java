@@ -82,8 +82,8 @@ public class NotificationService {
         String actionUrl = type.resolveActionUrl(referenceId, messageArgs);
 
         if (type.isRequiresDeduplication()) {
-            if (notificationRepository.existsByUserIdAndReferenceTypeAndReferenceId(
-                    userId, referenceType, referenceId)) {
+            if (notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                    userId, type, referenceId)) {
                 log.debug("알림 중복 방지: userId={}, type={}, referenceId={}", userId, type, referenceId);
                 return;
             }

@@ -73,9 +73,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         @Param("referenceId") Long referenceId);
 
     /**
-     * 동일한 사용자, 참조 타입, 참조 ID로 알림이 존재하는지 확인
-     * (업적, 칭호 등 중복 알림 방지용)
+     * 동일한 사용자, 알림 타입, 참조 ID로 알림이 존재하는지 확인
+     * (업적, 칭호, 미션 자동종료 경고 등 중복 알림 방지용)
      */
-    boolean existsByUserIdAndReferenceTypeAndReferenceId(
-        String userId, String referenceType, Long referenceId);
+    boolean existsByUserIdAndNotificationTypeAndReferenceId(
+        String userId, NotificationType notificationType, Long referenceId);
 }

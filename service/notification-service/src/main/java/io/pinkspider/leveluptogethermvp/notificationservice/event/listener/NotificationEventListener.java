@@ -16,6 +16,7 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
+import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
@@ -219,9 +220,14 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMissionAutoEndWarning(MissionAutoEndWarningEvent event) {
-        safeHandle("미션 자동종료 임박", () -> notificationService.sendNotification(
-            event.userId(), NotificationType.MISSION_AUTO_END_WARNING,
-            event.missionId(), null, event.missionTitle()));
+        MissionAutoEndMilestone milestone =
+            event.milestone() != null ? event.milestone() : MissionAutoEndMilestone.FINAL;
+        NotificationType type = switch (milestone) {
+            case FIRST -> NotificationType.MISSION_AUTO_END_WARNING_FIRST;
+            case FINAL -> NotificationType.MISSION_AUTO_END_WARNING_FINAL;
+        };
+        safeHandle("미션 자동종료 임박(" + milestone + ")", () -> notificationService.sendNotification(
+            event.userId(), type, event.missionId(), null, event.missionTitle()));
     }
 
     @Async(EVENT_EXECUTOR)
