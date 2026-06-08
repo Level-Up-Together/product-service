@@ -41,6 +41,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -296,10 +297,18 @@ public class AchievementService {
 
     /**
      * 특정 데이터 소스의 모든 활성 업적을 체크합니다.
+     *
+     * QA-178: 부모 트랜잭션(예: AttendanceService.checkIn) 안에서 호출되는 경우,
+     * 업적 체크 strategy 중 하나라도 예외를 던지면 같은 트랜잭션이 rollback-only 로 마킹되어
+     * 부모의 try-catch 가 예외를 삼켜도 commit 시 UnexpectedRollbackException 으로 전체가 롤백된다.
+     * REQUIRES_NEW 로 분리해서 업적 체크 실패가 호출자 비즈니스 로직을 깨뜨리지 않도록 한다.
+     *
      * @param userId 사용자 ID
      * @param dataSource 데이터 소스 (USER_STATS, USER_EXPERIENCE, FRIEND_SERVICE, GUILD_SERVICE, FEED_SERVICE)
      */
-    @Transactional(transactionManager = "gamificationTransactionManager")
+    @Transactional(
+            transactionManager = "gamificationTransactionManager",
+            propagation = Propagation.REQUIRES_NEW)
     public void checkAchievementsByDataSource(String userId, String dataSource) {
         AchievementCheckStrategy strategy = strategyRegistry.getStrategy(dataSource);
         if (strategy == null) {

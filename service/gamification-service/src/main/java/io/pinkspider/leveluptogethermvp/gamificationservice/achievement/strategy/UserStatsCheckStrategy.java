@@ -112,8 +112,12 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
         if (!(currentValue instanceof Number)) {
             return false;
         }
-        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
-        return operator.compare((Number) currentValue, achievement.getRequiredCount());
+        ComparisonOperator operator = resolveOperator(achievement);
+        Integer required = achievement.getRequiredCount();
+        if (operator == null || required == null) {
+            return false;
+        }
+        return operator.compare((Number) currentValue, required);
     }
 
     @Override
@@ -128,13 +132,47 @@ public class UserStatsCheckStrategy implements AchievementCheckStrategy {
             return false;
         }
 
-        ComparisonOperator operator = ComparisonOperator.fromCode(achievement.getComparisonOperator());
-        int requiredCount = achievement.getRequiredCount();
+        ComparisonOperator operator = resolveOperator(achievement);
+        Integer required = achievement.getRequiredCount();
+        if (operator == null || required == null) {
+            return false;
+        }
 
-        boolean result = operator.compare((Number) currentValue, requiredCount);
-        log.debug("UserStats 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
-            userId, dataField, currentValue, requiredCount, operator, result);
+        boolean result = operator.compare((Number) currentValue, required);
+        log.debug(
+                "UserStats 조건 체크: userId={}, field={}, current={}, required={}, operator={}, result={}",
+                userId,
+                dataField,
+                currentValue,
+                required,
+                operator,
+                result);
 
         return result;
+    }
+
+    /**
+     * QA-178: comparisonOperator 가 null/공란/잘못된 코드일 때 NPE/IllegalArgumentException 으로 부모 트랜잭션을
+     * rollback-only 마킹하지 않도록 안전하게 파싱한다.
+     */
+    private ComparisonOperator resolveOperator(Achievement achievement) {
+        String code = achievement.getComparisonOperator();
+        if (code == null || code.isBlank()) {
+            log.warn(
+                    "업적 comparisonOperator 누락: achievementId={}, name={}",
+                    achievement.getId(),
+                    achievement.getName());
+            return null;
+        }
+        try {
+            return ComparisonOperator.fromCode(code);
+        } catch (Exception e) {
+            log.warn(
+                    "업적 comparisonOperator 파싱 실패: achievementId={}, code={}, error={}",
+                    achievement.getId(),
+                    code,
+                    e.getMessage());
+            return null;
+        }
     }
 }
