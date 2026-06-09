@@ -335,10 +335,13 @@ public class MissionService {
         return result;
     }
 
-    /** QA-176: 미션 응답에 누적 EXP 를 채운다 (탈퇴/실패 참여자 제외). */
+    /**
+     * QA-176: 미션 응답에 누적 EXP 를 채운다.
+     * 길드 EXP 와 동일하게 historic 합산이므로 탈퇴/실패 참여자의 기여도 유지된다.
+     */
     private void fillTotalExpEarned(MissionResponse response) {
         if (response == null || response.getId() == null) return;
-        Integer total = executionRepository.sumExpEarnedByMissionIdExcludingWithdrawn(response.getId());
+        Integer total = executionRepository.sumExpEarnedByMissionId(response.getId());
         response.setTotalExpEarned(total != null ? total : 0);
     }
 

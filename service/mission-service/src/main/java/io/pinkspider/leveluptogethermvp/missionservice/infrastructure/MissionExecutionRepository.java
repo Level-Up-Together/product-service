@@ -39,14 +39,14 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     Integer sumExpEarnedByParticipantId(@Param("participantId") Long participantId);
 
     /**
-     * QA-176: 미션의 누적 EXP — 탈퇴/실패 참여자는 제외.
+     * QA-176: 미션의 누적 EXP — 길드 EXP 와 동일하게 historic 합산.
+     * 탈퇴/실패 참여자가 기여한 EXP 도 그대로 유지 (이미 길드 통장에 적립된 값이므로 회수하지 않는다).
      */
     @Query("SELECT COALESCE(SUM(me.expEarned), 0) FROM MissionExecution me "
         + "JOIN me.participant p "
         + "WHERE p.mission.id = :missionId "
-        + "AND me.status = 'COMPLETED' "
-        + "AND p.status NOT IN ('WITHDRAWN', 'FAILED')")
-    Integer sumExpEarnedByMissionIdExcludingWithdrawn(@Param("missionId") Long missionId);
+        + "AND me.status = 'COMPLETED'")
+    Integer sumExpEarnedByMissionId(@Param("missionId") Long missionId);
 
     @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant mp WHERE mp.userId = :userId")
     long countByUserId(@Param("userId") String userId);
