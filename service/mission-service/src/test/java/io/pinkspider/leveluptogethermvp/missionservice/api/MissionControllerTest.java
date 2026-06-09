@@ -170,7 +170,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -246,7 +247,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -320,7 +322,8 @@ class MissionControllerTest {
                             fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value[].total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -443,6 +446,7 @@ class MissionControllerTest {
                             fieldWithPath("value.content[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.content[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
                             fieldWithPath("value.content[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.content[].total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보"),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -541,7 +545,8 @@ class MissionControllerTest {
                             fieldWithPath("value[].is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value[].is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value[].execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value[].is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value[].total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -644,7 +649,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -721,7 +727,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -798,7 +805,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -875,7 +883,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -952,7 +961,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
@@ -1156,7 +1166,8 @@ class MissionControllerTest {
                             fieldWithPath("value.is_customizable").type(JsonFieldType.BOOLEAN).description("커스터마이징 가능 여부").optional(),
                             fieldWithPath("value.is_pinned").type(JsonFieldType.BOOLEAN).description("고정 미션 여부").optional(),
                             fieldWithPath("value.execution_mode").type(JsonFieldType.STRING).description("수행 방식 (TIMED, SIMPLE)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.total_exp_earned").type(JsonFieldType.NUMBER).description("미션 누적 EXP (탈퇴자 기여 포함)").optional()
                         )
                         .build()
                 )
