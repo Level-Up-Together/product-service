@@ -49,18 +49,21 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
     /**
      * QA-165: 어드민 미션 기록 검색용 — Mission.source 및 joinedAt 범위 필터.
      * source / startDate / endDate 가 null 이면 해당 조건 무시.
+     *
+     * PostgreSQL nullable parameter 의 데이터 타입 추론 실패(42P18) 회피를 위해
+     * 각 파라미터의 NULL 체크에 명시적 cast 를 적용한다.
      */
     @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m "
         + "WHERE mp.userId = :userId "
-        + "AND (:source IS NULL OR m.source = :source) "
-        + "AND (:startDate IS NULL OR mp.joinedAt >= :startDate) "
-        + "AND (:endDate IS NULL OR mp.joinedAt < :endDate) "
+        + "AND (cast(:source as string) IS NULL OR m.source = :source) "
+        + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
+        + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate) "
         + "ORDER BY mp.joinedAt DESC",
         countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp JOIN mp.mission m "
             + "WHERE mp.userId = :userId "
-            + "AND (:source IS NULL OR m.source = :source) "
-            + "AND (:startDate IS NULL OR mp.joinedAt >= :startDate) "
-            + "AND (:endDate IS NULL OR mp.joinedAt < :endDate)")
+            + "AND (cast(:source as string) IS NULL OR m.source = :source) "
+            + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
+            + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate)")
     Page<MissionParticipant> searchUserMissionHistory(
         @Param("userId") String userId,
         @Param("source") MissionSource source,
