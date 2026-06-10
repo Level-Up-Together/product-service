@@ -321,9 +321,15 @@ public class DailyMissionInstanceService {
             throw new IllegalStateException("완료된 미션만 피드에 공유할 수 있습니다.");
         }
 
+        // QA-168 후속: visibility=GUILD 일 때 길드 정보 채움
+        Mission mission = instance.getParticipant().getMission();
+        Long guildId = feedVisibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+        String guildName = feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
+
         // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
         var existingFeed = feedCommandService.updateFeedContentByExecutionId(
-            instance.getId(), instance.getNote(), instance.getImageUrl(), feedVisibility);
+            instance.getId(), instance.getNote(), instance.getImageUrl(), feedVisibility,
+            guildId, guildName);
 
         if (existingFeed != null) {
             if (!Boolean.TRUE.equals(instance.getIsSharedToFeed())) {
@@ -613,6 +619,10 @@ public class DailyMissionInstanceService {
     private void createFeedFromInstance(DailyMissionInstance instance, String userId, FeedVisibility feedVisibility) {
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
+            // QA-168 후속: visibility=GUILD 일 때 길드 정보 채움
+            Mission mission = instance.getParticipant().getMission();
+            Long guildId = feedVisibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+            String guildName = feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
             ActivityFeed feed = feedCommandService.createMissionSharedFeed(
                 userId,
@@ -623,7 +633,7 @@ public class DailyMissionInstanceService {
                 profile.titleRarity(),
                 profile.titleColorCode(),
                 instance.getId(),
-                instance.getParticipant().getMission().getId(),
+                mission.getId(),
                 instance.getMissionTitle(),
                 instance.getMissionDescription(),
                 instance.getCategoryId(),
@@ -631,13 +641,32 @@ public class DailyMissionInstanceService {
                 instance.getImageUrl(),
                 instance.getDurationMinutes(),
                 instance.getExpEarned(),
-                feedVisibility
+                feedVisibility,
+                guildId,
+                guildName
             );
 
             instance.setIsSharedToFeed(true);
         } catch (Exception e) {
             log.error("피드 생성 실패: instanceId={}, error={}", instance.getId(), e.getMessage());
             throw new IllegalStateException("피드 생성에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * QA-168 후속: Mission.guildId(String) → ActivityFeed.guildId(Long) 변환.
+     * 개인 미션이거나 파싱 실패 시 null.
+     */
+    private Long resolveGuildIdLong(Mission mission) {
+        String raw = mission.getGuildId();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot parse mission.guildId to Long: missionId={}, guildId={}", mission.getId(), raw);
+            return null;
         }
     }
 

@@ -263,11 +263,15 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         }
 
         Mission mission = participant.getMission();
+        // QA-168 후속: visibility=GUILD 일 때만 길드 정보 채움. mission 이 길드 미션이 아니면 null.
+        Long guildId = feedVisibility == FeedVisibility.GUILD ? resolveGuildIdLong(mission) : null;
+        String guildName = feedVisibility == FeedVisibility.GUILD ? mission.getGuildName() : null;
 
         try {
             // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
             var existingFeed = feedCommandService.updateFeedContentByExecutionId(
-                execution.getId(), execution.getNote(), execution.getImageUrl(), feedVisibility);
+                execution.getId(), execution.getNote(), execution.getImageUrl(), feedVisibility,
+                guildId, guildName);
 
             if (existingFeed != null) {
                 if (!Boolean.TRUE.equals(execution.getIsSharedToFeed())) {
@@ -299,7 +303,9 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
                     execution.getImageUrl(),
                     durationMinutes,
                     execution.getExpEarned(),
-                    feedVisibility
+                    feedVisibility,
+                    guildId,
+                    guildName
                 );
 
                 execution.shareToFeed();
@@ -383,5 +389,22 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
     private MissionParticipant findParticipant(Long missionId, String userId) {
         return participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
+    }
+
+    /**
+     * QA-168 후속: Mission.guildId(String) → ActivityFeed.guildId(Long) 변환.
+     * 개인 미션이거나 파싱 실패 시 null.
+     */
+    private Long resolveGuildIdLong(Mission mission) {
+        String raw = mission.getGuildId();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot parse mission.guildId to Long: missionId={}, guildId={}", mission.getId(), raw);
+            return null;
+        }
     }
 }

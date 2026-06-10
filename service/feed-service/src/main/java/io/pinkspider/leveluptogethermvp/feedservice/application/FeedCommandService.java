@@ -643,15 +643,28 @@ public class FeedCommandService {
      *
      * @return 업데이트된 피드, 없으면 null
      */
+    /**
+     * QA-168 후속: visibility 변경 시 guild_id/guild_name 도 정합성에 맞춰 갱신한다.
+     * - GUILD 로 변경: 미션의 guildId/guildName 으로 set (NULL 안 됨)
+     * - 그 외 visibility: null 로 reset (의도하지 않은 길드 노출 방지)
+     */
     @Transactional(transactionManager = "feedTransactionManager")
     public ActivityFeed updateFeedContentByExecutionId(Long executionId, String description, String imageUrl,
-                                                        FeedVisibility visibility) {
+                                                        FeedVisibility visibility, Long guildId, String guildName) {
         return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).map(feed -> {
             feed.setDescription(description);
             feed.setImageUrl(imageUrl);
             feed.setVisibility(visibility);
+            if (visibility == FeedVisibility.GUILD) {
+                feed.setGuildId(guildId);
+                feed.setGuildName(guildName);
+            } else {
+                feed.setGuildId(null);
+                feed.setGuildName(null);
+            }
             activityFeedRepository.save(feed);
-            log.info("Feed content updated by executionId: executionId={}, visibility={}", executionId, visibility);
+            log.info("Feed content updated by executionId: executionId={}, visibility={}, guildId={}",
+                executionId, visibility, feed.getGuildId());
             return feed;
         }).orElse(null);
     }

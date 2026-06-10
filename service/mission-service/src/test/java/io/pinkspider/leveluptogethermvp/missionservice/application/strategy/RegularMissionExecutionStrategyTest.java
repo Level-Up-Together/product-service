@@ -530,7 +530,7 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any()))
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any()))
                 .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
 
             // when
@@ -552,7 +552,7 @@ class RegularMissionExecutionStrategyTest {
                 .thenReturn(Optional.of(testParticipant));
             when(executionRepository.findByParticipantIdAndExecutionDate(testParticipant.getId(), executionDate))
                 .thenReturn(Optional.of(execution));
-            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any()))
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any()))
                 .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
 
             // when
@@ -560,7 +560,7 @@ class RegularMissionExecutionStrategyTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any());
+            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any());
         }
     }
 

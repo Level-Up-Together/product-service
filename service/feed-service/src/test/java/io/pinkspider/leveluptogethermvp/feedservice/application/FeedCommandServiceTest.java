@@ -1069,14 +1069,36 @@ class FeedCommandServiceTest {
 
             // when
             ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS);
+                executionId, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS, null, null);
 
             // then
             assertThat(result).isNotNull();
             assertThat(feed.getDescription()).isEqualTo("새 설명");
             assertThat(feed.getImageUrl()).isEqualTo("https://example.com/img.jpg");
             assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.FRIENDS);
+            // QA-168 후속: visibility != GUILD 일 때 guild_id 는 null 로 리셋
+            assertThat(feed.getGuildId()).isNull();
             verify(activityFeedRepository).save(feed);
+        }
+
+        @Test
+        @DisplayName("QA-168: visibility=GUILD 로 업데이트 시 guildId/guildName 도 set 된다")
+        void updateFeedContentByExecutionId_guildVisibility_setsGuildInfo() {
+            // given
+            Long executionId = 10L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.updateFeedContentByExecutionId(
+                executionId, "설명", null, FeedVisibility.GUILD, 7L, "독서길드");
+
+            // then
+            assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.GUILD);
+            assertThat(feed.getGuildId()).isEqualTo(7L);
+            assertThat(feed.getGuildName()).isEqualTo("독서길드");
         }
 
         @Test
@@ -1089,7 +1111,7 @@ class FeedCommandServiceTest {
 
             // when
             ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, "설명", null, FeedVisibility.PUBLIC);
+                executionId, "설명", null, FeedVisibility.PUBLIC, null, null);
 
             // then
             assertThat(result).isNull();
