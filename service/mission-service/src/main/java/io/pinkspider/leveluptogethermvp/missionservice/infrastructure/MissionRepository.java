@@ -95,6 +95,9 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS) " +
            "AND m.isDeleted = false " +
+           // QA-175: 마스터가 종료/취소한 미션은 길드원의 '나의 미션' 에서 사라져야 함
+           "AND m.status NOT IN (io.pinkspider.global.enums.MissionStatus.COMPLETED, " +
+           "                     io.pinkspider.global.enums.MissionStatus.CANCELLED) " +
            "ORDER BY " +
            "CASE WHEN mp.userOrder IS NULL THEN 1 ELSE 0 END ASC, " +
            "mp.userOrder ASC, " +

@@ -1162,13 +1162,14 @@ class MissionServiceTest {
                 .build();
             setId(mission, 1L);
 
-            List<MissionStatus> activeStatuses = List.of(
-                MissionStatus.DRAFT,
+            // QA-175: 길드 미션 목록은 OPEN/IN_PROGRESS/COMPLETED 노출 (CANCELLED 제외)
+            List<MissionStatus> guildListStatuses = List.of(
                 MissionStatus.OPEN,
-                MissionStatus.IN_PROGRESS
+                MissionStatus.IN_PROGRESS,
+                MissionStatus.COMPLETED
             );
 
-            when(missionRepository.findGuildMissions(guildId, activeStatuses))
+            when(missionRepository.findGuildMissions(guildId, guildListStatuses))
                 .thenReturn(List.of(mission));
 
             // when
@@ -1755,13 +1756,14 @@ class MissionServiceTest {
                 .build();
             setId(mission, 1L);
 
-            List<MissionStatus> activeStatuses = List.of(
-                MissionStatus.DRAFT,
+            // QA-175: 길드 미션 목록은 OPEN/IN_PROGRESS/COMPLETED 노출 (CANCELLED 제외)
+            List<MissionStatus> guildListStatuses = List.of(
                 MissionStatus.OPEN,
-                MissionStatus.IN_PROGRESS
+                MissionStatus.IN_PROGRESS,
+                MissionStatus.COMPLETED
             );
 
-            when(missionRepository.findGuildMissions(guildId, activeStatuses))
+            when(missionRepository.findGuildMissions(guildId, guildListStatuses))
                 .thenReturn(List.of(mission));
 
             Map<String, Boolean> underReviewMap = new HashMap<>();

@@ -314,8 +314,14 @@ public class MissionService {
         });
     }
 
+    /**
+     * QA-175: 종료된 길드 미션도 목록에 노출(상태는 COMPLETED 로 표시). CANCELLED 는 제외.
+     */
+    private static final List<MissionStatus> GUILD_LIST_VISIBLE_STATUSES =
+        List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
+
     public List<MissionResponse> getGuildMissions(String guildId) {
-        List<Mission> missions = missionRepository.findGuildMissions(guildId, MissionStatus.activeStatuses());
+        List<Mission> missions = missionRepository.findGuildMissions(guildId, GUILD_LIST_VISIBLE_STATUSES);
         List<MissionResponse> result = missions.stream()
             .map(MissionResponse::from)
             .toList();
