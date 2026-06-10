@@ -127,10 +127,13 @@ public class GuildController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    /**
+     * 길드 멤버 목록 조회. QA-172: 공개 길드는 비로그인도 조회 가능 (비공개 길드는 service 에서 멤버십 검증).
+     */
     @GetMapping("/{guildId}/members")
     public ResponseEntity<ApiResult<List<GuildMemberResponse>>> getGuildMembers(
         @PathVariable Long guildId,
-        @CurrentUser String userId) {
+        @CurrentUser(required = false) String userId) {
 
         List<GuildMemberResponse> responses = guildQueryService.getGuildMembers(guildId, userId);
         return ResponseEntity.ok(ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
