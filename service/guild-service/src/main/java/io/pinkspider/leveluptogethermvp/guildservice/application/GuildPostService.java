@@ -114,11 +114,11 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 유형별 조회
+     * 게시글 유형별 조회. QA-179: 공개 길드는 누구나 조회 가능.
      */
     public Page<GuildPostListResponse> getPostsByType(Long guildId, String userId, GuildPostType postType, Pageable pageable, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.findByGuildIdAndPostType(guildId, postType, pageable);
@@ -138,11 +138,11 @@ public class GuildPostService {
     }
 
     /**
-     * 공지글 목록 조회
+     * 공지글 목록 조회. QA-179: 공개 길드는 누구나 조회 가능.
      */
     public List<GuildPostListResponse> getNotices(Long guildId, String userId, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         List<GuildPost> posts = guildPostRepository.findNotices(guildId);
@@ -163,11 +163,11 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 검색
+     * 게시글 검색. QA-179: 공개 길드는 누구나 조회 가능.
      */
     public Page<GuildPostListResponse> searchPosts(Long guildId, String userId, String keyword, Pageable pageable, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
         Page<GuildPost> posts = guildPostRepository.searchPosts(guildId, keyword, pageable);
@@ -187,12 +187,12 @@ public class GuildPostService {
     }
 
     /**
-     * 게시글 상세 조회 (조회수 증가)
+     * 게시글 상세 조회 (조회수 증가). QA-179: 공개 길드는 누구나 조회 가능.
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildPostResponse getPost(Long guildId, Long postId, String userId, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         GuildPost post = findActivePost(postId);
         validatePostBelongsToGuild(post, guildId);
@@ -318,11 +318,11 @@ public class GuildPostService {
     }
 
     /**
-     * 댓글 목록 조회 (대댓글 포함)
+     * 댓글 목록 조회 (대댓글 포함). QA-179: 공개 길드는 누구나 조회 가능.
      */
     public List<GuildPostCommentResponse> getComments(Long guildId, Long postId, String userId, String acceptLanguage) {
-        findActiveGuild(guildId);
-        validateMembership(guildId, userId);
+        Guild guild = findActiveGuild(guildId);
+        validateReadAccess(guild, userId);
 
         GuildPost post = findActivePost(postId);
         validatePostBelongsToGuild(post, guildId);
@@ -433,14 +433,15 @@ public class GuildPostService {
     }
 
     /**
-     * 게시판 읽기 권한 검증. QA-172: 비로그인은 공개 길드만 허용, 로그인은 멤버십 필수.
+     * 게시판 읽기 권한 검증.
+     * QA-179: 공개 길드는 누구나(비로그인/비멤버/멤버) 읽기 가능. 비공개 길드만 멤버십 필수.
      */
     private void validateReadAccess(Guild guild, String userId) {
-        if (userId == null) {
-            if (!guild.isPublic()) {
-                throw new IllegalStateException("길드원만 접근할 수 있습니다.");
-            }
+        if (guild.isPublic()) {
             return;
+        }
+        if (userId == null) {
+            throw new IllegalStateException("길드원만 접근할 수 있습니다.");
         }
         validateMembership(guild.getId(), userId);
     }

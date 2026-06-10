@@ -78,7 +78,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> getPostsByType(
         @PathVariable Long guildId,
         @PathVariable GuildPostType postType,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
@@ -92,7 +92,7 @@ public class GuildPostController {
     @GetMapping("/notices")
     public ResponseEntity<ApiResult<List<GuildPostListResponse>>> getNotices(
         @PathVariable Long guildId,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         List<GuildPostListResponse> responses = guildPostService.getNotices(guildId, userId, acceptLanguage);
@@ -106,7 +106,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<Page<GuildPostListResponse>>> searchPosts(
         @PathVariable Long guildId,
         @RequestParam String keyword,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @PageableDefault(size = 20) Pageable pageable,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
@@ -121,7 +121,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<GuildPostResponse>> getPost(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         GuildPostResponse response = guildPostService.getPost(guildId, postId, userId, acceptLanguage);
@@ -194,7 +194,7 @@ public class GuildPostController {
     public ResponseEntity<ApiResult<List<GuildPostCommentResponse>>> getComments(
         @PathVariable Long guildId,
         @PathVariable Long postId,
-        @CurrentUser String userId,
+        @CurrentUser(required = false) String userId,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         List<GuildPostCommentResponse> responses = guildPostService.getComments(guildId, postId, userId, acceptLanguage);

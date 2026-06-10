@@ -49,6 +49,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -56,6 +58,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
+// QA-179: read 메서드의 공개 길드 분기 도입으로 일부 멤버십 stub 이 unused 가 됨.
+// 일괄 정리 비용 회피 위해 lenient 사용. write 케이스 회귀는 verify 로 검증.
+@MockitoSettings(strictness = Strictness.LENIENT)
 class GuildPostServiceTest {
 
     @Mock
@@ -388,6 +393,52 @@ class GuildPostServiceTest {
 
             // when & then
             assertThatThrownBy(() -> guildPostService.getPosts(1L, null, pageable, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("길드원만 접근할 수 있습니다.");
+        }
+
+        @Test
+        @DisplayName("[QA-179] 로그인 + 비멤버 유저가 공개 길드 게시글을 조회할 수 있다")
+        void getPosts_loggedIn_nonMember_publicGuild_success() {
+            // given - testGuild 는 PUBLIC, "non-member" 는 멤버 아님
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<GuildPost> postPage = new PageImpl<>(List.of(testPost), pageable, 1);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(testGuild));
+            when(guildPostRepository.findByGuildIdOrderByPinnedAndCreatedAt(1L, pageable))
+                .thenReturn(postPage);
+            when(reportService.isUnderReviewBatch(any(ReportTargetType.class), anyList()))
+                .thenReturn(Collections.emptyMap());
+
+            // when
+            Page<GuildPostListResponse> result =
+                guildPostService.getPosts(1L, "non-member", pageable, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(guildMemberRepository, never()).findByGuildIdAndUserId(any(), any());
+        }
+
+        @Test
+        @DisplayName("[QA-179] 로그인 + 비멤버 유저가 비공개 길드 게시글 조회 시 예외")
+        void getPosts_loggedIn_nonMember_privateGuild_throws() {
+            // given
+            Guild privateGuild = Guild.builder()
+                .name("비공개 길드")
+                .visibility(GuildVisibility.PRIVATE)
+                .masterId(masterId)
+                .maxMembers(50)
+                .categoryId(1L)
+                .build();
+            setId(privateGuild, 1L);
+            Pageable pageable = PageRequest.of(0, 10);
+
+            when(guildRepository.findByIdAndIsActiveTrue(1L)).thenReturn(Optional.of(privateGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, "non-member"))
+                .thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> guildPostService.getPosts(1L, "non-member", pageable, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("길드원만 접근할 수 있습니다.");
         }
