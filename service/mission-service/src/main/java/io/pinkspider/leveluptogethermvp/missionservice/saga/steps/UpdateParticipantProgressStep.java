@@ -56,14 +56,13 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
                 MissionCompletionContext.CompensationKeys.PARTICIPANT_STATUS_BEFORE,
                 participant.getStatus());
 
-            // 진행도 계산
-            long totalExecutions = executionRepository.findByParticipantId(participant.getId()).size();
+            // QA-180: 일반 미션은 1회성이므로 COMPLETED execution 이 하나라도 있으면 100% 로 본다.
+            // 기존 방식(completed/total)은 자정 markMissedExecutions 로 PENDING 이 MISSED 가 되어
+            // 누적되면 progress 가 100% 도달하지 못해 mp.status 가 IN_PROGRESS 로 남는 문제 발생.
             long completedExecutions = executionRepository.countByParticipantIdAndStatus(
                 participant.getId(), ExecutionStatus.COMPLETED);
 
-            int progress = totalExecutions > 0
-                ? (int) ((completedExecutions * 100) / totalExecutions)
-                : 0;
+            int progress = completedExecutions > 0 ? 100 : 0;
 
             participant.updateProgress(progress);
 

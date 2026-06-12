@@ -107,8 +107,6 @@ class UpdateParticipantProgressStepTest {
                 .status(ExecutionStatus.PENDING)
                 .build();
 
-            when(executionRepository.findByParticipantId(PARTICIPANT_ID))
-                .thenReturn(List.of(execution1, execution2, execution3));
             when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
                 .thenReturn(2L);
             when(participantRepository.save(any(MissionParticipant.class)))
@@ -119,8 +117,8 @@ class UpdateParticipantProgressStepTest {
 
             // then
             assertThat(result.isSuccess()).isTrue();
-            // 3개 중 2개 완료 = 66%
-            assertThat(participant.getProgress()).isEqualTo(66);
+            // QA-180: 일반 미션은 COMPLETED 가 1개라도 있으면 100%
+            assertThat(participant.getProgress()).isEqualTo(100);
             verify(participantRepository).save(participant);
         }
 
@@ -143,8 +141,8 @@ class UpdateParticipantProgressStepTest {
         @DisplayName("실행 기록이 없으면 진행도가 0%이다")
         void execute_zeroProgressWhenNoExecutions() {
             // given
-            when(executionRepository.findByParticipantId(PARTICIPANT_ID))
-                .thenReturn(List.of());
+            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                .thenReturn(0L);
             when(participantRepository.save(any(MissionParticipant.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -171,8 +169,6 @@ class UpdateParticipantProgressStepTest {
                 .status(ExecutionStatus.COMPLETED)
                 .build();
 
-            when(executionRepository.findByParticipantId(PARTICIPANT_ID))
-                .thenReturn(List.of(execution1, execution2));
             when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
                 .thenReturn(2L);
             when(participantRepository.save(any(MissionParticipant.class)))
@@ -184,6 +180,25 @@ class UpdateParticipantProgressStepTest {
             // then
             assertThat(result.isSuccess()).isTrue();
             assertThat(participant.getProgress()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("[QA-180] MISSED 누적 후 1회 완료해도 progress=100% 이고 mp.status=COMPLETED")
+        void execute_oneCompletedAfterMissed_completes() {
+            // given — MISSED 1건 + COMPLETED 1건 (자정 markMissed 후 사용자 수행 시나리오)
+            participant.setStatus(ParticipantStatus.IN_PROGRESS);
+            when(executionRepository.countByParticipantIdAndStatus(PARTICIPANT_ID, ExecutionStatus.COMPLETED))
+                .thenReturn(1L);
+            when(participantRepository.save(any(MissionParticipant.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = updateParticipantProgressStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(participant.getProgress()).isEqualTo(100);
+            assertThat(participant.getStatus()).isEqualTo(ParticipantStatus.COMPLETED);
         }
     }
 
