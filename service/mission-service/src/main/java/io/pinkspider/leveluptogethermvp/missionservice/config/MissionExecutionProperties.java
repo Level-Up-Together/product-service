@@ -22,9 +22,9 @@ public class MissionExecutionProperties {
     private int maxExecutionMinutes = 240;
 
     /**
-     * 자동종료 시 부여되는 경험치 (분당 1 EXP × maxExecutionMinutes 기준 default).
+     * 자동종료 시 부여되는 경험치 (QA-171: 정상 종료 보상 대비 절반 — 자동종료는 어뷰징 방지 패널티성).
      */
-    private int baseExp = 240;
+    private int baseExp = 120;
 
     /**
      * 자동종료 경고 알림 시점 목록 (분 단위, 시작 후 경과 시간)
