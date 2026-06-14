@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,8 +10,10 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -26,6 +29,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -60,6 +64,9 @@ class MissionExecutionServiceTest {
 
     @Mock
     private MissionParticipantRepository participantRepository;
+
+    @Mock
+    private MissionRepository missionRepository;
 
     @Mock
     private DailyMissionInstanceRepository dailyMissionInstanceRepository;
@@ -102,6 +109,9 @@ class MissionExecutionServiceTest {
             .status(ParticipantStatus.IN_PROGRESS)
             .build();
         setId(testParticipant, 1L);
+
+        // QA-181: validateMissionStarted 가 missionRepository.findById 를 호출. 기본 mission 은 IN_PROGRESS 라 통과.
+        lenient().when(missionRepository.findById(any())).thenReturn(Optional.of(testMission));
     }
 
 
@@ -454,6 +464,87 @@ class MissionExecutionServiceTest {
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
             verify(mockStrategy).shareExecutionToFeed(testMission.getId(), testUserId, date, null, FeedVisibility.PUBLIC);
+        }
+
+        // QA-181: 모집중(OPEN) 길드 미션은 start/skip/complete 모두 차단.
+        @Test
+        @DisplayName("OPEN 길드미션 startExecution 호출 시 차단")
+        void startExecution_openGuildMission_throws() {
+            Mission openGuild = Mission.builder()
+                .title("길드 미션")
+                .status(MissionStatus.OPEN)
+                .type(MissionType.GUILD)
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .creatorId(testUserId)
+                .guildId("100")
+                .build();
+            setId(openGuild, 99L);
+            when(missionRepository.findById(99L)).thenReturn(Optional.of(openGuild));
+
+            assertThatThrownBy(() -> executionService.startExecution(99L, testUserId, today()))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.guild.not_started");
+            verify(strategyResolver, never()).resolve(any(), anyString());
+        }
+
+        @Test
+        @DisplayName("OPEN 길드미션 skipExecution 호출 시 차단")
+        void skipExecution_openGuildMission_throws() {
+            Mission openGuild = Mission.builder()
+                .status(MissionStatus.OPEN)
+                .type(MissionType.GUILD)
+                .creatorId(testUserId)
+                .guildId("100")
+                .build();
+            setId(openGuild, 99L);
+            when(missionRepository.findById(99L)).thenReturn(Optional.of(openGuild));
+
+            assertThatThrownBy(() -> executionService.skipExecution(99L, testUserId, today()))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.guild.not_started");
+            verify(strategyResolver, never()).resolve(any(), anyString());
+        }
+
+        @Test
+        @DisplayName("OPEN 길드미션 completeExecution 호출 시 차단")
+        void completeExecution_openGuildMission_throws() {
+            Mission openGuild = Mission.builder()
+                .status(MissionStatus.OPEN)
+                .type(MissionType.GUILD)
+                .creatorId(testUserId)
+                .guildId("100")
+                .build();
+            setId(openGuild, 99L);
+            when(missionRepository.findById(99L)).thenReturn(Optional.of(openGuild));
+
+            assertThatThrownBy(() -> executionService.completeExecution(
+                    99L, testUserId, today(), "note", FeedVisibility.PUBLIC))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.mission.guild.not_started");
+            verify(strategyResolver, never()).resolve(any(), anyString());
+        }
+
+        @Test
+        @DisplayName("OPEN 이지만 일반(PERSONAL) 미션은 차단되지 않는다")
+        void startExecution_openPersonalMission_passes() {
+            Mission openPersonal = Mission.builder()
+                .status(MissionStatus.OPEN)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .build();
+            setId(openPersonal, 98L);
+            when(missionRepository.findById(98L)).thenReturn(Optional.of(openPersonal));
+            when(strategyResolver.resolve(98L, testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.startExecution(98L, testUserId, today()))
+                .thenReturn(MissionExecutionResponse.from(MissionExecution.builder()
+                    .participant(testParticipant)
+                    .executionDate(today())
+                    .status(ExecutionStatus.IN_PROGRESS)
+                    .build()));
+
+            executionService.startExecution(98L, testUserId, today());
+
+            verify(mockStrategy).startExecution(98L, testUserId, today());
         }
     }
 

@@ -1,10 +1,13 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionExecutionMode;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -12,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionPart
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionSaga;
 import java.time.LocalDate;
@@ -32,11 +36,26 @@ public class MissionExecutionService {
 
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final MissionRepository missionRepository;
     private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final UserQueryFacade userQueryFacadeService;
     private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
+
+    /**
+     * QA-181: 모집중(OPEN) 길드 미션은 아직 시작되지 않았으므로 수행(start/skip/complete) 차단.
+     * "나의 미션" 목록 비노출과 짝이 되는 서버측 방어선 — 클라이언트가 직접 호출해도 거부한다.
+     */
+    private void validateMissionStarted(Long missionId) {
+        Mission mission =
+                missionRepository
+                        .findById(missionId)
+                        .orElseThrow(() -> new CustomException("050101", "error.mission.not_found"));
+        if (mission.getType() == MissionType.GUILD && mission.getStatus() == MissionStatus.OPEN) {
+            throw new CustomException("050109", "error.mission.guild.not_started");
+        }
+    }
 
     /**
      * 미션 참여 시 실행 일정 생성
@@ -79,11 +98,13 @@ public class MissionExecutionService {
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse startExecution(Long missionId, String userId, LocalDate executionDate) {
         // SIMPLE 일일 한도 도달은 더 이상 차단 사유가 아님 (수행은 가능, EXP만 0 처리)
+        validateMissionStarted(missionId);
         return strategyResolver.resolve(missionId, userId).startExecution(missionId, userId, executionDate);
     }
 
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse skipExecution(Long missionId, String userId, LocalDate executionDate) {
+        validateMissionStarted(missionId);
         return strategyResolver.resolve(missionId, userId).skipExecution(missionId, userId, executionDate);
     }
 
@@ -101,6 +122,7 @@ public class MissionExecutionService {
     @Transactional(transactionManager = "missionTransactionManager")
     public MissionExecutionResponse completeExecution(Long missionId, String userId, LocalDate executionDate, String note, FeedVisibility feedVisibility) {
         // SIMPLE 일일 한도는 차단하지 않음 (Strategy/Saga에서 EXP 0 처리 + 응답 플래그)
+        validateMissionStarted(missionId);
 
         // feedVisibility가 null이면 비공개 (명시적 선택 없음 = 공유 의사 없음)
         FeedVisibility resolvedVisibility = feedVisibility != null
