@@ -105,6 +105,8 @@ public class MissionExecutionResponse {
             .missionId(instanceResponse.getMissionId())
             .missionTitle(instanceResponse.getMissionTitle())
             .missionCategoryName(instanceResponse.getMissionCategoryName())
+            // QA-184: 길드미션 공개 옵션 노출 판단용 mission_type 전파
+            .missionType(instanceResponse.getMissionType())
             .userId(instanceResponse.getUserId())
             .executionDate(instanceResponse.getInstanceDate())
             .status(instanceResponse.getStatus())

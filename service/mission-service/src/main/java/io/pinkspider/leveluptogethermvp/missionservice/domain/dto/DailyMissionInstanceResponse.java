@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +39,8 @@ public class DailyMissionInstanceResponse {
     private String missionTitle;
     private String missionDescription;
     private String missionCategoryName;
+    // QA-184: 프론트에서 길드 공개 옵션 노출 여부 판단용 (mission_type)
+    private MissionType missionType;
     private Long categoryId;
     private Integer expPerCompletion;
     private Integer targetDurationMinutes;
@@ -92,6 +95,7 @@ public class DailyMissionInstanceResponse {
             .missionTitle(instance.getMissionTitle())
             .missionDescription(instance.getMissionDescription())
             .missionCategoryName(instance.getCategoryName())
+            .missionType(instance.getParticipant().getMission().getType())
             .categoryId(instance.getCategoryId())
             .expPerCompletion(instance.getExpPerCompletion())
             .targetDurationMinutes(instance.getTargetDurationMinutes())

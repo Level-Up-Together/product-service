@@ -156,6 +156,43 @@ class DailyMissionInstanceServiceTest {
             // then
             assertThat(responses).hasSize(1);
             assertThat(responses.get(0).getMissionTitle()).isEqualTo("매일 30분 운동");
+            // QA-184: 응답에 mission_type 이 포함되어야 함
+            assertThat(responses.get(0).getMissionType()).isEqualTo(MissionType.PERSONAL);
+        }
+
+        @Test
+        @DisplayName("QA-184: 길드 미션 인스턴스 응답에 mission_type=GUILD 가 매핑된다")
+        void getTodayInstances_includesGuildMissionType() {
+            // given
+            Mission guildMission = Mission.builder()
+                .title("길드 고정 미션")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .type(MissionType.GUILD)
+                .guildId("100")
+                .expPerCompletion(50)
+                .isPinned(true)
+                .build();
+            setId(guildMission, 999L);
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .build();
+            setId(guildParticipant, 999L);
+            DailyMissionInstance guildInstance = DailyMissionInstance.createFrom(guildParticipant, LocalDate.now());
+            setId(guildInstance, 999L);
+
+            when(instanceRepository.findByUserIdAndInstanceDateWithMission(eq(TEST_USER_ID), any(LocalDate.class)))
+                .thenReturn(List.of(guildInstance));
+
+            // when
+            List<DailyMissionInstanceResponse> responses = service.getTodayInstances(TEST_USER_ID);
+
+            // then
+            assertThat(responses).hasSize(1);
+            assertThat(responses.get(0).getMissionType()).isEqualTo(MissionType.GUILD);
         }
 
         @Test
