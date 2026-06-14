@@ -127,6 +127,20 @@ public class MissionService {
         // 생성자를 자동으로 참여자로 등록하고 실행 스케줄 생성
         missionParticipantService.addCreatorAsParticipant(saved, creatorId);
 
+        // QA-185: 길드 미션은 생성 즉시 OPEN(모집중) 전환 — DRAFT 단계 생략으로
+        // 길드 상세 미션 탭에 곧장 노출되고 길드원 자동 참여/알림이 동작한다.
+        // 나의 미션은 QA-181 필터로 모집중 길드미션 비노출.
+        if (saved.getType() == MissionType.GUILD) {
+            MissionStatus fromStatus = saved.getStatus();
+            saved.open();
+            log.info("길드 미션 자동 모집 시작: id={}", saved.getId());
+            eventPublisher.publishEvent(
+                MissionStateChangedEvent.ofOpen(creatorId, saved.getId(), fromStatus));
+            if (saved.getGuildId() != null) {
+                enrollAndNotifyGuildMembers(saved, creatorId);
+            }
+        }
+
         return MissionResponse.from(saved);
     }
 

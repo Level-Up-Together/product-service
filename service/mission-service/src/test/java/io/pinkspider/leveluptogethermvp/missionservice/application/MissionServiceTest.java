@@ -805,6 +805,76 @@ class MissionServiceTest {
             verify(guildQueryFacadeService, never()).getGuildName(any());
         }
 
+        @Test
+        @DisplayName("QA-185: 길드 미션 생성 시 DRAFT 단계 없이 즉시 OPEN 으로 전환된다")
+        void createMission_guildMission_autoOpens() {
+            // given
+            Long guildIdLong = 100L;
+            String guildIdStr = "100";
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .type(MissionType.GUILD)
+                .guildId(guildIdStr)
+                .build();
+
+            when(guildQueryFacadeService.getGuildName(guildIdLong)).thenReturn("테스트 길드");
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .guildId(guildIdStr)
+                .guildName("테스트 길드")
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            MissionResponse response = missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(response).isNotNull();
+            // savedMission.open() 이 호출되어 status 가 OPEN 으로 전환된다
+            assertThat(savedMission.getStatus()).isEqualTo(MissionStatus.OPEN);
+        }
+
+        @Test
+        @DisplayName("QA-185: PERSONAL 미션은 자동 OPEN 되지 않고 DRAFT 유지")
+        void createMission_personalMission_remainsDraft() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("개인 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .build();
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .status(MissionStatus.DRAFT)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            assertThat(savedMission.getStatus()).isEqualTo(MissionStatus.DRAFT);
+        }
+
         // ===== QA-138: PERSONAL 활성 미션 20개 보유 한도 (완료/이탈 미션은 카운트 제외) =====
 
         @Test
