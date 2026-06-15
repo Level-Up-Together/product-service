@@ -276,12 +276,9 @@ public class MissionService {
     }
 
     // 프론트 getMissionDisplayType 과 동일 매핑.
-    // QA-142: 길드 미션은 type=GUILD 분기가 먼저라 isPinned/WEEKLY 와 무관하게 not-FIXED.
+    // QA-186: 길드 미션도 isPinned/WEEKLY 면 고정 섹션으로 분류 — QA-142 의 GUILD 우선 분기를 제거.
     private boolean isPinnedLikeForReorder(
         io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission mission) {
-        if (mission.getType() == MissionType.GUILD) {
-            return false;
-        }
         return Boolean.TRUE.equals(mission.getIsPinned())
             || mission.getMissionInterval()
                 == io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.WEEKLY;

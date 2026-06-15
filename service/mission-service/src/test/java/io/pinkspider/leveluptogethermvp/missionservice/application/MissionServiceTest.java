@@ -2546,9 +2546,9 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("QA-142: WEEKLY 길드 미션은 일반 PERSONAL 미션과 같이 정렬해도 통과한다")
-        void reorder_guildWeeklyWithPersonalDaily_success() {
-            // given: 프론트 regular 섹션(GENERAL+GUILD) 시나리오. 길드 WEEKLY 1 + 일반 DAILY 1
+        @DisplayName("QA-186: WEEKLY 길드 미션은 고정 섹션 — 일반 PERSONAL DAILY 와 섞이면 050108 예외")
+        void reorder_guildWeeklyWithPersonalDaily_throws() {
+            // given: QA-186 새 정책 — 길드라도 WEEKLY/isPinned 면 고정 섹션으로 분류된다
             List<Long> ordered = List.of(2L, 1L);
             var personal = buildParticipant(1L, null, /*isPinned*/ false,
                 io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
@@ -2560,12 +2560,54 @@ class MissionServiceTest {
             when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
                 .thenReturn(List.of(personal, guildWeekly));
 
+            // when / then
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.mixed_type");
+        }
+
+        @Test
+        @DisplayName("QA-186: 고정 길드 미션은 PERSONAL 고정 미션과 함께 정렬 가능")
+        void reorder_guildPinnedWithPersonalPinned_success() {
+            // given: 둘 다 고정 섹션이므로 통과해야 한다
+            List<Long> ordered = List.of(2L, 1L);
+            var personalPinned = buildParticipant(1L, null, /*isPinned*/ true,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+            var guildPinned = buildParticipant(2L, null, /*isPinned*/ true,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(personalPinned, guildPinned));
+
             // when
             missionService.reorderMyMissions(TEST_USER_ID, ordered);
 
             // then
-            assertThat(guildWeekly.getUserOrder()).isEqualTo(0);
-            assertThat(personal.getUserOrder()).isEqualTo(1);
+            assertThat(guildPinned.getUserOrder()).isEqualTo(0);
+            assertThat(personalPinned.getUserOrder()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("QA-186: 고정 길드 미션과 일반 길드 DAILY 미션을 섞으면 050108 예외")
+        void reorder_guildPinnedWithGuildDaily_throws() {
+            // given: 길드 안에서도 고정 vs 일반 섹션이 분리된다
+            List<Long> ordered = List.of(1L, 2L);
+            var guildPinned = buildParticipant(1L, null, /*isPinned*/ true,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+            var guildDaily = buildParticipant(2L, null, /*isPinned*/ false,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD,
+                io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval.DAILY);
+
+            when(participantRepository.findActiveByUserIdAndMissionIds(TEST_USER_ID, ordered))
+                .thenReturn(List.of(guildPinned, guildDaily));
+
+            // when / then
+            assertThatThrownBy(() -> missionService.reorderMyMissions(TEST_USER_ID, ordered))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.mission.reorder.mixed_type");
         }
 
         @Test
