@@ -22,6 +22,7 @@ import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
@@ -271,6 +272,36 @@ class NotificationEventListenerTest {
                 eq(INVITEE_ID), eq(NotificationType.GUILD_INVITE),
                 eq(1L), isNull(),
                 eq("마스터닉네임"), eq("테스트 길드"));
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 가입 신청 이벤트 처리")
+    class HandleGuildJoinRequestedTest {
+
+        @Test
+        @DisplayName("가입 신청 이벤트 처리 시 마스터/부마스터 모두에게 알림을 생성한다")
+        void handleGuildJoinRequested_notifiesAllOfficers() {
+            GuildJoinRequestedEvent event = new GuildJoinRequestedEvent(
+                TARGET_USER_ID, "신청자닉네임", 100L, "테스트 길드", 1L,
+                java.util.List.of(GUILD_MASTER_ID, "sub-master-id"));
+            eventListener.handleGuildJoinRequested(event);
+            verify(notificationService).sendNotification(
+                eq(GUILD_MASTER_ID), eq(NotificationType.GUILD_JOIN_REQUEST),
+                eq(100L), isNull(), eq("신청자닉네임"));
+            verify(notificationService).sendNotification(
+                eq("sub-master-id"), eq(NotificationType.GUILD_JOIN_REQUEST),
+                eq(100L), isNull(), eq("신청자닉네임"));
+        }
+
+        @Test
+        @DisplayName("officerIds가 비어 있으면 어떤 알림도 생성하지 않는다")
+        void handleGuildJoinRequested_emptyOfficers_skipsNotification() {
+            GuildJoinRequestedEvent event = new GuildJoinRequestedEvent(
+                TARGET_USER_ID, "신청자닉네임", 100L, "테스트 길드", 1L, java.util.List.of());
+            eventListener.handleGuildJoinRequested(event);
+            verify(notificationService, never()).sendNotification(
+                anyString(), eq(NotificationType.GUILD_JOIN_REQUEST), anyLong(), any(), any());
         }
     }
 

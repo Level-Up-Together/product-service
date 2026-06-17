@@ -15,6 +15,7 @@ import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
@@ -168,6 +169,16 @@ public class NotificationEventListener {
             event.inviteeId(), NotificationType.GUILD_INVITE,
             event.invitationId(), null,
             event.inviterNickname(), event.guildName()));
+    }
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildJoinRequested(GuildJoinRequestedEvent event) {
+        safeHandleMultiple("길드 가입 신청", event.officerIds(), null, officerId ->
+            notificationService.sendNotification(
+                officerId, NotificationType.GUILD_JOIN_REQUEST,
+                event.guildId(), null,
+                event.requesterNickname()));
     }
 
     // ==================== 소셜 (댓글) ====================

@@ -21,6 +21,8 @@ public class GuildJoinRequestResponse {
     private Long guildId;
     private String guildName;
     private String requesterId;
+    private String requesterNickname;
+    private String requesterProfileImageUrl;
     private String message;
     private JoinRequestStatus status;
     private String processedBy;
@@ -51,6 +53,12 @@ public class GuildJoinRequestResponse {
             .rejectReason(request.getRejectReason())
             .createdAt(request.getCreatedAt())
             .build();
+    }
+
+    public GuildJoinRequestResponse withRequesterProfile(String nickname, String profileImageUrl) {
+        this.requesterNickname = nickname;
+        this.requesterProfileImageUrl = profileImageUrl;
+        return this;
     }
 
     /**

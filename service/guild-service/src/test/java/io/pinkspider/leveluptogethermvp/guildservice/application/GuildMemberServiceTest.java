@@ -28,6 +28,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
@@ -121,7 +122,7 @@ class GuildMemberServiceTest {
     class RequestJoinTest {
 
         @Test
-        @DisplayName("정상적으로 가입 신청을 한다")
+        @DisplayName("정상적으로 가입 신청을 하고 마스터에게 알림 이벤트가 발행된다")
         void requestJoin_success() {
             // given
             GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder()
@@ -138,6 +139,8 @@ class GuildMemberServiceTest {
                 setId(request, 1L);
                 return request;
             });
+            when(guildMemberRepository.findOfficerUserIdsByGuildId(1L)).thenReturn(List.of(testMasterId));
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("신청자닉네임");
 
             // when
             GuildJoinRequestResponse response = guildMemberService.requestJoin(1L, testUserId, joinRequest);
@@ -146,6 +149,34 @@ class GuildMemberServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getStatus()).isEqualTo(JoinRequestStatus.PENDING);
             verify(joinRequestRepository).save(any(GuildJoinRequest.class));
+            verify(eventPublisher).publishEvent(any(GuildJoinRequestedEvent.class));
+        }
+
+        @Test
+        @DisplayName("길드에 마스터/부마스터가 없으면 알림 이벤트를 발행하지 않는다")
+        void requestJoin_noOfficers_skipsNotification() {
+            // given
+            GuildJoinRequestDto joinRequest = GuildJoinRequestDto.builder()
+                .message("가입 희망합니다")
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(joinRequestRepository.existsByGuildIdAndRequesterIdAndStatus(1L, testUserId, JoinRequestStatus.PENDING)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(joinRequestRepository.save(any(GuildJoinRequest.class))).thenAnswer(invocation -> {
+                GuildJoinRequest request = invocation.getArgument(0);
+                setId(request, 1L);
+                return request;
+            });
+            when(guildMemberRepository.findOfficerUserIdsByGuildId(1L)).thenReturn(Collections.emptyList());
+
+            // when
+            guildMemberService.requestJoin(1L, testUserId, joinRequest);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(GuildJoinRequestedEvent.class));
         }
 
         @Test

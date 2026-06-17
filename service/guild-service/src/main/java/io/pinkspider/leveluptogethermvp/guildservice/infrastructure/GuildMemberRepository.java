@@ -92,4 +92,11 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
            "WHERE gm.userId = :userId AND gm.role = 'MASTER' " +
            "AND gm.status = 'ACTIVE' AND g.isActive = true")
     Optional<GuildMember> findGuildMastership(@Param("userId") String userId);
+
+    /**
+     * 길드의 마스터/부마스터 user_id 목록 조회 (가입 신청 알림 수신자)
+     */
+    @Query("SELECT gm.userId FROM GuildMember gm WHERE gm.guild.id = :guildId " +
+           "AND gm.status = 'ACTIVE' AND gm.role IN ('MASTER', 'SUB_MASTER')")
+    List<String> findOfficerUserIdsByGuildId(@Param("guildId") Long guildId);
 }

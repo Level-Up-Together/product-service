@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
@@ -24,6 +25,7 @@ import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -146,6 +148,20 @@ public class GuildMemberService {
         GuildJoinRequest savedRequest = joinRequestRepository.save(joinRequest);
         log.info("길드 가입 신청 (APPROVAL_REQUIRED): guildId={}, requesterId={}", guildId, userId);
 
+        // 길드 마스터/부마스터에게 알림 이벤트 발행
+        List<String> officerIds = guildMemberRepository.findOfficerUserIdsByGuildId(guildId);
+        if (!officerIds.isEmpty()) {
+            String requesterNickname = userQueryFacadeService.getUserNickname(userId);
+            eventPublisher.publishEvent(
+                new GuildJoinRequestedEvent(
+                    userId,
+                    requesterNickname,
+                    guildId,
+                    guild.getName(),
+                    savedRequest.getId(),
+                    officerIds));
+        }
+
         return GuildJoinRequestResponse.from(savedRequest);
     }
 
@@ -154,7 +170,14 @@ public class GuildMemberService {
         validateMasterOrSubMaster(guildId, userId);
 
         return joinRequestRepository.findPendingRequests(guildId, pageable)
-            .map(GuildJoinRequestResponse::from);
+            .map(request -> {
+                GuildJoinRequestResponse response = GuildJoinRequestResponse.from(request);
+                UserProfileInfo profile = userQueryFacadeService.getUserProfile(request.getRequesterId());
+                if (profile != null) {
+                    response.withRequesterProfile(profile.nickname(), profile.picture());
+                }
+                return response;
+            });
     }
 
     @Transactional(transactionManager = "guildTransactionManager")
