@@ -519,6 +519,8 @@ class GuildControllerTest {
                             fieldWithPath("value.guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
                             fieldWithPath("value.guild_name").type(JsonFieldType.STRING).description("길드 이름").optional(),
                             fieldWithPath("value.requester_id").type(JsonFieldType.STRING).description("신청자 ID"),
+                            fieldWithPath("value.requester_nickname").type(JsonFieldType.STRING).description("신청자 닉네임 (목록 조회 시 enrich)").optional(),
+                            fieldWithPath("value.requester_profile_image_url").type(JsonFieldType.STRING).description("신청자 프로필 이미지 URL (목록 조회 시 enrich)").optional(),
                             fieldWithPath("value.status").type(JsonFieldType.STRING).description("신청 상태 (PENDING, APPROVED, REJECTED, CANCELLED)"),
                             fieldWithPath("value.message").type(JsonFieldType.STRING).description("신청 메시지").optional(),
                             fieldWithPath("value.reject_reason").type(JsonFieldType.STRING).description("거절 사유").optional(),
