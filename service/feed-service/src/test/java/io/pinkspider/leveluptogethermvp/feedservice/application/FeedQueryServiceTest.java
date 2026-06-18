@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -1630,31 +1631,16 @@ class FeedQueryServiceTest {
         }
 
         @Test
-        @DisplayName("searchType=FRIENDS이고 친구가 없으면 빈 페이지를 반환한다")
-        void getFilteredFeeds_searchTypeFriends_noFriends_returnsEmpty() {
+        @DisplayName("searchType=FRIENDS이고 친구가 없어도 본인 친구공개 피드는 노출된다 (QA-168)")
+        void getFilteredFeeds_searchTypeFriends_noFriends_includesOwnFeeds() {
             // given
+            ActivityFeed ownFeed = createTestFeed(1L, TEST_USER_ID);
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(ownFeed));
+
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
                 .thenReturn(Collections.emptyList());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
-                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
-
-            // then
-            assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository, never()).findFriendsFeeds(anyList(), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("searchType=FRIENDS이고 친구가 있으면 친구 피드를 반환한다")
-        void getFilteredFeeds_searchTypeFriends_withFriends() {
-            // given
-            List<String> friendIds = List.of("friend-1", "friend-2");
-            ActivityFeed feed = createTestFeed(1L, "friend-1");
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
-
-            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+            when(activityFeedRepository.findFriendsFeeds(
+                    argThat(ids -> ids != null && ids.contains(TEST_USER_ID)), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1666,7 +1652,36 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository).findFriendsFeeds(eq(friendIds), any(Pageable.class));
+            verify(activityFeedRepository).findFriendsFeeds(
+                argThat(ids -> ids != null && ids.contains(TEST_USER_ID)), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType=FRIENDS이고 친구가 있으면 친구+본인 피드를 반환한다 (QA-168)")
+        void getFilteredFeeds_searchTypeFriends_withFriends_includesSelf() {
+            // given
+            List<String> friendIds = List.of("friend-1", "friend-2");
+            ActivityFeed feed = createTestFeed(1L, "friend-1");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
+            when(activityFeedRepository.findFriendsFeeds(
+                    argThat(ids -> ids != null && ids.containsAll(friendIds) && ids.contains(TEST_USER_ID)),
+                    any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
+                FeedSearchType.FRIENDS, TEST_USER_ID, 0, 10, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            verify(activityFeedRepository).findFriendsFeeds(
+                argThat(ids -> ids != null && ids.containsAll(friendIds) && ids.contains(TEST_USER_ID)),
+                any(Pageable.class));
         }
 
         @Test
@@ -1845,7 +1860,10 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+            // QA-168: friendIds에 본인 ID가 추가됨
+            when(activityFeedRepository.findFriendsFeeds(
+                    argThat(ids -> ids != null && ids.containsAll(friendIds) && ids.contains(TEST_USER_ID)),
+                    any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2112,11 +2130,14 @@ class FeedQueryServiceTest {
     class GetFriendsOnlyFeedsTest {
 
         @Test
-        @DisplayName("친구 목록이 비어있으면 빈 페이지를 즉시 반환한다")
-        void getFriendsOnlyFeeds_emptyFriendIds_returnsEmpty() {
+        @DisplayName("QA-168: 친구 목록이 비어있어도 본인 ID를 포함해 Repository를 호출한다")
+        void getFriendsOnlyFeeds_emptyFriendIds_stillQueriesWithSelf() {
             // given
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID))
                 .thenReturn(Collections.emptyList());
+            when(activityFeedRepository.findFriendsFeeds(
+                    argThat(ids -> ids != null && ids.contains(TEST_USER_ID)), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
             // when
             Page<ActivityFeedResponse> result = feedQueryService.getFilteredFeeds(
@@ -2124,19 +2145,22 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository, never()).findFriendsFeeds(anyList(), any(Pageable.class));
+            verify(activityFeedRepository).findFriendsFeeds(
+                argThat(ids -> ids != null && ids.contains(TEST_USER_ID)), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("친구 목록이 있으면 친구 피드를 조회한다")
-        void getFriendsOnlyFeeds_withFriends_fetchesFeeds() {
+        @DisplayName("QA-168: 친구 목록이 있으면 친구+본인 ID를 모두 포함해 조회한다")
+        void getFriendsOnlyFeeds_withFriends_fetchesFeedsIncludingSelf() {
             // given
             List<String> friendIds = List.of("friend-A");
             ActivityFeed feed = createTestFeed(1L, "friend-A");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(friendIds);
-            when(activityFeedRepository.findFriendsFeeds(eq(friendIds), any(Pageable.class)))
+            when(activityFeedRepository.findFriendsFeeds(
+                    argThat(ids -> ids != null && ids.containsAll(friendIds) && ids.contains(TEST_USER_ID)),
+                    any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());

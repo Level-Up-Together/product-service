@@ -133,15 +133,16 @@ public class FeedQueryService {
 
     /**
      * 친구 피드 조회 (PUBLIC + FRIENDS 공개범위)
+     *
+     * <p>QA-168: 본인이 작성한 친구공개 피드도 친구 탭에서 보여야 한다. friendIds 목록에 본인을 포함시켜
+     * "내가 친구공개로 올린 피드"가 친구 탭에서 누락되지 않도록 한다.
      */
     private Page<ActivityFeedResponse> getFriendsOnlyFeeds(String userId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        List<String> friendIds = userQueryFacadeService.getFriendIds(userId);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        if (friendIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
+        List<String> friendIds = new ArrayList<>(userQueryFacadeService.getFriendIds(userId));
+        friendIds.add(userId);
 
         Page<ActivityFeed> feeds = activityFeedRepository.findFriendsFeeds(friendIds, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
