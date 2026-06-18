@@ -233,8 +233,8 @@ public class GuildQueryService {
                 if (profile != null) {
                     response.setNickname(profile.nickname());
                     response.setProfileImageUrl(profile.picture());
-                    // TODO: userLevel은 별도 서비스에서 조회 필요
-                    response.setUserLevel(1);
+                    // QA-193: UserProfileInfo.level은 GamificationQueryFacade.getUserLevel()로 채워진 값
+                    response.setUserLevel(profile.level() != null ? profile.level() : 1);
                     // 칭호 정보 조회
                     try {
                         DetailedTitleInfoDto titleInfo = gamificationQueryFacadeService.getDetailedEquippedTitleInfo(member.getUserId());

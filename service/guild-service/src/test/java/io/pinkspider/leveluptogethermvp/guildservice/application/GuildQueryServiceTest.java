@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -436,6 +437,48 @@ class GuildQueryServiceTest {
 
             // then
             assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("QA-193: 길드 멤버 응답에 UserProfileInfo의 level 값이 반영된다")
+        void getGuildMembers_setsUserLevelFromProfile() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            UserProfileInfo profile =
+                new UserProfileInfo(testMasterId, "마스터닉네임", "pic.png", 7, null, null, null);
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(java.util.Map.of(testMasterId, profile));
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserLevel()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("QA-193: profile.level이 null이면 1로 fallback 한다")
+        void getGuildMembers_levelNull_fallbackToOne() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            UserProfileInfo profile =
+                new UserProfileInfo(testMasterId, "마스터닉네임", "pic.png", null, null, null, null);
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(java.util.Map.of(testMasterId, profile));
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getUserLevel()).isEqualTo(1);
         }
 
         @Test
