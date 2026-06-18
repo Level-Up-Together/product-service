@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
@@ -74,6 +75,14 @@ public class MissionResponse {
     /** QA-176: 미션 누적 EXP (historic 합산, 탈퇴/실패 참여자 기여도 유지). 응답 시점에 채워진다. */
     private Integer totalExpEarned;
 
+    /**
+     * QA-192: 마스터에 의해 삭제(소프트 삭제)된 길드 미션 여부. 이미 수락/수행 중인 참여자에게는
+     * 마지막 인증까지 노출되지만, 프론트는 이 플래그(또는 status == COMPLETED/CANCELLED)로
+     * "삭제/종료된 미션" 안내를 표시한다. 기존 응답 호환을 위해 true일 때만 직렬화한다.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean isDeleted;
+
     public static MissionResponse from(Mission mission) {
         return MissionResponse.builder()
             .id(mission.getId())
@@ -110,6 +119,7 @@ public class MissionResponse {
             .categoryName(mission.getCategoryName())
             .createdAt(mission.getCreatedAt())
             .modifiedAt(mission.getModifiedAt())
+            .isDeleted(Boolean.TRUE.equals(mission.getIsDeleted()) ? Boolean.TRUE : null)
             .build();
     }
 
