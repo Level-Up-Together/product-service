@@ -34,13 +34,15 @@ import org.springframework.stereotype.Component;
  * 6. UpdateUserStats - 사용자 통계 및 업적 업데이트 (선택적)
  * 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
  *
- * 고정 미션 실행 순서:
+ * 고정 미션 실행 순서 (QA-194 이후):
  * 1. LoadPinnedMissionData - 인스턴스 데이터 로드 및 검증
  * 2. CompletePinnedInstance - 인스턴스 완료 처리
  * 3. GrantUserExperience - 사용자 경험치 지급
- * 4. UpdateUserStats - 통계 및 업적 업데이트 (선택적)
- * 5. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
- * 6. CreateNextPinnedInstance - 다음 수행용 새 인스턴스 생성
+ * 4. GrantGuildExperience - 길드 경험치 지급 (고정 길드 미션 포함)
+ * 5. UpdateParticipantProgress - 참가자 progress 갱신 (status 는 IN_PROGRESS 유지)
+ * 6. UpdateUserStats - 통계 및 업적 업데이트 (선택적)
+ * 7. CreateFeedFromMission - 피드 생성 (사용자 선택시, 선택적)
+ * 8. CreateNextPinnedInstance - 다음 수행용 새 인스턴스 생성
  */
 @Slf4j
 @Component

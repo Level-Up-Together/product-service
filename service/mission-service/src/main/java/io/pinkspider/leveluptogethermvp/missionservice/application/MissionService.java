@@ -355,11 +355,19 @@ public class MissionService {
     /**
      * QA-176: 미션 응답에 누적 EXP 를 채운다.
      * 길드 EXP 와 동일하게 historic 합산이므로 탈퇴/실패 참여자의 기여도 유지된다.
+     *
+     * <p>QA-194: 고정 미션은 DailyMissionInstance 에 expEarned 가 저장되므로 두 테이블을 모두 합산한다.
      */
     private void fillTotalExpEarned(MissionResponse response) {
         if (response == null || response.getId() == null) return;
-        Integer total = executionRepository.sumExpEarnedByMissionId(response.getId());
-        response.setTotalExpEarned(total != null ? total : 0);
+        Long missionId = response.getId();
+        int executionSum = nullToZero(executionRepository.sumExpEarnedByMissionId(missionId));
+        int pinnedSum = nullToZero(dailyMissionInstanceRepository.sumExpEarnedByMissionId(missionId));
+        response.setTotalExpEarned(executionSum + pinnedSum);
+    }
+
+    private static int nullToZero(Integer value) {
+        return value != null ? value : 0;
     }
 
     /**

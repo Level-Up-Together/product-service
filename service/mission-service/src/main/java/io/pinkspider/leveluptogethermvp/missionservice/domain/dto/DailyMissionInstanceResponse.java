@@ -41,6 +41,9 @@ public class DailyMissionInstanceResponse {
     private String missionCategoryName;
     // QA-184: 프론트에서 길드 공개 옵션 노출 여부 판단용 (mission_type)
     private MissionType missionType;
+    /** QA-194: 길드 미션인 경우 길드명. 일반 미션이면 null. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String guildName;
     private Long categoryId;
     private Integer expPerCompletion;
     private Integer targetDurationMinutes;
@@ -96,6 +99,7 @@ public class DailyMissionInstanceResponse {
             .missionDescription(instance.getMissionDescription())
             .missionCategoryName(instance.getCategoryName())
             .missionType(instance.getParticipant().getMission().getType())
+            .guildName(instance.getParticipant().getMission().getGuildName())
             .categoryId(instance.getCategoryId())
             .expPerCompletion(instance.getExpPerCompletion())
             .targetDurationMinutes(instance.getTargetDurationMinutes())

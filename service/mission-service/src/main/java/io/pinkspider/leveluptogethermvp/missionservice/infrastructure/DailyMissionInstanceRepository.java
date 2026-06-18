@@ -198,6 +198,15 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
+     * QA-194: 미션(고정 미션 포함) 단위 누적 EXP 합계.
+     * 모든 참여자의 완료된 인스턴스 expEarned 를 합산한다.
+     */
+    @Query("SELECT COALESCE(SUM(dmi.expEarned), 0) FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "WHERE p.mission.id = :missionId AND dmi.status = 'COMPLETED'")
+    Integer sumExpEarnedByMissionId(@Param("missionId") Long missionId);
+
+    /**
      * 참여자의 완료 횟수 조회
      */
     @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi " +

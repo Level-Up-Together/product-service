@@ -125,10 +125,13 @@ public class MissionCompletionContext extends SagaContext {
     }
 
     /**
-     * 길드 미션 여부 확인 (pinned 미션은 항상 false)
+     * 길드 미션 여부 확인.
+     *
+     * <p>QA-194: 고정 길드 미션도 길드 경험치/멤버 통계 등 길드 단위 보상이 필요하므로
+     * pinned 여부와 무관하게 mission 자체가 길드 미션인지로 판단한다.
      */
     public boolean isGuildMission() {
-        return !pinned && mission != null && mission.isGuildMission() && mission.getGuildId() != null;
+        return mission != null && mission.isGuildMission() && mission.getGuildId() != null;
     }
 
     /**

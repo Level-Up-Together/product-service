@@ -30,6 +30,9 @@ public class MissionExecutionResponse {
     private String missionTitle;
     private String missionCategoryName;
     private MissionType missionType;
+    /** QA-194: 길드 미션인 경우 길드명. 일반 미션이면 null. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String guildName;
     private String userId;
 
     private LocalDate executionDate;
@@ -80,6 +83,7 @@ public class MissionExecutionResponse {
             .missionTitle(execution.getParticipant().getMission().getTitle())
             .missionCategoryName(execution.getParticipant().getMission().getCategoryName())
             .missionType(execution.getParticipant().getMission().getType())
+            .guildName(execution.getParticipant().getMission().getGuildName())
             .userId(execution.getParticipant().getUserId())
             .executionDate(execution.getExecutionDate())
             .status(execution.getStatus())
@@ -107,6 +111,7 @@ public class MissionExecutionResponse {
             .missionCategoryName(instanceResponse.getMissionCategoryName())
             // QA-184: 길드미션 공개 옵션 노출 판단용 mission_type 전파
             .missionType(instanceResponse.getMissionType())
+            .guildName(instanceResponse.getGuildName())
             .userId(instanceResponse.getUserId())
             .executionDate(instanceResponse.getInstanceDate())
             .status(instanceResponse.getStatus())
@@ -135,6 +140,7 @@ public class MissionExecutionResponse {
             .missionTitle(instance.getMissionTitle())
             .missionCategoryName(instance.getCategoryName())
             .missionType(instance.getParticipant().getMission().getType())
+            .guildName(instance.getParticipant().getMission().getGuildName())
             .userId(instance.getParticipant().getUserId())
             .executionDate(instance.getInstanceDate())
             .status(instance.getStatus())

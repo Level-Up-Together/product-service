@@ -17,6 +17,7 @@ import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -40,6 +41,9 @@ class UpdateParticipantProgressStepTest {
 
     @Mock
     private MissionParticipantRepository participantRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @InjectMocks
     private UpdateParticipantProgressStep updateParticipantProgressStep;

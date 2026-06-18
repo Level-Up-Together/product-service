@@ -5,6 +5,7 @@ import io.pinkspider.global.saga.SagaStepResult;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.MissionCompletionContext;
@@ -25,6 +26,7 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
 
     private final MissionExecutionRepository executionRepository;
     private final MissionParticipantRepository participantRepository;
+    private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
 
     @Override
     public String getName() {
@@ -33,7 +35,10 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
 
     @Override
     public Predicate<MissionCompletionContext> shouldExecute() {
-        return ctx -> !ctx.isPinned();
+        // QA-194: 고정(pinned) 미션도 한 번이라도 인스턴스 완료 시 참여자 progress 를 갱신해
+        // 길드 미션 상세 UI에서 "참여" → "완료" 표시가 동작하도록 한다. 단, 고정 미션은
+        // 매일 반복되므로 status 자체는 IN_PROGRESS 로 유지한다.
+        return ctx -> true;
     }
 
     @Override
@@ -57,18 +62,22 @@ public class UpdateParticipantProgressStep implements SagaStep<MissionCompletion
                 participant.getStatus());
 
             // QA-180: 일반 미션은 1회성이므로 COMPLETED execution 이 하나라도 있으면 100% 로 본다.
-            // 기존 방식(completed/total)은 자정 markMissedExecutions 로 PENDING 이 MISSED 가 되어
-            // 누적되면 progress 가 100% 도달하지 못해 mp.status 가 IN_PROGRESS 로 남는 문제 발생.
+            // QA-194: 고정 미션은 DailyMissionInstance 의 완료 카운트도 합산해야 한다.
             long completedExecutions = executionRepository.countByParticipantIdAndStatus(
                 participant.getId(), ExecutionStatus.COMPLETED);
+            long completedPinnedInstances = dailyMissionInstanceRepository
+                .countByParticipantIdAndStatus(participant.getId(), ExecutionStatus.COMPLETED);
+            long totalCompleted = completedExecutions + completedPinnedInstances;
 
-            int progress = completedExecutions > 0 ? 100 : 0;
+            int progress = totalCompleted > 0 ? 100 : 0;
 
             participant.updateProgress(progress);
 
-            // 일반 미션: 진행도 100% 도달 시 참여 상태를 COMPLETED로 변경
-            // → getMyMissions() 조회에서 제외되어 완료된 미션이 다시 나타나지 않음
-            if (progress >= 100 && participant.getStatus() == ParticipantStatus.IN_PROGRESS) {
+            // 일반 미션만 진행도 100% 도달 시 참여 상태를 COMPLETED로 변경.
+            // 고정 미션은 매일 반복되므로 status 는 IN_PROGRESS 로 유지해 "나의 미션"에 계속 노출되어야 한다.
+            if (!context.isPinned()
+                && progress >= 100
+                && participant.getStatus() == ParticipantStatus.IN_PROGRESS) {
                 participant.complete();
                 log.info("Participant completed: participantId={}, missionId={}",
                     participant.getId(), participant.getMission().getId());
