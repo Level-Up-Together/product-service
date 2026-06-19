@@ -70,6 +70,12 @@ public class LoadPinnedMissionDataStep implements SagaStep<MissionCompletionCont
             context.setCategoryName(instance.getCategoryName());
             context.setInstanceDate(instance.getInstanceDate());
 
+            // QA-195: 길드 고정 미션은 GrantGuildExperienceStep 이 guildId 를 사용하므로
+            // LoadMissionDataStep 과 동일하게 여기서 context.guildId 를 채워야 한다.
+            if (mission.isGuildMission() && mission.getGuildIdAsLong() != null) {
+                context.setGuildId(mission.getGuildIdAsLong());
+            }
+
             // 보상용 데이터 저장
             context.addCompensationData(
                 MissionCompletionContext.CompensationKeys.INSTANCE_STATUS_BEFORE,

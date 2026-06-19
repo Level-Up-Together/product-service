@@ -137,6 +137,60 @@ class LoadPinnedMissionDataStepTest {
             assertThat(context.getCategoryId()).isEqualTo(2L);
             assertThat(context.getCategoryName()).isEqualTo("독서");
             assertThat(context.getInstanceDate()).isEqualTo(LocalDate.now());
+            // 개인 미션이므로 guildId 는 비어 있어야 한다
+            assertThat(context.getGuildId()).isNull();
+        }
+
+        @Test
+        @DisplayName("QA-195: 길드 고정 미션이면 context.guildId 에 길드 ID 를 채운다")
+        void execute_guildMission_setsGuildId() {
+            // given
+            Mission guildMission = Mission.builder()
+                .title("길드 매일 독서")
+                .description("길드 고정 미션")
+                .creatorId(TEST_USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("777")
+                .guildName("독서 길드")
+                .categoryId(2L)
+                .categoryName("독서")
+                .expPerCompletion(30)
+                .isPinned(true)
+                .build();
+            setId(guildMission, 99L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .progress(0)
+                .build();
+            setId(guildParticipant, 2L);
+
+            DailyMissionInstance guildInstance = DailyMissionInstance.builder()
+                .participant(guildParticipant)
+                .instanceDate(LocalDate.now())
+                .missionTitle("길드 매일 독서")
+                .categoryId(2L)
+                .categoryName("독서")
+                .status(ExecutionStatus.IN_PROGRESS)
+                .build();
+            setId(guildInstance, 200L);
+
+            MissionCompletionContext context = MissionCompletionContext.forPinned(
+                200L, TEST_USER_ID, null, false);
+
+            when(instanceRepository.findByIdWithParticipantAndMission(200L))
+                .thenReturn(Optional.of(guildInstance));
+
+            // when
+            SagaStepResult result = loadPinnedMissionDataStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildId()).isEqualTo(777L);
         }
 
         @Test
