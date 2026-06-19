@@ -101,6 +101,11 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
 
             // 계산된 경험치를 context에 반영
             context.setUserExpEarned(instance.getExpEarned());
+            // QA-198: 고정 길드 미션도 일반 미션과 동일하게 시간 기반 EXP 를 길드 EXP 로 부여한다.
+            // (CompleteExecutionStep QA-174 와 같은 정책)
+            if (context.isGuildMission()) {
+                context.setGuildExpEarned(instance.getExpEarned());
+            }
 
             // DB에 저장
             instanceRepository.save(instance);

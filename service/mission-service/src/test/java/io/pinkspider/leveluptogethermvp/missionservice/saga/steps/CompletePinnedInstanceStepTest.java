@@ -188,6 +188,42 @@ class CompletePinnedInstanceStepTest {
         }
 
         @Test
+        @DisplayName("QA-198: 길드 고정 미션은 user EXP 와 동일한 값을 guild EXP 로 context 에 set 한다")
+        void execute_guildPinnedMission_setsGuildExpEarned() {
+            // given
+            mission.setType(MissionType.GUILD);
+            mission.setGuildId("777");
+            // CompletePinnedInstanceStep 에서 instance.setExpEarned(...) 로 채워지지만 mock save 라
+            // 직접 사전 세팅한다 (TIMED 기본 모드, complete() 동작은 다른 테스트에서 검증)
+            instance.setExpEarned(42);
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildExpEarned()).isEqualTo(instance.getExpEarned());
+            assertThat(context.getUserExpEarned()).isEqualTo(instance.getExpEarned());
+        }
+
+        @Test
+        @DisplayName("QA-198: 개인 고정 미션은 guild EXP 를 set 하지 않는다 (기본 0)")
+        void execute_personalPinnedMission_doesNotSetGuildExpEarned() {
+            // given (default: PERSONAL)
+            when(instanceRepository.save(any(DailyMissionInstance.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SagaStepResult result = completePinnedInstanceStep.execute(context);
+
+            // then
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(context.getGuildExpEarned()).isEqualTo(0);
+        }
+
+        @Test
         @DisplayName("TIMED 모드는 SIMPLE 카운트 쿼리를 호출하지 않는다")
         void execute_timedMode_skipsSimpleCountQuery() {
             // given (default: TIMED)
