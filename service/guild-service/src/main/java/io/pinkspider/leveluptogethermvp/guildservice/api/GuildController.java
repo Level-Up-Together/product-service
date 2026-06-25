@@ -64,7 +64,7 @@ public class GuildController {
     @GetMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> getGuild(
         @PathVariable Long guildId,
-        @CurrentUser String userId) {
+        @CurrentUser(required = false) String userId) {
 
         GuildResponse response = guildQueryService.getGuild(guildId, userId);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());

@@ -5,7 +5,10 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -228,6 +231,24 @@ class GuildControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/{guildId} : 비로그인 유저도 공개 길드 상세 조회 (QA-200)")
+    void getGuildWithoutAuthTest() throws Exception {
+        // given - 인증 없이 진입해도 browse-first 로 알럿 없이 조회 가능해야 함
+        when(guildQueryService.getGuild(anyLong(), isNull()))
+            .thenReturn(createMockGuildResponse());
+
+        // when - SecurityContext 에 인증 주체가 없는 비로그인 요청
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then - "인증이 필요합니다" 알럿 없이 200, userId 는 null 로 전달
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(guildQueryService).getGuild(eq(1L), isNull());
     }
 
     @Test
