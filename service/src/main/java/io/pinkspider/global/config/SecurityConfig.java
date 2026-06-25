@@ -159,6 +159,10 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")
                                         .permitAll()
+                                        // QA-201: /guilds/my 는 인증 필요. 아래 {guildId} permitAll 패턴이
+                                        // 리터럴 "my" 를 매칭해 인증을 우회하던 문제를 막기 위해 먼저 평가한다.
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/my")
+                                        .authenticated()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/{guildId}")
                                         .permitAll()
                                         .requestMatchers(
