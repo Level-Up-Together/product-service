@@ -215,46 +215,44 @@ public class GuildExperienceService {
     }
 
     /**
-     * 길드 레벨업 처리 레벨업 조건: 인원수 * 유저 레벨 필요 경험치
+     * 길드 레벨/현재 경험치 재계산.
+     *
+     * <p>QA-204: 어드민 설정(guild_level_config.cumulative_exp)을 단일 기준으로, 누적 경험치(totalExp)
+     * 로부터 레벨과 현재 레벨 내 경험치(currentExp)를 계산한다. 기존에는 "인원수 × 유저 레벨 필요 경험치"
+     * 라는 별도 공식을 사용해 적은 경험치로도 레벨이 올라가 어드민 설정값과 어긋났다. (레벨 다운 경로인
+     * processLevelDown 과 동일한 cumulative 기준으로 통일.)
      */
     private void processLevelUp(Guild guild) {
-        List<GuildLevelConfig> guildLevelConfigs = guildLevelConfigCacheService.getAllLevelConfigs();
+        List<GuildLevelConfig> levelConfigs = guildLevelConfigCacheService.getAllLevelConfigs();
+        int totalExp = Math.max(0, guild.getTotalExp());
 
-        while (true) {
-            int currentLevel = guild.getCurrentLevel();
-
-            // 길드 레벨업에 필요한 경험치 = 인원수 * 유저 레벨 필요 경험치
-            int requiredExp = calculateGuildRequiredExp(guild.getId(), currentLevel);
-
-            if (guild.getCurrentExp() >= requiredExp) {
-                guild.levelUp(requiredExp);
-
-                // 레벨업 시 최대 인원수 업데이트 (guild_level_config에서 조회)
-                GuildLevelConfig newLevelConfig = guildLevelConfigs.stream()
-                    .filter(lc -> lc.getLevel().equals(guild.getCurrentLevel()))
-                    .findFirst()
-                    .orElse(null);
-
-                if (newLevelConfig != null) {
-                    guild.updateMaxMembersByLevel(newLevelConfig.getMaxMembers());
-                } else {
-                    // 길드 레벨 설정이 없으면 기본 공식 사용
-                    int newMaxMembers = calculateDefaultMaxMembers(guild.getCurrentLevel());
-                    guild.updateMaxMembersByLevel(newMaxMembers);
+        int newLevel = 1;
+        int cumulativeForLevel = 0;
+        if (levelConfigs != null) {
+            for (GuildLevelConfig config : levelConfigs) {
+                Integer level = config.getLevel();
+                Integer cumulative = config.getCumulativeExp();
+                if (level != null
+                        && cumulative != null
+                        && level > newLevel
+                        && totalExp >= cumulative) {
+                    newLevel = level;
+                    cumulativeForLevel = cumulative;
                 }
-
-                log.info("길드 레벨업 조건: guildId={}, level={}, memberCount={}, requiredExp={}",
-                    guild.getId(), currentLevel, guildMemberRepository.countActiveMembers(guild.getId()), requiredExp);
-            } else {
-                break;
-            }
-
-            // 최대 레벨 체크 (유저 레벨 기준)
-            Integer maxUserLevel = userLevelConfigCacheService.getMaxLevel();
-            if (maxUserLevel != null && guild.getCurrentLevel() >= maxUserLevel) {
-                break;
             }
         }
+
+        guild.setCurrentLevel(Math.max(1, newLevel));
+        guild.setCurrentExp(Math.max(0, totalExp - cumulativeForLevel));
+
+        // 현재 레벨의 최대 인원수 갱신 (설정 없으면 기본 공식)
+        GuildLevelConfig levelConfig =
+                guildLevelConfigCacheService.getLevelConfigByLevel(guild.getCurrentLevel());
+        int maxMembers =
+                levelConfig != null && levelConfig.getMaxMembers() != null
+                        ? levelConfig.getMaxMembers()
+                        : calculateDefaultMaxMembers(guild.getCurrentLevel());
+        guild.updateMaxMembersByLevel(maxMembers);
     }
 
     /**
@@ -265,10 +263,16 @@ public class GuildExperienceService {
     }
 
     private GuildExperienceResponse getGuildExperienceInfo(Guild guild) {
-        // 길드 레벨업에 필요한 경험치 = 인원수 * 유저 레벨 필요 경험치
-        int requiredExp = calculateGuildRequiredExp(guild.getId(), guild.getCurrentLevel());
+        GuildLevelConfig levelConfig =
+                guildLevelConfigCacheService.getLevelConfigByLevel(guild.getCurrentLevel());
 
-        GuildLevelConfig levelConfig = guildLevelConfigCacheService.getLevelConfigByLevel(guild.getCurrentLevel());
+        // QA-204: 다음 레벨까지 필요한 경험치는 어드민 설정(required_exp)을 사용한다.
+        // 기존 "인원수 × 유저 레벨 필요 경험치" 공식은 어드민 설정과 어긋났다.
+        int requiredExp =
+                levelConfig != null && levelConfig.getRequiredExp() != null
+                        ? levelConfig.getRequiredExp()
+                        : calculateDefaultUserRequiredExp(guild.getCurrentLevel());
+
         String levelTitle = levelConfig != null ? levelConfig.getTitle() : "Lv." + guild.getCurrentLevel();
 
         return GuildExperienceResponse.from(guild, requiredExp, levelTitle);
