@@ -146,12 +146,12 @@ class MissionExecutionTest {
         }
 
         @Test
-        @DisplayName("2시간 초과 시작 → 자동 완료 시 기본 경험치 적용")
-        void autoCompleteForDateChange_overTwoHours_appliesBaseExp() {
-            // given - 3시간 전 시작
+        @DisplayName("4시간 초과 시작 → 자동 완료 시 기본 경험치 적용")
+        void autoCompleteForDateChange_overFourHours_appliesBaseExp() {
+            // given - 5시간 전 시작 (QA-212: 자동종료 임계 4시간 초과)
             MissionExecution execution = createExecution(LocalDate.now().minusDays(1));
             execution.start();
-            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(180));
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.now().minusMinutes(300));
 
             // when
             boolean result = execution.autoCompleteForDateChange(10);

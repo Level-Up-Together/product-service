@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -29,7 +28,6 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
 
     private final MissionExecutionRepository executionRepository;
     private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
-    private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
     public String getName() {
@@ -98,13 +96,10 @@ public class CompleteExecutionStep implements SagaStep<MissionCompletionContext>
                     } else {
                         execution.setExpEarned((int) Math.max(1, elapsed));
                     }
-                } else if (elapsed > 120) {
-                    // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
-                    execution.setExpEarned(missionExecutionProperties.getBaseExp());
-                    execution.setIsAutoCompleted(true);
-                    log.info("2시간 초과 수동 종료 - 기본 경험치 적용: executionId={}, elapsed={}분, baseExp={}",
-                        execution.getId(), elapsed, missionExecutionProperties.getBaseExp());
                 }
+                // QA-212: 목표시간 미설정 미션의 수동 완료는 complete() 의 시간 기반 EXP
+                // (calculateExpByDuration, 480분 cap)를 그대로 유지한다. 기존엔 elapsed>120 이면
+                // baseExp 로 덮어썼으나, baseExp 패널티는 스케줄러 자동종료(autoCompleteIfExpired) 전용이다.
             }
 
             // complete()에서 계산된 시간 기반 경험치를 context에 반영

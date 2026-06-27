@@ -100,14 +100,14 @@ class MissionAutoCompleteSchedulerTest {
     class MissionExecutionAutoCompleteTest {
 
         @Test
-        @DisplayName("2시간 초과된 MissionExecution이 자동 종료된다")
+        @DisplayName("4시간 초과된 MissionExecution이 자동 종료된다")
         void autoCompleteExpiredMissionExecution() {
             // given
             MissionExecution execution = MissionExecution.builder()
                 .participant(participant)
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusHours(3)) // 3시간 전 시작
+                .startedAt(LocalDateTime.now().minusHours(5)) // 5시간 전 시작
                 .build();
             setId(execution, 1L);
 
@@ -134,7 +134,7 @@ class MissionAutoCompleteSchedulerTest {
         }
 
         @Test
-        @DisplayName("2시간 미만 MissionExecution은 자동 종료되지 않는다")
+        @DisplayName("4시간 미만 MissionExecution은 자동 종료되지 않는다")
         void doNotAutoCompleteNonExpiredMissionExecution() {
             // given
             MissionExecution execution = MissionExecution.builder()
@@ -145,7 +145,7 @@ class MissionAutoCompleteSchedulerTest {
                 .build();
             setId(execution, 1L);
 
-            // 2시간 초과된 것만 조회되므로 빈 리스트 반환
+            // 4시간 초과된 것만 조회되므로 빈 리스트 반환
             when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
@@ -173,7 +173,7 @@ class MissionAutoCompleteSchedulerTest {
     class DailyMissionInstanceAutoCompleteTest {
 
         @Test
-        @DisplayName("2시간 초과된 DailyMissionInstance가 자동 종료된다")
+        @DisplayName("4시간 초과된 DailyMissionInstance가 자동 종료된다")
         void autoCompleteExpiredDailyMissionInstance() {
             // given
             DailyMissionInstance instance = DailyMissionInstance.builder()
@@ -186,7 +186,7 @@ class MissionAutoCompleteSchedulerTest {
                 .categoryId(1L)
                 .expPerCompletion(mission.getExpPerCompletion())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusHours(3)) // 3시간 전 시작
+                .startedAt(LocalDateTime.now().minusHours(5)) // 5시간 전 시작
                 .expEarned(0)
                 .completionCount(0)
                 .totalExpEarned(0)
@@ -646,7 +646,7 @@ class MissionAutoCompleteSchedulerTest {
                 .participant(participantTarget)
                 .executionDate(java.time.LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusHours(3))
+                .startedAt(LocalDateTime.now().minusHours(5))
                 .build();
             setId(execution, 40L);
 
@@ -691,7 +691,7 @@ class MissionAutoCompleteSchedulerTest {
                 .participant(pinnedParticipant)
                 .executionDate(java.time.LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusHours(3))
+                .startedAt(LocalDateTime.now().minusHours(5))
                 .build();
             setId(execution, 41L);
 
@@ -724,7 +724,7 @@ class MissionAutoCompleteSchedulerTest {
                 .participant(completedParticipant)
                 .executionDate(java.time.LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusHours(3))
+                .startedAt(LocalDateTime.now().minusHours(5))
                 .build();
             setId(execution, 42L);
 
@@ -748,14 +748,14 @@ class MissionAutoCompleteSchedulerTest {
     class EntityAutoCompleteIfExpiredTest {
 
         @Test
-        @DisplayName("MissionExecution.autoCompleteIfExpired - 2시간 초과 시 true 반환")
+        @DisplayName("MissionExecution.autoCompleteIfExpired - 4시간 초과 시 true 반환")
         void missionExecutionAutoCompleteIfExpired_returns_true_when_expired() {
             // given
             MissionExecution execution = MissionExecution.builder()
                 .participant(participant)
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusMinutes(121)) // 121분 전 시작
+                .startedAt(LocalDateTime.now().minusMinutes(241)) // 241분 전 시작
                 .build();
 
             // when
@@ -769,7 +769,7 @@ class MissionAutoCompleteSchedulerTest {
         }
 
         @Test
-        @DisplayName("MissionExecution.autoCompleteIfExpired - 2시간 미만 시 false 반환")
+        @DisplayName("MissionExecution.autoCompleteIfExpired - 4시간 미만 시 false 반환")
         void missionExecutionAutoCompleteIfExpired_returns_false_when_not_expired() {
             // given
             MissionExecution execution = MissionExecution.builder()
@@ -788,14 +788,14 @@ class MissionAutoCompleteSchedulerTest {
         }
 
         @Test
-        @DisplayName("MissionExecution.isExpired - 2시간 초과 시 true 반환")
+        @DisplayName("MissionExecution.isExpired - 4시간 초과 시 true 반환")
         void missionExecutionIsExpired_returns_true_when_expired() {
             // given
             MissionExecution execution = MissionExecution.builder()
                 .participant(participant)
                 .executionDate(LocalDate.now())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusMinutes(121))
+                .startedAt(LocalDateTime.now().minusMinutes(241))
                 .build();
 
             // when & then
@@ -803,7 +803,7 @@ class MissionAutoCompleteSchedulerTest {
         }
 
         @Test
-        @DisplayName("DailyMissionInstance.autoCompleteIfExpired - 2시간 초과 시 true 반환")
+        @DisplayName("DailyMissionInstance.autoCompleteIfExpired - 4시간 초과 시 true 반환")
         void dailyMissionInstanceAutoCompleteIfExpired_returns_true_when_expired() {
             // given
             DailyMissionInstance instance = DailyMissionInstance.builder()
@@ -812,7 +812,7 @@ class MissionAutoCompleteSchedulerTest {
                 .sequenceNumber(1)
                 .missionTitle(mission.getTitle())
                 .status(ExecutionStatus.IN_PROGRESS)
-                .startedAt(LocalDateTime.now().minusMinutes(121))
+                .startedAt(LocalDateTime.now().minusMinutes(241))
                 .completionCount(0)
                 .totalExpEarned(0)
                 .isAutoCompleted(false)

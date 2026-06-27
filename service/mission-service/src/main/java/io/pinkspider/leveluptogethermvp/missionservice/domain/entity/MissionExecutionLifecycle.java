@@ -19,7 +19,9 @@ import java.time.LocalDateTime;
 public interface MissionExecutionLifecycle {
 
     long MINIMUM_EXECUTION_MINUTES = 1;
-    long MAXIMUM_EXECUTION_MINUTES = 120;
+    // QA-212: QA-171 에서 자동종료를 4시간(mission.execution.max-execution-minutes=240)으로 변경했으나
+    // 이 상수가 2시간(120)으로 남아 자동종료 completedAt/isExpired 가 어긋났다. 4시간(240)으로 정합.
+    long MAXIMUM_EXECUTION_MINUTES = 240;
 
     // === Accessors (Lombok @Getter/@Setter로 구현됨) ===
 

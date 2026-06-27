@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -43,9 +42,6 @@ class CompleteExecutionStepTest {
 
     @Mock
     private DailyMissionInstanceRepository dailyMissionInstanceRepository;
-
-    @Mock
-    private MissionExecutionProperties missionExecutionProperties;
 
     @InjectMocks
     private CompleteExecutionStep completeExecutionStep;
@@ -360,21 +356,20 @@ class CompleteExecutionStepTest {
         }
 
         @Test
-        @DisplayName("2시간 초과 수행이면 기본 경험치를 지급하고 자동완료 처리한다")
-        void execute_over2Hours_grantBaseExpAndAutoComplete() {
-            // given
-            execution.setStartedAt(LocalDateTime.now().minusMinutes(130));
-            when(missionExecutionProperties.getBaseExp()).thenReturn(20);
+        @DisplayName("QA-212: 목표시간 미설정 미션을 2시간 초과 수동 완료하면 시간 기반 EXP(분당 1)를 받는다")
+        void execute_over2HoursManual_grantsTimeBasedExp() {
+            // given - 2시간 27분(147분) 수행 후 수동 완료
+            execution.setStartedAt(LocalDateTime.now().minusMinutes(147));
             when(executionRepository.save(any(MissionExecution.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
             SagaStepResult result = completeExecutionStep.execute(context);
 
-            // then
+            // then - 120(baseExp) 가 아니라 시간 기반(147), 자동완료 아님
             assertThat(result.isSuccess()).isTrue();
-            assertThat(execution.getExpEarned()).isEqualTo(20);
-            assertThat(execution.getIsAutoCompleted()).isTrue();
+            assertThat(execution.getExpEarned()).isGreaterThanOrEqualTo(147);
+            assertThat(execution.getIsAutoCompleted()).isNotEqualTo(Boolean.TRUE);
         }
 
         @Test

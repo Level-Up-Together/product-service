@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.saga.steps;
 
 import io.pinkspider.global.saga.SagaStep;
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
@@ -28,7 +27,6 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
 
     private final DailyMissionInstanceRepository instanceRepository;
     private final MissionExecutionRepository executionRepository;
-    private final MissionExecutionProperties missionExecutionProperties;
 
     @Override
     public String getName() {
@@ -75,17 +73,8 @@ public class CompletePinnedInstanceStep implements SagaStep<MissionCompletionCon
 
             // SIMPLE 모드는 complete()에서 이미 고정 EXP(또는 한도 도달 시 0) 설정됨 — 오버라이드 불필요
             if (mission != null && mission.getExecutionMode() != MissionExecutionMode.SIMPLE) {
-                // 목표시간 미설정 + 2시간 초과: 기본 경험치만 부여
-                if ((instance.getTargetDurationMinutes() == null || instance.getTargetDurationMinutes() <= 0)
-                    && instance.getStartedAt() != null && instance.getCompletedAt() != null) {
-                    long elapsed = Duration.between(instance.getStartedAt(), instance.getCompletedAt()).toMinutes();
-                    if (elapsed > 120) {
-                        instance.setExpEarned(missionExecutionProperties.getBaseExp());
-                        instance.setIsAutoCompleted(true);
-                        log.info("2시간 초과 수동 종료 - 기본 경험치 적용: instanceId={}, elapsed={}분, baseExp={}",
-                            instance.getId(), elapsed, missionExecutionProperties.getBaseExp());
-                    }
-                }
+                // QA-212: 목표시간 미설정 고정 미션의 수동 완료는 complete() 의 시간 기반 EXP 를
+                // 그대로 유지한다. baseExp 패널티는 스케줄러 자동종료 전용이어야 한다.
                 // QA-153: 목표 시간 달성 여부 식별 → UpdateUserStatsStep 에서 클리어 미션북 카운트 증가
                 if (instance.getTargetDurationMinutes() != null && instance.getTargetDurationMinutes() > 0
                     && instance.getStartedAt() != null && instance.getCompletedAt() != null) {

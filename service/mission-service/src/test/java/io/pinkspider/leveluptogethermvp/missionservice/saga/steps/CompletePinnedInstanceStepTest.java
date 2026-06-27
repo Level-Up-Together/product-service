@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.saga.SagaStepResult;
-import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -42,9 +41,6 @@ class CompletePinnedInstanceStepTest {
 
     @Mock
     private MissionExecutionRepository executionRepository;
-
-    @Mock
-    private MissionExecutionProperties missionExecutionProperties;
 
     @InjectMocks
     private CompletePinnedInstanceStep completePinnedInstanceStep;
