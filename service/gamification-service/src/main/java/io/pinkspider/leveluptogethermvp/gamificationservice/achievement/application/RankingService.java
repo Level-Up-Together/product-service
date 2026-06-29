@@ -18,7 +18,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -192,47 +194,68 @@ public class RankingService {
      * (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순)
      */
     public Page<LevelRankingResponse> getLevelRanking(Pageable pageable) {
-        Page<UserExperience> expPage = userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable);
+        // QA-206: 목록 순위를 내 랭킹(getMyLevelRanking: COUNT(나보다 위)+1)과 동일한 의미로 맞춘다.
+        // 전체를 정렬해 로드 → 탈퇴자 제외 → 동점 공동순위(RANK) 부여 → 활성 기준 페이징.
+        List<UserExperience> sorted =
+            userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc();
 
-        // 사용자 ID 목록 추출
-        List<String> userIds = expPage.getContent().stream()
+        List<String> allUserIds = sorted.stream()
             .map(UserExperience::getUserId)
             .collect(Collectors.toList());
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(allUserIds));
 
-        // 탈퇴 사용자 필터링
-        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
-        long totalUsers = activeUserIds.size();
+        List<UserExperience> active = sorted.stream()
+            .filter(exp -> activeUserIds.contains(exp.getUserId()))
+            .collect(Collectors.toList());
+        long totalUsers = active.size();
 
-        // 사용자 정보 일괄 조회 (캐시)
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
+        // 동점 공동순위: 직전 항목과 (레벨, 총경험치)가 동일하면 같은 순위
+        long[] ranks = assignCompetitionRanks(active.size(), i ->
+            Objects.equals(active.get(i).getCurrentLevel(), active.get(i - 1).getCurrentLevel())
+                && Objects.equals(active.get(i).getTotalExp(), active.get(i - 1).getTotalExp()));
 
-        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합, 등급, 색상 코드 포함)
-        Map<String, TitleInfo> titleInfoMap = new HashMap<>();
-        for (String id : userIds) {
-            titleInfoMap.put(id, getCombinedEquippedTitleInfo(id));
-        }
+        // 활성 유저 기준 페이지 슬라이스 (탈퇴자에 의한 offset 오염 방지)
+        int from = (int) Math.min(pageable.getOffset(), active.size());
+        int to = (int) Math.min((long) from + pageable.getPageSize(), (long) active.size());
+        List<UserExperience> slice = active.subList(from, to);
+
+        List<String> sliceIds = slice.stream()
+            .map(UserExperience::getUserId)
+            .collect(Collectors.toList());
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
-        long startRank = pageable.getOffset() + 1;
-
-        for (UserExperience exp : expPage.getContent()) {
-            if (!activeUserIds.contains(exp.getUserId())) {
-                continue;
-            }
-
+        for (int i = 0; i < slice.size(); i++) {
+            UserExperience exp = slice.get(i);
             UserProfileInfo profile = profileMap.get(exp.getUserId());
             String nickname = profile != null ? profile.nickname() : null;
             String profileImageUrl = profile != null ? profile.picture() : null;
-            TitleInfo titleInfo = titleInfoMap.get(exp.getUserId());
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(exp.getUserId());
 
             responses.add(LevelRankingResponse.from(
-                exp, startRank++, totalUsers, nickname, profileImageUrl,
+                exp, ranks[from + i], totalUsers, nickname, profileImageUrl,
                 titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
-                titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity()
-            ));
+                titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(),
+                titleInfo.rightRarity()));
         }
 
-        return new PageImpl<>(responses, pageable, expPage.getTotalElements());
+        return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /**
+     * QA-206: 정렬된 목록에 동점 공동순위(경쟁 순위)를 부여한다. 동점은 같은 순위를 갖고
+     * 다음 그룹은 그룹 시작 위치(1-based)로 점프한다 — 내 랭킹의 {@code COUNT(나보다 위)+1}과 동일한 의미.
+     */
+    private static long[] assignCompetitionRanks(int size, IntPredicate tiedWithPrevious) {
+        long[] ranks = new long[size];
+        long rank = 0;
+        for (int i = 0; i < size; i++) {
+            if (i == 0 || !tiedWithPrevious.test(i)) {
+                rank = i + 1L;
+            }
+            ranks[i] = rank;
+        }
+        return ranks;
     }
 
     /**
@@ -250,93 +273,113 @@ public class RankingService {
             return Page.empty(pageable);
         }
 
-        // 카테고리별 경험치 랭킹 조회
-        Page<Object[]> categoryRanking = experienceHistoryRepository.findUserExpRankingByCategory(category, pageable);
+        // QA-206: 카테고리 목록도 내 랭킹과 동일 기준으로 — 전체 로드 → 탈퇴자 제외 → 동점 공동순위.
+        List<Object[]> activeRows = activeCategoryRanking(category);
+        long totalUsers = activeRows.size();
 
-        // 사용자 ID 목록 추출
-        List<String> userIds = categoryRanking.getContent().stream()
+        long[] ranks = assignCompetitionRanks(activeRows.size(), i ->
+            categoryExpOf(activeRows.get(i)) == categoryExpOf(activeRows.get(i - 1)));
+
+        int from = (int) Math.min(pageable.getOffset(), activeRows.size());
+        int to = (int) Math.min((long) from + pageable.getPageSize(), (long) activeRows.size());
+        List<Object[]> slice = activeRows.subList(from, to);
+
+        List<String> sliceIds = slice.stream()
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
-
-        // 탈퇴 사용자 필터링
-        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
-
-        // 사용자 정보 일괄 조회 (캐시)
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(userIds);
-
-        // 사용자 경험치 정보 일괄 조회
-        // Collectors.toMap()은 null 값을 허용하지 않으므로 HashMap 직접 사용
-        Map<String, UserExperience> expMap = new HashMap<>();
-        for (String id : userIds) {
-            expMap.put(id, userExperienceRepository.findByUserId(id).orElse(null));
-        }
-
-        // 장착된 칭호 일괄 조회 (LEFT + RIGHT 조합, 등급, 색상 코드 포함)
-        Map<String, TitleInfo> titleInfoMap = new HashMap<>();
-        for (String id : userIds) {
-            titleInfoMap.put(id, getCombinedEquippedTitleInfo(id));
-        }
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
-        long startRank = pageable.getOffset() + 1;
+        for (int i = 0; i < slice.size(); i++) {
+            String userId = (String) slice.get(i)[0];
+            long categoryExp = categoryExpOf(slice.get(i));
+            long rank = ranks[from + i];
 
-        for (Object[] row : categoryRanking.getContent()) {
-            String odayUserId = (String) row[0];
-            if (!activeUserIds.contains(odayUserId)) {
-                continue;
-            }
-            Long categoryExp = ((Number) row[1]).longValue();
+            UserProfileInfo profile = profileMap.get(userId);
+            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
 
-            UserProfileInfo profile = profileMap.get(odayUserId);
-            UserExperience userExp = expMap.get(odayUserId);
-            TitleInfo titleInfo = titleInfoMap.get(odayUserId);
-
-            String nickname = profile != null ? profile.nickname() : null;
-            String profileImageUrl = profile != null ? profile.picture() : null;
-
-            // 카테고리별 랭킹은 카테고리 내 경험치를 기준으로 함
-            if (userExp != null) {
-                responses.add(LevelRankingResponse.builder()
-                    .rank(startRank++)
-                    .userId(odayUserId)
-                    .nickname(nickname)
-                    .profileImageUrl(profileImageUrl)
-                    .equippedTitle(titleInfo.name())
-                    .equippedTitleRarity(titleInfo.rarity())
-                    .equippedTitleColorCode(titleInfo.colorCode())
-                    .leftTitle(titleInfo.leftTitle())
-                    .leftTitleRarity(titleInfo.leftRarity())
-                    .rightTitle(titleInfo.rightTitle())
-                    .rightTitleRarity(titleInfo.rightRarity())
-                    .currentLevel(userExp.getCurrentLevel())
-                    .currentExp(userExp.getCurrentExp())
-                    .totalExp(categoryExp.intValue()) // 카테고리 내 총 경험치
-                    .totalUsers(totalUsersInCategory)
-                    .percentile(calculatePercentile(startRank - 1, totalUsersInCategory))
-                    .build());
-            } else {
-                responses.add(LevelRankingResponse.builder()
-                    .rank(startRank++)
-                    .userId(odayUserId)
-                    .nickname(nickname)
-                    .profileImageUrl(profileImageUrl)
-                    .equippedTitle(titleInfo.name())
-                    .equippedTitleRarity(titleInfo.rarity())
-                    .equippedTitleColorCode(titleInfo.colorCode())
-                    .leftTitle(titleInfo.leftTitle())
-                    .leftTitleRarity(titleInfo.leftRarity())
-                    .rightTitle(titleInfo.rightTitle())
-                    .rightTitleRarity(titleInfo.rightRarity())
-                    .currentLevel(1)
-                    .currentExp(0)
-                    .totalExp(categoryExp.intValue())
-                    .totalUsers(totalUsersInCategory)
-                    .percentile(calculatePercentile(startRank - 1, totalUsersInCategory))
-                    .build());
-            }
+            responses.add(LevelRankingResponse.builder()
+                .rank(rank)
+                .userId(userId)
+                .nickname(profile != null ? profile.nickname() : null)
+                .profileImageUrl(profile != null ? profile.picture() : null)
+                .equippedTitle(titleInfo.name())
+                .equippedTitleRarity(titleInfo.rarity())
+                .equippedTitleColorCode(titleInfo.colorCode())
+                .leftTitle(titleInfo.leftTitle())
+                .leftTitleRarity(titleInfo.leftRarity())
+                .rightTitle(titleInfo.rightTitle())
+                .rightTitleRarity(titleInfo.rightRarity())
+                .currentLevel(userExp != null ? userExp.getCurrentLevel() : 1)
+                .currentExp(userExp != null ? userExp.getCurrentExp() : 0)
+                .totalExp((int) categoryExp) // 카테고리 내 총 경험치
+                .totalUsers(totalUsers)
+                .percentile(calculatePercentile(rank, totalUsers))
+                .build());
         }
 
-        return new PageImpl<>(responses, pageable, categoryRanking.getTotalElements());
+        return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /**
+     * QA-206: 카테고리별 내 랭킹 (목록과 동일 기준 — 활성 유저 중 공동순위).
+     * 카테고리를 선택하면 목록은 카테고리 순위인데 내 랭킹은 전체였던 불일치를 해소한다.
+     */
+    public LevelRankingResponse getMyLevelRankingByCategory(String userId, String category) {
+        UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
+
+        List<Object[]> activeRows = activeCategoryRanking(category);
+        long totalUsers = activeRows.size();
+
+        Long myCategoryExp = activeRows.stream()
+            .filter(row -> userId.equals((String) row[0]))
+            .map(RankingService::categoryExpOf)
+            .findFirst()
+            .orElse(null);
+
+        // 해당 카테고리 경험치 기록이 없으면 최하위(전체 활성 + 1)로 표기
+        long rank = myCategoryExp == null
+            ? totalUsers + 1
+            : activeRows.stream().filter(row -> categoryExpOf(row) > myCategoryExp).count() + 1;
+
+        return LevelRankingResponse.builder()
+            .rank(rank)
+            .userId(userId)
+            .nickname(profile != null ? profile.nickname() : null)
+            .profileImageUrl(profile != null ? profile.picture() : null)
+            .equippedTitle(titleInfo.name())
+            .equippedTitleRarity(titleInfo.rarity())
+            .equippedTitleColorCode(titleInfo.colorCode())
+            .leftTitle(titleInfo.leftTitle())
+            .leftTitleRarity(titleInfo.leftRarity())
+            .rightTitle(titleInfo.rightTitle())
+            .rightTitleRarity(titleInfo.rightRarity())
+            .currentLevel(userExp != null ? userExp.getCurrentLevel() : 1)
+            .currentExp(userExp != null ? userExp.getCurrentExp() : 0)
+            .totalExp(myCategoryExp != null ? myCategoryExp.intValue() : 0)
+            .totalUsers(totalUsers)
+            .percentile(myCategoryExp == null ? 100.0 : calculatePercentile(rank, totalUsers))
+            .build();
+    }
+
+    /** 카테고리 랭킹 행 {userId, categoryExp} 에서 카테고리 경험치를 추출한다. */
+    private static long categoryExpOf(Object[] row) {
+        return ((Number) row[1]).longValue();
+    }
+
+    /** 활성 유저만, 카테고리 경험치 내림차순으로 정렬된 {userId, categoryExp} 목록. */
+    private List<Object[]> activeCategoryRanking(String category) {
+        List<Object[]> allRows = experienceHistoryRepository
+            .findUserExpRankingByCategory(category, Pageable.unpaged())
+            .getContent();
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(
+            allRows.stream().map(row -> (String) row[0]).collect(Collectors.toList())));
+        return allRows.stream()
+            .filter(row -> activeUserIds.contains((String) row[0]))
+            .collect(Collectors.toList());
     }
 
     private double calculatePercentile(long rank, long totalUsers) {

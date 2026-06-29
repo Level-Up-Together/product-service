@@ -81,6 +81,15 @@ public class RankingController {
         return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
     }
 
+    // 카테고리별 내 레벨 랭킹 (QA-206: 카테고리 목록과 동일 기준의 내 순위)
+    @GetMapping("/my/level/category/{category}")
+    public ResponseEntity<ApiResult<LevelRankingResponse>> getMyLevelRankingByCategory(
+        @CurrentUser String userId,
+        @PathVariable String category) {
+        LevelRankingResponse response = rankingService.getMyLevelRankingByCategory(userId, category);
+        return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
+    }
+
     // 전체 레벨 랭킹 (레벨 + 총 경험치 기준)
     @GetMapping("/level")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRanking(

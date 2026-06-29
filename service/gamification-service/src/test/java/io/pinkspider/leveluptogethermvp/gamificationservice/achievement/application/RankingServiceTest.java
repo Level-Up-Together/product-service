@@ -358,7 +358,7 @@ class RankingServiceTest {
             Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
 
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(10L);
-            when(experienceHistoryRepository.findUserExpRankingByCategory(category, pageable)).thenReturn(rankingPage);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class))).thenReturn(rankingPage);
             when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(java.util.Map.of("user1", new UserProfileInfo("user1", "테스트유저", null, 10, null, null, null)));
             when(userExperienceRepository.findByUserId("user1")).thenReturn(Optional.of(exp));
@@ -384,7 +384,7 @@ class RankingServiceTest {
             Page<Object[]> rankingPage = new PageImpl<>(rows, pageable, 1);
 
             when(experienceHistoryRepository.countUsersByCategory(category)).thenReturn(5L);
-            when(experienceHistoryRepository.findUserExpRankingByCategory(category, pageable)).thenReturn(rankingPage);
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class))).thenReturn(rankingPage);
             when(userQueryFacadeService.getActiveUserIds(List.of("user2"))).thenReturn(List.of("user2"));
             when(userQueryFacadeService.getUserProfiles(List.of("user2"))).thenReturn(java.util.Map.of("user2", new UserProfileInfo("user2", "테스트유저2", null, 1, null, null, null)));
             when(userExperienceRepository.findByUserId("user2")).thenReturn(Optional.empty());
@@ -411,9 +411,9 @@ class RankingServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
             UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
-            Page<UserExperience> expPage = new PageImpl<>(List.of(exp1, exp2), pageable, 2);
 
-            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc(pageable)).thenReturn(expPage);
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(exp1, exp2));
             when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of("user1", new UserProfileInfo("user1", "유저1", null, 20, null, null, null), "user2", new UserProfileInfo("user2", "유저2", null, 15, null, null, null)));
             when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
@@ -427,6 +427,106 @@ class RankingServiceTest {
             assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
             assertThat(result.getContent().get(0).getCurrentLevel()).isEqualTo(20);
             assertThat(result.getContent().get(1).getRank()).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("QA-206: 동점 유저는 목록에서도 공동순위(RANK)로 매겨진다")
+        void getLevelRanking_ties_useCompetitionRank() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience a = createTestUserExperience(1L, "u1", 1, 100);
+            UserExperience b = createTestUserExperience(2L, "u2", 1, 100); // u1과 동점
+            UserExperience c = createTestUserExperience(3L, "u3", 1, 50);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(a, b, c));
+            when(userQueryFacadeService.getActiveUserIds(List.of("u1", "u2", "u3")))
+                .thenReturn(List.of("u1", "u2", "u3"));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
+
+            assertThat(result.getContent()).hasSize(3);
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
+            assertThat(result.getContent().get(2).getRank()).isEqualTo(3L); // 2위 건너뛰고 3위
+        }
+
+        @Test
+        @DisplayName("QA-206: 탈퇴 유저는 순위 모수에서 제외되고 순번은 연속이다")
+        void getLevelRanking_excludesWithdrawn() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience a = createTestUserExperience(1L, "active1", 5, 500);
+            UserExperience w = createTestUserExperience(2L, "withdrawn1", 5, 400);
+            UserExperience b = createTestUserExperience(3L, "active2", 5, 300);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(a, w, b));
+            when(userQueryFacadeService.getActiveUserIds(List.of("active1", "withdrawn1", "active2")))
+                .thenReturn(List.of("active1", "active2")); // 탈퇴자 제외
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable);
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getUserId()).isEqualTo("active1");
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(1).getUserId()).isEqualTo("active2");
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(2L); // 탈퇴자 건너뛰어도 연속 2위
+            assertThat(result.getContent().get(1).getTotalUsers()).isEqualTo(2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getMyLevelRankingByCategory 테스트")
+    class GetMyLevelRankingByCategoryTest {
+
+        @Test
+        @DisplayName("QA-206: 카테고리 내 내 랭킹을 공동순위로 계산한다")
+        void getMyLevelRankingByCategory_success() {
+            String category = "HEALTH";
+            Page<Object[]> rankingPage = new PageImpl<>(List.of(
+                new Object[] {"top", 1000L},
+                new Object[] {TEST_USER_ID, 500L},
+                new Object[] {"low", 100L}));
+
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
+                .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("top", TEST_USER_ID, "low"));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 500)));
+
+            LevelRankingResponse result = rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+
+            assertThat(result.getRank()).isEqualTo(2L); // top 1명이 위 → 공동순위 2위
+            assertThat(result.getTotalExp()).isEqualTo(500);
+            assertThat(result.getTotalUsers()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("카테고리 기록이 없으면 최하위로 반환한다")
+        void getMyLevelRankingByCategory_noRecord() {
+            String category = "STUDY";
+            Page<Object[]> rankingPage =
+                new PageImpl<>(Collections.singletonList(new Object[] {"other", 100L}));
+
+            when(experienceHistoryRepository.findUserExpRankingByCategory(eq(category), any(Pageable.class)))
+                .thenReturn(rankingPage);
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("other"));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            LevelRankingResponse result = rankingService.getMyLevelRankingByCategory(TEST_USER_ID, category);
+
+            assertThat(result.getRank()).isEqualTo(2L); // 활성 1명 + 1 = 최하위 2
+            assertThat(result.getTotalExp()).isEqualTo(0);
         }
     }
 

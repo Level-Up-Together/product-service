@@ -23,6 +23,12 @@ public interface UserExperienceRepository extends JpaRepository<UserExperience, 
     Page<UserExperience> findAllByOrderByCurrentLevelDescTotalExpDesc(Pageable pageable);
 
     /**
+     * QA-206: 레벨 기준 전체 랭킹(페이징 없음).
+     * 탈퇴자 제외 + 동점 공동순위를 전체 모수 기준으로 계산하기 위해 사용한다.
+     */
+    List<UserExperience> findAllByOrderByCurrentLevelDescTotalExpDesc();
+
+    /**
      * 특정 사용자의 레벨 기준 랭킹 순위 계산
      */
     @Query("""
