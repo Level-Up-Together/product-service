@@ -31,6 +31,9 @@ public class CompleteSignupRequestDto {
     private String deviceType;
     private String deviceId;
 
+    /** QA-207: 가입 시 디바이스 언어(ko/en/ja/ar). 알림 등 다국어의 기본 preferredLocale로 사용된다. */
+    private String preferredLocale;
+
     @Getter
     @Setter
     @NoArgsConstructor

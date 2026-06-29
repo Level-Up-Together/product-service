@@ -358,12 +358,19 @@ public class Oauth2Service {
             throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.signup.already_completed");
         }
 
+        // QA-207: 클라이언트가 보낸 디바이스 언어를 우선 적용 (없거나 미지원이면 세션 기본값).
+        // 가입 경로엔 디바이스 언어 전달 통로가 없어 항상 'en'으로 박혀 신규 유저 알림이 영문으로 가던 문제 해결.
+        String preferredLocale =
+            io.pinkspider.global.translation.enums.SupportedLocale.isSupported(request.getPreferredLocale())
+                ? request.getPreferredLocale()
+                : session.preferredLocale();
+
         Users newUsers = Users.builder()
             .email(session.email())
             .nickname(request.getNickname())
             .provider(session.provider())
             .nicknameSet(true)
-            .preferredLocale(session.preferredLocale())
+            .preferredLocale(preferredLocale)
             .preferredTimezone(session.preferredTimezone())
             .build();
 

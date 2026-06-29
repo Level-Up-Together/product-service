@@ -1074,4 +1074,69 @@ class Oauth2ServiceTest {
             }
         };
     }
+
+    @Nested
+    @DisplayName("completeSignup locale 테스트 (QA-207)")
+    class CompleteSignupLocaleTest {
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.CompleteSignupRequestDto
+            buildRequest(String preferredLocale) {
+            var request =
+                new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                    .CompleteSignupRequestDto();
+            request.setNickname(TEST_NICKNAME);
+            request.setAgreedTerms(java.util.List.of());
+            request.setDeviceType("web");
+            request.setPreferredLocale(preferredLocale);
+            return request;
+        }
+
+        private void stubCollaborators(MockedStatic<CryptoUtils> mockedCrypto, String sessionLocale) {
+            var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, sessionLocale, "UTC");
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session);
+            when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+            mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+            when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                .thenReturn(Optional.empty());
+            when(userRepository.save(any(Users.class))).thenReturn(Users.builder()
+                .id(TEST_USER_ID).email(TEST_EMAIL).nickname(TEST_NICKNAME).provider("google")
+                .preferredLocale(sessionLocale).preferredTimezone("UTC").build());
+            when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
+            when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+            when(deviceIdentifier.generateDeviceId(httpRequest, "web")).thenReturn(TEST_DEVICE_ID);
+            when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_ACCESS_TOKEN);
+            when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_REFRESH_TOKEN);
+        }
+
+        @Test
+        @DisplayName("QA-207: 가입 요청의 preferred_locale(ko)이 세션 기본값(en)보다 우선 저장된다")
+        void completeSignup_usesRequestLocale() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubCollaborators(mockedCrypto, "en");
+
+                oauth2Service.completeSignup("signup-token", buildRequest("ko"), httpRequest);
+
+                var captor = org.mockito.ArgumentCaptor.forClass(Users.class);
+                verify(userRepository, org.mockito.Mockito.atLeast(1)).save(captor.capture());
+                assertThat(captor.getAllValues().get(0).getPreferredLocale()).isEqualTo("ko");
+            }
+        }
+
+        @Test
+        @DisplayName("QA-207: 요청에 locale이 없으면 세션 기본값(en)으로 저장된다")
+        void completeSignup_fallsBackToSessionLocale() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                stubCollaborators(mockedCrypto, "en");
+
+                oauth2Service.completeSignup("signup-token", buildRequest(null), httpRequest);
+
+                var captor = org.mockito.ArgumentCaptor.forClass(Users.class);
+                verify(userRepository, org.mockito.Mockito.atLeast(1)).save(captor.capture());
+                assertThat(captor.getAllValues().get(0).getPreferredLocale()).isEqualTo("en");
+            }
+        }
+    }
 }
