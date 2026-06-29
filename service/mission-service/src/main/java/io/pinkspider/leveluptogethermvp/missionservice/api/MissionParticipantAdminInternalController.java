@@ -4,6 +4,7 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionParticipantAdminService;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -38,13 +39,13 @@ public class MissionParticipantAdminInternalController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
 
-        MissionSource source = resolveSource(type);
+        MissionTypeFilter filter = resolveFilter(type);
         LocalDateTime start = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime end = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
         return ApiResult.<UserMissionHistoryAdminPageResponse>builder()
             .value(participantAdminService.getUserMissionHistory(
-                userId, source, start, end,
+                userId, filter.type(), filter.source(), start, end,
                 PageRequest.of(page, size, Sort.by("joinedAt").descending())))
             .build();
     }
@@ -70,15 +71,22 @@ public class MissionParticipantAdminInternalController {
             .build();
     }
 
-    private MissionSource resolveSource(String type) {
+    /**
+     * QA-205: 유형 필터 문자열을 (Mission.type, Mission.source) 조합으로 변환한다.
+     * 길드 미션은 source 가 USER 로 저장되므로 type=GUILD 로, 미션북은 source=SYSTEM 으로 식별한다.
+     * 이 매핑은 {@code UserMissionHistoryAdminResponse#resolveMissionType} 분류와 동일한 기준이어야 한다.
+     */
+    private MissionTypeFilter resolveFilter(String type) {
         if (type == null || type.isBlank()) {
-            return null;
+            return new MissionTypeFilter(null, null);
         }
         return switch (type.toUpperCase()) {
-            case "PERSONAL" -> MissionSource.USER;
-            case "MISSION_BOOK" -> MissionSource.SYSTEM;
-            case "GUILD" -> MissionSource.GUILD;
-            default -> null;
+            case "GUILD" -> new MissionTypeFilter(MissionType.GUILD, null);
+            case "MISSION_BOOK" -> new MissionTypeFilter(MissionType.PERSONAL, MissionSource.SYSTEM);
+            case "PERSONAL" -> new MissionTypeFilter(MissionType.PERSONAL, MissionSource.USER);
+            default -> new MissionTypeFilter(null, null);
         };
     }
+
+    private record MissionTypeFilter(MissionType type, MissionSource source) {}
 }

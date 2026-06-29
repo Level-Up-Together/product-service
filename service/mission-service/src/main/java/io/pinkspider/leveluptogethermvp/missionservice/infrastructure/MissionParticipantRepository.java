@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,25 +48,31 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
     Page<MissionParticipant> findByUserIdWithMissionPaged(@Param("userId") String userId, Pageable pageable);
 
     /**
-     * QA-165: 어드민 미션 기록 검색용 — Mission.source 및 joinedAt 범위 필터.
-     * source / startDate / endDate 가 null 이면 해당 조건 무시.
+     * QA-165 / QA-205: 어드민 미션 기록 검색용 — Mission.type, Mission.source 및 joinedAt 범위 필터.
+     * type / source / startDate / endDate 가 null 이면 해당 조건 무시.
      *
-     * PostgreSQL nullable parameter 의 데이터 타입 추론 실패(42P18) 회피를 위해
+     * <p>유형 필터는 (type, source) 조합으로 전달한다. 길드 미션은 source 가 USER 로 저장되므로
+     * type=GUILD 로 식별하고, 미션북은 source=SYSTEM 으로 식별한다.
+     *
+     * <p>PostgreSQL nullable parameter 의 데이터 타입 추론 실패(42P18) 회피를 위해
      * 각 파라미터의 NULL 체크에 명시적 cast 를 적용한다.
      */
     @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m "
         + "WHERE mp.userId = :userId "
+        + "AND (cast(:type as string) IS NULL OR m.type = :type) "
         + "AND (cast(:source as string) IS NULL OR m.source = :source) "
         + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
         + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate) "
         + "ORDER BY mp.joinedAt DESC",
         countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp JOIN mp.mission m "
             + "WHERE mp.userId = :userId "
+            + "AND (cast(:type as string) IS NULL OR m.type = :type) "
             + "AND (cast(:source as string) IS NULL OR m.source = :source) "
             + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
             + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate)")
     Page<MissionParticipant> searchUserMissionHistory(
         @Param("userId") String userId,
+        @Param("type") MissionType type,
         @Param("source") MissionSource source,
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate,

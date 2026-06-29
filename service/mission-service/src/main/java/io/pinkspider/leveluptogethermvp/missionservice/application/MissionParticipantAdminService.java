@@ -4,6 +4,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHis
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import java.time.LocalDateTime;
@@ -24,13 +25,15 @@ public class MissionParticipantAdminService {
 
     public UserMissionHistoryAdminPageResponse getUserMissionHistory(
         String userId,
+        MissionType type,
         MissionSource source,
         LocalDateTime startDate,
         LocalDateTime endDate,
         Pageable pageable) {
 
         Page<MissionParticipant> participantPage =
-            participantRepository.searchUserMissionHistory(userId, source, startDate, endDate, pageable);
+            participantRepository.searchUserMissionHistory(
+                userId, type, source, startDate, endDate, pageable);
 
         List<UserMissionHistoryAdminResponse> content = participantPage.getContent().stream()
             .map(participant -> {
