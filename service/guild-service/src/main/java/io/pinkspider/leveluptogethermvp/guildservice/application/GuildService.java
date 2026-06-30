@@ -16,6 +16,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.global.event.GuildCreatedEvent;
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
@@ -227,6 +228,10 @@ public class GuildService {
         GuildMember masterMember = guildMemberRepository.findByGuildIdAndUserId(guildId, userId)
             .orElseThrow(() -> new IllegalStateException("길드 멤버 정보를 찾을 수 없습니다."));
         masterMember.leave();
+
+        // QA-213: 추방/탈퇴와 동일하게 길드장 본인의 길드 미션 참여도 정리되도록 이벤트 발행한다.
+        // 해체는 마스터가 마지막 1인이라 별도 정리 트리거가 없어, 길드장의 길드 미션이 '나의 미션'에 잔존했음.
+        eventPublisher.publishEvent(new GuildMemberRemovedEvent(userId, guildId));
 
         // 길드 비활성화
         guild.deactivate();

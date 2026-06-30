@@ -42,6 +42,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -708,6 +709,8 @@ class GuildServiceTest {
 
             // then
             assertThat(testGuild.getIsActive()).isFalse();
+            // QA-213: 길드장 본인의 길드 미션 참여 정리를 위해 GuildMemberRemovedEvent 발행
+            verify(eventPublisher).publishEvent(any(GuildMemberRemovedEvent.class));
         }
 
         @Test
