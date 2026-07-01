@@ -20,7 +20,9 @@ plugins {
 
 ext {
     set('springCloudVersion', "2024.0.0")
-    lutPlatformVersion = findProperty('lutPlatformVersion') ?: '0.1.1-SNAPSHOT'
+    // dev 스냅샷은 gradle.properties의 lutPlatformReleaseVersion에서 파생 (릴리스마다 그 값만 수정)
+    lutPlatformVersion =
+            findProperty('lutPlatformVersion') ?: "${findProperty('lutPlatformReleaseVersion')}-SNAPSHOT"
 }
 
 subprojects {
