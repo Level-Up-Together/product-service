@@ -180,28 +180,15 @@ public class AchievementService {
             .findByUserIdAndAchievementId(userId, achievementId)
             .orElseThrow(() -> new IllegalArgumentException("업적을 찾을 수 없습니다."));
 
-        userAchievement.claimReward();
-
-        Achievement achievement = userAchievement.getAchievement();
-
-        // 경험치 보상
-        if (achievement.getRewardExp() > 0) {
-            userExperienceService.addExperience(
-                userId,
-                achievement.getRewardExp(),
-                ExpSourceType.ACHIEVEMENT,
-                achievement.getId(),
-                "업적 달성 보상: " + achievement.getName(),
-                DEFAULT_CATEGORY_NAME
-            );
+        if (!Boolean.TRUE.equals(userAchievement.getIsCompleted())) {
+            throw new IllegalStateException("업적을 완료하지 않았습니다.");
         }
 
-        // 칭호 보상
-        if (achievement.getRewardTitleId() != null) {
-            titleService.grantTitle(userId, achievement.getRewardTitleId());
+        if (!claimRewardInternal(userId, userAchievement)) {
+            throw new IllegalStateException("이미 보상을 수령했습니다.");
         }
 
-        log.info("업적 보상 수령: userId={}, achievement={}", userId, achievement.getName());
+        log.info("업적 보상 수령: userId={}, achievement={}", userId, userAchievement.getAchievement().getName());
         return UserAchievementResponse.from(userAchievement);
     }
 
@@ -246,8 +233,9 @@ public class AchievementService {
             try {
                 log.info("업적 보상 수령 시도: userId={}, achievementId={}, achievementName={}",
                     userId, ua.getAchievement().getId(), ua.getAchievement().getName());
-                claimRewardInternal(userId, ua);
-                log.info("업적 보상 자동 수령 완료: userId={}, achievement={}", userId, ua.getAchievement().getName());
+                if (claimRewardInternal(userId, ua)) {
+                    log.info("업적 보상 자동 수령 완료: userId={}, achievement={}", userId, ua.getAchievement().getName());
+                }
             } catch (Exception e) {
                 log.error("업적 보상 자동 수령 실패: userId={}, achievement={}, error={}",
                     userId, ua.getAchievement().getName(), e.getMessage(), e);
@@ -257,11 +245,21 @@ public class AchievementService {
 
     /**
      * 내부용 보상 수령 메서드 (이미 조회된 UserAchievement 사용)
+     *
+     * @return 이 호출이 실제로 보상을 수령했으면 true.
+     *     이벤트 즉시 수령 / 홈 sync / 수동 claim 이 동시에 겹쳐도
+     *     markRewardClaimed 원자적 UPDATE 가드로 한 경로만 지급한다.
      */
-    private void claimRewardInternal(String userId, UserAchievement userAchievement) {
+    private boolean claimRewardInternal(String userId, UserAchievement userAchievement) {
+        int claimed = userAchievementRepository.markRewardClaimed(userAchievement.getId());
+        if (claimed == 0) {
+            log.info("업적 보상 이미 수령됨 (중복 수령 방지): userId={}, userAchievementId={}",
+                userId, userAchievement.getId());
+            return false;
+        }
+
+        // 벌크 UPDATE 는 영속성 컨텍스트를 우회하므로 in-memory 상태를 동기화한다
         userAchievement.claimReward();
-        log.info("claimReward() 호출 완료: userId={}, isRewardClaimed={}",
-            userId, userAchievement.getIsRewardClaimed());
 
         Achievement achievement = userAchievement.getAchievement();
 
@@ -289,6 +287,7 @@ public class AchievementService {
         // 명시적으로 저장하여 변경사항 반영
         userAchievementRepository.save(userAchievement);
         log.info("업적 보상 수령 DB 저장 완료: userId={}, achievement={}", userId, achievement.getName());
+        return true;
     }
 
     // =============================================
@@ -514,6 +513,14 @@ public class AchievementService {
                         achievement.getId(),
                         achievement.getName()
                     ));
+                }
+                // 완료 즉시 보상 자동 수령 — 홈 진입 sync 시점까지 지연되던 것을 제거.
+                // 실패해도 완료 처리는 유지되고 다음 홈 sync 의 autoClaimRewards 가 재시도한다.
+                try {
+                    claimRewardInternal(userId, userAchievement);
+                } catch (Exception e) {
+                    log.warn("업적 보상 즉시 수령 실패 (홈 sync 에서 재시도): userId={}, achievement={}, error={}",
+                        userId, achievement.getName(), e.getMessage());
                 }
             }
         } else {

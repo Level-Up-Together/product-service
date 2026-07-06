@@ -331,6 +331,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
                 .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
             UserAchievementResponse result = achievementService.claimReward(TEST_USER_ID, achievementId);
@@ -340,6 +341,44 @@ class AchievementServiceTest {
             assertThat(userAchievement.getIsRewardClaimed()).isTrue();
             verify(userExperienceService).addExperience(
                 eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(achievementId), anyString(), eq("기타"));
+        }
+
+        @Test
+        @DisplayName("완료하지 않은 업적을 수령하면 예외가 발생한다")
+        void claimReward_notCompleted_throwsException() {
+            // given
+            Long achievementId = 1L;
+            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 0, false);
+
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
+                .thenReturn(Optional.of(userAchievement));
+
+            // when & then
+            assertThatThrownBy(() -> achievementService.claimReward(TEST_USER_ID, achievementId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("업적을 완료하지 않았습니다.");
+            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("이미 수령된 업적(원자적 가드 0 반환)이면 예외가 발생하고 보상을 재지급하지 않는다")
+        void claimReward_alreadyClaimedByGuard_throwsException() {
+            // given: 다른 경로(이벤트 즉시 수령/홈 sync)가 먼저 수령해 markRewardClaimed 가 0을 반환
+            Long achievementId = 1L;
+            Achievement achievement = createTestAchievement(achievementId, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
+                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
+
+            // when & then
+            assertThatThrownBy(() -> achievementService.claimReward(TEST_USER_ID, achievementId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("이미 보상을 수령했습니다.");
+            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(titleService, never()).grantTitle(any(), any());
         }
 
         @Test
@@ -354,6 +393,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
                 .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
             achievementService.claimReward(TEST_USER_ID, achievementId);
@@ -490,6 +530,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                 .thenReturn(List.of(claimableAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any(UserAchievement.class)))
                 .thenReturn(claimableAchievement);
 
@@ -501,6 +542,26 @@ class AchievementServiceTest {
             verify(userExperienceService).addExperience(
                 eq(TEST_USER_ID), eq(50), eq(ExpSourceType.ACHIEVEMENT), eq(1L), anyString(), eq("기타"));
             verify(userAchievementRepository).save(claimableAchievement);
+        }
+
+        @Test
+        @DisplayName("이미 다른 경로에서 수령된 업적(가드 0 반환)은 보상을 재지급하지 않는다")
+        void autoClaimRewards_alreadyClaimedByGuard_skips() {
+            // given: 이벤트 즉시 수령이 먼저 처리해 markRewardClaimed 가 0을 반환
+            Achievement achievement = createTestAchievement(1L, "FIRST_MISSION_COMPLETE", 1, 50);
+            UserAchievement claimableAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+
+            when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
+                .thenReturn(List.of(claimableAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
+
+            // when
+            achievementService.autoClaimRewards(TEST_USER_ID);
+
+            // then: 경험치/칭호 재지급 없음
+            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(titleService, never()).grantTitle(any(), any());
+            verify(userAchievementRepository, never()).save(any(UserAchievement.class));
         }
     }
 
@@ -664,6 +725,80 @@ class AchievementServiceTest {
 
             // then
             verify(achievementRepository, never()).findByCheckLogicDataSourceAndIsActiveTrue(anyString());
+        }
+
+        @Test
+        @DisplayName("업적 완료 시 보상을 즉시 자동 수령한다 (홈 sync 대기 없음)")
+        void checkAchievementsByDataSource_completedAchievement_claimsImmediately() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
+            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
+
+            // when
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            // then: 완료 처리 + 즉시 보상 수령
+            assertThat(userAchievement.getIsCompleted()).isTrue();
+            assertThat(userAchievement.getIsRewardClaimed()).isTrue();
+            verify(userExperienceService).addExperience(
+                eq(TEST_USER_ID), eq(100), eq(ExpSourceType.ACHIEVEMENT), eq(1L), anyString(), eq("기타"));
+        }
+
+        @Test
+        @DisplayName("업적 완료 시 즉시 수령이 실패해도 완료 처리는 유지된다")
+        void checkAchievementsByDataSource_immediateClaimFails_completionKept() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
+            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenThrow(new RuntimeException("DB 오류"));
+
+            // when: 예외가 전파되지 않아야 함
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            // then: 완료 상태는 유지 (보상은 다음 홈 sync 의 autoClaimRewards 가 재시도)
+            assertThat(userAchievement.getIsCompleted()).isTrue();
+            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("이미 다른 경로에서 수령된 업적(가드 0 반환)은 즉시 수령 시 보상을 재지급하지 않는다")
+        void checkAchievementsByDataSource_guardReturnsZero_noDoubleReward() {
+            // given
+            Achievement achievement = createTestAchievement(1L, "MISSION_COMPLETE_10", 10, 100);
+            UserAchievement userAchievement = createTestUserAchievement(1L, TEST_USER_ID, achievement, 5, false);
+
+            when(achievementCacheService.getAchievementsByDataSource("USER_STATS"))
+                .thenReturn(List.of(achievement));
+            when(strategyRegistry.getStrategy("USER_STATS")).thenReturn(mockStrategy);
+            when(mockStrategy.checkCondition(TEST_USER_ID, achievement)).thenReturn(true);
+            when(mockStrategy.fetchCurrentValue(TEST_USER_ID, achievement)).thenReturn(10);
+            when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(0);
+
+            // when
+            achievementService.checkAchievementsByDataSource(TEST_USER_ID, "USER_STATS");
+
+            // then
+            verify(userExperienceService, never()).addExperience(any(), anyInt(), any(), any(), any(), any());
+            verify(titleService, never()).grantTitle(any(), any());
         }
     }
 
@@ -1414,6 +1549,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
                 .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
             achievementService.claimReward(TEST_USER_ID, achievementId);
@@ -1433,6 +1569,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findByUserIdAndAchievementId(TEST_USER_ID, achievementId))
                 .thenReturn(Optional.of(userAchievement));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
 
             // when
             achievementService.claimReward(TEST_USER_ID, achievementId);
@@ -1450,6 +1587,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                 .thenReturn(List.of(claimable));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable);
 
             // when
@@ -1470,6 +1608,7 @@ class AchievementServiceTest {
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
                 .thenReturn(List.of(claimable));
+            when(userAchievementRepository.markRewardClaimed(1L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable);
 
             // when
@@ -1485,12 +1624,14 @@ class AchievementServiceTest {
             // given
             Achievement ach1 = createTestAchievement(1L, "ACH_1", 1, 0);
             Achievement ach2 = createTestAchievement(2L, "ACH_2", 1, 50);
-            // ach1은 isCompleted=false → claimReward() 내부에서 IllegalStateException
-            UserAchievement notCompleted = createTestUserAchievement(1L, TEST_USER_ID, ach1, 0, false);
+            UserAchievement claimable1 = createTestUserAchievement(1L, TEST_USER_ID, ach1, 1, true);
             UserAchievement claimable2 = createTestUserAchievement(2L, TEST_USER_ID, ach2, 1, true);
 
             when(userAchievementRepository.findClaimableByUserId(TEST_USER_ID))
-                .thenReturn(List.of(notCompleted, claimable2));
+                .thenReturn(List.of(claimable1, claimable2));
+            // ach1은 수령 처리 중 예외 발생
+            when(userAchievementRepository.markRewardClaimed(1L)).thenThrow(new RuntimeException("DB 오류"));
+            when(userAchievementRepository.markRewardClaimed(2L)).thenReturn(1);
             when(userAchievementRepository.save(any())).thenReturn(claimable2);
 
             // when

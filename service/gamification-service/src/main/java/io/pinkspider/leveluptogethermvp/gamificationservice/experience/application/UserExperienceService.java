@@ -4,7 +4,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +37,6 @@ public class UserExperienceService {
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final UserLevelConfigCacheService userLevelConfigCacheService;
-    private final ApplicationContext applicationContext;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -90,20 +88,19 @@ public class UserExperienceService {
 
             // 프로필 캐시 무효화 + 스냅샷 동기화는 UserLevelUpProfileSyncListener에서 처리
 
-            // 동적 Strategy 패턴으로 USER_EXPERIENCE 관련 업적 체크 (순환 의존성 방지를 위해 ApplicationContext 사용)
-            try {
-                AchievementService achievementService = applicationContext.getBean(AchievementService.class);
-                achievementService.checkAchievementsByDataSource(userId, "USER_EXPERIENCE");
-            } catch (Exception e) {
-                log.warn("레벨 업적 체크 실패: userId={}, level={}, error={}", userId, levelAfter, e.getMessage());
-            }
-
             // 길드 창설 가능 레벨(20) 도달 시 이벤트 발행
             if (levelAfter >= GUILD_CREATION_MIN_LEVEL && levelBefore < GUILD_CREATION_MIN_LEVEL) {
                 eventPublisher.publishEvent(new GuildCreationEligibleEvent(userId, levelAfter));
                 log.info("길드 창설 가능 레벨 도달: userId={}, level={}", userId, levelAfter);
             }
         }
+
+        // 경험치/카테고리 경험치 업적 체크는 AFTER_COMMIT 리스너에서 수행한다.
+        // (기존 인라인 체크는 REQUIRES_NEW 라 방금 지급된 경험치를 읽지 못해 판정이 다음 체크까지 지연됐음)
+        List<String> checkDataSources = categoryId != null && expAmount > 0
+            ? List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")
+            : List.of("USER_EXPERIENCE");
+        eventPublisher.publishEvent(new AchievementCheckRequestedEvent(userId, checkDataSources));
 
         log.info("경험치 획득: userId={}, amount={}, total={}, level={}, categoryId={}",
             userId, expAmount, userExp.getTotalExp(), userExp.getCurrentLevel(), categoryId);

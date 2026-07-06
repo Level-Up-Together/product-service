@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -91,6 +93,44 @@ class AchievementEventListenerTest {
 
             // when & then - 예외가 발생하지 않아야 함
             eventListener.handleGuildMasterAssigned(event);
+        }
+    }
+
+    @Nested
+    @DisplayName("커밋 후 업적 체크 요청 이벤트 처리")
+    class HandleAchievementCheckRequestedTest {
+
+        @Test
+        @DisplayName("요청된 모든 데이터 소스를 순서대로 체크한다")
+        void shouldCheckAllRequestedDataSources() {
+            // given
+            AchievementCheckRequestedEvent event = new AchievementCheckRequestedEvent(
+                "user-123", List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")
+            );
+
+            // when
+            eventListener.handleAchievementCheckRequested(event);
+
+            // then
+            verify(achievementService).checkAchievementsByDataSource("user-123", "USER_EXPERIENCE");
+            verify(achievementService).checkAchievementsByDataSource("user-123", "USER_CATEGORY_EXPERIENCE");
+        }
+
+        @Test
+        @DisplayName("한 데이터 소스 체크가 실패해도 나머지 소스는 계속 체크한다")
+        void shouldContinueWithRemainingDataSourcesOnFailure() {
+            // given
+            AchievementCheckRequestedEvent event = new AchievementCheckRequestedEvent(
+                "user-123", List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")
+            );
+            doThrow(new RuntimeException("업적 체크 실패"))
+                .when(achievementService).checkAchievementsByDataSource("user-123", "USER_EXPERIENCE");
+
+            // when - 예외가 발생하지 않아야 함
+            eventListener.handleAchievementCheckRequested(event);
+
+            // then - 두 번째 소스는 정상 체크
+            verify(achievementService).checkAchievementsByDataSource("user-123", "USER_CATEGORY_EXPERIENCE");
         }
     }
 }

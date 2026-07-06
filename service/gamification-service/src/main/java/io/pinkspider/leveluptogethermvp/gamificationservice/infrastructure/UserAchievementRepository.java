@@ -4,6 +4,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserAc
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -36,6 +37,15 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     // 보상 수령 가능 목록도 비활성 업적은 숨김 (자동 보상도 비활성 업적에는 지급되지 않음).
     @Query("SELECT ua FROM UserAchievement ua JOIN FETCH ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND ua.isRewardClaimed = false AND a.isActive = true")
     List<UserAchievement> findClaimableByUserId(@Param("userId") String userId);
+
+    /**
+     * 보상 수령 원자적 가드 — 이벤트 즉시 수령 / 홈 sync 자동 수령 / 수동 claim API 가
+     * 동시에 실행되어도 한 경로만 1을 반환한다. flushAutomatically 로 같은 트랜잭션에서
+     * 방금 완료 처리된(아직 flush 안 된) 행도 조건에 반영한다.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE UserAchievement ua SET ua.isRewardClaimed = true, ua.rewardClaimedAt = CURRENT_TIMESTAMP WHERE ua.id = :id AND ua.isCompleted = true AND ua.isRewardClaimed = false")
+    int markRewardClaimed(@Param("id") Long id);
 
     @Query("SELECT COUNT(ua) FROM UserAchievement ua JOIN ua.achievement a WHERE ua.userId = :userId AND ua.isCompleted = true AND a.isActive = true")
     long countCompletedByUserId(@Param("userId") String userId);

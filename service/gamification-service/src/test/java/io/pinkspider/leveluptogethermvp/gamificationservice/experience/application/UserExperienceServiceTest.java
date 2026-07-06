@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.UserLevelUpEvent;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -28,7 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -50,7 +52,7 @@ class UserExperienceServiceTest {
     private UserLevelConfigCacheService userLevelConfigCacheService;
 
     @Mock
-    private ApplicationContext applicationContext;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserExperienceService userExperienceService;
@@ -506,6 +508,66 @@ class UserExperienceServiceTest {
             // then
             assertThat(result).isNotNull();
             verify(userCategoryExperienceRepository).save(any(UserCategoryExperience.class));
+        }
+
+        @Test
+        @DisplayName("카테고리 없는 경험치 지급 시 USER_EXPERIENCE 업적 체크 이벤트를 발행한다")
+        void addExperience_withoutCategory_publishesUserExperienceCheckEvent() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
+
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
+            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+
+            // when
+            userExperienceService.addExperience(
+                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then: 커밋 후 업적 체크용 이벤트 발행 (카테고리 없음 → USER_EXPERIENCE 만)
+            verify(eventPublisher).publishEvent(
+                new AchievementCheckRequestedEvent(TEST_USER_ID, List.of("USER_EXPERIENCE")));
+        }
+
+        @Test
+        @DisplayName("카테고리 경험치 지급 시 USER_CATEGORY_EXPERIENCE 업적 체크 이벤트도 발행한다")
+        void addExperience_withCategory_publishesCategoryCheckEvent() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 50, 50);
+
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
+            when(userLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(createUserLevelConfig(1, 100, 0));
+            when(userCategoryExperienceRepository.findByUserIdAndCategoryId(TEST_USER_ID, 1L))
+                .thenReturn(Optional.empty());
+
+            // when
+            userExperienceService.addExperience(
+                TEST_USER_ID, 30, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료", 1L, "건강");
+
+            // then
+            verify(eventPublisher).publishEvent(new AchievementCheckRequestedEvent(
+                TEST_USER_ID, List.of("USER_EXPERIENCE", "USER_CATEGORY_EXPERIENCE")));
+        }
+
+        @Test
+        @DisplayName("레벨업 시 UserLevelUpEvent 와 업적 체크 이벤트를 모두 발행한다")
+        void addExperience_levelUp_publishesBothEvents() {
+            // given
+            UserExperience userExp = createTestUserExperience(1L, TEST_USER_ID, 1, 90, 90);
+
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(userExp));
+            when(userLevelConfigCacheService.getAllLevelConfigs()).thenReturn(Collections.emptyList());
+            when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(null);
+
+            // when
+            userExperienceService.addExperience(
+                TEST_USER_ID, 20, ExpSourceType.MISSION_EXECUTION, 1L, "미션 완료");
+
+            // then
+            verify(eventPublisher).publishEvent(any(UserLevelUpEvent.class));
+            verify(eventPublisher).publishEvent(
+                new AchievementCheckRequestedEvent(TEST_USER_ID, List.of("USER_EXPERIENCE")));
         }
     }
 

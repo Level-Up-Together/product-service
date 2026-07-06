@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.l
 import io.pinkspider.global.event.GuildJoinedEvent;
 import io.pinkspider.global.event.GuildMasterAssignedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -53,6 +54,25 @@ public class AchievementEventListener {
         } catch (Exception e) {
             log.warn("길드 마스터 업적 체크 실패: userId={}, guildId={}, error={}",
                 event.userId(), event.guildId(), e.getMessage());
+        }
+    }
+
+    /**
+     * 커밋 후 업적 체크 요청 처리 (경험치 지급, 출석 등 소스 데이터 갱신 트랜잭션에서 발행)
+     * - 발행 트랜잭션 커밋 후 실행되므로 방금 갱신된 값이 체크에 반영된다
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleAchievementCheckRequested(AchievementCheckRequestedEvent event) {
+        log.debug("업적 체크 요청 이벤트 수신: userId={}, dataSources={}",
+            event.userId(), event.dataSources());
+        for (String dataSource : event.dataSources()) {
+            try {
+                achievementService.checkAchievementsByDataSource(event.userId(), dataSource);
+            } catch (Exception e) {
+                log.warn("업적 체크 실패: userId={}, dataSource={}, error={}",
+                    event.userId(), dataSource, e.getMessage());
+            }
         }
     }
 }

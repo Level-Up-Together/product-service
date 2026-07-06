@@ -3,7 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.attendance.applicat
 import static io.pinkspider.leveluptogethermvp.metaservice.domain.entity.MissionCategory.DEFAULT_CATEGORY_NAME;
 
 import io.pinkspider.global.event.AttendanceStreakEvent;
-import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.AttendanceRecord;
 import io.pinkspider.leveluptogethermvp.metaservice.attendancerewardconfig.application.AttendanceRewardConfigCacheService;
 import io.pinkspider.global.enums.ExpSourceType;
@@ -42,7 +42,6 @@ public class AttendanceService {
     private final AttendanceRewardConfigCacheService rewardConfigCacheService;
     private final UserExperienceService userExperienceService;
     private final UserStatsService userStatsService;
-    private final AchievementService achievementService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
 
@@ -102,13 +101,10 @@ public class AttendanceService {
             );
         }
 
-        // QA-113 / B11: user_stats streak 갱신 + USER_STATS 기반 업적 체크
+        // QA-113 / B11: user_stats streak 갱신 + USER_STATS 기반 업적 체크.
+        // 체크는 AFTER_COMMIT 리스너에서 수행 — 인라인 체크(REQUIRES_NEW)는 방금 갱신된 streak 을 읽지 못한다.
         userStatsService.recordAttendance(userId, today);
-        try {
-            achievementService.checkAchievementsByDataSource(userId, "USER_STATS");
-        } catch (Exception e) {
-            log.error("출석 후 업적 체크 실패: userId={}, error={}", userId, e.getMessage(), e);
-        }
+        eventPublisher.publishEvent(new AchievementCheckRequestedEvent(userId, List.of("USER_STATS")));
 
         // 연속 출석 마일스톤 달성 시 피드 프로젝션 이벤트 발행
         if (STREAK_MILESTONES.contains(consecutiveDays)) {
