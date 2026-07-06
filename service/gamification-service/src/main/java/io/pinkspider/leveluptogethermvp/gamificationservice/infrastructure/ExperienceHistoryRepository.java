@@ -105,6 +105,27 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         @Param("endDate") LocalDateTime endDate);
 
     /**
+     * QA-217: 기간 내 사용자의 일별 획득 경험치 합계 (사용자 타임존 기준 날짜 버킷).
+     * 오늘의 MVP(findTopExpGainersByPeriod)와 동일 필터로 캘린더 표기를 MVP와 일치시킨다.
+     * created_at 은 UTC 저장이므로 타임존 변환 후 날짜로 그룹핑한다.
+     */
+    @Query(value = """
+        SELECT CAST(eh.created_at AT TIME ZONE 'UTC' AT TIME ZONE :timezone AS DATE) AS day,
+               SUM(eh.exp_amount) AS total_exp
+        FROM experience_history eh
+        WHERE eh.user_id = :userId
+        AND eh.created_at >= :startDate AND eh.created_at < :endDate
+        AND eh.category_name IS NOT NULL
+        AND eh.exp_amount > 0
+        GROUP BY day
+        """, nativeQuery = true)
+    List<Object[]> sumDailyExpByUserIdAndPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("timezone") String timezone);
+
+    /**
      * 특정 기간 동안 사용자보다 경험치가 많은 사용자 수 조회 (순위 계산용)
      */
     @Query(value = """

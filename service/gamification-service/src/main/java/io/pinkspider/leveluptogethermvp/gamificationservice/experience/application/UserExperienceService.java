@@ -13,7 +13,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserCategoryExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -167,6 +169,29 @@ public class UserExperienceService {
     public List<Object[]> findTopExpGainersByCategoryAndPeriod(String categoryName, LocalDateTime start,
                                                                 LocalDateTime end, Pageable pageable) {
         return experienceHistoryRepository.findTopExpGainersByCategoryAndPeriod(categoryName, start, end, pageable);
+    }
+
+    /**
+     * QA-217: 기간 내 일별 획득 경험치 합계 (사용자 타임존 날짜 버킷).
+     * 미션 캘린더가 출석·업적 보상 등 미션 외 경험치까지 포함해 MVP와 동일한 값을 표시하기 위해 사용.
+     */
+    public Map<LocalDate, Long> getDailyExpSummary(String userId, LocalDateTime startUtc,
+                                                    LocalDateTime endUtc, String timezone) {
+        String zone = "Asia/Seoul";
+        if (timezone != null) {
+            try {
+                ZoneId.of(timezone);
+                zone = timezone;
+            } catch (Exception e) {
+                log.warn("유효하지 않은 타임존, 기본값 사용: timezone={}", timezone);
+            }
+        }
+
+        return experienceHistoryRepository
+            .sumDailyExpByUserIdAndPeriod(userId, startUtc, endUtc, zone).stream()
+            .collect(Collectors.toMap(
+                row -> ((java.sql.Date) row[0]).toLocalDate(),
+                row -> ((Number) row[1]).longValue()));
     }
 
     public Page<ExperienceHistory> getExperienceHistory(String userId, Pageable pageable) {

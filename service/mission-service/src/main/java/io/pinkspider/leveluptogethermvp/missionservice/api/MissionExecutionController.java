@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -177,9 +178,10 @@ public class MissionExecutionController {
     public ResponseEntity<ApiResult<MonthlyCalendarResponse>> getMonthlyCalendarData(
         @CurrentUser String userId,
         @RequestParam int year,
-        @RequestParam int month) {
+        @RequestParam int month,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
 
-        MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month);
+        MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month, timezone);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
 

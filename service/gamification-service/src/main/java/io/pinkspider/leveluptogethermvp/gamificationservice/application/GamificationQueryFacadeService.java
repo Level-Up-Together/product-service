@@ -33,6 +33,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.Se
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +104,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     public List<Object[]> findTopExpGainersByCategoryAndPeriod(String categoryName, LocalDateTime start,
                                                                LocalDateTime end, Pageable pageable) {
         return userExperienceService.findTopExpGainersByCategoryAndPeriod(categoryName, start, end, pageable);
+    }
+
+    @Override
+    public Map<LocalDate, Long> getDailyExpSummary(String userId, LocalDateTime startUtc,
+                                                   LocalDateTime endUtc, String timezone) {
+        return userExperienceService.getDailyExpSummary(userId, startUtc, endUtc, timezone);
     }
 
     // ========== 칭호 조회 ==========

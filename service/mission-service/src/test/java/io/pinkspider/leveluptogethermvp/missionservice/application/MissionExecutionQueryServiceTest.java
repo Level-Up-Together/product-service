@@ -69,6 +69,9 @@ class MissionExecutionQueryServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
 
+    @Mock
+    private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
+
     @InjectMocks
     private MissionExecutionQueryService executionService;
 
@@ -160,26 +163,27 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(completedExecutions);
 
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(80);
-
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-            when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
+
+            // QA-217: 경험치 이력 기반 일별 합계
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date1, 50L, date2, 30L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
             assertThat(response.getYear()).isEqualTo(year);
             assertThat(response.getMonth()).isEqualTo(month);
             assertThat(response.getTotalExp()).isEqualTo(80);
+            assertThat(response.getDailyExp())
+                .containsEntry(date1.toString(), 50)
+                .containsEntry(date2.toString(), 30);
             assertThat(response.getDailyMissions()).hasSize(2);
             assertThat(response.getCompletedDates()).hasSize(2);
             assertThat(response.getCompletedDates()).contains(date1.toString(), date2.toString());
@@ -237,20 +241,17 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(completedExecutions);
 
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(80);
-
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-            when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
+
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(sameDate, 80L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -271,20 +272,17 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
 
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
-
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-            when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
+
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of());
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -311,20 +309,17 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(completedExecutions);
 
-            when(executionRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(50);
-
             // 고정 미션 관련 mock (없음)
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-            when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(0);
+
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date, 50L));
 
             // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
 
             // then
             assertThat(response).isNotNull();
@@ -355,11 +350,64 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(completedExecutions);
 
+            // 고정 미션 관련 mock (없음)
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
+                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date1, 30L, date2, 40L, date3, 50L));
+
+            // when
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then
+            assertThat(response.getCompletedDates())
+                .containsExactly(date1.toString(), date2.toString(), date3.toString());
+        }
+
+        @Test
+        @DisplayName("QA-217: 출석 보상 등 미션 외 경험치가 일별/월별 합계에 포함된다")
+        void getMonthlyCalendarData_includesNonMissionExp() {
+            // given: 미션 경험치 50 + 출석 보상 10 = 일별 합계 60
+            int year = 2024;
+            int month = 12;
+            LocalDate date = LocalDate.of(year, month, 15);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(
+                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
+                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), eq("Asia/Seoul")))
+                .thenReturn(java.util.Map.of(date, 60L));
+
+            // when
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then: 캘린더 합계가 미션 합(50)이 아닌 경험치 이력 합(60)
+            assertThat(response.getTotalExp()).isEqualTo(60);
+            assertThat(response.getDailyExp()).containsEntry(date.toString(), 60);
+        }
+
+        @Test
+        @DisplayName("QA-217: 경험치 이력 조회 실패 시 기존 미션 경험치 합으로 fallback 한다")
+        void getMonthlyCalendarData_fallbackToMissionExpOnFailure() {
+            // given
+            int year = 2024;
+            int month = 12;
+            LocalDate date = LocalDate.of(year, month, 15);
+
+            when(executionRepository.findCompletedByUserIdAndDateRange(
+                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
             when(executionRepository.sumExpEarnedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(120);
-
-            // 고정 미션 관련 mock (없음)
+                .thenReturn(50);
             when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
@@ -367,12 +415,16 @@ class MissionExecutionQueryServiceTest {
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(0);
 
-            // when
-            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month);
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenThrow(new RuntimeException("gamification 조회 실패"));
 
-            // then
-            assertThat(response.getCompletedDates())
-                .containsExactly(date1.toString(), date2.toString(), date3.toString());
+            // when
+            MonthlyCalendarResponse response = executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then: 미션 경험치 합으로 fallback, dailyExp 는 비어 있음
+            assertThat(response.getTotalExp()).isEqualTo(50);
+            assertThat(response.getDailyExp()).isEmpty();
         }
     }
 

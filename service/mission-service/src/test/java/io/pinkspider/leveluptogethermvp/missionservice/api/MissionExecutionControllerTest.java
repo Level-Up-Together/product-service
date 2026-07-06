@@ -423,10 +423,11 @@ class MissionExecutionControllerTest {
                         .build()
                 )
             ))
+            .dailyExp(Map.of(todayStr, 90, yesterdayStr, 40))
             .completedDates(List.of(yesterdayStr, todayStr))
             .build();
 
-        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any()))
             .thenReturn(response);
 
         // when
@@ -454,7 +455,9 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("월별 캘린더 데이터"),
                             fieldWithPath("value.year").type(JsonFieldType.NUMBER).description("조회 연도"),
                             fieldWithPath("value.month").type(JsonFieldType.NUMBER).description("조회 월"),
-                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("월별 총 획득 경험치"),
+                            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("월별 총 획득 경험치 (출석·업적 보상 등 미션 외 경험치 포함)"),
+                            fieldWithPath("value.daily_exp").type(JsonFieldType.OBJECT).description("날짜별 총 획득 경험치 (key: yyyy-MM-dd, 미션 외 경험치 포함)"),
+                            fieldWithPath("value.daily_exp.*").type(JsonFieldType.NUMBER).description("해당 날짜 총 획득 경험치").optional(),
                             fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (key: yyyy-MM-dd)"),
                             fieldWithPath("value.daily_missions.*[]").type(JsonFieldType.ARRAY).description("해당 날짜 완료 미션 목록"),
                             fieldWithPath("value.daily_missions.*[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID"),
@@ -485,11 +488,12 @@ class MissionExecutionControllerTest {
             .year(today.getYear())
             .month(today.getMonthValue())
             .totalExp(0)
+            .dailyExp(Map.of())
             .dailyMissions(Map.of())
             .completedDates(List.of())
             .build();
 
-        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class)))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any()))
             .thenReturn(response);
 
         // when
@@ -518,6 +522,7 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.year").type(JsonFieldType.NUMBER).description("조회 연도"),
                             fieldWithPath("value.month").type(JsonFieldType.NUMBER).description("조회 월"),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("월별 총 획득 경험치 (0)"),
+                            fieldWithPath("value.daily_exp").type(JsonFieldType.OBJECT).description("날짜별 총 획득 경험치 (빈 객체)"),
                             fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (빈 객체)"),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (빈 배열)")
                         )

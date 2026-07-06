@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissi
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +45,7 @@ public class MissionExecutionQueryService {
     private final DailyMissionInstanceImageRepository instanceImageRepository;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final FeedQueryService feedQueryService;
+    private final GamificationQueryFacade gamificationQueryFacade;
 
     public List<MissionExecutionResponse> getExecutionsByParticipant(Long participantId) {
         return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
@@ -259,7 +261,7 @@ public class MissionExecutionQueryService {
      * 해당 월의 완료된 미션 실행 내역과 총 획득 경험치 반환
      * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함
      */
-    public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month) {
+    public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month, String timezone) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
@@ -272,10 +274,18 @@ public class MissionExecutionQueryService {
         List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
             .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
 
-        // 3. 월별 총 획득 경험치 조회 (일반 미션 + 고정 미션)
-        int regularMissionExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
-        int pinnedMissionExp = dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
-        int totalExp = regularMissionExp + pinnedMissionExp;
+        // 3. 일별/월별 총 획득 경험치 — QA-217: 경험치 이력 기반으로 출석·업적 보상 등
+        //    미션 외 경험치까지 포함해 오늘의 MVP 표기와 일치시킨다.
+        //    경험치 이력 조회 실패 시 기존 방식(미션 경험치 합)으로 fallback.
+        Map<String, Integer> dailyExp = fetchDailyExpSummary(userId, yearMonth, timezone);
+        int totalExp;
+        if (dailyExp != null) {
+            totalExp = dailyExp.values().stream().mapToInt(Integer::intValue).sum();
+        } else {
+            int regularMissionExp = executionRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+            int pinnedMissionExp = dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(userId, startDate, endDate);
+            totalExp = regularMissionExp + pinnedMissionExp;
+        }
 
         // 4. 날짜별 미션 그룹화
         Map<String, List<DailyMission>> dailyMissions = new HashMap<>();
@@ -345,9 +355,39 @@ public class MissionExecutionQueryService {
             .year(year)
             .month(month)
             .totalExp(totalExp)
+            .dailyExp(dailyExp != null ? dailyExp : Map.of())
             .dailyMissions(dailyMissions)
             .completedDates(completedDates)
             .build();
+    }
+
+    /**
+     * QA-217: 경험치 이력 기반 일별 획득 경험치 조회 (사용자 타임존 월 경계를 UTC로 변환).
+     *
+     * @return 날짜("yyyy-MM-dd") → 획득 경험치. 조회 실패 시 null (호출부에서 미션 합으로 fallback)
+     */
+    private Map<String, Integer> fetchDailyExpSummary(String userId, YearMonth yearMonth, String timezone) {
+        try {
+            ZoneId userZone;
+            try {
+                userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+            } catch (Exception e) {
+                userZone = ZoneId.of("Asia/Seoul");
+            }
+
+            LocalDateTime startUtc = yearMonth.atDay(1).atStartOfDay(userZone)
+                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+            LocalDateTime endUtc = yearMonth.plusMonths(1).atDay(1).atStartOfDay(userZone)
+                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+
+            Map<String, Integer> result = new HashMap<>();
+            gamificationQueryFacade.getDailyExpSummary(userId, startUtc, endUtc, userZone.getId())
+                .forEach((date, exp) -> result.put(date.toString(), exp.intValue()));
+            return result;
+        } catch (Exception e) {
+            log.warn("일별 경험치 이력 조회 실패, 미션 경험치 합으로 대체: userId={}, error={}", userId, e.getMessage());
+            return null;
+        }
     }
 
     /**

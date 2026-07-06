@@ -20,8 +20,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserC
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -765,6 +768,53 @@ class UserExperienceServiceTest {
 
             // then
             assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getDailyExpSummary 테스트 (QA-217)")
+    class GetDailyExpSummaryTest {
+
+        @Test
+        @DisplayName("일별 경험치 합계를 날짜 맵으로 변환한다")
+        void getDailyExpSummary_success() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 6, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 7, 31, 15, 0);
+            when(experienceHistoryRepository.sumDailyExpByUserIdAndPeriod(
+                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                .thenReturn(List.of(
+                    new Object[]{java.sql.Date.valueOf("2026-07-01"), java.math.BigDecimal.valueOf(135)},
+                    new Object[]{java.sql.Date.valueOf("2026-07-02"), java.math.BigDecimal.valueOf(10)}));
+
+            // when
+            Map<LocalDate, Long> result = userExperienceService.getDailyExpSummary(
+                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
+
+            // then
+            assertThat(result)
+                .containsEntry(LocalDate.of(2026, 7, 1), 135L)
+                .containsEntry(LocalDate.of(2026, 7, 2), 10L);
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 타임존이면 Asia/Seoul 로 대체한다")
+        void getDailyExpSummary_invalidTimezone_fallsBackToSeoul() {
+            // given
+            LocalDateTime startUtc = LocalDateTime.of(2026, 6, 30, 15, 0);
+            LocalDateTime endUtc = LocalDateTime.of(2026, 7, 31, 15, 0);
+            when(experienceHistoryRepository.sumDailyExpByUserIdAndPeriod(
+                TEST_USER_ID, startUtc, endUtc, "Asia/Seoul"))
+                .thenReturn(List.of());
+
+            // when
+            Map<LocalDate, Long> result = userExperienceService.getDailyExpSummary(
+                TEST_USER_ID, startUtc, endUtc, "Invalid/Zone");
+
+            // then
+            assertThat(result).isEmpty();
+            verify(experienceHistoryRepository)
+                .sumDailyExpByUserIdAndPeriod(TEST_USER_ID, startUtc, endUtc, "Asia/Seoul");
         }
     }
 }
