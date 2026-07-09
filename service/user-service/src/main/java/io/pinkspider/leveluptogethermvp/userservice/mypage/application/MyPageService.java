@@ -36,7 +36,6 @@ import io.pinkspider.leveluptogethermvp.userservice.profile.application.UserProf
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,7 +111,8 @@ public class MyPageService {
         LocalDate startDate = user.getCreatedAt() != null
             ? user.getCreatedAt().toLocalDate()
             : LocalDate.now();
-        long daysSinceJoined = ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+        // QA-221: 함께한 일수 = 가입일부터의 경과일이 아니라 실제 출석한 일수
+        long daysSinceJoined = gamificationQueryFacadeService.countAttendanceDays(targetUserId);
 
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
@@ -543,8 +543,8 @@ public class MyPageService {
             ? user.getCreatedAt().toLocalDate()
             : LocalDate.now();
 
-        // 가입 일수 계산
-        long daysSinceJoined = ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+        // QA-221: 함께한 일수 = 가입일부터의 경과일이 아니라 실제 출석한 일수
+        long daysSinceJoined = gamificationQueryFacadeService.countAttendanceDays(userId);
 
         // 랭킹 퍼센타일 계산 (상위 X%)
         Double rankingPercentile = gamificationQueryFacadeService.calculateRankingPercentile(stats.rankingPoints());

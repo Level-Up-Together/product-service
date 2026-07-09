@@ -377,4 +377,22 @@ class AttendanceServiceTest {
             verify(rewardConfigCacheService).initializeDefaultRewardConfigs();
         }
     }
+
+    @Nested
+    @DisplayName("countAttendanceDays 테스트 (QA-221)")
+    class CountAttendanceDaysTest {
+
+        @Test
+        @DisplayName("가입 후 실제 출석한 총 일수를 반환한다")
+        void countAttendanceDays_returnsAttendanceRecordCount() {
+            // given
+            when(attendanceRecordRepository.countByUserId(TEST_USER_ID)).thenReturn(42L);
+
+            // when
+            long result = attendanceService.countAttendanceDays(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(42L);
+        }
+    }
 }

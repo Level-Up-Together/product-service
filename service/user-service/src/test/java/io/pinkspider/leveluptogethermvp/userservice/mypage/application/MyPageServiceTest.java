@@ -140,6 +140,8 @@ class MyPageServiceTest {
         when(gamificationQueryFacadeService.getUserLevel(userId)).thenReturn(1);
         when(gamificationQueryFacadeService.getOrCreateUserStats(userId)).thenReturn(createDefaultUserStats(userId));
         when(gamificationQueryFacadeService.countUserTitles(userId)).thenReturn(0L);
+        // QA-221: 함께한 일수 = 출석일 수
+        when(gamificationQueryFacadeService.countAttendanceDays(userId)).thenReturn(1L);
         when(guildQueryFacadeService.getUserGuildMemberships(userId)).thenReturn(Collections.emptyList());
     }
 
@@ -1067,8 +1069,8 @@ class MyPageServiceTest {
     class BuildUserInfoTest {
 
         @Test
-        @DisplayName("createdAt이 null이면 오늘 날짜를 기준으로 계산한다")
-        void buildUserInfo_createdAtNull_usesToday() {
+        @DisplayName("QA-221: 함께한 일수는 경과일이 아닌 출석일 수를 사용한다 (createdAt null 이어도 동일)")
+        void buildUserInfo_daysSinceJoined_usesAttendanceCount() {
             // given
             Users user = Users.builder()
                 .nickname("테스터")
@@ -1084,6 +1086,8 @@ class MyPageServiceTest {
                 new UserExperienceDto(null, TEST_USER_ID, 1, 0, 0, null, null, null));
             when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
             when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            // QA-221: 가입 42일차여도 출석은 5일이면 함께한 일수는 5
+            when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(5L);
             when(userLevelConfigCacheService.getLevelConfigByLevel(2)).thenReturn(UserLevelConfig.builder().requiredExp(100).build());
             when(gamificationQueryFacadeService.calculateRankingPercentile(0L)).thenReturn(50.0);
 
@@ -1091,7 +1095,7 @@ class MyPageServiceTest {
             MyPageResponse result = myPageService.getMyPage(TEST_USER_ID);
 
             // then
-            assertThat(result.getUserInfo().getDaysSinceJoined()).isEqualTo(1);
+            assertThat(result.getUserInfo().getDaysSinceJoined()).isEqualTo(5L);
         }
 
         @Test
@@ -1204,7 +1208,7 @@ class MyPageServiceTest {
         }
 
         @Test
-        @DisplayName("createdAt이 null인 사용자의 공개 프로필 조회 시 오늘 날짜를 사용한다")
+        @DisplayName("QA-221: 공개 프로필의 함께한 일수도 출석일 수를 사용한다")
         void getPublicProfile_createdAtNull_usesToday() {
             // given
             Users user = Users.builder()

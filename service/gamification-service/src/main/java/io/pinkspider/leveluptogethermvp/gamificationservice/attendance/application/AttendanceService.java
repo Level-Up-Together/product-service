@@ -126,6 +126,11 @@ public class AttendanceService {
         return attendanceRecordRepository.existsByUserIdAndAttendanceDate(userId, LocalDate.now(resolveUserZone(userId)));
     }
 
+    /** QA-221: 가입 후 실제 출석한 총 일수 — 프로필 "함께한 일수" 표기용 */
+    public long countAttendanceDays(String userId) {
+        return attendanceRecordRepository.countByUserId(userId);
+    }
+
     public MonthlyAttendanceResponse getMonthlyAttendance(String userId, String yearMonth) {
         LocalDate userToday = LocalDate.now(resolveUserZone(userId));
         String targetYearMonth = yearMonth != null ? yearMonth :

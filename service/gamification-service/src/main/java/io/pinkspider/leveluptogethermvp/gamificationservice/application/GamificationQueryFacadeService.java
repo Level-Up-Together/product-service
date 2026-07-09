@@ -16,6 +16,7 @@ import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
@@ -57,6 +58,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final UserExperienceService userExperienceService;
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
+    private final AttendanceService attendanceService;
     private final SeasonRankingService seasonRankingService;
     private final SeasonRankRewardRepository seasonRankRewardRepository;
 
@@ -65,6 +67,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         UserExperienceService userExperienceService,
         UserStatsService userStatsService,
         AchievementService achievementService,
+        AttendanceService attendanceService,
         @Lazy SeasonRankingService seasonRankingService,
         SeasonRankRewardRepository seasonRankRewardRepository
     ) {
@@ -72,6 +75,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.userExperienceService = userExperienceService;
         this.userStatsService = userStatsService;
         this.achievementService = achievementService;
+        this.attendanceService = attendanceService;
         this.seasonRankingService = seasonRankingService;
         this.seasonRankRewardRepository = seasonRankRewardRepository;
     }
@@ -193,6 +197,13 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Override
     public Double calculateRankingPercentile(long rankingPoints) {
         return userStatsService.calculateRankingPercentile(rankingPoints);
+    }
+
+    // ========== 출석 조회 ==========
+
+    @Override
+    public long countAttendanceDays(String userId) {
+        return attendanceService.countAttendanceDays(userId);
     }
 
     // ========== 업적 조회 ==========

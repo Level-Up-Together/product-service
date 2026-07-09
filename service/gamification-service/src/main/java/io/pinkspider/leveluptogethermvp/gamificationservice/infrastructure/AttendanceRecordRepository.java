@@ -29,6 +29,9 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("SELECT COUNT(ar) FROM AttendanceRecord ar WHERE ar.userId = :userId AND ar.yearMonth = :yearMonth")
     int countByUserIdAndYearMonth(@Param("userId") String userId, @Param("yearMonth") String yearMonth);
 
+    /** QA-221: 프로필 "함께한 일수" — 가입 후 실제 출석한 총 일수 (userId+date unique 행 수) */
+    long countByUserId(String userId);
+
     @Query("SELECT ar FROM AttendanceRecord ar WHERE ar.userId = :userId " +
            "ORDER BY ar.attendanceDate DESC LIMIT 1")
     Optional<AttendanceRecord> findLatestByUserId(@Param("userId") String userId);

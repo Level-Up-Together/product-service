@@ -34,6 +34,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applicat
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -80,6 +81,9 @@ class GamificationQueryFacadeServiceTest {
     private AchievementService achievementService;
 
     @Mock
+    private AttendanceService attendanceService;
+
+    @Mock
     private SeasonRankingService seasonRankingService;
 
     @Mock
@@ -97,6 +101,7 @@ class GamificationQueryFacadeServiceTest {
             userExperienceService,
             userStatsService,
             achievementService,
+            attendanceService,
             seasonRankingService,
             seasonRankRewardRepository
         );
@@ -1097,6 +1102,24 @@ class GamificationQueryFacadeServiceTest {
 
             // then
             verify(seasonRankingService).evictAllSeasonCaches();
+        }
+    }
+
+    @Nested
+    @DisplayName("countAttendanceDays 테스트 (QA-221)")
+    class CountAttendanceDaysTest {
+
+        @Test
+        @DisplayName("AttendanceService 의 출석일 수를 그대로 반환한다")
+        void countAttendanceDays_delegatesToAttendanceService() {
+            // given
+            when(attendanceService.countAttendanceDays(TEST_USER_ID)).thenReturn(7L);
+
+            // when
+            long result = facadeService.countAttendanceDays(TEST_USER_ID);
+
+            // then
+            assertThat(result).isEqualTo(7L);
         }
     }
 }
