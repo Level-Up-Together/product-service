@@ -35,9 +35,6 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     @Query("SELECT COUNT(me) FROM MissionExecution me WHERE me.participant.id = :participantId AND me.status = :status")
     long countByParticipantIdAndStatus(@Param("participantId") Long participantId, @Param("status") ExecutionStatus status);
 
-    @Query("SELECT COALESCE(SUM(me.expEarned), 0) FROM MissionExecution me WHERE me.participant.id = :participantId AND me.status = 'COMPLETED'")
-    Integer sumExpEarnedByParticipantId(@Param("participantId") Long participantId);
-
     /**
      * QA-176: 미션의 누적 EXP — 길드 EXP 와 동일하게 historic 합산.
      * 탈퇴/실패 참여자가 기여한 EXP 도 그대로 유지 (이미 길드 통장에 적립된 값이므로 회수하지 않는다).

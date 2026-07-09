@@ -6,10 +6,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHis
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,13 +38,12 @@ public class MissionParticipantAdminInternalController {
             @RequestParam(required = false, defaultValue = "20") int size) {
 
         MissionTypeFilter filter = resolveFilter(type);
-        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : null;
-        LocalDateTime end = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
+        // 정렬은 네이티브 UNION 쿼리에 내장 (event_at DESC) — Pageable 에는 page/size 만 전달
         return ApiResult.<UserMissionHistoryAdminPageResponse>builder()
             .value(participantAdminService.getUserMissionHistory(
-                userId, filter.type(), filter.source(), start, end,
-                PageRequest.of(page, size, Sort.by("joinedAt").descending())))
+                userId, filter.type(), filter.source(), startDate, endDate,
+                PageRequest.of(page, size)))
             .build();
     }
 

@@ -2,12 +2,12 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminResponse;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
-import java.time.LocalDateTime;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.UserMissionEventRow;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,26 +23,29 @@ public class MissionParticipantAdminService {
     private final MissionParticipantRepository participantRepository;
     private final MissionExecutionRepository executionRepository;
 
+    /**
+     * QA-205: 유저 미션 수행 기록 조회 — 한 행 = 한 수행 건 (일반 미션 + 고정 미션).
+     */
     public UserMissionHistoryAdminPageResponse getUserMissionHistory(
         String userId,
         MissionType type,
         MissionSource source,
-        LocalDateTime startDate,
-        LocalDateTime endDate,
+        LocalDate startDate,
+        LocalDate endDate,
         Pageable pageable) {
 
-        Page<MissionParticipant> participantPage =
-            participantRepository.searchUserMissionHistory(
-                userId, type, source, startDate, endDate, pageable);
+        Page<UserMissionEventRow> eventPage =
+            participantRepository.searchUserMissionEvents(
+                userId,
+                type != null ? type.name() : null,
+                source != null ? source.name() : null,
+                startDate, endDate, pageable);
 
-        List<UserMissionHistoryAdminResponse> content = participantPage.getContent().stream()
-            .map(participant -> {
-                Integer expEarned = executionRepository.sumExpEarnedByParticipantId(participant.getId());
-                return UserMissionHistoryAdminResponse.from(participant, expEarned);
-            })
+        List<UserMissionHistoryAdminResponse> content = eventPage.getContent().stream()
+            .map(UserMissionHistoryAdminResponse::fromEvent)
             .toList();
 
-        return UserMissionHistoryAdminPageResponse.from(participantPage, content);
+        return UserMissionHistoryAdminPageResponse.from(eventPage, content);
     }
 
     public long countParticipantsByUserId(String userId) {

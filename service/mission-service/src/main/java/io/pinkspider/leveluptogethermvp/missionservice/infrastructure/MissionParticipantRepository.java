@@ -1,10 +1,8 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
-import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -48,34 +46,73 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
     Page<MissionParticipant> findByUserIdWithMissionPaged(@Param("userId") String userId, Pageable pageable);
 
     /**
-     * QA-165 / QA-205: 어드민 미션 기록 검색용 — Mission.type, Mission.source 및 joinedAt 범위 필터.
-     * type / source / startDate / endDate 가 null 이면 해당 조건 무시.
+     * QA-165 / QA-205: 어드민 미션 수행 기록 검색 — 한 행 = 한 수행 건.
+     *
+     * <p>일반 미션의 수행은 mission_execution, 고정(핀) 미션의 수행은 daily_mission_instance 에
+     * 쌓이므로 두 테이블을 UNION 해서 수행 시점(event_at) 내림차순으로 반환한다.
+     * 참여만 하고 시작/완료하지 않은 건(PENDING 플레이스홀더, MISSED)은 제외한다
+     * (started_at / completed_at 둘 다 NULL 인 행).
      *
      * <p>유형 필터는 (type, source) 조합으로 전달한다. 길드 미션은 source 가 USER 로 저장되므로
      * type=GUILD 로 식별하고, 미션북은 source=SYSTEM 으로 식별한다.
+     * 이 매핑은 {@code UserMissionHistoryAdminResponse#resolveMissionType} 분류와 동일한 기준이어야 한다.
+     *
+     * <p>고정 미션의 EXP 는 한 인스턴스에 여러 회차가 누적될 수 있어 total_exp_earned 를 우선 사용한다.
      *
      * <p>PostgreSQL nullable parameter 의 데이터 타입 추론 실패(42P18) 회피를 위해
-     * 각 파라미터의 NULL 체크에 명시적 cast 를 적용한다.
+     * 각 nullable 파라미터의 NULL 체크에 명시적 CAST 를 적용한다.
      */
-    @Query(value = "SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission m "
-        + "WHERE mp.userId = :userId "
-        + "AND (cast(:type as string) IS NULL OR m.type = :type) "
-        + "AND (cast(:source as string) IS NULL OR m.source = :source) "
-        + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
-        + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate) "
-        + "ORDER BY mp.joinedAt DESC",
-        countQuery = "SELECT COUNT(mp) FROM MissionParticipant mp JOIN mp.mission m "
-            + "WHERE mp.userId = :userId "
-            + "AND (cast(:type as string) IS NULL OR m.type = :type) "
-            + "AND (cast(:source as string) IS NULL OR m.source = :source) "
-            + "AND (cast(:startDate as timestamp) IS NULL OR mp.joinedAt >= :startDate) "
-            + "AND (cast(:endDate as timestamp) IS NULL OR mp.joinedAt < :endDate)")
-    Page<MissionParticipant> searchUserMissionHistory(
+    String USER_MISSION_EVENT_UNION =
+        "SELECT me.participant_id AS participantId, "
+            + "       m.id AS missionId, "
+            + "       m.title AS missionTitle, "
+            + "       m.type AS missionType, "
+            + "       m.source AS missionSource, "
+            + "       m.guild_name AS guildName, "
+            + "       me.status AS status, "
+            + "       me.exp_earned AS expEarned, "
+            + "       COALESCE(me.completed_at, me.started_at) AS eventAt, "
+            + "       me.execution_date AS eventDate "
+            + "  FROM mission_execution me "
+            + "  JOIN mission_participant mp ON mp.id = me.participant_id "
+            + "  JOIN mission m ON m.id = mp.mission_id "
+            + " WHERE mp.user_id = :userId "
+            + "   AND (me.started_at IS NOT NULL OR me.completed_at IS NOT NULL) "
+            + "UNION ALL "
+            + "SELECT dmi.participant_id, "
+            + "       m.id, "
+            + "       dmi.mission_title, "
+            + "       m.type, "
+            + "       m.source, "
+            + "       m.guild_name, "
+            + "       dmi.status, "
+            + "       COALESCE(NULLIF(dmi.total_exp_earned, 0), dmi.exp_earned), "
+            + "       COALESCE(dmi.completed_at, dmi.started_at), "
+            + "       dmi.instance_date "
+            + "  FROM daily_mission_instance dmi "
+            + "  JOIN mission_participant mp ON mp.id = dmi.participant_id "
+            + "  JOIN mission m ON m.id = mp.mission_id "
+            + " WHERE mp.user_id = :userId "
+            + "   AND (dmi.started_at IS NOT NULL OR dmi.completed_at IS NOT NULL) ";
+
+    String USER_MISSION_EVENT_FILTER =
+        " WHERE (CAST(:type AS text) IS NULL OR t.missionType = CAST(:type AS text)) "
+            + "AND (CAST(:source AS text) IS NULL OR t.missionSource = CAST(:source AS text)) "
+            + "AND (CAST(:startDate AS date) IS NULL OR t.eventDate >= CAST(:startDate AS date)) "
+            + "AND (CAST(:endDate AS date) IS NULL OR t.eventDate <= CAST(:endDate AS date)) ";
+
+    @Query(value = "SELECT * FROM (" + USER_MISSION_EVENT_UNION + ") t "
+        + USER_MISSION_EVENT_FILTER
+        + "ORDER BY t.eventAt DESC, t.participantId DESC",
+        countQuery = "SELECT COUNT(*) FROM (" + USER_MISSION_EVENT_UNION + ") t "
+            + USER_MISSION_EVENT_FILTER,
+        nativeQuery = true)
+    Page<UserMissionEventRow> searchUserMissionEvents(
         @Param("userId") String userId,
-        @Param("type") MissionType type,
-        @Param("source") MissionSource source,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
+        @Param("type") String type,
+        @Param("source") String source,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate,
         Pageable pageable);
 
     @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId AND mp.status = :status ORDER BY mp.joinedAt DESC")
