@@ -24,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinned
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateNextPinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantMissionBookDiamondStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadPinnedMissionDataStep;
@@ -68,6 +69,8 @@ class MissionCompletionSagaTest {
     // Unified steps
     @Mock
     private GrantUserExperienceStep grantUserExperienceStep;
+    @Mock
+    private GrantMissionBookDiamondStep grantMissionBookDiamondStep;
     @Mock
     private UpdateUserStatsStep updateUserStatsStep;
     @Mock
@@ -129,8 +132,13 @@ class MissionCompletionSagaTest {
 
         // === Unified steps ===
         configureStep(grantUserExperienceStep, "GrantUserExperience", true, ctx -> true);
+        configureStep(grantMissionBookDiamondStep, "GrantMissionBookDiamond", false, ctx -> true);
         configureStep(updateUserStatsStep, "UpdateUserStats", false, ctx -> true);
         configureStep(createFeedFromMissionStep, "CreateFeedFromMission", false, ctx -> true);
+
+        // QA-220 step은 흐름 테스트 대상이 아니므로 기본 성공 stub (LENIENT)
+        when(grantMissionBookDiamondStep.execute(any()))
+            .thenReturn(SagaStepResult.success("다이아 지급 스킵"));
     }
 
     private void configureStep(
