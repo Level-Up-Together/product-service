@@ -6,11 +6,11 @@
 ### ----------------------------------------------------------
 ### 홈 화면 데이터 조회 (BFF)
 ### - 피드 목록 (페이징, 카테고리 필터)
-### - 오늘의 플레이어 랭킹 (카테고리 필터)
 ### - 미션 카테고리 목록
 ### - 내 길드 목록
 ### - 공개 길드 목록 (카테고리 필터)
 ### - 활성 공지사항 목록
+### MVP 랭킹은 /api/v1/bff/home/mvp 로 분리됨 (QA-222)
 ### today_executions[] / completed_pinned_instances[] 응답 필드 (QA-130):
 ###   - exp_earned: 획득 EXP (SIMPLE + 일일 한도 도달 시 0)
 ###   - daily_simple_exp_capped: SIMPLE 일일 EXP 한도(10회) 도달 여부
@@ -27,6 +27,27 @@ GET {{baseUrl}}/api/v1/bff/home?categoryId=1&feedPage=0&feedSize=20&publicGuildS
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 Accept-Language: ko
+
+### ----------------------------------------------------------
+### 홈 MVP 섹션 데이터 조회 (BFF, QA-222)
+### - 오늘의 플레이어 랭킹 (카테고리 필터)
+### - MVP 길드 랭킹
+### - 현재 시즌 정보 및 시즌 MVP 랭킹
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/bff/home/mvp
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+Accept-Language: ko
+X-Timezone: Asia/Seoul
+
+### ----------------------------------------------------------
+### 홈 MVP 섹션 데이터 조회 (카테고리별)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/bff/home/mvp?categoryId=1
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+Accept-Language: ko
+X-Timezone: Asia/Seoul
 
 ### ----------------------------------------------------------
 ### 길드 상세 화면 데이터 조회 (BFF)

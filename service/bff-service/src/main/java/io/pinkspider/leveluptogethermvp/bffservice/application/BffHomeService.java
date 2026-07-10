@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applicat
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse.GuildPageData;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
@@ -155,30 +156,6 @@ public class BffHomeService {
             }
         }, bffExecutor);
 
-        CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                if (categoryId != null) {
-                    // 카테고리별 MVP 조회 (하이브리드) - 로컬라이즈된 칭호 + 타임존
-                    return homeService.getTodayPlayersByCategory(categoryId, locale, timezone);
-                } else {
-                    // 전체 MVP 조회 - 로컬라이즈된 칭호 + 타임존
-                    return homeService.getTodayPlayers(locale, timezone);
-                }
-            } catch (Exception e) {
-                log.error("Failed to fetch rankings", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
-
-        CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return homeService.getMvpGuilds(timezone);
-            } catch (Exception e) {
-                log.error("Failed to fetch MVP guilds", e);
-                return Collections.emptyList();
-            }
-        }, bffExecutor);
-
         CompletableFuture<List<MissionCategoryResponse>> categoriesFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 return missionCategoryService.getActiveCategories();
@@ -252,6 +229,62 @@ public class BffHomeService {
             }
         }, bffExecutor);
 
+        // 모든 결과 취합
+        CompletableFuture.allOf(
+            feedsFuture, categoriesFuture,
+            myGuildsFuture, publicGuildsFuture, noticesFuture, eventsFuture
+        ).join();
+
+        HomeDataResponse response = HomeDataResponse.builder()
+            .feeds(feedsFuture.join())
+            .categories(categoriesFuture.join())
+            .myGuilds(myGuildsFuture.join())
+            .publicGuilds(publicGuildsFuture.join())
+            .notices(noticesFuture.join())
+            .events(eventsFuture.join())
+            .build();
+
+        log.info("BFF getHomeData completed: userId={}, categoryId={}", userId, categoryId);
+        return response;
+    }
+
+    /**
+     * 홈 화면 MVP 섹션 데이터를 조회합니다. (QA-222: 홈 피드와 분리)
+     * <p>
+     * 피드 탭 전환 시 MVP 데이터가 재조회되지 않도록 /bff/home에서 분리된 엔드포인트입니다.
+     *
+     * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
+     * @param timezone 사용자 타임존 (null이면 기본 Asia/Seoul)
+     * @return HomeMvpDataResponse 홈 MVP 섹션 데이터
+     */
+    public HomeMvpDataResponse getHomeMvpData(Long categoryId, String locale, String timezone) {
+        log.info("BFF getHomeMvpData called: categoryId={}, locale={}, timezone={}", categoryId, locale, timezone);
+
+        CompletableFuture<List<TodayPlayerResponse>> rankingsFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                if (categoryId != null) {
+                    // 카테고리별 MVP 조회 (하이브리드) - 로컬라이즈된 칭호 + 타임존
+                    return homeService.getTodayPlayersByCategory(categoryId, locale, timezone);
+                } else {
+                    // 전체 MVP 조회 - 로컬라이즈된 칭호 + 타임존
+                    return homeService.getTodayPlayers(locale, timezone);
+                }
+            } catch (Exception e) {
+                log.error("Failed to fetch rankings", e);
+                return Collections.emptyList();
+            }
+        }, bffExecutor);
+
+        CompletableFuture<List<MvpGuildResponse>> mvpGuildsFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return homeService.getMvpGuilds(timezone);
+            } catch (Exception e) {
+                log.error("Failed to fetch MVP guilds", e);
+                return Collections.emptyList();
+            }
+        }, bffExecutor);
+
         CompletableFuture<Optional<SeasonMvpDataDto>> seasonMvpFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 return gamificationQueryFacade.getSeasonMvpData(locale);
@@ -261,29 +294,19 @@ public class BffHomeService {
             }
         }, bffExecutor);
 
-        // 모든 결과 취합
-        CompletableFuture.allOf(
-            feedsFuture, rankingsFuture, mvpGuildsFuture, categoriesFuture,
-            myGuildsFuture, publicGuildsFuture, noticesFuture, eventsFuture, seasonMvpFuture
-        ).join();
+        CompletableFuture.allOf(rankingsFuture, mvpGuildsFuture, seasonMvpFuture).join();
 
         Optional<SeasonMvpDataDto> seasonMvpData = seasonMvpFuture.join();
 
-        HomeDataResponse response = HomeDataResponse.builder()
-            .feeds(feedsFuture.join())
+        HomeMvpDataResponse response = HomeMvpDataResponse.builder()
             .rankings(rankingsFuture.join())
             .mvpGuilds(mvpGuildsFuture.join())
-            .categories(categoriesFuture.join())
-            .myGuilds(myGuildsFuture.join())
-            .publicGuilds(publicGuildsFuture.join())
-            .notices(noticesFuture.join())
-            .events(eventsFuture.join())
             .currentSeason(seasonMvpData.map(SeasonMvpDataDto::currentSeason).orElse(null))
             .seasonMvpPlayers(seasonMvpData.map(SeasonMvpDataDto::seasonMvpPlayers).orElse(Collections.emptyList()))
             .seasonMvpGuilds(seasonMvpData.map(SeasonMvpDataDto::seasonMvpGuilds).orElse(Collections.emptyList()))
             .build();
 
-        log.info("BFF getHomeData completed: userId={}, categoryId={}, hasActiveSeason={}", userId, categoryId, seasonMvpData.isPresent());
+        log.info("BFF getHomeMvpData completed: categoryId={}, hasActiveSeason={}", categoryId, seasonMvpData.isPresent());
         return response;
     }
 }

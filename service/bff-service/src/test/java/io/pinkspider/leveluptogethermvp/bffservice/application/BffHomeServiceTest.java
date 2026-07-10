@@ -3,7 +3,6 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -14,6 +13,7 @@ import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildQueryService;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibility;
@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
+import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.TodayPlayerResponse;
 import io.pinkspider.leveluptogethermvp.userservice.home.application.HomeService;
 import java.time.LocalDateTime;
@@ -37,7 +38,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -79,6 +79,7 @@ class BffHomeServiceTest {
     private String testUserId;
     private ActivityFeedResponse testFeedResponse;
     private TodayPlayerResponse testPlayerResponse;
+    private MvpGuildResponse testMvpGuildResponse;
     private MissionCategoryResponse testCategoryResponse;
     private GuildResponse testGuildResponse;
     private NoticeResponse testNoticeResponse;
@@ -127,6 +128,16 @@ class BffHomeServiceTest {
             .level(5)
             .title("초보 모험가")
             .earnedExp(100L)
+            .rank(1)
+            .build();
+
+        testMvpGuildResponse = MvpGuildResponse.builder()
+            .guildId(1L)
+            .name("MVP 길드")
+            .imageUrl("https://example.com/guild.jpg")
+            .level(5)
+            .memberCount(10)
+            .earnedExp(5000L)
             .rank(1)
             .build();
 
@@ -222,13 +233,10 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
             when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
 
             // when - categoryId = null (전체 조회)
             HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
@@ -236,16 +244,10 @@ class BffHomeServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getFeeds().getContent()).hasSize(1);
-            assertThat(response.getRankings()).hasSize(1);
             assertThat(response.getCategories()).hasSize(1);
             assertThat(response.getMyGuilds()).hasSize(1);
             assertThat(response.getPublicGuilds().getContent()).hasSize(1);
             assertThat(response.getNotices()).hasSize(1);
-            // 시즌 데이터 검증
-            assertThat(response.getCurrentSeason()).isNotNull();
-            assertThat(response.getCurrentSeason().title()).isEqualTo("2024 윈터 시즌");
-            assertThat(response.getSeasonMvpPlayers()).hasSize(1);
-            assertThat(response.getSeasonMvpGuilds()).hasSize(1);
         }
 
         @Test
@@ -258,7 +260,6 @@ class BffHomeServiceTest {
             );
 
             when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenReturn(List.of(testGuildResponse));
@@ -270,34 +271,10 @@ class BffHomeServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.getFeeds().getContent()).hasSize(1);
-            assertThat(response.getRankings()).hasSize(1);
             assertThat(response.getCategories()).hasSize(1);
             assertThat(response.getMyGuilds()).hasSize(1);
             assertThat(response.getPublicGuilds().getContent()).hasSize(1);
             assertThat(response.getNotices()).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("카테고리별 오늘의 플레이어 조회 실패 시 빈 목록 반환")
-        void getHomeData_withCategory_rankingsFetchFailed() {
-            // given
-            Long categoryId = 1L;
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
-
-            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenReturn(List.of(testGuildResponse));
-            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-
-            // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, categoryId, 0, 20, 5, null);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getRankings()).isEmpty();
-            assertThat(response.getFeeds().getContent()).hasSize(1);
         }
 
         @Test
@@ -308,7 +285,6 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
             when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenThrow(new RuntimeException("길드 조회 실패"));
@@ -331,7 +307,6 @@ class BffHomeServiceTest {
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt()))
                 .thenThrow(new RuntimeException("피드 조회 실패"));
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -344,31 +319,7 @@ class BffHomeServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getFeeds().getContent()).isEmpty();
             // 다른 데이터는 정상 조회
-            assertThat(response.getRankings()).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("랭킹 조회 실패 시 빈 목록 반환")
-        void getHomeData_rankingsFetchFailed() {
-            // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
-            Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
-
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
-
-            // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
-
-            // then
-            assertThat(response).isNotNull();
-            assertThat(response.getRankings()).isEmpty();
-            // 다른 데이터는 정상 조회
-            assertThat(response.getFeeds().getContent()).hasSize(1);
+            assertThat(response.getCategories()).hasSize(1);
         }
 
         @Test
@@ -379,7 +330,6 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenThrow(new RuntimeException("카테고리 조회 실패"));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -392,7 +342,7 @@ class BffHomeServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getCategories()).isEmpty();
             // 다른 데이터는 정상 조회
-            assertThat(response.getRankings()).hasSize(1);
+            assertThat(response.getFeeds().getContent()).hasSize(1);
         }
 
         @Test
@@ -403,7 +353,6 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("내 길드 조회 실패"));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -426,7 +375,6 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenThrow(new RuntimeException("공개 길드 조회 실패"));
@@ -450,7 +398,6 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -474,7 +421,6 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -499,7 +445,6 @@ class BffHomeServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
             when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(Collections.emptyList());
             when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -513,66 +458,102 @@ class BffHomeServiceTest {
             assertThat(response.getFeeds()).isNotNull();
             assertThat(response.getFeeds().getContent()).hasSize(1);
         }
+    }
+
+    @Nested
+    @DisplayName("홈 MVP 데이터 조회 테스트 (QA-222)")
+    class GetHomeMvpDataTest {
 
         @Test
-        @DisplayName("활성 시즌이 있을 때 시즌 MVP 데이터를 조회한다")
-        void getHomeData_withActiveSeason_success() {
+        @DisplayName("MVP 데이터를 정상적으로 조회한다")
+        void getHomeMvpData_success() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
-            Page<GuildResponse> guildPage = new PageImpl<>(
-                List.of(testGuildResponse), PageRequest.of(0, 5), 1
-            );
-
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
             when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
             when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.of(testSeasonMvpData));
 
-            // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            // when - categoryId = null (전체 조회)
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
 
             // then
             assertThat(response).isNotNull();
+            assertThat(response.getRankings()).hasSize(1);
+            assertThat(response.getRankings().get(0).getUserId()).isEqualTo(testUserId);
+            assertThat(response.getMvpGuilds()).hasSize(1);
+            assertThat(response.getMvpGuilds().get(0).getGuildId()).isEqualTo(1L);
+            // 시즌 데이터 검증
             assertThat(response.getCurrentSeason()).isNotNull();
-            assertThat(response.getCurrentSeason().id()).isEqualTo(1L);
             assertThat(response.getCurrentSeason().title()).isEqualTo("2024 윈터 시즌");
-            assertThat(response.getCurrentSeason().status()).isEqualTo("ACTIVE");
             assertThat(response.getSeasonMvpPlayers()).hasSize(1);
-            assertThat(response.getSeasonMvpPlayers().get(0).userId()).isEqualTo(testUserId);
             assertThat(response.getSeasonMvpPlayers().get(0).seasonExp()).isEqualTo(1000L);
             assertThat(response.getSeasonMvpGuilds()).hasSize(1);
-            assertThat(response.getSeasonMvpGuilds().get(0).guildId()).isEqualTo(1L);
             assertThat(response.getSeasonMvpGuilds().get(0).seasonExp()).isEqualTo(5000L);
         }
 
         @Test
-        @DisplayName("활성 시즌이 없을 때 시즌 관련 데이터는 null 또는 빈 목록이다")
-        void getHomeData_noActiveSeason_nullSeasonData() {
+        @DisplayName("카테고리별 MVP 데이터를 정상적으로 조회한다")
+        void getHomeMvpData_withCategoryFilter_success() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
-            Page<GuildResponse> guildPage = new PageImpl<>(
-                List.of(testGuildResponse), PageRequest.of(0, 5), 1
-            );
-
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
-            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            Long categoryId = 1L;
+            when(homeService.getTodayPlayersByCategory(eq(categoryId), any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
             when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(categoryId, null, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getRankings()).hasSize(1);
+            assertThat(response.getMvpGuilds()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("랭킹 조회 실패 시 빈 목록 반환")
+        void getHomeMvpData_rankingsFetchFailed() {
+            // given
+            when(homeService.getTodayPlayers(any(), any())).thenThrow(new RuntimeException("랭킹 조회 실패"));
+            when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
+
+            // when
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getRankings()).isEmpty();
+            // 다른 데이터는 정상 조회
+            assertThat(response.getMvpGuilds()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("MVP 길드 조회 실패 시 빈 목록 반환")
+        void getHomeMvpData_mvpGuildsFetchFailed() {
+            // given
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenThrow(new RuntimeException("MVP 길드 조회 실패"));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
+
+            // when
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.getMvpGuilds()).isEmpty();
+            // 다른 데이터는 정상 조회
+            assertThat(response.getRankings()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("활성 시즌이 없을 때 시즌 관련 데이터는 null 또는 빈 목록이다")
+        void getHomeMvpData_noActiveSeason_nullSeasonData() {
+            // given
+            when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
+            when(gamificationQueryFacade.getSeasonMvpData(any())).thenReturn(Optional.empty());
+
+            // when
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
 
             // then
             assertThat(response).isNotNull();
@@ -580,32 +561,19 @@ class BffHomeServiceTest {
             assertThat(response.getSeasonMvpPlayers()).isEmpty();
             assertThat(response.getSeasonMvpGuilds()).isEmpty();
             // 다른 데이터는 정상 조회
-            assertThat(response.getFeeds().getContent()).hasSize(1);
             assertThat(response.getRankings()).hasSize(1);
         }
 
         @Test
         @DisplayName("시즌 데이터 조회 실패 시 빈 데이터 반환")
-        void getHomeData_seasonFetchFailed_emptySeasonData() {
+        void getHomeMvpData_seasonFetchFailed_emptySeasonData() {
             // given
-            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
-                List.of(testFeedResponse), PageRequest.of(0, 20), 1
-            );
-            Page<GuildResponse> guildPage = new PageImpl<>(
-                List.of(testGuildResponse), PageRequest.of(0, 5), 1
-            );
-
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
             when(homeService.getTodayPlayers(any(), any())).thenReturn(List.of(testPlayerResponse));
-            when(homeService.getMvpGuilds(any())).thenReturn(Collections.emptyList());
-            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+            when(homeService.getMvpGuilds(any())).thenReturn(List.of(testMvpGuildResponse));
             when(gamificationQueryFacade.getSeasonMvpData(any())).thenThrow(new RuntimeException("시즌 데이터 조회 실패"));
 
             // when
-            HomeDataResponse response = bffHomeService.getHomeData(testUserId, null, 0, 20, 5, null);
+            HomeMvpDataResponse response = bffHomeService.getHomeMvpData(null, null, null);
 
             // then
             assertThat(response).isNotNull();
@@ -613,7 +581,6 @@ class BffHomeServiceTest {
             assertThat(response.getSeasonMvpPlayers()).isEmpty();
             assertThat(response.getSeasonMvpGuilds()).isEmpty();
             // 다른 데이터는 정상 조회
-            assertThat(response.getFeeds().getContent()).hasSize(1);
             assertThat(response.getRankings()).hasSize(1);
         }
     }

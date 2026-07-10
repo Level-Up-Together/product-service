@@ -4,6 +4,7 @@ import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildDetailDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
@@ -41,11 +42,12 @@ public class BffHomeController {
      * <p>
      * 다음 데이터를 한 번에 조회합니다:
      * - 피드 목록 (페이징, 카테고리 필터)
-     * - 오늘의 플레이어 랭킹 (카테고리 필터)
      * - 미션 카테고리 목록
      * - 내 길드 목록
      * - 공개 길드 목록 (카테고리 필터)
      * - 활성 공지사항 목록
+     * <p>
+     * MVP 랭킹 데이터는 {@code GET /api/v1/bff/home/mvp}로 분리되었습니다. (QA-222)
      *
      * @param userId 인증된 사용자 ID
      * @param categoryId 카테고리 ID (선택적, null이면 전체)
@@ -69,6 +71,29 @@ public class BffHomeController {
     ) {
         HomeDataResponse response = bffHomeService.getHomeData(userId, categoryId, feedSearchType, feedPage, feedSize, publicGuildSize, acceptLanguage, timezone);
         return ResponseEntity.ok(ApiResult.<HomeDataResponse>builder().value(response).build());
+    }
+
+    /**
+     * 홈 화면 MVP 섹션 데이터 조회 (BFF)
+     * <p>
+     * 홈 피드와 독립적으로 MVP 데이터만 조회합니다. (QA-222: 피드 탭 전환 시 MVP 재조회 방지)
+     * - 오늘의 플레이어 랭킹 (카테고리 필터)
+     * - MVP 길드 랭킹
+     * - 현재 시즌 정보 및 시즌 MVP 랭킹
+     *
+     * @param categoryId 카테고리 ID (선택적, null이면 전체)
+     * @param acceptLanguage Accept-Language 헤더 (다국어 지원)
+     * @param timezone X-Timezone 헤더 (사용자 타임존)
+     * @return HomeMvpDataResponse
+     */
+    @GetMapping("/home/mvp")
+    public ResponseEntity<ApiResult<HomeMvpDataResponse>> getHomeMvpData(
+        @RequestParam(required = false) Long categoryId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone
+    ) {
+        HomeMvpDataResponse response = bffHomeService.getHomeMvpData(categoryId, acceptLanguage, timezone);
+        return ResponseEntity.ok(ApiResult.<HomeMvpDataResponse>builder().value(response).build());
     }
 
     /**

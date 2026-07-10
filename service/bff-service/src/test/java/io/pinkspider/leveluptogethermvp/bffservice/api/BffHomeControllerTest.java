@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.FeedPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.GuildListDataResponse.GuildPageData;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeDataResponse;
+import io.pinkspider.leveluptogethermvp.bffservice.api.dto.HomeMvpDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.MissionTodayDataResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.api.dto.UnifiedSearchResponse;
 import io.pinkspider.leveluptogethermvp.bffservice.application.BffGuildService;
@@ -267,8 +268,6 @@ class BffHomeControllerTest {
                 .totalElements(0)
                 .totalPages(0)
                 .build())
-            .rankings(List.of(createMockTodayPlayerResponse(1)))
-            .mvpGuilds(List.of(createMockMvpGuildResponse(1)))
             .categories(Collections.emptyList())
             .myGuilds(List.of(createMockGuildResponse()))
             .publicGuilds(HomeDataResponse.GuildPageData.builder()
@@ -299,7 +298,7 @@ class BffHomeControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("BFF")
-                        .description("홈 화면에 필요한 모든 데이터를 한 번에 조회 (피드, 랭킹, 카테고리, 길드, 공지사항)")
+                        .description("홈 화면에 필요한 모든 데이터를 한 번에 조회 (피드, 카테고리, 길드, 공지사항). MVP 랭킹은 BFF-09 홈 MVP 데이터 조회로 분리됨")
                         .queryParameters(
                             parameterWithName("feedPage").type(SimpleType.INTEGER)
                                 .description("피드 페이지 번호 (기본: 0)").optional(),
@@ -319,30 +318,6 @@ class BffHomeControllerTest {
                             fieldWithPath("value.feeds.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
                             fieldWithPath("value.feeds.total_elements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
                             fieldWithPath("value.feeds.total_pages").type(JsonFieldType.NUMBER).description("전체 페이지 수"),
-                            fieldWithPath("value.rankings[]").type(JsonFieldType.ARRAY).description("오늘의 플레이어 랭킹"),
-                            fieldWithPath("value.rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
-                            fieldWithPath("value.rankings[].nickname").type(JsonFieldType.STRING).description("닉네임"),
-                            fieldWithPath("value.rankings[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
-                            fieldWithPath("value.rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
-                            fieldWithPath("value.rankings[].title").type(JsonFieldType.STRING).description("칭호 (LEFT + RIGHT 조합)").optional(),
-                            fieldWithPath("value.rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
-                            fieldWithPath("value.rankings[].title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
-                            fieldWithPath("value.rankings[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
-                            fieldWithPath("value.rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
-                            fieldWithPath("value.rankings[].left_title_color_code").type(JsonFieldType.STRING).description("왼쪽 칭호 색상 코드").optional(),
-                            fieldWithPath("value.rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
-                            fieldWithPath("value.rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
-                            fieldWithPath("value.rankings[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
-                            fieldWithPath("value.rankings[].earned_exp").type(JsonFieldType.NUMBER).description("획득 경험치"),
-                            fieldWithPath("value.rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
-                            fieldWithPath("value.mvp_guilds[]").type(JsonFieldType.ARRAY).description("MVP 길드 랭킹 (금일 EXP 획득 기준 상위 5개)"),
-                            fieldWithPath("value.mvp_guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
-                            fieldWithPath("value.mvp_guilds[].name").type(JsonFieldType.STRING).description("길드명"),
-                            fieldWithPath("value.mvp_guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
-                            fieldWithPath("value.mvp_guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨"),
-                            fieldWithPath("value.mvp_guilds[].member_count").type(JsonFieldType.NUMBER).description("멤버 수"),
-                            fieldWithPath("value.mvp_guilds[].earned_exp").type(JsonFieldType.NUMBER).description("금일 획득 경험치"),
-                            fieldWithPath("value.mvp_guilds[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.categories[]").type(JsonFieldType.ARRAY).description("미션 카테고리 목록"),
                             fieldWithPath("value.my_guilds[]").type(JsonFieldType.ARRAY).description("내 길드 목록"),
                             fieldWithPath("value.my_guilds[].id").type(JsonFieldType.NUMBER).description("길드 ID"),
@@ -408,7 +383,76 @@ class BffHomeControllerTest {
                             fieldWithPath("value.notices[].modified_by").type(JsonFieldType.STRING).description("수정자").optional(),
                             fieldWithPath("value.notices[].created_at").type(JsonFieldType.STRING).description("생성일시"),
                             fieldWithPath("value.notices[].modified_at").type(JsonFieldType.STRING).description("수정일시"),
-                            fieldWithPath("value.events").type(JsonFieldType.ARRAY).description("활성 이벤트 목록 (진행중 또는 예정된 이벤트)").optional(),
+                            fieldWithPath("value.events").type(JsonFieldType.ARRAY).description("활성 이벤트 목록 (진행중 또는 예정된 이벤트)").optional()
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/bff/home/mvp : 홈 MVP 섹션 BFF 데이터 조회")
+    void getHomeMvpDataTest() throws Exception {
+        // given
+        HomeMvpDataResponse mockResponse = HomeMvpDataResponse.builder()
+            .rankings(List.of(createMockTodayPlayerResponse(1)))
+            .mvpGuilds(List.of(createMockMvpGuildResponse(1)))
+            .currentSeason(null)
+            .seasonMvpPlayers(Collections.emptyList())
+            .seasonMvpGuilds(Collections.emptyList())
+            .build();
+
+        when(bffHomeService.getHomeMvpData(any(), any(), any()))
+            .thenReturn(mockResponse);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/bff/home/mvp")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("BFF-09. 홈 MVP 데이터 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("BFF")
+                        .description("홈 화면 MVP 섹션 데이터 조회 (오늘의 플레이어 랭킹, MVP 길드, 시즌 MVP). 홈 피드와 분리되어 피드 탭 전환 시 재조회되지 않음 (QA-222)")
+                        .queryParameters(
+                            parameterWithName("categoryId").type(SimpleType.INTEGER)
+                                .description("카테고리 ID (미지정 시 전체)").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value.rankings[]").type(JsonFieldType.ARRAY).description("오늘의 플레이어 랭킹 (금일 EXP 획득 기준 상위 5명)"),
+                            fieldWithPath("value.rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.rankings[].nickname").type(JsonFieldType.STRING).description("닉네임"),
+                            fieldWithPath("value.rankings[].profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+                            fieldWithPath("value.rankings[].level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.rankings[].title").type(JsonFieldType.STRING).description("칭호 (LEFT + RIGHT 조합)").optional(),
+                            fieldWithPath("value.rankings[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급 - 최고 등급 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
+                            fieldWithPath("value.rankings[].title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
+                            fieldWithPath("value.rankings[].left_title").type(JsonFieldType.STRING).description("왼쪽 칭호 (형용사형)").optional(),
+                            fieldWithPath("value.rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
+                            fieldWithPath("value.rankings[].left_title_color_code").type(JsonFieldType.STRING).description("왼쪽 칭호 색상 코드").optional(),
+                            fieldWithPath("value.rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
+                            fieldWithPath("value.rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
+                            fieldWithPath("value.rankings[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
+                            fieldWithPath("value.rankings[].earned_exp").type(JsonFieldType.NUMBER).description("획득 경험치"),
+                            fieldWithPath("value.rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.mvp_guilds[]").type(JsonFieldType.ARRAY).description("MVP 길드 랭킹 (금일 EXP 획득 기준 상위 5개)"),
+                            fieldWithPath("value.mvp_guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
+                            fieldWithPath("value.mvp_guilds[].name").type(JsonFieldType.STRING).description("길드명"),
+                            fieldWithPath("value.mvp_guilds[].image_url").type(JsonFieldType.STRING).description("길드 이미지 URL").optional(),
+                            fieldWithPath("value.mvp_guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨"),
+                            fieldWithPath("value.mvp_guilds[].member_count").type(JsonFieldType.NUMBER).description("멤버 수"),
+                            fieldWithPath("value.mvp_guilds[].earned_exp").type(JsonFieldType.NUMBER).description("금일 획득 경험치"),
+                            fieldWithPath("value.mvp_guilds[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.current_season").type(JsonFieldType.OBJECT).description("현재 시즌 정보 (null이면 활성 시즌 없음)").optional(),
                             fieldWithPath("value.season_mvp_players").type(JsonFieldType.ARRAY).description("시즌 MVP 유저 랭킹").optional(),
                             fieldWithPath("value.season_mvp_guilds").type(JsonFieldType.ARRAY).description("시즌 MVP 길드 랭킹").optional()
