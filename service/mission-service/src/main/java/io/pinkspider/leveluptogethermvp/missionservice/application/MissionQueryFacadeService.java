@@ -1,10 +1,14 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.facade.MissionQueryFacade;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,7 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
 
     private final MissionExecutionRepository missionExecutionRepository;
     private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
+    private final MissionTemplateRepository missionTemplateRepository;
 
     @Override
     public int countClearedMissionBookTemplates(String userId) {
@@ -33,5 +38,14 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         Set<Long> ids = new HashSet<>(missionExecutionRepository.findAchievedTargetTemplateIdsByUserId(userId));
         ids.addAll(dailyMissionInstanceRepository.findAchievedTargetTemplateIdsByUserId(userId));
         return ids;
+    }
+
+    @Override
+    public Map<Long, String> getMissionBookTemplateTitles(Set<Long> templateIds) {
+        if (templateIds == null || templateIds.isEmpty()) {
+            return Map.of();
+        }
+        return missionTemplateRepository.findAllById(templateIds).stream()
+            .collect(Collectors.toMap(MissionTemplate::getId, MissionTemplate::getTitle));
     }
 }

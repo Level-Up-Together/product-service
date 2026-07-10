@@ -89,6 +89,9 @@ class GamificationQueryFacadeServiceTest {
     @Mock
     private SeasonRankRewardRepository seasonRankRewardRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService diamondService;
+
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
 
@@ -103,7 +106,8 @@ class GamificationQueryFacadeServiceTest {
             achievementService,
             attendanceService,
             seasonRankingService,
-            seasonRankRewardRepository
+            seasonRankRewardRepository,
+            diamondService
         );
     }
 

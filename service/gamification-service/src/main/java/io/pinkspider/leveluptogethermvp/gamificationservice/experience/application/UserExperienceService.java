@@ -5,6 +5,7 @@ import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.event.AchievementCheckRequestedEvent;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.experience.domain.dto.UserExperienceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.ExperienceHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserCategoryExperience;
@@ -36,6 +37,7 @@ public class UserExperienceService {
     private static final int GUILD_CREATION_MIN_LEVEL = 20;
 
     private final UserExperienceRepository userExperienceRepository;
+    private final DiamondService diamondService;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final UserCategoryExperienceRepository userCategoryExperienceRepository;
     private final UserLevelConfigCacheService userLevelConfigCacheService;
@@ -84,6 +86,9 @@ public class UserExperienceService {
 
         if (levelAfter > levelBefore) {
             log.info("레벨 업! userId={}, {} -> {}", userId, levelBefore, levelAfter);
+
+            // QA-220: 레벨업 다이아 지급 (달성 레벨당 1개, 중복 지급은 lastRewardedLevel 로 방지)
+            diamondService.awardLevelUpDiamonds(userId, levelAfter);
 
             // 레벨업 피드 프로젝션 이벤트 발행
             eventPublisher.publishEvent(new UserLevelUpEvent(userId, levelAfter, userExp.getTotalExp()));

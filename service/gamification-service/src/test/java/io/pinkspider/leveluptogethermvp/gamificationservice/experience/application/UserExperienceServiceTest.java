@@ -57,6 +57,9 @@ class UserExperienceServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService diamondService;
+
     @InjectMocks
     private UserExperienceService userExperienceService;
 

@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CompletePinned
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateFeedFromMissionStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.CreateNextPinnedInstanceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantGuildExperienceStep;
+import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantMissionBookDiamondStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.GrantUserExperienceStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadPinnedMissionDataStep;
@@ -62,6 +63,7 @@ public class MissionCompletionSaga {
 
     // Unified steps (both regular and pinned)
     private final GrantUserExperienceStep grantUserExperienceStep;
+    private final GrantMissionBookDiamondStep grantMissionBookDiamondStep;
     private final UpdateUserStatsStep updateUserStatsStep;
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
 
@@ -148,10 +150,11 @@ public class MissionCompletionSaga {
             .addStep(completeExecutionStep)
             .addStep(completePinnedInstanceStep);
 
-        // 3. 경험치 지급
+        // 3. 경험치 지급 + 미션북 다이아 지급 (QA-220)
         orchestrator
             .addStep(grantUserExperienceStep)
-            .addStep(grantGuildExperienceStep);
+            .addStep(grantGuildExperienceStep)
+            .addStep(grantMissionBookDiamondStep);
 
         // 4. 진행도/통계 업데이트
         orchestrator

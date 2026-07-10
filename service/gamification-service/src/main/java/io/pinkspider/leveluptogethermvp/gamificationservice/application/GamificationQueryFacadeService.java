@@ -22,6 +22,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.applicat
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
@@ -61,6 +62,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final AttendanceService attendanceService;
     private final SeasonRankingService seasonRankingService;
     private final SeasonRankRewardRepository seasonRankRewardRepository;
+    private final DiamondService diamondService;
 
     public GamificationQueryFacadeService(
         TitleService titleService,
@@ -69,7 +71,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         AchievementService achievementService,
         AttendanceService attendanceService,
         @Lazy SeasonRankingService seasonRankingService,
-        SeasonRankRewardRepository seasonRankRewardRepository
+        SeasonRankRewardRepository seasonRankRewardRepository,
+        DiamondService diamondService
     ) {
         this.titleService = titleService;
         this.userExperienceService = userExperienceService;
@@ -78,6 +81,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.attendanceService = attendanceService;
         this.seasonRankingService = seasonRankingService;
         this.seasonRankRewardRepository = seasonRankRewardRepository;
+        this.diamondService = diamondService;
     }
 
     // ========== 레벨 조회 ==========
@@ -239,6 +243,14 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         UserExperienceResponse resp = userExperienceService.subtractExperience(userId, expAmount, sourceType, sourceId, description, categoryId,
             categoryName);
         return toExperienceResponseDto(resp);
+    }
+
+    // ========== 다이아 WRITE (Saga step용) ==========
+
+    @Override
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public boolean awardMissionBookDiamond(String userId, Long templateId, String missionTitle) {
+        return diamondService.awardMissionBookDiamond(userId, templateId, missionTitle);
     }
 
     // ========== 통계 WRITE (Saga step용) ==========
