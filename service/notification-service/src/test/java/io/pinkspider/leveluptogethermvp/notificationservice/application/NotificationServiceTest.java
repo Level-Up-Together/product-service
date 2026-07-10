@@ -57,6 +57,9 @@ class NotificationServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository userRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.notificationservice.realtime.NotificationRealtimePublisher realtimePublisher;
+
     @InjectMocks
     private NotificationService notificationService;
 
@@ -111,6 +114,8 @@ class NotificationServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(1L);
             verify(notificationRepository).save(any(Notification.class));
+            // QA-224: 알림 생성 시 실시간 채널로 발행
+            verify(realtimePublisher).publish(eq(TEST_USER_ID), any(NotificationResponse.class));
         }
 
         @Test
@@ -132,6 +137,7 @@ class NotificationServiceTest {
             // then
             assertThat(result).isNull();
             verify(notificationRepository, never()).save(any());
+            verify(realtimePublisher, never()).publish(any(), any());
         }
 
         @Test

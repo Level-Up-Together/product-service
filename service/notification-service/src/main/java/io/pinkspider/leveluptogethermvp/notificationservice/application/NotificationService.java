@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notifi
 import io.pinkspider.global.enums.NotificationType;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
+import io.pinkspider.leveluptogethermvp.notificationservice.realtime.NotificationRealtimePublisher;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.UserRepository;
 import java.text.MessageFormat;
@@ -41,6 +42,7 @@ public class NotificationService {
     private final DeviceTokenService deviceTokenService;
     private final MessageSource messageSource;
     private final UserRepository userRepository;
+    private final NotificationRealtimePublisher realtimePublisher;
 
     // 알림 생성
     @Transactional(transactionManager = "notificationTransactionManager")
@@ -274,13 +276,18 @@ public class NotificationService {
             : notificationRepository.save(notification);
         log.info("알림 생성: userId={}, type={}, title={}", userId, type, title);
 
+        NotificationResponse response = NotificationResponse.from(saved);
+
+        // QA-224: 실시간 채널로 즉시 전달 (커밋 후 발행, 웹 레드닷 즉각 갱신용)
+        realtimePublisher.publish(userId, response);
+
         if (pref.getPushEnabled() && !isInQuietHours(userId, pref)) {
             sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
         } else if (pref.getPushEnabled()) {
             log.debug("Quiet Hours 활성화 - 푸시 알림 스킵: userId={}, type={}", userId, type);
         }
 
-        return NotificationResponse.from(saved);
+        return response;
     }
 
     // ==================== 편의 메서드 (특수 케이스) ====================
@@ -326,8 +333,10 @@ public class NotificationService {
             .referenceId(inquiryId)
             .actionUrl(type.resolveActionUrl(inquiryId))
             .build();
-        notificationRepository.save(notification);
+        Notification saved = notificationRepository.save(notification);
         log.info("INQUIRY_REPLIED in-app 알림 저장: userId={}, inquiryId={}", userId, inquiryId);
+        // QA-224: 실시간 채널로 즉시 전달
+        realtimePublisher.publish(userId, NotificationResponse.from(saved));
         // push는 stream:app-push로 별도 발행되므로 여기서 재발행 X
     }
 

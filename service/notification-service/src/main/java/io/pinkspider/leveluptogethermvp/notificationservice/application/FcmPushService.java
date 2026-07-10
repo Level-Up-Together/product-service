@@ -235,6 +235,8 @@ public class FcmPushService {
                     .build());
         } else {
             builder.setAndroidConfig(AndroidConfig.builder()
+                    // QA-224: doze 모드에서 전달이 수 시간 지연되지 않도록 high priority 명시
+                    .setPriority(AndroidConfig.Priority.HIGH)
                     .setNotification(AndroidNotification.builder()
                             .setSound("default")
                             .setClickAction(request.clickAction())
