@@ -322,6 +322,8 @@ public void run() { ...}
 미션(고정/실행 모드/생성 한도/자동완료), 피드(공개범위/필터/동기화), 길드(초대/자동 참가), 인증(Browse-First/Signup Token Flow) 등 도메인별 비즈니스 규칙: [
 `docs/FEATURES.md`](docs/FEATURES.md)
 
+JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경별 설정값: [`docs/JWT_TOKEN_LIFECYCLE.md`](docs/JWT_TOKEN_LIFECYCLE.md)
+
 ## Internal API (Admin Backend ↔ MVP)
 
 `/api/internal/**` — VPC 내부 접근만 허용. 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
