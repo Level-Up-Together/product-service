@@ -86,7 +86,8 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MATCH);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(false);
 
@@ -105,7 +106,7 @@ class JwtServiceTest {
         }
 
         @Test
-        @DisplayName("rotation 직후 grace window 내 구 토큰 재시도면 현재 세션 토큰을 재전달한다")
+        @DisplayName("rotation 직후 grace window 내 구 토큰 재시도면 새 토큰을 재발급한다")
         void reissue_graceRetryAfterRotation() {
             // given
             RefreshTokenRequestDto request = RefreshTokenRequestDto.builder()
@@ -113,8 +114,8 @@ class JwtServiceTest {
                 .deviceType(testDeviceType)
                 .build();
 
-            String storedToken = "rotated-current-token";
             String newAccessToken = "retry-access-token";
+            String newRefreshToken = "retry-refresh-token";
 
             when(jwtUtil.validateToken(testRefreshToken)).thenReturn(true);
             when(tokenService.isTokenBlacklisted(testRefreshToken)).thenReturn(false);
@@ -123,21 +124,24 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(storedToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MISMATCH);
             when(tokenService.isWithinRotationGrace(testUserId, testDeviceType, testDeviceId, testRefreshToken))
                 .thenReturn(true);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
+            when(jwtUtil.generateRefreshToken(testUserId, testEmail, testDeviceId)).thenReturn(newRefreshToken);
 
             // when
             ReissueJwtResponseDto response = jwtService.reissue(request);
 
-            // then
+            // then — 해시 저장이라 기존 토큰 재전달이 불가하므로 새 토큰 발급
             assertThat(response.getAccessToken()).isEqualTo(newAccessToken);
-            assertThat(response.getRefreshToken()).isEqualTo(storedToken);
+            assertThat(response.getRefreshToken()).isEqualTo(newRefreshToken);
             assertThat(response.isRefreshTokenRenewed()).isTrue();
 
-            verify(tokenService).updateTokens(testUserId, testDeviceType, testDeviceId, newAccessToken, null);
-            verify(jwtUtil, never()).generateRefreshToken(anyString(), anyString(), anyString());
+            verify(tokenService).updateTokensForGraceRetry(
+                testUserId, testDeviceType, testDeviceId, newAccessToken, newRefreshToken);
+            verify(tokenService, never()).updateTokens(anyString(), anyString(), anyString(), anyString(), any());
         }
 
         @Test
@@ -184,7 +188,8 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MATCH);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(true);
             when(jwtUtil.generateRefreshToken(testUserId, testEmail, testDeviceId)).thenReturn(newRefreshToken);
@@ -269,8 +274,6 @@ class JwtServiceTest {
                 .deviceType(testDeviceType)
                 .build();
 
-            String differentStoredToken = "different-stored-token";
-
             when(jwtUtil.validateToken(testRefreshToken)).thenReturn(true);
             when(tokenService.isTokenBlacklisted(testRefreshToken)).thenReturn(false);
             when(slidingExpirationService.isWithinMaxLifetime(testRefreshToken)).thenReturn(true);
@@ -278,7 +281,8 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(differentStoredToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MISMATCH);
 
             // when & then (grace window 밖이므로 거절)
             assertThatThrownBy(() -> jwtService.reissue(request))
@@ -310,7 +314,8 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MATCH);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(false);
 
@@ -344,7 +349,8 @@ class JwtServiceTest {
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
             when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
-            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
+            when(tokenService.checkRefreshToken(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(MultiDeviceTokenService.RefreshTokenMatch.MATCH);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(true);
             when(jwtUtil.generateRefreshToken(testUserId, testEmail, testDeviceId)).thenReturn(newRefreshToken);
@@ -601,14 +607,14 @@ class JwtServiceTest {
             when(jwtUtil.getDeviceIdFromToken(testAccessToken)).thenReturn(testDeviceId);
             when(jwtUtil.getRemainingTime(testAccessToken)).thenReturn(3600000L);
 
+            // QA-231: 세션은 토큰 원문 대신 계산된 판정값을 반환한다
             java.util.Map<String, Object> sessionInfo = new java.util.HashMap<>();
-            sessionInfo.put("refreshToken", testRefreshToken);
+            sessionInfo.put("refreshTokenValid", true);
+            sessionInfo.put("refreshTokenRemaining", 86400000L);
+            sessionInfo.put("shouldRenewRefreshToken", false);
+            sessionInfo.put("canRenewRefreshToken", true);
             sessionInfo.put("loginTime", "1000000");
             when(tokenService.getSessionInfo(testUserId, testDeviceType, testDeviceId)).thenReturn(sessionInfo);
-            when(jwtUtil.validateToken(testRefreshToken)).thenReturn(true);
-            when(jwtUtil.getRemainingTime(testRefreshToken)).thenReturn(86400000L);
-            when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(false);
-            when(tokenService.canRenewRefreshToken(testRefreshToken)).thenReturn(true);
 
             // when
             var result = jwtService.getTokenStatus(request);

@@ -81,29 +81,34 @@ public class JwtService {
                     UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultMessage());
             }
 
-            // 저장된 리프레시 토큰과 비교
-            String storedRefreshToken = tokenService.getRefreshToken(userId, deviceType, deviceId);
-            if (!refreshToken.equals(storedRefreshToken)) {
-                // rotation 직후 응답 유실 재시도: grace window 내 직전 토큰이면
-                // 현재 세션의 refresh 토큰을 그대로 재전달해 불필요한 로그아웃을 막는다
-                if (storedRefreshToken != null
+            // 저장된 리프레시 토큰과 비교 (QA-231: 해시 저장 — 비교는 tokenService 가 수행)
+            MultiDeviceTokenService.RefreshTokenMatch tokenMatch =
+                tokenService.checkRefreshToken(userId, deviceType, deviceId, refreshToken);
+            if (tokenMatch != MultiDeviceTokenService.RefreshTokenMatch.MATCH) {
+                // rotation 직후 응답 유실 재시도: grace window 내 직전 토큰이면 새 토큰을 재발급한다.
+                // (해시 저장이라 기존 토큰 원문 재전달 불가. previous 기록은 유지되므로
+                //  grace window 내 반복 재시도도 허용된다.)
+                if (tokenMatch == MultiDeviceTokenService.RefreshTokenMatch.MISMATCH
                     && tokenService.isWithinRotationGrace(userId, deviceType, deviceId, refreshToken)) {
                     String retryAccessToken = jwtUtil.generateAccessToken(userId, email, deviceId);
-                    tokenService.updateTokens(userId, deviceType, deviceId, retryAccessToken, null);
+                    String retryRefreshToken = jwtUtil.generateRefreshToken(userId, email, deviceId);
+                    tokenService.updateTokensForGraceRetry(userId, deviceType, deviceId,
+                        retryAccessToken, retryRefreshToken);
                     log.info("[reissue] rotation grace retry userId={} deviceId={} deviceType={}",
                         userId, deviceId, deviceType);
                     return ReissueJwtResponseDto.builder()
                         .accessToken(retryAccessToken)
-                        .refreshToken(storedRefreshToken)
+                        .refreshToken(retryRefreshToken)
                         .tokenType("Bearer")
                         .expiresIn((int) (accessTokenExpiryMs / 1000))
                         .userId(userId)
                         .deviceId(deviceId)
-                        .refreshTokenRenewed(true) // 클라이언트가 보낸 토큰과 다르므로 갱신으로 알린다
+                        .refreshTokenRenewed(true)
                         .build();
                 }
                 log.info("[reissue] reject reason=NOT_VALID_REFRESH_TOKEN stage=storedTokenMismatch storedNull={} userId={} deviceId={} deviceType={}",
-                    storedRefreshToken == null, userId, deviceId, deviceType);
+                    tokenMatch == MultiDeviceTokenService.RefreshTokenMatch.NO_SESSION,
+                    userId, deviceId, deviceType);
                 throw new JwtException(UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultCode(),
                     UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultMessage());
             }
@@ -228,18 +233,20 @@ public class JwtService {
                 deviceType = "web";
             }
 
+            // QA-231: 세션은 refresh 원문을 보관하지 않으므로 getSessionInfo 가 계산한 판정값 사용
             Map<String, Object> sessionInfo = tokenService.getSessionInfo(memberId, deviceType, deviceId);
-            String refreshToken = (String) sessionInfo.get("refreshToken");
 
             TokenStatusResponseDto.TokenStatusResponseDtoBuilder builder = TokenStatusResponseDto.builder()
                 .accessTokenValid(true)
                 .accessTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(token)));
 
-            if (refreshToken != null) {
-                builder.refreshTokenValid(jwtUtil.validateToken(refreshToken))
-                    .refreshTokenRemaining(java.math.BigInteger.valueOf(jwtUtil.getRemainingTime(refreshToken)))
-                    .shouldRenewRefreshToken(tokenService.shouldRenewRefreshToken(refreshToken))
-                    .canRenewRefreshToken(tokenService.canRenewRefreshToken(refreshToken));
+            Object refreshTokenValid = sessionInfo.get("refreshTokenValid");
+            if (refreshTokenValid != null) {
+                builder.refreshTokenValid((Boolean) refreshTokenValid)
+                    .refreshTokenRemaining(java.math.BigInteger.valueOf(
+                        ((Number) sessionInfo.get("refreshTokenRemaining")).longValue()))
+                    .shouldRenewRefreshToken((Boolean) sessionInfo.get("shouldRenewRefreshToken"))
+                    .canRenewRefreshToken((Boolean) sessionInfo.get("canRenewRefreshToken"));
             }
 
             String lastRefreshTime = (String) sessionInfo.get("lastRefreshTime");

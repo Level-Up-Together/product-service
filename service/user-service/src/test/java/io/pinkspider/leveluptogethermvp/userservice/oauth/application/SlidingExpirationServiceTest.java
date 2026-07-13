@@ -36,6 +36,35 @@ class SlidingExpirationServiceTest {
     }
 
     @Nested
+    @DisplayName("shouldRenewByRemainingMillis 테스트 (QA-231 해시 세션용)")
+    class ShouldRenewByRemainingMillisTest {
+
+        @Test
+        @DisplayName("잔여시간이 임계값 미만이면 true")
+        void belowThreshold_returnsTrue() {
+            when(jwtProperties.getRenewalThresholdMillis()).thenReturn(1000L * 60 * 60 * 24 * 90);
+
+            assertThat(slidingExpirationService.shouldRenewByRemainingMillis(1000L)).isTrue();
+        }
+
+        @Test
+        @DisplayName("잔여시간이 임계값 이상이면 false")
+        void aboveThreshold_returnsFalse() {
+            when(jwtProperties.getRenewalThresholdMillis()).thenReturn(1000L * 60 * 60 * 24 * 3);
+
+            assertThat(slidingExpirationService.shouldRenewByRemainingMillis(
+                1000L * 60 * 60 * 24 * 10)).isFalse();
+        }
+
+        @Test
+        @DisplayName("이미 만료(잔여 0 이하)면 false")
+        void expired_returnsFalse() {
+            assertThat(slidingExpirationService.shouldRenewByRemainingMillis(0L)).isFalse();
+            assertThat(slidingExpirationService.shouldRenewByRemainingMillis(-1000L)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("isSessionWithinMaxLifetime 테스트")
     class IsSessionWithinMaxLifetimeTest {
 

@@ -16,6 +16,11 @@ public class SlidingExpirationService {
     private final JwtProperties jwtProperties;
     private final JwtUtil jwtUtil;
 
+    // 잔여시간(ms) 기반 갱신 필요 여부 — 해시 저장 세션(원문 없음)의 exp 메타데이터용 (QA-231)
+    public boolean shouldRenewByRemainingMillis(long remainingMillis) {
+        return remainingMillis > 0 && remainingMillis < jwtProperties.getRenewalThresholdMillis();
+    }
+
     // Refresh Token 갱신 필요 여부 확인 (설정 기반)
     public boolean shouldRenewRefreshToken(String refreshToken) {
         if (refreshToken == null) {
