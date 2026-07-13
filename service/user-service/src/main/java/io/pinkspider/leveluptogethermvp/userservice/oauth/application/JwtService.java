@@ -72,9 +72,36 @@ public class JwtService {
             String email = jwtUtil.getEmailFromToken(refreshToken);
             String deviceId = jwtUtil.getDeviceIdFromToken(refreshToken);
 
+            // 절대 상한: rotation 이 토큰 iat 를 매번 리셋하므로 세션 최초 로그인 시각 기준으로 판정
+            Long loginTime = tokenService.getLoginTime(userId, deviceType, deviceId);
+            if (!slidingExpirationService.isSessionWithinMaxLifetime(loginTime)) {
+                log.info("[reissue] reject reason=TOKEN_EXCEEDED_MAXIMUM_LIFETIME stage=sessionLoginTime userId={} deviceId={} deviceType={}",
+                    userId, deviceId, deviceType);
+                throw new JwtException(UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultCode(),
+                    UserApiStatus.TOKEN_EXCEEDED_MAXIMUM_LIFETIME.getResultMessage());
+            }
+
             // 저장된 리프레시 토큰과 비교
             String storedRefreshToken = tokenService.getRefreshToken(userId, deviceType, deviceId);
             if (!refreshToken.equals(storedRefreshToken)) {
+                // rotation 직후 응답 유실 재시도: grace window 내 직전 토큰이면
+                // 현재 세션의 refresh 토큰을 그대로 재전달해 불필요한 로그아웃을 막는다
+                if (storedRefreshToken != null
+                    && tokenService.isWithinRotationGrace(userId, deviceType, deviceId, refreshToken)) {
+                    String retryAccessToken = jwtUtil.generateAccessToken(userId, email, deviceId);
+                    tokenService.updateTokens(userId, deviceType, deviceId, retryAccessToken, null);
+                    log.info("[reissue] rotation grace retry userId={} deviceId={} deviceType={}",
+                        userId, deviceId, deviceType);
+                    return ReissueJwtResponseDto.builder()
+                        .accessToken(retryAccessToken)
+                        .refreshToken(storedRefreshToken)
+                        .tokenType("Bearer")
+                        .expiresIn((int) (accessTokenExpiryMs / 1000))
+                        .userId(userId)
+                        .deviceId(deviceId)
+                        .refreshTokenRenewed(true) // 클라이언트가 보낸 토큰과 다르므로 갱신으로 알린다
+                        .build();
+                }
                 log.info("[reissue] reject reason=NOT_VALID_REFRESH_TOKEN stage=storedTokenMismatch storedNull={} userId={} deviceId={} deviceType={}",
                     storedRefreshToken == null, userId, deviceId, deviceType);
                 throw new JwtException(UserApiStatus.NOT_VALID_REFRESH_TOKEN.getResultCode(),
@@ -89,12 +116,11 @@ public class JwtService {
             boolean refreshTokenRenewed = false;
 
             if (tokenService.shouldRenewRefreshToken(refreshToken)) {
-                // 새로운 Refresh Token 생성
+                // 새로운 Refresh Token 생성.
+                // 기존 토큰은 즉시 블랙리스트하지 않는다 — updateTokens 가 previous 로 보관해
+                // grace window 재시도를 허용하고, 다음 rotation 시점에 블랙리스트한다.
                 newRefreshToken = jwtUtil.generateRefreshToken(userId, email, deviceId);
                 refreshTokenRenewed = true;
-
-                // 기존 Refresh Token 블랙리스트 처리
-                tokenService.blacklistToken(refreshToken);
                 log.info("Refresh token renewed for user: {}, device: {}", userId, deviceId);
             }
 

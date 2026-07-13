@@ -85,6 +85,7 @@ class JwtServiceTest {
             when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
             when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(false);
@@ -104,7 +105,68 @@ class JwtServiceTest {
         }
 
         @Test
-        @DisplayName("refresh token이 3일 미만 남으면 sliding expiration으로 새 refresh token을 발급한다")
+        @DisplayName("rotation 직후 grace window 내 구 토큰 재시도면 현재 세션 토큰을 재전달한다")
+        void reissue_graceRetryAfterRotation() {
+            // given
+            RefreshTokenRequestDto request = RefreshTokenRequestDto.builder()
+                .refreshToken(testRefreshToken)
+                .deviceType(testDeviceType)
+                .build();
+
+            String storedToken = "rotated-current-token";
+            String newAccessToken = "retry-access-token";
+
+            when(jwtUtil.validateToken(testRefreshToken)).thenReturn(true);
+            when(tokenService.isTokenBlacklisted(testRefreshToken)).thenReturn(false);
+            when(slidingExpirationService.isWithinMaxLifetime(testRefreshToken)).thenReturn(true);
+            when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
+            when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
+            when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
+            when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(storedToken);
+            when(tokenService.isWithinRotationGrace(testUserId, testDeviceType, testDeviceId, testRefreshToken))
+                .thenReturn(true);
+            when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
+
+            // when
+            ReissueJwtResponseDto response = jwtService.reissue(request);
+
+            // then
+            assertThat(response.getAccessToken()).isEqualTo(newAccessToken);
+            assertThat(response.getRefreshToken()).isEqualTo(storedToken);
+            assertThat(response.isRefreshTokenRenewed()).isTrue();
+
+            verify(tokenService).updateTokens(testUserId, testDeviceType, testDeviceId, newAccessToken, null);
+            verify(jwtUtil, never()).generateRefreshToken(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("세션 최초 로그인 후 절대 상한을 초과하면 재발급할 수 없다")
+        void reissue_failWhenSessionExceededMaxLifetime() {
+            // given
+            RefreshTokenRequestDto request = RefreshTokenRequestDto.builder()
+                .refreshToken(testRefreshToken)
+                .deviceType(testDeviceType)
+                .build();
+
+            when(jwtUtil.validateToken(testRefreshToken)).thenReturn(true);
+            when(tokenService.isTokenBlacklisted(testRefreshToken)).thenReturn(false);
+            when(slidingExpirationService.isWithinMaxLifetime(testRefreshToken)).thenReturn(true);
+            when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
+            when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
+            when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(tokenService.getLoginTime(testUserId, testDeviceType, testDeviceId)).thenReturn(12345L);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(12345L)).thenReturn(false);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.reissue(request))
+                .isInstanceOf(JwtException.class);
+
+            verify(tokenService, never()).updateTokens(anyString(), anyString(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("refresh token 잔여시간이 갱신 임계값 미만이면 sliding expiration으로 새 refresh token을 발급한다")
         void reissue_withSlidingExpiration() {
             // given
             RefreshTokenRequestDto request = RefreshTokenRequestDto.builder()
@@ -121,6 +183,7 @@ class JwtServiceTest {
             when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
             when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(true);
@@ -135,7 +198,8 @@ class JwtServiceTest {
             assertThat(response.getRefreshToken()).isEqualTo(newRefreshToken);
             assertThat(response.isRefreshTokenRenewed()).isTrue();
 
-            verify(tokenService).blacklistToken(testRefreshToken);
+            // 구 토큰은 즉시 블랙리스트하지 않는다 — grace 재시도용 previous 로 보관 (updateTokens 내부)
+            verify(tokenService, never()).blacklistToken(anyString());
             verify(tokenService).updateTokens(testUserId, testDeviceType, testDeviceId, newAccessToken, newRefreshToken);
         }
 
@@ -213,9 +277,10 @@ class JwtServiceTest {
             when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
             when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(differentStoredToken);
 
-            // when & then
+            // when & then (grace window 밖이므로 거절)
             assertThatThrownBy(() -> jwtService.reissue(request))
                 .isInstanceOf(JwtException.class);
 
@@ -244,6 +309,7 @@ class JwtServiceTest {
             when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
             when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(false);
@@ -277,6 +343,7 @@ class JwtServiceTest {
             when(jwtUtil.getSubjectFromToken(testRefreshToken)).thenReturn(testUserId);
             when(jwtUtil.getEmailFromToken(testRefreshToken)).thenReturn(testEmail);
             when(jwtUtil.getDeviceIdFromToken(testRefreshToken)).thenReturn(testDeviceId);
+            when(slidingExpirationService.isSessionWithinMaxLifetime(any())).thenReturn(true);
             when(tokenService.getRefreshToken(testUserId, testDeviceType, testDeviceId)).thenReturn(testRefreshToken);
             when(jwtUtil.generateAccessToken(testUserId, testEmail, testDeviceId)).thenReturn(newAccessToken);
             when(tokenService.shouldRenewRefreshToken(testRefreshToken)).thenReturn(true);
@@ -289,7 +356,8 @@ class JwtServiceTest {
             assertThat(response.isRefreshTokenRenewed()).isTrue();
             assertThat(response.getRefreshToken()).isEqualTo(newRefreshToken);
 
-            verify(tokenService).blacklistToken(testRefreshToken);
+            // 즉시 블랙리스트 대신 updateTokens 가 previous 보관 + 다음 rotation 시 블랙리스트
+            verify(tokenService, never()).blacklistToken(anyString());
             verify(tokenService).updateTokens(testUserId, testDeviceType, testDeviceId, newAccessToken, newRefreshToken);
         }
     }

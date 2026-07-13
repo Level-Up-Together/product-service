@@ -36,6 +36,39 @@ class SlidingExpirationServiceTest {
     }
 
     @Nested
+    @DisplayName("isSessionWithinMaxLifetime 테스트")
+    class IsSessionWithinMaxLifetimeTest {
+
+        @Test
+        @DisplayName("loginTime이 null(레거시 세션)이면 관대하게 true를 반환한다")
+        void nullLoginTime_returnsTrue() {
+            assertThat(slidingExpirationService.isSessionWithinMaxLifetime(null)).isTrue();
+        }
+
+        @Test
+        @DisplayName("로그인 후 경과 시간이 최대 수명 미만이면 true를 반환한다")
+        void withinMaxLifetime_returnsTrue() {
+            // given: 1일 전 로그인, 최대 수명 365일
+            long loginTime = System.currentTimeMillis() - 1000L * 60 * 60 * 24;
+            when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 365);
+
+            // when & then
+            assertThat(slidingExpirationService.isSessionWithinMaxLifetime(loginTime)).isTrue();
+        }
+
+        @Test
+        @DisplayName("로그인 후 경과 시간이 최대 수명을 초과하면 false를 반환한다")
+        void exceededMaxLifetime_returnsFalse() {
+            // given: 31일 전 로그인, 최대 수명 30일
+            long loginTime = System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 31;
+            when(jwtProperties.getMaxLifetimeMillis()).thenReturn(1000L * 60 * 60 * 24 * 30);
+
+            // when & then
+            assertThat(slidingExpirationService.isSessionWithinMaxLifetime(loginTime)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("shouldRenewRefreshToken 테스트")
     class ShouldRenewRefreshTokenTest {
 

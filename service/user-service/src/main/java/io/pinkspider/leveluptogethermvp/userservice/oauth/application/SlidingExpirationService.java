@@ -30,6 +30,19 @@ public class SlidingExpirationService {
         }
     }
 
+    /**
+     * 세션 최초 로그인 시각 기준 절대 상한 판정.
+     * rotation 시 토큰의 iat 가 매번 리셋되므로 토큰 나이(isWithinMaxLifetime)로는
+     * 절대 상한을 강제할 수 없다 — 세션의 loginTime 이 정확한 기준이다.
+     * loginTime 이 없는 레거시 세션은 관대하게 통과시킨다.
+     */
+    public boolean isSessionWithinMaxLifetime(Long loginTimeMillis) {
+        if (loginTimeMillis == null) {
+            return true;
+        }
+        return System.currentTimeMillis() - loginTimeMillis < jwtProperties.getMaxLifetimeMillis();
+    }
+
     // 토큰이 최대 수명 내에 있는지 확인
     public boolean isWithinMaxLifetime(String refreshToken) {
         try {
