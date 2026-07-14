@@ -159,13 +159,13 @@ class MissionExecutionQueryServiceTest {
                 createCompletedExecution(2L, date2, 30, 45)
             );
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // QA-217: 경험치 이력 기반 일별 합계
@@ -196,6 +196,44 @@ class MissionExecutionQueryServiceTest {
                 .isEqualTo(50);
             assertThat(response.getDailyMissions().get(date1.toString()).get(0).getDurationMinutes())
                 .isEqualTo(60);
+        }
+
+        @Test
+        @DisplayName("LUT-240: 자정 넘겨 완료된 미션은 executionDate가 아닌 완료 시각(KST) 날짜에 그룹된다")
+        void getMonthlyCalendarData_bucketsByCompletionDate() {
+            // given: executionDate=12-15 이지만 완료는 UTC 12-15 16:00 = KST 12-16 01:00
+            int year = 2024;
+            int month = 12;
+            LocalDate execDate = LocalDate.of(year, month, 15);
+            LocalDateTime completedUtc = LocalDateTime.of(year, month, 15, 16, 0);
+
+            MissionExecution execution = MissionExecution.builder()
+                .participant(testParticipant)
+                .executionDate(execDate)
+                .status(ExecutionStatus.COMPLETED)
+                .expEarned(140)
+                .build();
+            setId(execution, 1L);
+            TestReflectionUtils.setField(execution, "startedAt", LocalDateTime.of(year, month, 15, 12, 0));
+            TestReflectionUtils.setField(execution, "completedAt", completedUtc);
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(execution));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of());
+
+            // when
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, year, month, "Asia/Seoul");
+
+            // then: 완료 KST 날짜(12-16)에 그룹, executionDate(12-15)에는 없음
+            assertThat(response.getDailyMissions()).containsKey("2024-12-16");
+            assertThat(response.getDailyMissions()).doesNotContainKey("2024-12-15");
         }
 
         @Test
@@ -237,13 +275,13 @@ class MissionExecutionQueryServiceTest {
 
             List<MissionExecution> completedExecutions = List.of(execution1, execution2);
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
@@ -268,13 +306,13 @@ class MissionExecutionQueryServiceTest {
             int year = 2024;
             int month = 1;
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             // 고정 미션 관련 mock (없음)
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
@@ -305,13 +343,13 @@ class MissionExecutionQueryServiceTest {
                 createCompletedExecution(1L, date, 50, 30)
             );
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
@@ -346,13 +384,13 @@ class MissionExecutionQueryServiceTest {
                 createCompletedExecution(2L, date2, 40, 45)
             );
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(completedExecutions);
 
             // 고정 미션 관련 mock (없음)
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
@@ -375,11 +413,11 @@ class MissionExecutionQueryServiceTest {
             int month = 12;
             LocalDate date = LocalDate.of(year, month, 15);
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
             when(gamificationQueryFacade.getDailyExpSummary(
@@ -402,14 +440,14 @@ class MissionExecutionQueryServiceTest {
             int month = 12;
             LocalDate date = LocalDate.of(year, month, 15);
 
-            when(executionRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(createCompletedExecution(1L, date, 50, 30)));
             when(executionRepository.sumExpEarnedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(50);
-            when(dailyMissionInstanceRepository.findCompletedByUserIdAndDateRange(
-                eq(testUserId), any(LocalDate.class), any(LocalDate.class)))
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
             when(dailyMissionInstanceRepository.sumExpEarnedByUserIdAndDateRange(
                 eq(testUserId), any(LocalDate.class), any(LocalDate.class)))

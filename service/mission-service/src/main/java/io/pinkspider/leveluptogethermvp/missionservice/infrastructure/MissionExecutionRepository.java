@@ -180,6 +180,23 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     );
 
     /**
+     * LUT-240: 완료 시각(completedAt) 기준 캘린더 조회.
+     * daily_exp(경험치 이력, 완료 시각 KST 날짜 버킷)와 날짜 기준을 일치시켜
+     * executionDate 와 완료일이 다를 때(자정 넘겨 완료 등) "기타 보상"이 부풀려지는 문제를 막는다.
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND me.completedAt >= :startUtc AND me.completedAt < :endUtc " +
+           "AND me.status = 'COMPLETED'")
+    List<MissionExecution> findCompletedByUserIdAndCompletedAtBetween(
+        @Param("userId") String userId,
+        @Param("startUtc") LocalDateTime startUtc,
+        @Param("endUtc") LocalDateTime endUtc
+    );
+
+    /**
      * 사용자의 특정 기간 획득 경험치 합계 조회
      */
     @Query("SELECT COALESCE(SUM(me.expEarned), 0) FROM MissionExecution me " +

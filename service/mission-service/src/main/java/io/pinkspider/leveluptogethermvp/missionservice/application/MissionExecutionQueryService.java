@@ -266,13 +266,27 @@ public class MissionExecutionQueryService {
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        // 1. 일반 미션 - 완료된 미션 실행 내역 조회
-        List<MissionExecution> completedExecutions = executionRepository
-            .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
+        // LUT-240: 미션 기록의 날짜 기준을 daily_exp(경험치 이력, 완료 시각 KST)와 일치시킨다.
+        // executionDate/instanceDate 로 그룹하면 자정 넘겨 완료된 미션의 exp 와 목록이
+        // 다른 날짜에 놓여 "기타 보상"이 부풀려진다. 완료 시각을 사용자 타임존 날짜로 버킷팅.
+        ZoneId userZone;
+        try {
+            userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        } catch (Exception e) {
+            userZone = ZoneId.of("Asia/Seoul");
+        }
+        LocalDateTime startUtc = yearMonth.atDay(1).atStartOfDay(userZone)
+            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime endUtc = yearMonth.plusMonths(1).atDay(1).atStartOfDay(userZone)
+            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
 
-        // 2. 고정 미션 - 완료된 인스턴스 조회
+        // 1. 일반 미션 - 완료된 미션 실행 내역 조회 (완료 시각 기준)
+        List<MissionExecution> completedExecutions = executionRepository
+            .findCompletedByUserIdAndCompletedAtBetween(userId, startUtc, endUtc);
+
+        // 2. 고정 미션 - 완료된 인스턴스 조회 (완료 시각 기준)
         List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
-            .findCompletedByUserIdAndDateRange(userId, startDate, endDate);
+            .findCompletedByUserIdAndCompletedAtBetween(userId, startUtc, endUtc);
 
         // 3. 일별/월별 총 획득 경험치 — QA-217: 경험치 이력 기반으로 출석·업적 보상 등
         //    미션 외 경험치까지 포함해 오늘의 MVP 표기와 일치시킨다.
@@ -290,9 +304,10 @@ public class MissionExecutionQueryService {
         // 4. 날짜별 미션 그룹화
         Map<String, List<DailyMission>> dailyMissions = new HashMap<>();
 
-        // 4-1. 일반 미션 추가
+        // 4-1. 일반 미션 추가 (완료 시각의 사용자 타임존 날짜로 그룹 — daily_exp 와 동일 기준)
         for (MissionExecution execution : completedExecutions) {
-            String dateKey = execution.getExecutionDate().toString();
+            String dateKey = toUserZoneDateKey(execution.getCompletedAt(), userZone,
+                execution.getExecutionDate());
 
             Integer durationMinutes = null;
             if (execution.getStartedAt() != null && execution.getCompletedAt() != null) {
@@ -313,9 +328,10 @@ public class MissionExecutionQueryService {
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
         }
 
-        // 4-2. 고정 미션 추가
+        // 4-2. 고정 미션 추가 (완료 시각의 사용자 타임존 날짜로 그룹 — daily_exp 와 동일 기준)
         for (DailyMissionInstance instance : completedInstances) {
-            String dateKey = instance.getInstanceDate().toString();
+            String dateKey = toUserZoneDateKey(instance.getCompletedAt(), userZone,
+                instance.getInstanceDate());
 
             Integer durationMinutes = null;
             if (instance.getStartedAt() != null && instance.getCompletedAt() != null) {
@@ -366,6 +382,17 @@ public class MissionExecutionQueryService {
      *
      * @return 날짜("yyyy-MM-dd") → 획득 경험치. 조회 실패 시 null (호출부에서 미션 합으로 fallback)
      */
+    /**
+     * LUT-240: 완료 시각(UTC 저장)을 사용자 타임존 날짜 키("yyyy-MM-dd")로 변환.
+     * completedAt 이 없으면(비정상) fallback 날짜를 사용한다.
+     */
+    private String toUserZoneDateKey(LocalDateTime completedAtUtc, ZoneId userZone, LocalDate fallback) {
+        if (completedAtUtc == null) {
+            return fallback.toString();
+        }
+        return completedAtUtc.atZone(ZoneOffset.UTC).withZoneSameInstant(userZone).toLocalDate().toString();
+    }
+
     private Map<String, Integer> fetchDailyExpSummary(String userId, YearMonth yearMonth, String timezone) {
         try {
             ZoneId userZone;

@@ -171,6 +171,23 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     );
 
     /**
+     * LUT-240: 완료 시각(completedAt) 기준 캘린더 조회.
+     * daily_exp(경험치 이력, 완료 시각 KST 날짜 버킷)와 날짜 기준을 일치시켜
+     * instanceDate 와 완료일이 다를 때(자정 넘겨 완료 등) "기타 보상"이 부풀려지는 문제를 막는다.
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission m " +
+           "WHERE p.userId = :userId " +
+           "AND dmi.completedAt >= :startUtc AND dmi.completedAt < :endUtc " +
+           "AND dmi.status = 'COMPLETED'")
+    List<DailyMissionInstance> findCompletedByUserIdAndCompletedAtBetween(
+        @Param("userId") String userId,
+        @Param("startUtc") java.time.LocalDateTime startUtc,
+        @Param("endUtc") java.time.LocalDateTime endUtc
+    );
+
+    /**
      * 지난 날짜의 미완료 인스턴스 일괄 MISSED 처리
      */
     @Modifying
