@@ -45,6 +45,25 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         + "AND me.status = 'COMPLETED'")
     Integer sumExpEarnedByMissionId(@Param("missionId") Long missionId);
 
+    /**
+     * LUT-236: 자동종료됐지만 길드 경험치가 아직 지급되지 않은 길드 미션 수행 기록 조회 (소급용).
+     * saga 완료 경로는 isAutoCompleted=false 라 제외되고, 이미 지급된 건은 guildExpGranted=true 라 제외된다.
+     * keyset(id) 페이징 — 지급 실패 건에서 무한 루프를 피하고 재실행 안전.
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN me.participant p " +
+           "JOIN p.mission m " +
+           "WHERE me.id > :lastId " +
+           "AND me.status = 'COMPLETED' " +
+           "AND me.isAutoCompleted = true " +
+           "AND me.guildExpGranted = false " +
+           "AND m.type = 'GUILD' " +
+           "AND m.guildId IS NOT NULL " +
+           "ORDER BY me.id ASC")
+    List<MissionExecution> findAutoCompletedGuildExecutionsNeedingGuildExp(
+        @Param("lastId") Long lastId,
+        org.springframework.data.domain.Pageable pageable);
+
     @Query("SELECT COUNT(me) FROM MissionExecution me JOIN me.participant mp WHERE mp.userId = :userId")
     long countByUserId(@Param("userId") String userId);
 

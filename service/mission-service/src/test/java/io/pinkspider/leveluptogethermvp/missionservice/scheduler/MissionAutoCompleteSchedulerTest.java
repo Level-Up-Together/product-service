@@ -60,6 +60,9 @@ class MissionAutoCompleteSchedulerTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private io.pinkspider.global.facade.GuildQueryFacade guildQueryFacade;
+
     @InjectMocks
     private MissionAutoCompleteScheduler scheduler;
 
@@ -131,6 +134,92 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
             assertThat(execution.getIsAutoCompleted()).isTrue();
             assertThat(execution.getExpEarned()).isEqualTo(10); // 기본 경험치
+        }
+
+        @Test
+        @DisplayName("LUT-236: 길드 미션 자동 종료 시 길드 경험치도 지급되고 guildExpGranted가 세팅된다")
+        void autoCompleteGuildMission_grantsGuildExp() {
+            // given: 길드 미션(type=GUILD, guildId=123)
+            Mission guildMission = Mission.builder()
+                .title("길드 미션")
+                .description("길드 미션 설명")
+                .creatorId(USER_ID)
+                .status(MissionStatus.IN_PROGRESS)
+                .type(MissionType.GUILD)
+                .guildId("123")
+                .build();
+            setId(guildMission, 99L);
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(USER_ID)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 2L);
+
+            MissionExecution execution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .build();
+            setId(execution, 1L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
+                .thenReturn(List.of(execution));
+            when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+            assertThat(execution.getGuildExpGranted()).isTrue();
+            org.mockito.Mockito.verify(guildQueryFacade).addGuildExperience(
+                org.mockito.ArgumentMatchers.eq(123L),
+                org.mockito.ArgumentMatchers.eq(10),
+                org.mockito.ArgumentMatchers.eq(io.pinkspider.global.enums.GuildExpSourceType.GUILD_MISSION_EXECUTION),
+                org.mockito.ArgumentMatchers.eq(99L),
+                org.mockito.ArgumentMatchers.eq(USER_ID),
+                org.mockito.ArgumentMatchers.anyString());
+        }
+
+        @Test
+        @DisplayName("LUT-236: 개인 미션 자동 종료 시 길드 경험치는 지급되지 않는다")
+        void autoCompletePersonalMission_noGuildExp() {
+            // given: 기본 participant 는 PERSONAL 미션
+            MissionExecution execution = MissionExecution.builder()
+                .participant(participant)
+                .executionDate(LocalDate.now())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusHours(5))
+                .build();
+            setId(execution, 1L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findInProgressWithTargetDuration()).thenReturn(List.of());
+            when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
+                .thenReturn(List.of(execution));
+            when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then
+            assertThat(execution.getGuildExpGranted()).isFalse();
+            org.mockito.Mockito.verify(guildQueryFacade, org.mockito.Mockito.never())
+                .addGuildExperience(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any(), any());
         }
 
         @Test

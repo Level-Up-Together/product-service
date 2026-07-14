@@ -1,9 +1,11 @@
 package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 
 import io.pinkspider.global.enums.ExpSourceType;
+import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecutionService;
 import io.pinkspider.leveluptogethermvp.missionservice.config.MissionExecutionProperties;
@@ -47,6 +49,7 @@ public class MissionAutoCompleteScheduler {
     private final MissionExecutionProperties missionExecutionProperties;
     private final ApplicationEventPublisher eventPublisher;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final GuildQueryFacade guildQueryFacade;
 
     /**
      * 5분마다 실행: 미션 자동 종료
@@ -166,6 +169,8 @@ public class MissionAutoCompleteScheduler {
                 }
                 // QA-119: 자동 종료 시 user_experience / experience_history 에도 EXP 반영
                 grantAutoCompleteExp(participant, baseExp, execution.getId());
+                // LUT-236: 길드 미션이면 길드 경험치도 누적 (saga 우회 경로라 여기서 직접 지급)
+                grantAutoCompleteGuildExp(execution, participant, baseExp);
                 count++;
                 log.info("일반 미션 자동 종료: executionId={}, userId={}, startedAt={}",
                     execution.getId(),
@@ -228,6 +233,43 @@ public class MissionAutoCompleteScheduler {
         } catch (Exception e) {
             log.error("자동 종료 EXP 지급 실패: userId={}, missionId={}, sourceId={}, error={}",
                 participant.getUserId(), mission.getId(), sourceId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * LUT-236: 자동종료된 길드 미션의 길드 경험치 누적.
+     *
+     * 정상 완료 / 목표시간 자동종료(Saga) 는 GrantGuildExperienceStep 이 길드 경험치를
+     * 지급하지만, 4시간 초과 자동종료(Saga 우회) 경로는 누락되어 길드 총 경험치가
+     * 미션 누적보다 작아지는 문제가 있었다. 여기서 동일하게 addGuildExperience 로 지급한다.
+     * 길드 EXP = 사용자 EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
+     */
+    private void grantAutoCompleteGuildExp(MissionExecution execution, MissionParticipant participant, int baseExp) {
+        if (participant == null || baseExp <= 0) {
+            return;
+        }
+        Mission mission = participant.getMission();
+        if (mission == null || !mission.isGuildMission() || mission.getGuildIdAsLong() == null) {
+            return;
+        }
+        if (Boolean.TRUE.equals(execution.getGuildExpGranted())) {
+            return; // 이미 지급됨 (재실행 안전)
+        }
+        try {
+            guildQueryFacade.addGuildExperience(
+                mission.getGuildIdAsLong(),
+                baseExp,
+                GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                mission.getId(),
+                participant.getUserId(),
+                "미션 자동 종료 길드 경험치: " + mission.getTitle()
+            );
+            execution.setGuildExpGranted(true);
+            log.info("자동 종료 길드 경험치 지급: guildId={}, exp={}, missionId={}, userId={}",
+                mission.getGuildIdAsLong(), baseExp, mission.getId(), participant.getUserId());
+        } catch (Exception e) {
+            log.error("자동 종료 길드 경험치 지급 실패: guildId={}, missionId={}, error={}",
+                mission.getGuildIdAsLong(), mission.getId(), e.getMessage(), e);
         }
     }
 
