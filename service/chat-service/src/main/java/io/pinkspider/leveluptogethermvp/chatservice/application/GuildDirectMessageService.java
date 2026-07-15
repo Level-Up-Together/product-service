@@ -7,9 +7,8 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectCon
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectMessage;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMessageRepository;
+import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
-import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
@@ -18,6 +17,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,7 +33,7 @@ public class GuildDirectMessageService {
     private final GuildDirectMessageRepository messageRepository;
     private final GuildQueryFacade guildQueryFacadeService;
     private final UserQueryFacade userQueryFacadeService;
-    private final FcmPushService fcmPushService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(transactionManager = "chatTransactionManager")
     public DirectMessageResponse sendMessage(
@@ -68,7 +68,10 @@ public class GuildDirectMessageService {
 
         log.debug("DM 전송: guildId={}, senderId={}, recipientId={}", guildId, senderId, recipientId);
 
-        sendDmPushNotification(recipientId, senderNickname, request.getContent(), guildId, conversation.getId());
+        // LUT-224: AFTER_COMMIT 리스너가 알림 레코드 생성 + 실시간 채널 + 푸시를 일괄 처리
+        eventPublisher.publishEvent(new GuildDirectMessageEvent(
+            senderId, senderNickname, guildId, conversation.getId(),
+            savedMessage.getId(), request.getContent(), recipientId));
 
         return DirectMessageResponse.from(savedMessage);
     }
@@ -243,23 +246,4 @@ public class GuildDirectMessageService {
         }
     }
 
-    private void sendDmPushNotification(String recipientId, String senderNickname, String content, Long guildId, Long conversationId) {
-        try {
-            String body = content.length() > 100 ? content.substring(0, 100) + "..." : content;
-            PushMessageRequest pushRequest = new PushMessageRequest(
-                senderNickname,
-                body,
-                null,
-                "OPEN_DM",
-                java.util.Map.of(
-                    "type", "DM",
-                    "guild_id", String.valueOf(guildId),
-                    "conversation_id", String.valueOf(conversationId)
-                )
-            );
-            fcmPushService.sendToUser(recipientId, pushRequest);
-        } catch (Exception e) {
-            log.warn("DM 푸시 알림 전송 실패: recipientId={}, error={}", recipientId, e.getMessage());
-        }
-    }
 }

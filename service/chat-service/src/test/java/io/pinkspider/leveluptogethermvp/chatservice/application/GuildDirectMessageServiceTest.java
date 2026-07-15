@@ -15,8 +15,8 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectCon
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectMessage;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMessageRepository;
+import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
-import io.pinkspider.leveluptogethermvp.notificationservice.application.FcmPushService;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
@@ -26,9 +26,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -50,7 +52,7 @@ class GuildDirectMessageServiceTest {
     private UserQueryFacade userQueryFacadeService;
 
     @Mock
-    private FcmPushService fcmPushService;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private GuildDirectMessageService dmService;
@@ -124,6 +126,43 @@ class GuildDirectMessageServiceTest {
             assertThat(response.getContent()).isEqualTo("안녕하세요!");
             assertThat(response.getSenderId()).isEqualTo(USER_ID_1);
             verify(messageRepository).save(any(GuildDirectMessage.class));
+        }
+
+        @Test
+        @DisplayName("DM 전송 시 알림 이벤트를 발행한다 (LUT-224)")
+        void sendMessage_publishesDirectMessageEvent() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("알림 이벤트 테스트")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+                .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
+                GuildDirectMessage msg = inv.getArgument(0);
+                setId(msg, GuildDirectMessage.class, 77L);
+                return msg;
+            });
+
+            // when
+            dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            // then
+            ArgumentCaptor<GuildDirectMessageEvent> captor =
+                ArgumentCaptor.forClass(GuildDirectMessageEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            GuildDirectMessageEvent event = captor.getValue();
+            assertThat(event.userId()).isEqualTo(USER_ID_1);
+            assertThat(event.senderNickname()).isEqualTo(NICKNAME_1);
+            assertThat(event.guildId()).isEqualTo(1L);
+            assertThat(event.conversationId()).isEqualTo(1L);
+            assertThat(event.messageId()).isEqualTo(77L);
+            assertThat(event.messageContent()).isEqualTo("알림 이벤트 테스트");
+            assertThat(event.recipientId()).isEqualTo(USER_ID_2);
         }
 
         @Test

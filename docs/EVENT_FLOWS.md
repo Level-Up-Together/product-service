@@ -37,3 +37,5 @@
 | MissionCompletionSaga        | `MissionCompletedCountEvent`       | `UserStatsCounterEventListener`      | totalMissionCompletions 증가 + 업적 체크      |
 | MissionCompletionSaga        | `GuildMissionCompletedCountEvent`  | `UserStatsCounterEventListener`      | totalGuildMissionCompletions 증가 + 업적 체크 |
 | MissionAutoCompleteScheduler | `MissionAutoEndWarningEvent`       | `NotificationEventListener`          | 미션 자동 종료 10분 전 경고 알림                    |
+| GuildChatService             | `GuildChatMessageEvent`            | `NotificationEventListener`          | 길드 채팅 알림 (발송자 제외 멤버 전원)                 |
+| GuildDirectMessageService    | `GuildDirectMessageEvent`          | `NotificationEventListener`          | 길드 DM 알림 — 레코드+실시간+푸시 통합 (LUT-224)      |

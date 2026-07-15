@@ -20,6 +20,7 @@ import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildChatMessageEvent;
+import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
@@ -240,6 +241,43 @@ class NotificationEventListenerTest {
             verify(notificationService, never()).sendNotification(
                 eq(SENDER_ID), eq(NotificationType.GUILD_CHAT),
                 anyLong(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 DM 이벤트 처리 (LUT-224)")
+    class HandleGuildDirectMessageTest {
+
+        @Test
+        @DisplayName("DM 수신자에게 알림을 생성한다")
+        void handleGuildDirectMessage_success_notifiesRecipient() {
+            Long guildId = 100L;
+            Long conversationId = 5L;
+            Long messageId = 77L;
+            GuildDirectMessageEvent event = new GuildDirectMessageEvent(
+                SENDER_ID, "발송자닉네임", guildId, conversationId, messageId,
+                "DM 내용입니다", MEMBER_ID_1, LocalDateTime.now());
+            eventListener.handleGuildDirectMessage(event);
+            verify(notificationService).sendNotification(
+                eq(MEMBER_ID_1), eq(NotificationType.GUILD_DM),
+                eq(messageId), isNull(),
+                eq("발송자닉네임"), eq("DM 내용입니다"),
+                eq(guildId.toString()), eq(SENDER_ID));
+        }
+
+        @Test
+        @DisplayName("30자 초과 DM은 미리보기로 잘려서 알림에 담긴다")
+        void handleGuildDirectMessage_longContent_truncatedPreview() {
+            String longContent = "가".repeat(40);
+            GuildDirectMessageEvent event = new GuildDirectMessageEvent(
+                SENDER_ID, "발송자닉네임", 100L, 5L, 78L,
+                longContent, MEMBER_ID_1, LocalDateTime.now());
+            eventListener.handleGuildDirectMessage(event);
+            verify(notificationService).sendNotification(
+                eq(MEMBER_ID_1), eq(NotificationType.GUILD_DM),
+                eq(78L), isNull(),
+                eq("발송자닉네임"), eq("가".repeat(30) + "..."),
+                eq("100"), eq(SENDER_ID));
         }
     }
 

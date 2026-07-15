@@ -14,6 +14,7 @@ import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.event.GuildBulletinCreatedEvent;
 import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
+import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
@@ -152,6 +153,22 @@ public class NotificationEventListener {
                 event.messageId(), null,
                 event.guildName(), event.senderNickname(),
                 event.getPreviewContent(), event.guildId().toString()));
+    }
+
+    /**
+     * 길드 1:1 DM 알림 (LUT-224).
+     * 기존에는 DM이 FCM 푸시만 직접 발송해 알림 레코드가 없었고,
+     * 종 레드닷·알림 목록·클릭 이동이 모두 누락되었다.
+     * sendNotification 경로로 통일해 레코드 생성 + 실시간 채널 + 푸시를 일괄 처리한다.
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildDirectMessage(GuildDirectMessageEvent event) {
+        safeHandle("길드 DM", () -> notificationService.sendNotification(
+            event.recipientId(), NotificationType.GUILD_DM,
+            event.messageId(), null,
+            event.senderNickname(), event.getPreviewContent(),
+            event.guildId().toString(), event.userId()));
     }
 
     @Async(EVENT_EXECUTOR)
