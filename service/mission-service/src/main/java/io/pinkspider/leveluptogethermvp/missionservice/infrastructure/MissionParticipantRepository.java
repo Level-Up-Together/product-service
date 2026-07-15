@@ -115,6 +115,58 @@ public interface MissionParticipantRepository extends JpaRepository<MissionParti
         @Param("endDate") LocalDate endDate,
         Pageable pageable);
 
+    /**
+     * LUT-239: 어드민 길드 미션 수행 기록 UNION 서브쿼리 — 한 행 = 한 수행 건.
+     * {@link #USER_MISSION_EVENT_UNION} 과 동일한 구조를 길드 스코프(m.guild_id)로 조회하고,
+     * 수행자(mp.user_id)와 기록 출처(isPinned: 일반/고정)를 함께 노출한다.
+     */
+    String GUILD_MISSION_EVENT_UNION =
+        "SELECT me.participant_id AS participantId, "
+            + "       m.id AS missionId, "
+            + "       m.title AS missionTitle, "
+            + "       FALSE AS isPinned, "
+            + "       mp.user_id AS userId, "
+            + "       me.status AS status, "
+            + "       me.exp_earned AS expEarned, "
+            + "       COALESCE(me.completed_at, me.started_at) AS eventAt, "
+            + "       me.execution_date AS eventDate "
+            + "  FROM mission_execution me "
+            + "  JOIN mission_participant mp ON mp.id = me.participant_id "
+            + "  JOIN mission m ON m.id = mp.mission_id "
+            + " WHERE m.guild_id = :guildId "
+            + "   AND (me.started_at IS NOT NULL OR me.completed_at IS NOT NULL) "
+            + "UNION ALL "
+            + "SELECT dmi.participant_id, "
+            + "       m.id, "
+            + "       dmi.mission_title, "
+            + "       TRUE, "
+            + "       mp.user_id, "
+            + "       dmi.status, "
+            + "       COALESCE(NULLIF(dmi.total_exp_earned, 0), dmi.exp_earned), "
+            + "       COALESCE(dmi.completed_at, dmi.started_at), "
+            + "       dmi.instance_date "
+            + "  FROM daily_mission_instance dmi "
+            + "  JOIN mission_participant mp ON mp.id = dmi.participant_id "
+            + "  JOIN mission m ON m.id = mp.mission_id "
+            + " WHERE m.guild_id = :guildId "
+            + "   AND (dmi.started_at IS NOT NULL OR dmi.completed_at IS NOT NULL) ";
+
+    String GUILD_MISSION_EVENT_FILTER =
+        " WHERE (CAST(:startDate AS date) IS NULL OR t.eventDate >= CAST(:startDate AS date)) "
+            + "AND (CAST(:endDate AS date) IS NULL OR t.eventDate <= CAST(:endDate AS date)) ";
+
+    @Query(value = "SELECT * FROM (" + GUILD_MISSION_EVENT_UNION + ") t "
+        + GUILD_MISSION_EVENT_FILTER
+        + "ORDER BY t.eventAt DESC, t.participantId DESC",
+        countQuery = "SELECT COUNT(*) FROM (" + GUILD_MISSION_EVENT_UNION + ") t "
+            + GUILD_MISSION_EVENT_FILTER,
+        nativeQuery = true)
+    Page<GuildMissionEventRow> searchGuildMissionEvents(
+        @Param("guildId") String guildId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate,
+        Pageable pageable);
+
     @Query("SELECT mp FROM MissionParticipant mp JOIN FETCH mp.mission WHERE mp.userId = :userId AND mp.status = :status ORDER BY mp.joinedAt DESC")
     List<MissionParticipant> findByUserIdAndStatusWithMission(@Param("userId") String userId, @Param("status") ParticipantStatus status);
 

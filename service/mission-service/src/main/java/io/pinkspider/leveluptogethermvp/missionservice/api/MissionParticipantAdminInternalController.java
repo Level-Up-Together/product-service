@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.missionservice.api;
 
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.missionservice.application.MissionParticipantAdminService;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.GuildMissionHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
@@ -44,6 +45,27 @@ public class MissionParticipantAdminInternalController {
             .value(participantAdminService.getUserMissionHistory(
                 userId, filter.type(), filter.source(), startDate, endDate,
                 PageRequest.of(page, size)))
+            .build();
+    }
+
+    /**
+     * LUT-239: 길드 미션 수행 기록 조회 (어드민 길드 상세 > 미션 기록 탭).
+     * 길드 소속 미션의 수행 건을 일반/고정 구분, 수행자 닉네임과 함께 반환한다.
+     */
+    @GetMapping("/guild/{guildId}/history")
+    public ApiResult<GuildMissionHistoryAdminPageResponse> getGuildMissionHistory(
+            @PathVariable Long guildId,
+            @RequestParam(value = "start_date", required = false)
+                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "end_date", required = false)
+                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+
+        // 정렬은 네이티브 UNION 쿼리에 내장 (event_at DESC) — Pageable 에는 page/size 만 전달
+        return ApiResult.<GuildMissionHistoryAdminPageResponse>builder()
+            .value(participantAdminService.getGuildMissionHistory(
+                guildId, startDate, endDate, PageRequest.of(page, size)))
             .build();
     }
 

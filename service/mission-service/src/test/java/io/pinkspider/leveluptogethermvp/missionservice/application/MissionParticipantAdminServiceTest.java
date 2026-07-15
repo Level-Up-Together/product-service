@@ -4,18 +4,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.GuildMissionHistoryAdminPageResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.GuildMissionHistoryAdminResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.UserMissionHistoryAdminResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.GuildMissionEventRow;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.UserMissionEventRow;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -35,6 +43,9 @@ class MissionParticipantAdminServiceTest {
 
     @Mock
     private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private UserQueryFacade userQueryFacade;
 
     @InjectMocks
     private MissionParticipantAdminService service;
@@ -173,6 +184,119 @@ class MissionParticipantAdminServiceTest {
 
             UserMissionHistoryAdminPageResponse result =
                 service.getUserMissionHistory("user-1", null, null, null, null, pageable);
+
+            assertThat(result.content()).isEmpty();
+        }
+    }
+
+    /** LUT-239: 길드 미션 기록 네이티브 UNION 쿼리 프로젝션 테스트 스텁 */
+    private record GuildEventRow(
+        Long getParticipantId,
+        Long getMissionId,
+        String getMissionTitle,
+        Boolean getIsPinned,
+        String getUserId,
+        String getStatus,
+        Integer getExpEarned,
+        LocalDateTime getEventAt
+    ) implements GuildMissionEventRow {}
+
+    private static GuildEventRow guildRow(
+        String userId, Boolean isPinned, String status, Integer expEarned) {
+        return new GuildEventRow(1L, 10L, "길드 미션", isPinned, userId, status,
+            expEarned, LocalDateTime.of(2026, 7, 13, 23, 51, 0));
+    }
+
+    @Nested
+    @DisplayName("getGuildMissionHistory 테스트")
+    class GetGuildMissionHistoryTest {
+
+        @Test
+        @DisplayName("수행자 닉네임을 UserQueryFacade 배치 조회로 채운다")
+        void fillsNicknameFromFacade() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(participantRepository.searchGuildMissionEvents(
+                eq("100"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(guildRow("user-1", true, "COMPLETED", 34))));
+            when(userQueryFacade.getUserProfiles(List.of("user-1")))
+                .thenReturn(Map.of("user-1",
+                    new UserProfileInfo("user-1", "핑스파이더", null, 1, null, null, null)));
+
+            GuildMissionHistoryAdminPageResponse result =
+                service.getGuildMissionHistory(100L, null, null, pageable);
+
+            assertThat(result.content()).hasSize(1);
+            GuildMissionHistoryAdminResponse mapped = result.content().get(0);
+            assertThat(mapped.userId()).isEqualTo("user-1");
+            assertThat(mapped.userNickname()).isEqualTo("핑스파이더");
+            assertThat(mapped.isPinned()).isTrue();
+            assertThat(mapped.status()).isEqualTo("COMPLETED");
+            assertThat(mapped.expEarned()).isEqualTo(34);
+            assertThat(mapped.eventAt()).isEqualTo(LocalDateTime.of(2026, 7, 13, 23, 51, 0));
+        }
+
+        @Test
+        @DisplayName("IN_PROGRESS 수행 건은 STARTED 상태, exp_earned=null 로 매핑된다")
+        void mapsInProgressToStarted() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(participantRepository.searchGuildMissionEvents(
+                eq("100"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(guildRow("user-1", false, "IN_PROGRESS", 0))));
+            when(userQueryFacade.getUserProfiles(List.of("user-1")))
+                .thenReturn(Map.of("user-1",
+                    new UserProfileInfo("user-1", "핑스파이더", null, 1, null, null, null)));
+
+            GuildMissionHistoryAdminPageResponse result =
+                service.getGuildMissionHistory(100L, null, null, pageable);
+
+            GuildMissionHistoryAdminResponse mapped = result.content().get(0);
+            assertThat(mapped.status()).isEqualTo("STARTED");
+            assertThat(mapped.expEarned()).isNull();
+            assertThat(mapped.isPinned()).isFalse();
+        }
+
+        @Test
+        @DisplayName("프로필 조회에 없는 수행자는 닉네임 null 로 반환한다")
+        void missingProfileFallsBackToNullNickname() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(participantRepository.searchGuildMissionEvents(
+                eq("100"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(guildRow("user-2", false, "COMPLETED", 120))));
+            when(userQueryFacade.getUserProfiles(List.of("user-2"))).thenReturn(Map.of());
+
+            GuildMissionHistoryAdminPageResponse result =
+                service.getGuildMissionHistory(100L, null, null, pageable);
+
+            assertThat(result.content().get(0).userNickname()).isNull();
+        }
+
+        @Test
+        @DisplayName("빈 목록이면 프로필 조회 없이 빈 페이지를 반환한다")
+        void emptyHistorySkipsProfileLookup() {
+            Pageable pageable = PageRequest.of(0, 10);
+            when(participantRepository.searchGuildMissionEvents(
+                eq("100"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            GuildMissionHistoryAdminPageResponse result =
+                service.getGuildMissionHistory(100L, null, null, pageable);
+
+            assertThat(result.content()).isEmpty();
+            verify(userQueryFacade, never()).getUserProfiles(any());
+        }
+
+        @Test
+        @DisplayName("날짜 필터는 LocalDate 그대로 Repository 에 전달된다")
+        void forwardsDateFiltersToRepository() {
+            Pageable pageable = PageRequest.of(0, 10);
+            LocalDate start = LocalDate.of(2026, 7, 1);
+            LocalDate end = LocalDate.of(2026, 7, 14);
+            when(participantRepository.searchGuildMissionEvents(
+                eq("100"), eq(start), eq(end), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+            GuildMissionHistoryAdminPageResponse result =
+                service.getGuildMissionHistory(100L, start, end, pageable);
 
             assertThat(result.content()).isEmpty();
         }
