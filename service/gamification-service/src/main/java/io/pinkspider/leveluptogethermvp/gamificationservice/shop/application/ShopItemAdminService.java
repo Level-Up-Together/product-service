@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.Shop
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemImagePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,10 @@ public class ShopItemAdminService {
             .itemType(request.getItemType())
             .rarity(request.getRarity())
             .imageUrl(request.getImageUrl())
+            .imagePosition(
+                request.getImagePosition() != null
+                    ? request.getImagePosition()
+                    : ShopItemImagePosition.BACK)
             .price(request.getPrice())
             .isActive(request.getIsActive() != null ? request.getIsActive() : true)
             .build();
@@ -85,6 +90,9 @@ public class ShopItemAdminService {
         item.setItemType(request.getItemType());
         item.setRarity(request.getRarity());
         item.setImageUrl(request.getImageUrl());
+        if (request.getImagePosition() != null) {
+            item.setImagePosition(request.getImagePosition());
+        }
         item.setPrice(request.getPrice());
         if (request.getIsActive() != null) {
             item.setIsActive(request.getIsActive());

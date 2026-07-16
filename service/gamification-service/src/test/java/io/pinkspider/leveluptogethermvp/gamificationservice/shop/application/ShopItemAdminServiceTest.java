@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.Shop
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemImagePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import java.util.List;
@@ -132,6 +133,42 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("imagePosition 미지정 시 기본 BACK (LUT-225)")
+        void createShopItem_defaultImagePosition() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("새 아이템");
+            request.setImagePosition(null);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.imagePosition()).isEqualTo(ShopItemImagePosition.BACK);
+        }
+
+        @Test
+        @DisplayName("imagePosition FRONT 지정 시 그대로 저장 (LUT-225)")
+        void createShopItem_frontImagePosition() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("새 아이템");
+            request.setImagePosition(ShopItemImagePosition.FRONT);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.imagePosition()).isEqualTo(ShopItemImagePosition.FRONT);
+        }
+
+        @Test
         @DisplayName("중복 이름이면 예외")
         void createShopItem_duplicateName() {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(true);
@@ -176,6 +213,21 @@ class ShopItemAdminServiceTest {
             shopItemAdminService.updateShopItem(1L, request);
 
             verify(imageStorageService).delete("/uploads/shop-items/old.png");
+        }
+
+        @Test
+        @DisplayName("imagePosition을 FRONT로 변경한다 (LUT-225)")
+        void updateShopItem_changesImagePosition() {
+            ShopItem item = createItem(1L, "우주 헬멧");
+            when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
+            when(shopItemRepository.save(any(ShopItem.class))).thenReturn(item);
+
+            ShopItemAdminRequest request = createRequest("우주 헬멧");
+            request.setImagePosition(ShopItemImagePosition.FRONT);
+
+            ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
+
+            assertThat(response.imagePosition()).isEqualTo(ShopItemImagePosition.FRONT);
         }
 
         @Test

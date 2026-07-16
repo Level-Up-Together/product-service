@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemImagePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -72,6 +73,13 @@ public class ShopItem extends LocalDateTimeBaseEntity {
     @Column(name = "image_url", length = 500)
     @Comment("아이템 이미지 URL")
     private String imageUrl;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "image_position", nullable = false, length = 10)
+    @Comment("이미지 포지션 (FRONT|BACK)")
+    @lombok.Builder.Default
+    private ShopItemImagePosition imagePosition = ShopItemImagePosition.BACK;
 
     @NotNull
     @Column(name = "price", nullable = false)

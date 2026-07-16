@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemImagePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -43,6 +44,9 @@ public class ShopItemAdminRequest {
 
     @Size(max = 500, message = "이미지 URL은 500자 이하이어야 합니다.")
     private String imageUrl;
+
+    /** 이미지 포지션 — 미지정 시 BACK (LUT-225) */
+    private ShopItemImagePosition imagePosition;
 
     @NotNull(message = "가격은 필수입니다.")
     @PositiveOrZero(message = "가격은 0 이상이어야 합니다.")

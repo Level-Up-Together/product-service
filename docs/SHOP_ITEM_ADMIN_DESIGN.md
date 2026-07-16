@@ -60,11 +60,12 @@ shop/
 | item_type | VARCHAR(20) NOT NULL | BASIC/FULL/HEAD/EFFECT |
 | rarity | VARCHAR(20) NOT NULL | TitleRarity |
 | image_url | VARCHAR(500) | 업로드 후 CDN URL |
+| image_position | VARCHAR(10) NOT NULL DEFAULT 'BACK' | FRONT(위)/BACK(아래) — 캐릭터 기준 렌더 위치 (LUT-225) |
 | price | INTEGER NOT NULL DEFAULT 0 | 다이아 가격 |
 | is_active | BOOLEAN NOT NULL DEFAULT true | |
 | created_at / modified_at | TIMESTAMP | UTC (JPA Auditing) |
 
-- DDL: `level-up-together-sql/queries/developing/0.1.3/V003__qa225_shop_item.sql`
+- DDL: `level-up-together-sql/queries/developing/0.1.3/V003__qa225_shop_item.sql`, `V006__lut225_shop_item_image_position.sql`
 - 인덱스: `(item_type)`, `(is_active)`
 - 삭제는 물리 삭제로 시작하되, **판매 이력 발생 이후에는 soft delete로 전환 필요** (§6)
 

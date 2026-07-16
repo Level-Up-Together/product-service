@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemImagePosition;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import java.time.LocalDateTime;
 
@@ -19,6 +20,7 @@ public record ShopItemAdminResponse(
     String rarityName,
     String rarityColorCode,
     String imageUrl,
+    ShopItemImagePosition imagePosition,
     Integer price,
     Boolean isActive,
     LocalDateTime createdAt,
@@ -36,6 +38,7 @@ public record ShopItemAdminResponse(
             item.getRarity().getName(),
             item.getRarity().getColorCode(),
             item.getImageUrl(),
+            item.getImagePosition(),
             item.getPrice(),
             item.getIsActive(),
             item.getCreatedAt(),
