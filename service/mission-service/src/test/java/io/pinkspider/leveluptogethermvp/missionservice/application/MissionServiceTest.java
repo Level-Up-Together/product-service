@@ -806,8 +806,8 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("QA-185: 길드 미션 생성 시 DRAFT 단계 없이 즉시 OPEN 으로 전환된다")
-        void createMission_guildMission_autoOpens() {
+        @DisplayName("LUT-227: 길드 미션은 모집중(OPEN) 단계 없이 생성 즉시 IN_PROGRESS 상태다")
+        void createMission_guildMission_startsInProgressImmediately() {
             // given
             Long guildIdLong = 100L;
             String guildIdStr = "100";
@@ -824,7 +824,7 @@ class MissionServiceTest {
             Mission savedMission = Mission.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .status(MissionStatus.DRAFT)
+                .status(MissionStatus.IN_PROGRESS)
                 .visibility(request.getVisibility())
                 .type(request.getType())
                 .source(MissionSource.USER)
@@ -841,8 +841,67 @@ class MissionServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            // savedMission.open() 이 호출되어 status 가 OPEN 으로 전환된다
-            assertThat(savedMission.getStatus()).isEqualTo(MissionStatus.OPEN);
+            assertThat(response.getStatus()).isEqualTo(MissionStatus.IN_PROGRESS);
+
+            // 저장 시점부터 IN_PROGRESS — open()/start() 전이 없이 초기 상태로 설정된다
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getStatus()).isEqualTo(MissionStatus.IN_PROGRESS);
+
+            // 상태 히스토리는 생성(CREATE) 이벤트 1건만 발행된다 (OPEN 전환 이벤트 없음)
+            ArgumentCaptor<MissionStateChangedEvent> eventCaptor =
+                ArgumentCaptor.forClass(MissionStateChangedEvent.class);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getValue().toStatus()).isEqualTo(MissionStatus.IN_PROGRESS);
+            assertThat(eventCaptor.getValue().triggerEvent()).isEqualTo("CREATE");
+        }
+
+        @Test
+        @DisplayName("LUT-227: 길드 미션 생성 시점에 길드원 자동 참여와 도착 알림이 발송된다")
+        void createMission_guildMission_enrollsAndNotifiesAtCreation() {
+            // given
+            Long guildIdLong = 100L;
+            String guildIdStr = "100";
+            String member1Id = "member-1";
+            String member2Id = "member-2";
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.GUILD_ONLY)
+                .type(MissionType.GUILD)
+                .guildId(guildIdStr)
+                .build();
+
+            when(guildQueryFacadeService.getGuildName(guildIdLong)).thenReturn("테스트 길드");
+            when(guildQueryFacadeService.getActiveMemberUserIds(guildIdLong))
+                .thenReturn(List.of(TEST_USER_ID, member1Id, member2Id));
+
+            Mission savedMission = Mission.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(request.getVisibility())
+                .type(request.getType())
+                .source(MissionSource.USER)
+                .creatorId(TEST_USER_ID)
+                .guildId(guildIdStr)
+                .guildName("테스트 길드")
+                .build();
+            setId(savedMission, 1L);
+
+            when(missionRepository.save(any(Mission.class))).thenReturn(savedMission);
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then: 생성자를 제외한 길드원 자동 참여
+            verify(missionParticipantService).addGuildMemberAsParticipant(savedMission, member1Id);
+            verify(missionParticipantService).addGuildMemberAsParticipant(savedMission, member2Id);
+            verify(missionParticipantService, never())
+                .addGuildMemberAsParticipant(savedMission, TEST_USER_ID);
+
+            // 진행중 상태로 생성된 시점에 도착 알림 이벤트 발행
+            verify(eventPublisher).publishEvent(any(GuildMissionArrivedEvent.class));
         }
 
         @Test
