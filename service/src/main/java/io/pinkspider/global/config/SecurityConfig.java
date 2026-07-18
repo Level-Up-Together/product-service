@@ -1,6 +1,7 @@
 package io.pinkspider.global.config;
 
 import io.pinkspider.global.security.AuthEntryPointJwt;
+import io.pinkspider.global.security.InternalApiKeyFilter;
 import io.pinkspider.global.security.JwtAuthenticationFilter;
 import io.pinkspider.global.security.OAuth2Properties;
 import java.util.Arrays;
@@ -35,6 +36,7 @@ public class SecurityConfig {
 
     private final AuthEntryPointJwt unauthorizedHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalApiKeyFilter internalApiKeyFilter;
     private final OAuth2Properties oAuth2Properties;
 
     @Bean
@@ -200,7 +202,10 @@ public class SecurityConfig {
                 .logout(logout -> logout.logoutSuccessUrl("/"))
                 // JWT 필터 추가
                 .addFilterBefore(
-                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // 내부 API 공유 시크릿 검증 필터 (LUT-244) — JWT 필터보다 먼저 실행해
+                // /api/internal/** 를 헤더 인증으로 선차단한다.
+                .addFilterBefore(internalApiKeyFilter, JwtAuthenticationFilter.class);
 
         http.exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint));
 
