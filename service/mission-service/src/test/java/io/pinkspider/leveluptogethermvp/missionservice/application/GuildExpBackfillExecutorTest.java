@@ -80,6 +80,7 @@ class GuildExpBackfillExecutorTest {
     void grantsAndMarks() {
         MissionExecution execution = guildExecution(120, false);
         when(executionRepository.findById(1L)).thenReturn(Optional.of(execution));
+        when(guildQueryFacade.guildExists(123L)).thenReturn(true);
 
         int granted = executor.grantForExecution(1L);
 
@@ -127,6 +128,21 @@ class GuildExpBackfillExecutorTest {
             .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
+    @Test
+    @DisplayName("비활성/해체 길드는 실패가 아니라 스킵하고 마커를 세팅한다 (재실행 대상 제외)")
+    void inactiveGuild_skipsAndMarks() {
+        MissionExecution execution = guildExecution(120, false);
+        when(executionRepository.findById(1L)).thenReturn(Optional.of(execution));
+        when(guildQueryFacade.guildExists(123L)).thenReturn(false); // 해체된 길드
+
+        int granted = executor.grantForExecution(1L);
+
+        assertThat(granted).isEqualTo(0);
+        assertThat(execution.getGuildExpGranted()).isTrue(); // 마커 세팅 → 재실행 시 재시도/failed 집계 안 됨
+        verify(guildQueryFacade, never())
+            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+    }
+
     private DailyMissionInstance guildInstance(Integer expEarned, boolean alreadyGranted) {
         Mission mission = Mission.builder()
             .title("김부장미션")
@@ -161,6 +177,7 @@ class GuildExpBackfillExecutorTest {
     void grantForInstance_grantsAndMarks() {
         DailyMissionInstance instance = guildInstance(120, false);
         when(instanceRepository.findById(3978L)).thenReturn(Optional.of(instance));
+        when(guildQueryFacade.guildExists(6L)).thenReturn(true);
 
         int granted = executor.grantForInstance(3978L);
 
@@ -169,6 +186,21 @@ class GuildExpBackfillExecutorTest {
         verify(guildQueryFacade).addGuildExperience(
             eq(6L), eq(120), eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
             eq(467L), eq(USER_ID), anyString());
+    }
+
+    @Test
+    @DisplayName("비활성/해체 길드 인스턴스는 실패가 아니라 스킵하고 마커를 세팅한다")
+    void grantForInstance_inactiveGuild_skipsAndMarks() {
+        DailyMissionInstance instance = guildInstance(120, false);
+        when(instanceRepository.findById(3978L)).thenReturn(Optional.of(instance));
+        when(guildQueryFacade.guildExists(6L)).thenReturn(false); // 해체된 길드
+
+        int granted = executor.grantForInstance(3978L);
+
+        assertThat(granted).isEqualTo(0);
+        assertThat(instance.getGuildExpGranted()).isTrue();
+        verify(guildQueryFacade, never())
+            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }
 
     @Test

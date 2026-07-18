@@ -52,6 +52,13 @@ public class GuildExpBackfillExecutor {
             return 0;
         }
 
+        // 해체/비활성 길드는 경험치를 넣을 곳이 없다 — 실패가 아니라 스킵으로 처리(마커 세팅해 재실행 대상에서 제외).
+        if (!guildQueryFacade.guildExists(guildId)) {
+            log.info("소급 스킵 — 비활성/해체 길드: guildId={}, executionId={}", guildId, executionId);
+            execution.setGuildExpGranted(true);
+            return 0;
+        }
+
         guildQueryFacade.addGuildExperience(
             guildId,
             exp,
@@ -85,6 +92,13 @@ public class GuildExpBackfillExecutor {
         int exp = instance.getExpEarned() == null ? 0 : instance.getExpEarned();
         if (exp <= 0) {
             instance.setGuildExpGranted(true); // 지급할 것 없음 — 대상에서 제외
+            return 0;
+        }
+
+        // 해체/비활성 길드는 경험치를 넣을 곳이 없다 — 실패가 아니라 스킵으로 처리(마커 세팅해 재실행 대상에서 제외).
+        if (!guildQueryFacade.guildExists(guildId)) {
+            log.info("소급 스킵 — 비활성/해체 길드: guildId={}, instanceId={}", guildId, instanceId);
+            instance.setGuildExpGranted(true);
             return 0;
         }
 
