@@ -168,6 +168,13 @@ public class DailyMissionInstance extends LocalDateTimeBaseEntity implements Mis
     @Builder.Default
     private Boolean isAutoCompleted = false;
 
+    // LUT-236: 고정 길드 미션 자동종료 시 길드 경험치가 지급됐는지 표시(멱등 소급용).
+    // saga/수동 완료 경로는 이 값을 건드리지 않는다(항상 false) — 자동종료 소급 대상 식별에 사용.
+    @Column(name = "guild_exp_granted", nullable = false)
+    @Comment("길드 경험치 지급 완료 여부 (자동종료 소급 멱등용, LUT-236)")
+    @Builder.Default
+    private Boolean guildExpGranted = false;
+
     // ============ 낙관적 락 ============
 
     @Version

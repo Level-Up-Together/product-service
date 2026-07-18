@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -19,7 +20,9 @@ import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +38,9 @@ class GuildExpBackfillExecutorTest {
 
     @Mock
     private MissionExecutionRepository executionRepository;
+
+    @Mock
+    private DailyMissionInstanceRepository instanceRepository;
 
     @Mock
     private GuildQueryFacade guildQueryFacade;
@@ -117,6 +123,77 @@ class GuildExpBackfillExecutorTest {
         when(executionRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThat(executor.grantForExecution(1L)).isEqualTo(0);
+        verify(guildQueryFacade, never())
+            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+    }
+
+    private DailyMissionInstance guildInstance(Integer expEarned, boolean alreadyGranted) {
+        Mission mission = Mission.builder()
+            .title("김부장미션")
+            .creatorId(USER_ID)
+            .status(MissionStatus.IN_PROGRESS)
+            .type(MissionType.GUILD)
+            .guildId("6")
+            .isPinned(true)
+            .build();
+        setId(mission, 467L);
+        MissionParticipant participant = MissionParticipant.builder()
+            .mission(mission)
+            .userId(USER_ID)
+            .status(ParticipantStatus.IN_PROGRESS)
+            .build();
+        DailyMissionInstance instance = DailyMissionInstance.builder()
+            .participant(participant)
+            .instanceDate(LocalDate.now())
+            .sequenceNumber(1)
+            .missionTitle("김부장미션")
+            .status(ExecutionStatus.COMPLETED)
+            .isAutoCompleted(true)
+            .guildExpGranted(alreadyGranted)
+            .expEarned(expEarned)
+            .build();
+        setId(instance, 3978L);
+        return instance;
+    }
+
+    @Test
+    @DisplayName("고정 길드 미션 인스턴스에 길드 경험치를 소급하고 마커를 세팅한다")
+    void grantForInstance_grantsAndMarks() {
+        DailyMissionInstance instance = guildInstance(120, false);
+        when(instanceRepository.findById(3978L)).thenReturn(Optional.of(instance));
+
+        int granted = executor.grantForInstance(3978L);
+
+        assertThat(granted).isEqualTo(120);
+        assertThat(instance.getGuildExpGranted()).isTrue();
+        verify(guildQueryFacade).addGuildExperience(
+            eq(6L), eq(120), eq(GuildExpSourceType.GUILD_MISSION_EXECUTION),
+            eq(467L), eq(USER_ID), anyString());
+    }
+
+    @Test
+    @DisplayName("이미 지급된 인스턴스는 건너뛴다 (멱등)")
+    void grantForInstance_skipsAlreadyGranted() {
+        DailyMissionInstance instance = guildInstance(120, true);
+        when(instanceRepository.findById(3978L)).thenReturn(Optional.of(instance));
+
+        int granted = executor.grantForInstance(3978L);
+
+        assertThat(granted).isEqualTo(0);
+        verify(guildQueryFacade, never())
+            .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("expEarned가 null/0이면 지급 없이 마커만 세팅한다")
+    void grantForInstance_zeroExp_marksOnly() {
+        DailyMissionInstance instance = guildInstance(0, false);
+        when(instanceRepository.findById(3978L)).thenReturn(Optional.of(instance));
+
+        int granted = executor.grantForInstance(3978L);
+
+        assertThat(granted).isEqualTo(0);
+        assertThat(instance.getGuildExpGranted()).isTrue();
         verify(guildQueryFacade, never())
             .addGuildExperience(any(), anyInt(), any(), any(), any(), any());
     }

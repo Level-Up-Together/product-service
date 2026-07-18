@@ -425,4 +425,23 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
            "AND dmi.targetDurationMinutes IS NOT NULL " +
            "AND dmi.expEarned >= dmi.targetDurationMinutes")
     List<Long> findAchievedTargetTemplateIdsByUserId(@Param("userId") String userId);
+
+    /**
+     * LUT-236: 자동종료됐지만 길드 경험치가 아직 지급되지 않은 고정 길드 미션 인스턴스 조회 (소급용).
+     * saga/수동 완료 경로는 isAutoCompleted=false 라 제외되고, 이미 지급된 건은 guildExpGranted=true 라 제외된다.
+     * keyset(id) 페이징 — 지급 실패 건에서 무한 루프를 피하고 재실행 안전.
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN dmi.participant p " +
+           "JOIN p.mission m " +
+           "WHERE dmi.id > :lastId " +
+           "AND dmi.status = 'COMPLETED' " +
+           "AND dmi.isAutoCompleted = true " +
+           "AND dmi.guildExpGranted = false " +
+           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD " +
+           "AND m.guildId IS NOT NULL " +
+           "ORDER BY dmi.id ASC")
+    List<DailyMissionInstance> findAutoCompletedGuildInstancesNeedingGuildExp(
+        @Param("lastId") Long lastId,
+        org.springframework.data.domain.Pageable pageable);
 }

@@ -2,8 +2,10 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GuildExpBackfillExecutor {
 
     private final MissionExecutionRepository executionRepository;
+    private final DailyMissionInstanceRepository instanceRepository;
     private final GuildQueryFacade guildQueryFacade;
 
     /**
@@ -57,6 +60,42 @@ public class GuildExpBackfillExecutor {
             execution.getParticipant().getUserId(),
             "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
         execution.setGuildExpGranted(true);
+        return exp;
+    }
+
+    /**
+     * 고정 길드 미션 인스턴스 1건의 누락 길드 경험치를 소급 지급한다 (LUT-236).
+     *
+     * @return 소급 지급한 길드 경험치 (지급 없으면 0)
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, transactionManager = "missionTransactionManager")
+    public int grantForInstance(Long instanceId) {
+        DailyMissionInstance instance = instanceRepository.findById(instanceId).orElse(null);
+        if (instance == null || Boolean.TRUE.equals(instance.getGuildExpGranted())) {
+            return 0; // 이미 처리됨 (재실행/동시성 안전)
+        }
+
+        Mission mission = instance.getParticipant().getMission();
+        Long guildId = mission != null ? mission.getGuildIdAsLong() : null;
+        if (guildId == null) {
+            instance.setGuildExpGranted(true);
+            return 0;
+        }
+
+        int exp = instance.getExpEarned() == null ? 0 : instance.getExpEarned();
+        if (exp <= 0) {
+            instance.setGuildExpGranted(true); // 지급할 것 없음 — 대상에서 제외
+            return 0;
+        }
+
+        guildQueryFacade.addGuildExperience(
+            guildId,
+            exp,
+            GuildExpSourceType.GUILD_MISSION_EXECUTION,
+            mission.getId(),
+            instance.getParticipant().getUserId(),
+            "미션 자동 종료 길드 경험치 소급: " + mission.getTitle());
+        instance.setGuildExpGranted(true);
         return exp;
     }
 }

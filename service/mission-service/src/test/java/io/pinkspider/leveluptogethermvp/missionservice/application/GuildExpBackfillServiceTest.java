@@ -7,7 +7,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.GuildExpBackfillResultResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +28,9 @@ class GuildExpBackfillServiceTest {
     private MissionExecutionRepository executionRepository;
 
     @Mock
+    private DailyMissionInstanceRepository instanceRepository;
+
+    @Mock
     private GuildExpBackfillExecutor executor;
 
     @InjectMocks
@@ -35,6 +40,12 @@ class GuildExpBackfillServiceTest {
         MissionExecution execution = MissionExecution.builder().build();
         setId(execution, id);
         return execution;
+    }
+
+    private DailyMissionInstance instanceWithId(long id) {
+        DailyMissionInstance instance = DailyMissionInstance.builder().build();
+        setId(instance, id);
+        return instance;
     }
 
     @Test
@@ -53,6 +64,31 @@ class GuildExpBackfillServiceTest {
         assertThat(result.executionsScanned()).isEqualTo(2);
         assertThat(result.guildExpGranted()).isEqualTo(1);
         assertThat(result.totalExpGranted()).isEqualTo(120);
+        assertThat(result.failed()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("고정 미션 인스턴스 누락분도 함께 소급하고 합산한다")
+    void backfillsInstancesToo() {
+        // 일반 미션 1건(120) + 고정 미션 인스턴스 2건(120, 0)
+        when(executionRepository.findAutoCompletedGuildExecutionsNeedingGuildExp(eq(0L), any(Pageable.class)))
+            .thenReturn(List.of(execWithId(1L)));
+        when(executionRepository.findAutoCompletedGuildExecutionsNeedingGuildExp(eq(1L), any(Pageable.class)))
+            .thenReturn(List.of());
+        when(executor.grantForExecution(1L)).thenReturn(120);
+
+        when(instanceRepository.findAutoCompletedGuildInstancesNeedingGuildExp(eq(0L), any(Pageable.class)))
+            .thenReturn(List.of(instanceWithId(3978L), instanceWithId(3764L)));
+        when(instanceRepository.findAutoCompletedGuildInstancesNeedingGuildExp(eq(3764L), any(Pageable.class)))
+            .thenReturn(List.of());
+        when(executor.grantForInstance(3978L)).thenReturn(120);
+        when(executor.grantForInstance(3764L)).thenReturn(120);
+
+        GuildExpBackfillResultResponse result = service.backfillAutoCompletedGuildExp();
+
+        assertThat(result.executionsScanned()).isEqualTo(3); // 1 execution + 2 instances
+        assertThat(result.guildExpGranted()).isEqualTo(3);
+        assertThat(result.totalExpGranted()).isEqualTo(360);
         assertThat(result.failed()).isEqualTo(0);
     }
 

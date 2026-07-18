@@ -194,6 +194,8 @@ public class MissionAutoCompleteScheduler {
             if (instance.autoCompleteIfExpired(baseExp)) {
                 // QA-119: 고정 미션 자동 종료도 동일하게 EXP 지급 (categoryName 포함하여 MVP 집계 반영)
                 grantAutoCompleteExp(instance.getParticipant(), baseExp, instance.getId());
+                // LUT-236: 고정 길드 미션도 길드 경험치 누적 (saga 우회 경로라 여기서 직접 지급)
+                grantAutoCompleteGuildExpForInstance(instance, baseExp);
                 count++;
                 log.info("고정 미션 자동 종료: instanceId={}, userId={}, missionTitle={}, startedAt={}",
                     instance.getId(),
@@ -269,6 +271,44 @@ public class MissionAutoCompleteScheduler {
                 mission.getGuildIdAsLong(), baseExp, mission.getId(), participant.getUserId());
         } catch (Exception e) {
             log.error("자동 종료 길드 경험치 지급 실패: guildId={}, missionId={}, error={}",
+                mission.getGuildIdAsLong(), mission.getId(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * LUT-236: 자동종료된 고정(pinned) 길드 미션의 길드 경험치 누적.
+     *
+     * 고정 길드 미션은 {@link DailyMissionInstance} 경로로 자동종료되는데, 최초 LUT-236 수정이
+     * 일반 미션({@link MissionExecution}) 경로만 커버해 고정 길드 미션은 여전히 길드 경험치가
+     * 누락됐다. 여기서 동일하게 addGuildExperience 로 지급한다.
+     * 길드 EXP = 사용자 EXP(baseExp) — QA-174. guild_exp_granted 로 소급 멱등성을 보장한다.
+     */
+    private void grantAutoCompleteGuildExpForInstance(DailyMissionInstance instance, int baseExp) {
+        MissionParticipant participant = instance.getParticipant();
+        if (participant == null || baseExp <= 0) {
+            return;
+        }
+        Mission mission = participant.getMission();
+        if (mission == null || !mission.isGuildMission() || mission.getGuildIdAsLong() == null) {
+            return;
+        }
+        if (Boolean.TRUE.equals(instance.getGuildExpGranted())) {
+            return; // 이미 지급됨 (재실행 안전)
+        }
+        try {
+            guildQueryFacade.addGuildExperience(
+                mission.getGuildIdAsLong(),
+                baseExp,
+                GuildExpSourceType.GUILD_MISSION_EXECUTION,
+                mission.getId(),
+                participant.getUserId(),
+                "미션 자동 종료 길드 경험치: " + mission.getTitle()
+            );
+            instance.setGuildExpGranted(true);
+            log.info("자동 종료 길드 경험치 지급 (고정): guildId={}, exp={}, missionId={}, userId={}",
+                mission.getGuildIdAsLong(), baseExp, mission.getId(), participant.getUserId());
+        } catch (Exception e) {
+            log.error("자동 종료 길드 경험치 지급 실패 (고정): guildId={}, missionId={}, error={}",
                 mission.getGuildIdAsLong(), mission.getId(), e.getMessage(), e);
         }
     }
