@@ -306,10 +306,15 @@ public class Oauth2Service {
      * 같은 (provider, email)로 이미 진행 중이면 이전 token을 무효화하고 새 token 발급.
      */
     private String prepareSignupSession(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
-        String locale = (preferredLocale != null && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale))
+        boolean localeProvided = preferredLocale != null
+            && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale);
+        String locale = localeProvided
             ? preferredLocale : io.pinkspider.global.translation.enums.SupportedLocale.DEFAULT.getCode();
+        // LUT-245: 클라이언트가 locale 미전송 시 기본 'en'이 fromLocale("en")=UTC로 이어져
+        // 신규 가입자 전원의 출석 날짜 경계가 KST 09시로 틀어졌다. 명시된 locale만 timezone
+        // 추론에 사용하고, 미지정 시 Asia/Seoul(기본)로 두면 로그인 시 GeoIP 추론이 해외 유저를 보정한다.
         String timezone = io.pinkspider.global.translation.enums.SupportedTimezone.resolve(
-            preferredTimezone, null, locale);
+            preferredTimezone, null, localeProvided ? locale : null);
 
         SignupSessionData session = new SignupSessionData(
             null,

@@ -516,6 +516,74 @@ class Oauth2ServiceTest {
     }
 
     @Nested
+    @DisplayName("신규 가입 signup session timezone 결정 테스트 (LUT-245)")
+    class PrepareSignupSessionTimezoneTest {
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData
+            signupWithMobileLogin(String preferredLocale, String preferredTimezone) {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Map<String, Object> googleUserInfoMap = new HashMap<>();
+                googleUserInfoMap.put("sub", "google-sub-123");
+                googleUserInfoMap.put("email", TEST_EMAIL);
+                googleUserInfoMap.put("name", TEST_NICKNAME);
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
+                    .thenReturn(googleUserInfoMap);
+                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
+                when(signupTokenService.createOrRefresh(any())).thenReturn("signup-token");
+
+                oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID,
+                    preferredLocale, preferredTimezone);
+
+                var captor = org.mockito.ArgumentCaptor.forClass(
+                    io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData.class);
+                verify(signupTokenService).createOrRefresh(captor.capture());
+                return captor.getValue();
+            }
+        }
+
+        @Test
+        @DisplayName("locale/timezone 미전송 시 timezone은 UTC가 아닌 기본 Asia/Seoul로 저장된다")
+        void signup_noLocaleNoTimezone_defaultsToAsiaSeoul() {
+            var session = signupWithMobileLogin(null, null);
+
+            // 기존 버그: locale 기본값 'en' → fromLocale("en")=UTC로 신규 가입자 전원 UTC 저장
+            assertThat(session.preferredTimezone()).isEqualTo("Asia/Seoul");
+            assertThat(session.preferredLocale()).isEqualTo("en");
+        }
+
+        @Test
+        @DisplayName("클라이언트가 timezone을 명시하면 그대로 저장된다")
+        void signup_explicitTimezone_usesClientTimezone() {
+            var session = signupWithMobileLogin(null, "Asia/Tokyo");
+
+            assertThat(session.preferredTimezone()).isEqualTo("Asia/Tokyo");
+        }
+
+        @Test
+        @DisplayName("locale을 en으로 명시하면 timezone은 UTC로 추론된다 (기존 의도 유지)")
+        void signup_explicitEnglishLocale_infersUtc() {
+            var session = signupWithMobileLogin("en", null);
+
+            assertThat(session.preferredTimezone()).isEqualTo("UTC");
+            assertThat(session.preferredLocale()).isEqualTo("en");
+        }
+
+        @Test
+        @DisplayName("locale을 ko로 명시하면 timezone은 Asia/Seoul로 추론된다")
+        void signup_explicitKoreanLocale_infersAsiaSeoul() {
+            var session = signupWithMobileLogin("ko", null);
+
+            assertThat(session.preferredTimezone()).isEqualTo("Asia/Seoul");
+            assertThat(session.preferredLocale()).isEqualTo("ko");
+        }
+    }
+
+    @Nested
     @DisplayName("updateLoginInfo 테스트")
     class UpdateLoginInfoTest {
 
