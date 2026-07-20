@@ -301,4 +301,26 @@ class DiamondServiceTest {
             assertThat(result.currentBalance()).isZero();
         }
     }
+
+    @Nested
+    @DisplayName("getBalance 테스트 (LUT-248)")
+    class GetBalanceTest {
+
+        @Test
+        @DisplayName("현재 보유 다이아 잔액을 반환한다")
+        void returnsBalance() {
+            when(userDiamondRepository.findByUserId(USER_ID))
+                .thenReturn(Optional.of(diamond(42, 42)));
+
+            assertThat(diamondService.getBalance(USER_ID)).isEqualTo(42);
+        }
+
+        @Test
+        @DisplayName("지급 이력이 없으면 0을 반환한다")
+        void returnsZeroWhenAbsent() {
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+            assertThat(diamondService.getBalance(USER_ID)).isZero();
+        }
+    }
 }

@@ -158,6 +158,11 @@ public class DiamondService {
         return balanceAfter;
     }
 
+    /** 현재 보유 다이아 잔액 조회. 지급 이력이 없으면 0. (LUT-248: 마이페이지 표기용) */
+    public int getBalance(String userId) {
+        return userDiamondRepository.findByUserId(userId).map(UserDiamond::getBalance).orElse(0);
+    }
+
     /** 어드민 다이아 탭용 이력 조회 (현재 잔액 포함) */
     public UserDiamondHistoryAdminPageResponse getUserDiamondHistory(String userId, Pageable pageable) {
         Page<DiamondHistory> page = diamondHistoryRepository.findByUserIdOrderByIdDesc(userId, pageable);
