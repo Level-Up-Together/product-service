@@ -140,6 +140,8 @@ public class SecurityConfig {
                                         // Browse-first: 비인증 열람 허용 API (GET만)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/bff/home")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/bff/home/mvp")
+                                        .permitAll() // LUT-252: 비로그인 오늘의 MVP (QA-222 분리 시 누락)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/bff/guild/list")
                                         .permitAll()
                                         .requestMatchers(
