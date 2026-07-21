@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (2470 tests across 5 modules)
+# Run ALL tests (3,300+ tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -36,8 +36,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-**Multi-Service Monolith**: Spring Boot 3.4.5, Gradle multi-module (`service` + `app` +
-`includeBuild ../level-up-together-platform`). 12개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
+**Multi-Service Monolith**: Spring Boot 3.4.5, Java 21, Gradle multi-module (`service` + `app` +
+`includeBuild ../level-up-together-platform`). 11개 서비스가 단일 배포 단위지만 **서비스별 별도 DB** + Saga 패턴으로 MSA 전환 준비.
+(adminservice는 별도 레포 `admin-service`(Admin Backend)로 이전됨)
 
 **Why single service module**: 서비스 간 순환 의존성(user↔guild, user↔gamification 등)으로 독립 Gradle 모듈 불가.
 `sourceSets.main.java.srcDirs`로 단일 컴파일.
@@ -61,7 +62,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상 설정 (Redis 캐시)         |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 푸시, 알림 설정/조회                               |
-| `adminservice`        | admin_db        | 홈 배너, featured content                     |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌               |
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
 | `noticeservice`       | -               | 공지/안내                                      |
@@ -86,7 +86,6 @@ public void updateGuild(...) { ...}
 | metaservice         | `metaTransactionManager`           |
 | feedservice         | `feedTransactionManager`           |
 | notificationservice | `notificationTransactionManager`   |
-| adminservice        | `adminTransactionManager`          |
 | gamificationservice | `gamificationTransactionManager`   |
 | saga                | `sagaTransactionManager`           |
 
@@ -144,13 +143,13 @@ All REST endpoints return `ApiResult<T>`:
 
 ## Testing
 
-| Module            | Tests | Content                                              |
-|-------------------|-------|------------------------------------------------------|
-| `platform:kernel` | 39    | util tests                                           |
-| `platform:infra`  | 168   | resolver, validation, profanity, crypto, translation |
-| `platform:saga`   | 29    | saga framework tests                                 |
-| `service`         | 2222  | all service unit + controller tests                  |
-| `app`             | 12    | `@SpringBootTest` (full context)                     |
+| Module            | Tests  | Content                                              |
+|-------------------|--------|------------------------------------------------------|
+| `platform:kernel` | 39     | util tests                                           |
+| `platform:infra`  | 168    | resolver, validation, profanity, crypto, translation |
+| `platform:saga`   | 29     | saga framework tests                                 |
+| `service`         | 3,200+ | all service unit + controller tests                  |
+| `app`             | 13     | `@SpringBootTest` (full context)                     |
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
 `TestApplication`). `kernel`의 `TestReflectionUtils`는 `java-test-fixtures` plugin으로 공유.
@@ -225,10 +224,6 @@ MessageSource로 다국어 메시지 생성.
 
 `ProfanityWord.locale` 컬럼으로 언어별(`ko`/`en`/`ar`/`ja`) 관리. Unique `(locale, word)`. 통합 검사 + locale별 검사 모두 지원.
 
-### 글로벌 서비스 로드맵
-
-전체 마이그레이션 계획: `docs/GLOBAL_SERVICE_ROADMAP.md`
-
 ## Event-Driven 패턴
 
 ```java
@@ -244,12 +239,20 @@ public void handleEvent(YourEvent event) { ...}
 
 ## Redis Caching
 
-| 캐시 서비스                    | 캐시 키                             | TTL |
-|---------------------------|----------------------------------|-----|
-| `UserProfileCacheService` | `userProfile:{userId}`           | 5분  |
-| `FriendCacheService`      | `friendIds:{userId}`             | 10분 |
-| `TitleService`            | `userTitleInfo:{userId}`         | 5분  |
-| `MissionCategoryService`  | `missionCategories:{categoryId}` | 1시간 |
+캐시 이름별 TTL은 platform `infra`의 `RedisConfig`에서 정의 (역직렬화 오류 시 자동 evict 후 원본 메서드 실행):
+
+| 캐시 이름                                                | TTL | 용도                        |
+|------------------------------------------------------|-----|---------------------------|
+| `todayPlayers`, `todayPlayersByCategory`, `mvpGuilds` | 2분  | 홈 화면 (칭호/레벨 변경 시 이벤트 evict) |
+| `currentSeason`, `seasonMvpData`                      | 10분 | 시즌 (Admin 변경 시 즉시 삭제)     |
+| `userTitleInfo`                                       | 5분  | 칭호 (`TitleService`)       |
+| `userFriendIds`                                       | 10분 | 친구 ID (`FriendCacheService`) |
+| `userProfile`                                         | 5분  | 프로필 (`UserProfileCacheService`) |
+| `userExists`                                          | 5분  | JWT 인증 필터 유저 존재 확인        |
+| `reportUnderReview`                                   | 1분  | 신고 진행 상태                  |
+| `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
+
+그 외 meta/gamification 설정 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적 등)는 각 `*CacheService`의 `@Cacheable` 사용 (기본 TTL).
 
 ## Scheduler & Distributed Lock (ShedLock)
 
@@ -326,5 +329,6 @@ JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경
 
 ## Internal API (Admin Backend ↔ MVP)
 
-`/api/internal/**` — VPC 내부 접근만 허용. 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
+`/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
+`app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
