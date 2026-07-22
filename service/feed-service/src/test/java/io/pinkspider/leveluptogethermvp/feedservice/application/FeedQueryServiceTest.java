@@ -2083,15 +2083,15 @@ class FeedQueryServiceTest {
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-            when(translationService.translateContent(any(), any(), any(), any())).thenReturn(null);
+            when(translationService.translateContents(any(), anyList(), any())).thenReturn(Map.of());
 
             // when
             feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "ja");
 
-            // then — ja는 기본 언어(en) 아니므로 번역 호출됨
-            verify(translationService).translateContent(
+            // then — ja는 기본 언어(en) 아니므로 배치 번역 호출됨
+            verify(translationService).translateContents(
                 eq(io.pinkspider.global.translation.enums.ContentType.FEED_COMMENT),
-                any(), any(), eq("ja"));
+                anyList(), eq("ja"));
         }
 
         @Test

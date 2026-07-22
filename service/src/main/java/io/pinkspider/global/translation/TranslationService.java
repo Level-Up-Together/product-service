@@ -12,7 +12,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -111,6 +115,124 @@ public class TranslationService {
         return translateContent(contentType, contentId, null, content, targetLocale);
     }
 
+    /** 배치 번역 요청 항목 (title 은 nullable) */
+    public record BatchItem(Long contentId, String title, String content) {}
+
+    /** Google API v2 요청당 최대 텍스트 세그먼트 수 (API 한도 128, 여유분 확보) */
+    private static final int MAX_BATCH_SEGMENTS = 100;
+
+    /**
+     * 여러 콘텐츠 일괄 번역
+     *
+     * <p>항목별 캐시(Redis → DB)를 먼저 확인하고, 미스된 필드들만 모아 Google API 를 청크당 1회 호출한다. 기존 필드당 1회 순차 호출(피드 목록당
+     * 최대 2N회) 대비 목록당 1~2회로 감소.
+     *
+     * @return contentId → 번역 결과. 번역 비활성/미지원 locale 이면 빈 Map (호출부는 getOrDefault 로 notTranslated 처리)
+     */
+    public Map<Long, TranslationInfo> translateContents(
+            ContentType contentType, List<BatchItem> items, String targetLocale) {
+        if (!translationEnabled || !SupportedLocale.isSupported(targetLocale) || items.isEmpty()) {
+            return Map.of();
+        }
+
+        String sourceLocale = SupportedLocale.DEFAULT.getCode();
+        Map<Long, TranslationInfo> result = new HashMap<>();
+        Map<Long, String> resolvedTitles = new HashMap<>();
+        Map<Long, String> resolvedContents = new HashMap<>();
+        List<PendingField> misses = new ArrayList<>();
+
+        for (BatchItem item : items) {
+            if (item.content() == null || item.content().length() < MIN_TEXT_LENGTH) {
+                result.put(item.contentId(), TranslationInfo.notTranslated(sourceLocale));
+                continue;
+            }
+            if (item.title() != null && !item.title().isBlank()) {
+                String cachedTitle =
+                        findCachedTranslation(
+                                contentType, item.contentId(), "title", item.title(), targetLocale);
+                if (cachedTitle != null) {
+                    resolvedTitles.put(item.contentId(), cachedTitle);
+                } else {
+                    misses.add(new PendingField(item.contentId(), "title", item.title()));
+                }
+            }
+            String cachedContent =
+                    findCachedTranslation(
+                            contentType, item.contentId(), "content", item.content(), targetLocale);
+            if (cachedContent != null) {
+                resolvedContents.put(item.contentId(), cachedContent);
+            } else {
+                misses.add(new PendingField(item.contentId(), "content", item.content()));
+            }
+        }
+
+        if (!misses.isEmpty()) {
+            try {
+                if (apiKey == null || apiKey.isBlank()) {
+                    throw new GoogleTranslationException("Google Translation API Key가 설정되지 않았습니다.");
+                }
+                for (int start = 0; start < misses.size(); start += MAX_BATCH_SEGMENTS) {
+                    List<PendingField> chunk =
+                            misses.subList(
+                                    start, Math.min(start + MAX_BATCH_SEGMENTS, misses.size()));
+                    List<String> texts = chunk.stream().map(PendingField::text).toList();
+                    GoogleTranslationResponse response =
+                            translationClient.translate(
+                                    apiKey, GoogleTranslationRequest.of(texts, targetLocale));
+                    List<String> translatedTexts = response.getAllTranslatedTexts();
+                    for (int i = 0; i < chunk.size() && i < translatedTexts.size(); i++) {
+                        PendingField field = chunk.get(i);
+                        String translatedText = translatedTexts.get(i);
+                        if (translatedText == null) {
+                            continue;
+                        }
+                        if ("title".equals(field.fieldName())) {
+                            resolvedTitles.put(field.contentId(), translatedText);
+                        } else {
+                            resolvedContents.put(field.contentId(), translatedText);
+                        }
+                        saveTranslationCache(
+                                contentType,
+                                field.contentId(),
+                                field.fieldName(),
+                                targetLocale,
+                                computeHash(field.text()),
+                                translatedText);
+                    }
+                }
+            } catch (Exception e) {
+                log.error(
+                        "배치 번역 실패: contentType={}, targetLocale={}, missCount={}, error={}",
+                        contentType,
+                        targetLocale,
+                        misses.size(),
+                        e.getMessage());
+            }
+        }
+
+        for (BatchItem item : items) {
+            if (result.containsKey(item.contentId())) {
+                continue;
+            }
+            String translatedContent = resolvedContents.get(item.contentId());
+            if (translatedContent == null || translatedContent.equals(item.content())) {
+                result.put(item.contentId(), TranslationInfo.notTranslated(sourceLocale));
+            } else {
+                result.put(
+                        item.contentId(),
+                        TranslationInfo.translated(
+                                resolvedTitles.get(item.contentId()),
+                                translatedContent,
+                                sourceLocale,
+                                targetLocale));
+            }
+        }
+        return result;
+    }
+
+    /** 배치 번역 대기 필드 */
+    private record PendingField(Long contentId, String fieldName, String text) {}
+
     /** 개별 필드 번역 (캐시 우선) */
     private String translateField(
             ContentType contentType,
@@ -118,36 +240,57 @@ public class TranslationService {
             String fieldName,
             String originalText,
             String targetLocale) {
-        String originalHash = computeHash(originalText);
+        // 1. 캐시 확인 (Redis → DB)
+        String cachedTranslation =
+                findCachedTranslation(
+                        contentType, contentId, fieldName, originalText, targetLocale);
+        if (cachedTranslation != null) {
+            return cachedTranslation;
+        }
 
-        // 1. Redis 캐시 확인
+        // 2. Google API 호출
+        String translatedText = callGoogleTranslateApi(originalText, targetLocale);
+
+        // 3. 캐시 저장 (Redis + DB)
+        saveTranslationCache(
+                contentType,
+                contentId,
+                fieldName,
+                targetLocale,
+                computeHash(originalText),
+                translatedText);
+
+        return translatedText;
+    }
+
+    /** 캐시 조회 (Redis → DB, DB 히트 시 Redis 백필). 미스 시 null */
+    private String findCachedTranslation(
+            ContentType contentType,
+            Long contentId,
+            String fieldName,
+            String originalText,
+            String targetLocale) {
         String cachedTranslation =
                 getCachedTranslation(contentType, contentId, fieldName, targetLocale);
         if (cachedTranslation != null) {
             return cachedTranslation;
         }
 
-        // 2. DB 캐시 확인
         Optional<ContentTranslation> dbCache =
                 translationRepository
                         .findByContentTypeAndContentIdAndFieldNameAndTargetLocaleAndOriginalHash(
-                                contentType, contentId, fieldName, targetLocale, originalHash);
+                                contentType,
+                                contentId,
+                                fieldName,
+                                targetLocale,
+                                computeHash(originalText));
 
         if (dbCache.isPresent()) {
             String translatedText = dbCache.get().getTranslatedText();
-            // Redis에 캐시 저장
             cacheTranslation(contentType, contentId, fieldName, targetLocale, translatedText);
             return translatedText;
         }
-
-        // 3. Google API 호출
-        String translatedText = callGoogleTranslateApi(originalText, targetLocale);
-
-        // 4. 캐시 저장 (Redis + DB)
-        saveTranslationCache(
-                contentType, contentId, fieldName, targetLocale, originalHash, translatedText);
-
-        return translatedText;
+        return null;
     }
 
     /** Google Translation API 호출 */

@@ -98,8 +98,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(
                 feed,
                 likedFeedIds.contains(feed.getId()),
@@ -211,8 +214,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(
                 feed,
                 likedFeedIds.contains(feed.getId()),
@@ -298,9 +304,12 @@ public class FeedQueryService {
         List<String> feedIds = combinedFeeds.stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(combinedFeeds, targetLocale);
+
         List<ActivityFeedResponse> responseList = combinedFeeds.stream()
             .map(feed -> {
-                TranslationInfo translation = translateFeed(feed, targetLocale);
+                TranslationInfo translation = translationFor(translationMap, feed);
                 ActivityFeedResponse response = ActivityFeedResponse.from(
                     feed,
                     likedFeedIds.contains(feed.getId()),
@@ -350,8 +359,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
@@ -390,9 +402,12 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds
             .map(feed -> {
-                TranslationInfo translation = translateFeed(feed, targetLocale);
+                TranslationInfo translation = translationFor(translationMap, feed);
                 ActivityFeedResponse response;
                 // 본인 피드이면 모두 표시
                 if (isSelf) {
@@ -450,8 +465,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
@@ -487,8 +505,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
@@ -519,8 +540,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
@@ -556,8 +580,11 @@ public class FeedQueryService {
         List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
 
+        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
+        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
+
         Page<ActivityFeedResponse> result = feeds.map(feed -> {
-            TranslationInfo translation = translateFeed(feed, targetLocale);
+            TranslationInfo translation = translationFor(translationMap, feed);
             ActivityFeedResponse response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
             return response;
@@ -655,6 +682,11 @@ public class FeedQueryService {
         }
         Map<String, UserProfileInfo> commentProfileMap = profileMap;
 
+        // 2-2) 댓글 번역 일괄 처리 (댓글별 개별 Google 호출 방지)
+        List<FeedComment> allComments = new ArrayList<>(roots);
+        allComments.addAll(replies);
+        Map<Long, TranslationInfo> commentTranslationMap = translateCommentsBatch(allComments, targetLocale);
+
         // 3) 부모 댓글별 활성 대댓글 카운트 (수정 가능 여부 결정용)
         Map<Long, Long> activeReplyCountByParent = replies.stream()
             .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
@@ -663,15 +695,15 @@ public class FeedQueryService {
         // 4) 응답 조립
         Map<Long, List<FeedCommentResponse>> repliesByParent = new java.util.HashMap<>();
         for (FeedComment reply : replies) {
-            FeedCommentResponse r = buildCommentResponse(reply, currentUserId, targetLocale, likeCountMap, likedSet,
-                underReviewMap, commentProfileMap, /*hasReplies*/ false);
+            FeedCommentResponse r = buildCommentResponse(reply, currentUserId, likeCountMap, likedSet,
+                underReviewMap, commentProfileMap, commentTranslationMap, /*hasReplies*/ false);
             repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>()).add(r);
         }
 
         return rootPage.map(root -> {
             boolean hasReplies = activeReplyCountByParent.getOrDefault(root.getId(), 0L) > 0;
-            FeedCommentResponse response = buildCommentResponse(root, currentUserId, targetLocale, likeCountMap,
-                likedSet, underReviewMap, commentProfileMap, hasReplies);
+            FeedCommentResponse response = buildCommentResponse(root, currentUserId, likeCountMap,
+                likedSet, underReviewMap, commentProfileMap, commentTranslationMap, hasReplies);
             response.setReplies(repliesByParent.getOrDefault(root.getId(), List.of()));
             return response;
         });
@@ -680,11 +712,13 @@ public class FeedQueryService {
     /**
      * 단일 댓글 응답 빌드 헬퍼. 트리 응답에서 부모/대댓글 공통으로 사용.
      */
-    private FeedCommentResponse buildCommentResponse(FeedComment comment, String currentUserId, String targetLocale,
+    private FeedCommentResponse buildCommentResponse(FeedComment comment, String currentUserId,
                                                      Map<Long, Integer> likeCountMap, Set<Long> likedSet,
                                                      Map<String, Boolean> underReviewMap,
-                                                     Map<String, UserProfileInfo> profileMap, boolean hasReplies) {
-        TranslationInfo translation = translateComment(comment, targetLocale);
+                                                     Map<String, UserProfileInfo> profileMap,
+                                                     Map<Long, TranslationInfo> translationMap, boolean hasReplies) {
+        TranslationInfo translation = translationMap.getOrDefault(
+            comment.getId(), TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode()));
         Integer userLevel;
         UserProfileInfo userProfile = profileMap.get(comment.getUserId());
         if (userProfile != null) {
@@ -765,25 +799,38 @@ public class FeedQueryService {
     }
 
     /**
-     * 댓글 번역
+     * 피드 목록 일괄 번역 — 캐시 미스 항목만 모아 Google API 를 목록당 1~2회 호출 (피드별 순차 호출 방지)
      */
-    private TranslationInfo translateComment(FeedComment comment, String targetLocale) {
-        // 기본 언어(한국어)면 번역 불필요
-        if (SupportedLocale.DEFAULT.getCode().equals(targetLocale)) {
-            return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
+    private Map<Long, TranslationInfo> translateFeedsBatch(List<ActivityFeed> feeds, String targetLocale) {
+        if (SupportedLocale.DEFAULT.getCode().equals(targetLocale) || feeds.isEmpty()) {
+            return Map.of();
         }
+        List<TranslationService.BatchItem> items = feeds.stream()
+            .map(f -> new TranslationService.BatchItem(f.getId(), f.getTitle(), f.getDescription()))
+            .toList();
+        return translationService.translateContents(ContentType.FEED, items, targetLocale);
+    }
 
-        // 삭제된 댓글은 번역하지 않음
-        if (comment.getIsDeleted()) {
-            return TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode());
+    /**
+     * 댓글 목록 일괄 번역 (삭제된 댓글 제외)
+     */
+    private Map<Long, TranslationInfo> translateCommentsBatch(List<FeedComment> comments, String targetLocale) {
+        if (SupportedLocale.DEFAULT.getCode().equals(targetLocale) || comments.isEmpty()) {
+            return Map.of();
         }
+        List<TranslationService.BatchItem> items = comments.stream()
+            .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted()))
+            .map(c -> new TranslationService.BatchItem(c.getId(), null, c.getContent()))
+            .toList();
+        return translationService.translateContents(ContentType.FEED_COMMENT, items, targetLocale);
+    }
 
-        return translationService.translateContent(
-            ContentType.FEED_COMMENT,
-            comment.getId(),
-            comment.getContent(),
-            targetLocale
-        );
+    /**
+     * 배치 번역 결과에서 피드 번역 정보 조회 (없으면 notTranslated)
+     */
+    private TranslationInfo translationFor(Map<Long, TranslationInfo> translationMap, ActivityFeed feed) {
+        return translationMap.getOrDefault(
+            feed.getId(), TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode()));
     }
 
     // ===== Admin 내부 API용 메서드 =====
