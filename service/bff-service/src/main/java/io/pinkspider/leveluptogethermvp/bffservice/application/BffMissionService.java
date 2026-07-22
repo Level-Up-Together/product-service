@@ -9,8 +9,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionSta
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
@@ -19,11 +20,20 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class BffMissionService {
 
     private final MissionService missionService;
     private final MissionExecutionQueryService missionExecutionQueryService;
+    private final Executor bffExecutor;
+
+    public BffMissionService(
+            MissionService missionService,
+            MissionExecutionQueryService missionExecutionQueryService,
+            @Qualifier("bffExecutor") Executor bffExecutor) {
+        this.missionService = missionService;
+        this.missionExecutionQueryService = missionExecutionQueryService;
+        this.bffExecutor = bffExecutor;
+    }
 
     /**
      * 오늘의 미션 화면에 필요한 모든 데이터를 한 번에 조회합니다.
@@ -42,7 +52,7 @@ public class BffMissionService {
                 log.error("Failed to fetch my missions", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<MissionExecutionResponse>> todayExecutionsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -51,7 +61,7 @@ public class BffMissionService {
                 log.error("Failed to fetch today executions", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -60,7 +70,7 @@ public class BffMissionService {
                 log.error("Failed to fetch completed pinned instances", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(myMissionsFuture, todayExecutionsFuture, completedPinnedFuture).join();

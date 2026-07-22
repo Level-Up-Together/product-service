@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
@@ -25,7 +26,12 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "experience_history")
+@Table(name = "experience_history",
+    indexes = {
+        @Index(name = "idx_exp_history_created_at", columnList = "created_at"),
+        @Index(name = "idx_exp_history_category_created", columnList = "category_name, created_at"),
+        @Index(name = "idx_exp_history_user_created", columnList = "user_id, created_at")
+    })
 @Comment("경험치 획득 이력")
 public class ExperienceHistory extends LocalDateTimeBaseEntity {
 

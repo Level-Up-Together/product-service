@@ -13,7 +13,10 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.ReportTargetType;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -83,8 +86,11 @@ public class GuildQueryService {
         // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
         Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
 
+        // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
+
         return guilds.map(guild -> {
-            int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
             GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
@@ -107,8 +113,11 @@ public class GuildQueryService {
         // 배치로 가입 신청 대기중 상태 조회 (로그인한 사용자인 경우)
         Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
 
+        // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
+
         return guilds.map(guild -> {
-            int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
             GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
@@ -123,22 +132,21 @@ public class GuildQueryService {
      * 3. 중복 제거 후 최대 5개 반환
      */
     public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId) {
-        List<GuildResponse> result = new ArrayList<>();
+        List<Guild> selectedGuilds = new ArrayList<>();
         Set<Long> addedGuildIds = new HashSet<>();
         int maxGuilds = 5;
 
         // 1. Admin Featured Guilds 먼저 조회
         List<Long> featuredGuildIds = adminInternalFeignClient.getFeaturedGuildIds(categoryId);
         for (Long guildId : featuredGuildIds) {
-            if (result.size() >= maxGuilds) break;
+            if (selectedGuilds.size() >= maxGuilds) break;
 
             if (addedGuildIds.contains(guildId)) continue;
 
             try {
                 Guild guild = guildRepository.findByIdAndIsActiveTrue(guildId).orElse(null);
                 if (guild != null && guild.isPublic()) {
-                    int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-                    result.add(guildHelper.buildGuildResponseWithCategory(guild, memberCount));
+                    selectedGuilds.add(guild);
                     addedGuildIds.add(guildId);
                 }
             } catch (Exception e) {
@@ -147,20 +155,27 @@ public class GuildQueryService {
         }
 
         // 2. 자동 선정: 해당 카테고리의 공개 길드 (멤버 수 순)
-        if (result.size() < maxGuilds) {
-            int remaining = maxGuilds - result.size();
+        if (selectedGuilds.size() < maxGuilds) {
+            int remaining = maxGuilds - selectedGuilds.size();
             List<Guild> autoGuilds = guildRepository.findPublicGuildsByCategoryOrderByMemberCount(
                 categoryId, PageRequest.of(0, remaining + addedGuildIds.size()));
 
             for (Guild guild : autoGuilds) {
-                if (result.size() >= maxGuilds) break;
+                if (selectedGuilds.size() >= maxGuilds) break;
                 if (addedGuildIds.contains(guild.getId())) continue;
 
-                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
-                result.add(guildHelper.buildGuildResponseWithCategory(guild, memberCount));
+                selectedGuilds.add(guild);
                 addedGuildIds.add(guild.getId());
             }
         }
+
+        // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(
+            selectedGuilds.stream().map(Guild::getId).toList());
+        List<GuildResponse> result = selectedGuilds.stream()
+            .map(guild -> guildHelper.buildGuildResponseWithCategory(
+                guild, memberCountMap.getOrDefault(guild.getId(), 0)))
+            .collect(Collectors.toCollection(ArrayList::new));
 
         // 배치로 신고 상태 및 가입 신청 상태 조회
         if (!result.isEmpty()) {
@@ -182,10 +197,15 @@ public class GuildQueryService {
 
     public List<GuildResponse> getMyGuilds(String userId) {
         List<GuildMember> members = guildMemberRepository.findActiveGuildsByUserId(userId);
+
+        // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(
+            members.stream().map(member -> member.getGuild().getId()).toList());
+
         List<GuildResponse> result = members.stream()
             .map(member -> {
                 Guild guild = member.getGuild();
-                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+                int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
                 return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
             })
             .toList();
@@ -222,8 +242,18 @@ public class GuildQueryService {
             .filter(member -> activeUserIds.contains(member.getUserId()))
             .toList();
 
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(
-            members.stream().map(GuildMember::getUserId).toList());
+        List<String> activeMemberUserIds = members.stream().map(GuildMember::getUserId).toList();
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(activeMemberUserIds);
+
+        // 칭호 정보 배치 조회 (멤버별 개별 조회 N+1 방지)
+        Map<String, List<UserTitleDto>> titlesMap;
+        try {
+            titlesMap = gamificationQueryFacadeService.getEquippedTitlesByUserIds(activeMemberUserIds);
+        } catch (Exception e) {
+            log.warn("칭호 정보 배치 조회 실패: guildId={}, error={}", guildId, e.getMessage());
+            titlesMap = Map.of();
+        }
+        Map<String, List<UserTitleDto>> equippedTitlesMap = titlesMap;
 
         // 멤버 정보에 사용자 정보 추가
         return members.stream()
@@ -235,28 +265,76 @@ public class GuildQueryService {
                     response.setProfileImageUrl(profile.picture());
                     // QA-193: UserProfileInfo.level은 GamificationQueryFacade.getUserLevel()로 채워진 값
                     response.setUserLevel(profile.level() != null ? profile.level() : 1);
-                    // 칭호 정보 조회
-                    try {
-                        DetailedTitleInfoDto titleInfo = gamificationQueryFacadeService.getDetailedEquippedTitleInfo(member.getUserId());
-                        response.setEquippedTitleName(titleInfo.combinedName());
-                        response.setEquippedTitleRarity(titleInfo.highestRarity());
-                        response.setLeftTitleName(titleInfo.leftTitle());
-                        response.setLeftTitleRarity(titleInfo.leftRarity());
-                        response.setRightTitleName(titleInfo.rightTitle());
-                        response.setRightTitleRarity(titleInfo.rightRarity());
-                    } catch (Exception e) {
-                        log.warn("칭호 정보 조회 실패: userId={}, error={}", member.getUserId(), e.getMessage());
-                        response.setEquippedTitleName(null);
-                        response.setEquippedTitleRarity(null);
-                    }
+                    DetailedTitleInfoDto titleInfo = buildDetailedTitleInfo(
+                        equippedTitlesMap.getOrDefault(member.getUserId(), List.of()));
+                    response.setEquippedTitleName(titleInfo.combinedName());
+                    response.setEquippedTitleRarity(titleInfo.highestRarity());
+                    response.setLeftTitleName(titleInfo.leftTitle());
+                    response.setLeftTitleRarity(titleInfo.leftRarity());
+                    response.setRightTitleName(titleInfo.rightTitle());
+                    response.setRightTitleRarity(titleInfo.rightRarity());
                 }
                 return response;
             })
             .toList();
     }
 
+    /**
+     * 배치 조회된 장착 칭호 목록으로 상세 칭호 정보 구성
+     * (TitleService.getDetailedEquippedTitleInfo 와 동일한 조합 규칙)
+     */
+    private DetailedTitleInfoDto buildDetailedTitleInfo(List<UserTitleDto> equippedTitles) {
+        UserTitleDto left = equippedTitles.stream()
+            .filter(t -> t.equippedPosition() == TitlePosition.LEFT)
+            .findFirst()
+            .orElse(null);
+        UserTitleDto right = equippedTitles.stream()
+            .filter(t -> t.equippedPosition() == TitlePosition.RIGHT)
+            .findFirst()
+            .orElse(null);
+
+        String leftTitle = left != null ? left.titleName() : null;
+        TitleRarity leftRarity = left != null ? left.titleRarity() : null;
+        String rightTitle = right != null ? right.titleName() : null;
+        TitleRarity rightRarity = right != null ? right.titleRarity() : null;
+
+        TitleRarity highestRarity;
+        if (leftRarity == null) {
+            highestRarity = rightRarity;
+        } else if (rightRarity == null) {
+            highestRarity = leftRarity;
+        } else {
+            highestRarity = leftRarity.ordinal() > rightRarity.ordinal() ? leftRarity : rightRarity;
+        }
+
+        String combinedTitle;
+        if (leftTitle != null && rightTitle != null) {
+            combinedTitle = leftTitle + " " + rightTitle;
+        } else if (leftTitle != null) {
+            combinedTitle = leftTitle;
+        } else {
+            combinedTitle = rightTitle;
+        }
+
+        return new DetailedTitleInfoDto(
+            combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
+    }
+
     private boolean isMember(Long guildId, String userId) {
         return guildMemberRepository.isActiveMember(guildId, userId);
+    }
+
+    /**
+     * 여러 길드의 활성 멤버 수를 한 번의 쿼리로 조회
+     */
+    private Map<Long, Integer> getActiveMemberCounts(List<Long> guildIds) {
+        if (guildIds.isEmpty()) {
+            return Map.of();
+        }
+        return guildMemberRepository.countActiveMembersByGuildIds(guildIds).stream()
+            .collect(Collectors.toMap(
+                row -> (Long) row[0],
+                row -> ((Long) row[1]).intValue()));
     }
 
     /**

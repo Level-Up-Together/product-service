@@ -27,7 +27,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -49,8 +48,10 @@ class BffSearchServiceTest {
     @Mock
     private GuildRepository guildRepository;
 
-    @InjectMocks
     private BffSearchService bffSearchService;
+
+    // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
+    private final java.util.concurrent.Executor directExecutor = Runnable::run;
 
     private ActivityFeed testFeed;
     private Mission testMission;
@@ -59,6 +60,10 @@ class BffSearchServiceTest {
 
     @BeforeEach
     void setUp() {
+        // BffSearchService 수동 생성 (Executor 주입을 위해)
+        bffSearchService = new BffSearchService(
+                activityFeedRepository, missionRepository, userRepository, guildRepository, directExecutor);
+
         testFeed = ActivityFeed.builder()
             .id(1L)
             .userId("test-user-id")

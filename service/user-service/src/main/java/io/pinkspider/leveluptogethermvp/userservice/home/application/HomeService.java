@@ -195,23 +195,12 @@ public class HomeService {
 
         List<TodayPlayerResponse> result = new ArrayList<>();
         Set<String> addedUserIds = new HashSet<>();
-        int rank = 1;
         int maxPlayers = 5;
 
-        // 1. Admin Featured Players 먼저 조회
+        // 1. Admin Featured Players 먼저 조회 (배치 조회로 사용자별 개별 조회 N+1 방지)
         List<String> featuredUserIds = adminInternalFeignClient.getFeaturedPlayerUserIds(categoryId);
-        for (String userId : featuredUserIds) {
-            if (result.size() >= maxPlayers) break;
-
-            if (addedUserIds.contains(userId)) continue;
-
-            TodayPlayerResponse player = buildTodayPlayerResponse(userId, 0L, rank, locale);
-            if (player != null) {
-                result.add(player);
-                addedUserIds.add(userId);
-                rank++;
-            }
-        }
+        appendTodayPlayersBatch(result, addedUserIds,
+            featuredUserIds.stream().distinct().toList(), Map.of(), maxPlayers, locale);
 
         // 2. 자동 선정: 해당 카테고리에서 어제 가장 경험치 많이 획득한 사람
         if (result.size() < maxPlayers) {
@@ -229,25 +218,70 @@ public class HomeService {
                 List<Object[]> topGainers = gamificationQueryFacadeService.findTopExpGainersByCategoryAndPeriod(
                     categoryName, startDate, endDate, PageRequest.of(0, remaining + addedUserIds.size()));
 
-                for (Object[] row : topGainers) {
-                    if (result.size() >= maxPlayers) break;
+                List<String> gainerUserIds = topGainers.stream()
+                    .map(row -> (String) row[0])
+                    .filter(userId -> !addedUserIds.contains(userId))
+                    .toList();
+                Map<String, Long> expByUserId = topGainers.stream()
+                    .collect(Collectors.toMap(
+                        row -> (String) row[0],
+                        row -> ((Number) row[1]).longValue(),
+                        (a, b) -> a));
 
-                    String odayUserId = (String) row[0];
-                    Long earnedExp = ((Number) row[1]).longValue();
-
-                    if (addedUserIds.contains(odayUserId)) continue;
-
-                    TodayPlayerResponse player = buildTodayPlayerResponse(odayUserId, earnedExp, rank, locale);
-                    if (player != null) {
-                        result.add(player);
-                        addedUserIds.add(odayUserId);
-                        rank++;
-                    }
-                }
+                appendTodayPlayersBatch(result, addedUserIds, gainerUserIds, expByUserId, maxPlayers, locale);
             }
         }
 
         return result;
+    }
+
+    /**
+     * 후보 사용자들을 배치 조회(사용자/레벨/칭호)하여 TodayPlayerResponse 로 변환 후 result 에 추가.
+     * 존재하지 않는 사용자는 순위를 소비하지 않고 건너뛴다 (기존 개별 조회 로직과 동일한 규칙).
+     */
+    private void appendTodayPlayersBatch(List<TodayPlayerResponse> result, Set<String> addedUserIds,
+                                         List<String> candidateUserIds, Map<String, Long> expByUserId,
+                                         int maxPlayers, String locale) {
+        if (candidateUserIds.isEmpty() || result.size() >= maxPlayers) {
+            return;
+        }
+
+        Map<String, Users> userMap = userRepository.findAllById(candidateUserIds).stream()
+            .collect(Collectors.toMap(Users::getId, u -> u));
+        Map<String, Integer> levelMap = gamificationQueryFacadeService.getUserLevelMap(candidateUserIds);
+        Map<String, List<UserTitleDto>> titleMap = gamificationQueryFacadeService.getEquippedTitlesByUserIds(candidateUserIds);
+
+        for (String userId : candidateUserIds) {
+            if (result.size() >= maxPlayers) break;
+            if (addedUserIds.contains(userId)) continue;
+
+            Users user = userMap.get(userId);
+            if (user == null) {
+                continue;
+            }
+
+            Integer level = levelMap.getOrDefault(userId, 1);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(userId), locale);
+
+            result.add(TodayPlayerResponse.of(
+                userId,
+                user.getNickname(),
+                user.getPicture(),
+                level,
+                titleInfo.name(),
+                titleInfo.rarity(),
+                titleInfo.colorCode(),
+                titleInfo.leftTitle(),
+                titleInfo.leftRarity(),
+                titleInfo.leftColorCode(),
+                titleInfo.rightTitle(),
+                titleInfo.rightRarity(),
+                titleInfo.rightColorCode(),
+                expByUserId.getOrDefault(userId, 0L),
+                result.size() + 1
+            ));
+            addedUserIds.add(userId);
+        }
     }
 
     /**
@@ -316,115 +350,6 @@ public class HomeService {
         }
 
         return result;
-    }
-
-    /**
-     * TodayPlayerResponse 생성 헬퍼 메서드
-     */
-    private TodayPlayerResponse buildTodayPlayerResponse(String userId, Long earnedExp, int rank) {
-        return buildTodayPlayerResponse(userId, earnedExp, rank, null);
-    }
-
-    /**
-     * TodayPlayerResponse 생성 헬퍼 메서드 - 다국어 지원
-     */
-    private TodayPlayerResponse buildTodayPlayerResponse(String userId, Long earnedExp, int rank, String locale) {
-        Users user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return null;
-        }
-
-        Integer level = gamificationQueryFacadeService.getUserLevel(userId);
-
-        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
-
-        return TodayPlayerResponse.of(
-            userId,
-            user.getNickname(),
-            user.getPicture(),
-            level,
-            titleInfo.name(),
-            titleInfo.rarity(),
-            titleInfo.colorCode(),
-            titleInfo.leftTitle(),
-            titleInfo.leftRarity(),
-            titleInfo.leftColorCode(),
-            titleInfo.rightTitle(),
-            titleInfo.rightRarity(),
-            titleInfo.rightColorCode(),
-            earnedExp,
-            rank
-        );
-    }
-
-    /**
-     * 사용자의 장착된 칭호 조합 정보 조회 (LEFT + RIGHT)
-     * 예: "용감한 전사", "전설적인 챔피언"
-     */
-    private TitleInfo getCombinedEquippedTitleInfo(String userId) {
-        return getCombinedEquippedTitleInfo(userId, null);
-    }
-
-    /**
-     * 사용자의 장착된 칭호 조합 정보 조회 (LEFT + RIGHT) - 다국어 지원
-     * 예: "용감한 전사", "Brave Warrior", "المحارب الشجاع"
-     *
-     * @param userId 사용자 ID
-     * @param locale Accept-Language 헤더에서 추출한 locale (null이면 기본 한국어)
-     */
-    private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
-        List<UserTitleDto> equippedTitles = gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
-        if (equippedTitles.isEmpty()) {
-            return new TitleInfo(null, null, null, null, null, null, null, null, null);
-        }
-
-        UserTitleDto leftUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.equippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .orElse(null);
-
-        UserTitleDto rightUserTitle = equippedTitles.stream()
-            .filter(ut -> ut.equippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .orElse(null);
-
-        // 로컬라이즈된 칭호 이름 가져오기
-        String leftTitle = leftUserTitle != null ?
-            getLocalizedTitleName(leftUserTitle, locale) : null;
-        String rightTitle = rightUserTitle != null ?
-            getLocalizedTitleName(rightUserTitle, locale) : null;
-
-        // 개별 등급 및 색상 코드 추출
-        TitleRarity leftRarity = leftUserTitle != null ? leftUserTitle.titleRarity() : null;
-        TitleRarity rightRarity = rightUserTitle != null ? rightUserTitle.titleRarity() : null;
-        String leftColorCode = leftUserTitle != null ? leftUserTitle.titleColorCode() : null;
-        String rightColorCode = rightUserTitle != null ? rightUserTitle.titleColorCode() : null;
-
-        // 가장 높은 등급 선택 (둘 중 하나만 있으면 그것 사용) - 기존 호환성 유지
-        TitleRarity highestRarity = getHighestRarity(leftRarity, rightRarity);
-
-        // 가장 높은 등급의 색상 코드 선택
-        String highestColorCode = null;
-        if (highestRarity != null) {
-            if (leftRarity == highestRarity && leftUserTitle != null) {
-                highestColorCode = leftColorCode;
-            } else if (rightUserTitle != null) {
-                highestColorCode = rightColorCode;
-            }
-        }
-
-        String combinedTitle;
-        if (leftTitle == null && rightTitle == null) {
-            combinedTitle = null;
-        } else if (leftTitle == null) {
-            combinedTitle = rightTitle;
-        } else if (rightTitle == null) {
-            combinedTitle = leftTitle;
-        } else {
-            combinedTitle = leftTitle + " " + rightTitle;
-        }
-
-        return new TitleInfo(combinedTitle, highestRarity, highestColorCode, leftTitle, leftRarity, leftColorCode, rightTitle, rightRarity, rightColorCode);
     }
 
     /**

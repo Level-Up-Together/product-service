@@ -16,6 +16,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
@@ -38,7 +39,11 @@ import org.hibernate.annotations.Comment;
 @SuperBuilder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "mission")
+@Table(name = "mission",
+    indexes = {
+        @Index(name = "idx_mission_category", columnList = "category_id"),
+        @Index(name = "idx_mission_guild", columnList = "guild_id")
+    })
 @Comment("미션")
 public class Mission extends LocalDateTimeBaseEntity {
 

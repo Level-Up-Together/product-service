@@ -15,8 +15,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,12 +28,23 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class BffGuildService {
 
     private final GuildQueryService guildQueryService;
     private final GuildPostService guildPostService;
     private final FeedQueryService feedQueryService;
+    private final Executor bffExecutor;
+
+    public BffGuildService(
+            GuildQueryService guildQueryService,
+            GuildPostService guildPostService,
+            FeedQueryService feedQueryService,
+            @Qualifier("bffExecutor") Executor bffExecutor) {
+        this.guildQueryService = guildQueryService;
+        this.guildPostService = guildPostService;
+        this.feedQueryService = feedQueryService;
+        this.bffExecutor = bffExecutor;
+    }
 
     /**
      * 길드 상세 화면에 필요한 모든 데이터를 한 번에 조회합니다.
@@ -54,7 +66,7 @@ public class BffGuildService {
                 log.error("Failed to fetch guild", e);
                 return null;
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<GuildMemberResponse>> membersFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -63,7 +75,7 @@ public class BffGuildService {
                 log.error("Failed to fetch guild members", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<PostPageData> postsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -86,7 +98,7 @@ public class BffGuildService {
                         .totalPages(0)
                         .build();
             }
-        });
+        }, bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(guildFuture, membersFuture, postsFuture).join();
@@ -169,7 +181,7 @@ public class BffGuildService {
                         .totalPages(0)
                         .build();
             }
-        });
+        }, bffExecutor);
 
         // 모든 내 길드의 공지사항 병합 조회
         CompletableFuture<List<GuildPostListResponse>> noticesFuture = CompletableFuture.supplyAsync(() -> {
@@ -194,7 +206,7 @@ public class BffGuildService {
                 log.error("Failed to fetch guild notices", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         // 모든 내 길드의 활동 피드 병합 조회
         CompletableFuture<FeedPageData> activityFeedsFuture = CompletableFuture.supplyAsync(() -> {
@@ -242,7 +254,7 @@ public class BffGuildService {
                         .totalPages(0)
                         .build();
             }
-        });
+        }, bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(recommendedGuildsFuture, noticesFuture, activityFeedsFuture)

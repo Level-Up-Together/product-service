@@ -385,8 +385,9 @@ class FeedQueryServiceTest {
             when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
                 .thenReturn(new HashMap<>());
-            when(userQueryFacadeService.getUserProfile(anyString())).thenReturn(
-                new UserProfileInfo("any", "닉", null, 5, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of(
+                OTHER_USER_ID, new UserProfileInfo(OTHER_USER_ID, "부모유저", null, 5, null, null, null),
+                TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "나", null, 5, null, null, null)));
 
             // when
             Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
@@ -420,8 +421,8 @@ class FeedQueryServiceTest {
             when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
                 .thenReturn(new HashMap<>());
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(
-                new UserProfileInfo(TEST_USER_ID, "나", null, 5, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(
+                Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "나", null, 5, null, null, null)));
 
             // when
             Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
@@ -697,8 +698,8 @@ class FeedQueryServiceTest {
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1216,8 +1217,8 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1247,8 +1248,8 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1261,7 +1262,7 @@ class FeedQueryServiceTest {
     }
 
     @Nested
-    @DisplayName("getComments getUserProfile 예외 폴백 테스트")
+    @DisplayName("getComments getUserProfiles 예외 폴백 테스트")
     class GetCommentsFallbackTest {
 
         @Test
@@ -1284,7 +1285,7 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -1316,7 +1317,7 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+            when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -2079,8 +2080,8 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
             when(translationService.translateContent(any(), any(), any(), any())).thenReturn(null);
 
@@ -2113,8 +2114,8 @@ class FeedQueryServiceTest {
             Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
             when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
-            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
-                .thenReturn(new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null));
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when

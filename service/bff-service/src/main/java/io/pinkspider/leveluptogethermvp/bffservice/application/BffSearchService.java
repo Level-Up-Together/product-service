@@ -17,9 +17,10 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.infrastructure.Use
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -30,13 +31,26 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class BffSearchService {
 
     private final ActivityFeedRepository activityFeedRepository;
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
     private final GuildRepository guildRepository;
+    private final Executor bffExecutor;
+
+    public BffSearchService(
+            ActivityFeedRepository activityFeedRepository,
+            MissionRepository missionRepository,
+            UserRepository userRepository,
+            GuildRepository guildRepository,
+            @Qualifier("bffExecutor") Executor bffExecutor) {
+        this.activityFeedRepository = activityFeedRepository;
+        this.missionRepository = missionRepository;
+        this.userRepository = userRepository;
+        this.guildRepository = guildRepository;
+        this.bffExecutor = bffExecutor;
+    }
 
     /**
      * 통합 검색을 수행합니다.
@@ -73,7 +87,7 @@ public class BffSearchService {
                 log.error("Failed to search feeds", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<MissionSearchItem>> missionsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -85,7 +99,7 @@ public class BffSearchService {
                 log.error("Failed to search missions", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<UserSearchItem>> usersFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -97,7 +111,7 @@ public class BffSearchService {
                 log.error("Failed to search users", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         CompletableFuture<List<GuildSearchItem>> guildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -109,7 +123,7 @@ public class BffSearchService {
                 log.error("Failed to search guilds", e);
                 return Collections.emptyList();
             }
-        });
+        }, bffExecutor);
 
         // 모든 결과 취합
         CompletableFuture.allOf(feedsFuture, missionsFuture, usersFuture, guildsFuture).join();

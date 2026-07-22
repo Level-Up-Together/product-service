@@ -143,13 +143,12 @@ class GuildQueryServiceTest {
                 .thenReturn(List.of(featuredGuildId));
             when(guildRepository.findByIdAndIsActiveTrue(featuredGuildId))
                 .thenReturn(Optional.of(featuredGuild));
-            when(guildMemberRepository.countActiveMembers(featuredGuildId)).thenReturn(10L);
-
 
             // 자동 선정 길드
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
-            when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.of(new Object[]{featuredGuildId, 10L}, new Object[]{guildId, 5L}));
 
             // when
             List<GuildResponse> result = guildQueryService.getPublicGuildsByCategory(testUserId, testCategoryId);
@@ -171,8 +170,8 @@ class GuildQueryServiceTest {
                 .thenReturn(Collections.emptyList());
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             // when
             List<GuildResponse> result = guildQueryService.getPublicGuildsByCategory(testUserId, testCategoryId);
@@ -193,8 +192,8 @@ class GuildQueryServiceTest {
                 .thenReturn(List.of(guildId));
             when(guildRepository.findByIdAndIsActiveTrue(guildId))
                 .thenReturn(Optional.of(testGuild));
-            when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{guildId, 10L}));
 
             // 자동 선정에도 동일한 길드
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
@@ -229,9 +228,11 @@ class GuildQueryServiceTest {
         void getPublicGuildsByCategory_maxFiveGuilds() {
             // given
             List<Long> manyFeaturedGuildIds = new java.util.ArrayList<>();
+            List<Object[]> countRows = new java.util.ArrayList<>();
             for (int i = 1; i <= 6; i++) {
                 Long guildId = (long) (i + 10);  // 11, 12, 13, ...
                 manyFeaturedGuildIds.add(guildId);
+                countRows.add(new Object[]{guildId, 5L});
 
                 Guild guild = Guild.builder()
                     .name("길드 " + i)
@@ -244,11 +245,11 @@ class GuildQueryServiceTest {
                 setId(guild, guildId);
 
                 lenient().when(guildRepository.findByIdAndIsActiveTrue(guildId)).thenReturn(Optional.of(guild));
-                lenient().when(guildMemberRepository.countActiveMembers(guildId)).thenReturn(5L);
             }
 
             when(adminInternalFeignClient.getFeaturedGuildIds(testCategoryId))
                 .thenReturn(manyFeaturedGuildIds);
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList())).thenReturn(countRows);
 
 
             // when
@@ -328,8 +329,8 @@ class GuildQueryServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             when(guildRepository.findPublicGuilds(any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             // when
             org.springframework.data.domain.Page<GuildResponse> result = guildQueryService.getPublicGuilds(testUserId, pageable);
@@ -352,8 +353,8 @@ class GuildQueryServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             // when
             org.springframework.data.domain.Page<GuildResponse> result = guildQueryService.searchGuilds(testUserId, keyword, pageable);
@@ -382,8 +383,8 @@ class GuildQueryServiceTest {
 
             when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
                 .thenReturn(List.of(myMembership));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 5L}));
 
             // when
             List<GuildResponse> result = guildQueryService.getMyGuilds(testUserId);
@@ -534,8 +535,8 @@ class GuildQueryServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             when(guildRepository.findPublicGuilds(any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);
@@ -564,8 +565,8 @@ class GuildQueryServiceTest {
 
             when(guildMemberRepository.findActiveGuildsByUserId(testUserId))
                 .thenReturn(List.of(myMembership));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 5L}));
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", false);
@@ -588,8 +589,8 @@ class GuildQueryServiceTest {
             Pageable pageable = PageRequest.of(0, 10);
             when(guildRepository.searchPublicGuilds(eq(keyword), any(Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);
@@ -612,8 +613,8 @@ class GuildQueryServiceTest {
                 .thenReturn(Collections.emptyList());
             when(guildRepository.findPublicGuildsByCategoryOrderByMemberCount(eq(testCategoryId), any()))
                 .thenReturn(List.of(testGuild));
-            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
-
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);

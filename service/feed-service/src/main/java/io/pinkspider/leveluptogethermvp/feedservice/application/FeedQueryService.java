@@ -642,6 +642,19 @@ public class FeedQueryService {
         Set<Long> likedSet = currentUserId == null ? new HashSet<>()
             : new HashSet<>(feedCommentLikeRepository.findLikedCommentIds(currentUserId, allCommentIds));
 
+        // 2-1) 댓글 작성자 프로필(현재 레벨) 일괄 조회 (댓글별 개별 조회 N+1 방지)
+        Set<String> commentUserIds = new HashSet<>();
+        roots.forEach(c -> commentUserIds.add(c.getUserId()));
+        replies.forEach(c -> commentUserIds.add(c.getUserId()));
+        Map<String, UserProfileInfo> profileMap;
+        try {
+            profileMap = userQueryFacadeService.getUserProfiles(new ArrayList<>(commentUserIds));
+        } catch (Exception e) {
+            log.warn("Failed to batch load comment user profiles: feedId={}", feedId);
+            profileMap = Map.of();
+        }
+        Map<String, UserProfileInfo> commentProfileMap = profileMap;
+
         // 3) 부모 댓글별 활성 대댓글 카운트 (수정 가능 여부 결정용)
         Map<Long, Long> activeReplyCountByParent = replies.stream()
             .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
@@ -651,14 +664,14 @@ public class FeedQueryService {
         Map<Long, List<FeedCommentResponse>> repliesByParent = new java.util.HashMap<>();
         for (FeedComment reply : replies) {
             FeedCommentResponse r = buildCommentResponse(reply, currentUserId, targetLocale, likeCountMap, likedSet,
-                underReviewMap, /*hasReplies*/ false);
+                underReviewMap, commentProfileMap, /*hasReplies*/ false);
             repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>()).add(r);
         }
 
         return rootPage.map(root -> {
             boolean hasReplies = activeReplyCountByParent.getOrDefault(root.getId(), 0L) > 0;
             FeedCommentResponse response = buildCommentResponse(root, currentUserId, targetLocale, likeCountMap,
-                likedSet, underReviewMap, hasReplies);
+                likedSet, underReviewMap, commentProfileMap, hasReplies);
             response.setReplies(repliesByParent.getOrDefault(root.getId(), List.of()));
             return response;
         });
@@ -669,14 +682,14 @@ public class FeedQueryService {
      */
     private FeedCommentResponse buildCommentResponse(FeedComment comment, String currentUserId, String targetLocale,
                                                      Map<Long, Integer> likeCountMap, Set<Long> likedSet,
-                                                     Map<String, Boolean> underReviewMap, boolean hasReplies) {
+                                                     Map<String, Boolean> underReviewMap,
+                                                     Map<String, UserProfileInfo> profileMap, boolean hasReplies) {
         TranslationInfo translation = translateComment(comment, targetLocale);
         Integer userLevel;
-        try {
-            UserProfileInfo userProfile = userQueryFacadeService.getUserProfile(comment.getUserId());
+        UserProfileInfo userProfile = profileMap.get(comment.getUserId());
+        if (userProfile != null) {
             userLevel = userProfile.level();
-        } catch (Exception e) {
-            log.warn("Failed to get user level for comment: commentId={}, userId={}", comment.getId(), comment.getUserId());
+        } else {
             userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
         }
 

@@ -30,7 +30,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -49,8 +48,10 @@ class BffGuildServiceTest {
     @Mock
     private FeedQueryService feedQueryService;
 
-    @InjectMocks
     private BffGuildService bffGuildService;
+
+    // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
+    private final java.util.concurrent.Executor directExecutor = Runnable::run;
 
     private String testUserId;
     private GuildResponse testGuildResponse;
@@ -60,6 +61,10 @@ class BffGuildServiceTest {
 
     @BeforeEach
     void setUp() {
+        // BffGuildService 수동 생성 (Executor 주입을 위해)
+        bffGuildService =
+                new BffGuildService(guildQueryService, guildPostService, feedQueryService, directExecutor);
+
         testUserId = "test-user-id";
 
         testGuildResponse = GuildResponse.builder()

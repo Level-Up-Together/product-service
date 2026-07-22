@@ -15,8 +15,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,8 +28,17 @@ class BffMissionServiceTest {
     @Mock
     private MissionExecutionQueryService missionExecutionQueryService;
 
-    @InjectMocks
     private BffMissionService bffMissionService;
+
+    // 테스트용 동기 Executor - CompletableFuture가 즉시 실행되도록 함
+    private final java.util.concurrent.Executor directExecutor = Runnable::run;
+
+    @BeforeEach
+    void setUpService() {
+        // BffMissionService 수동 생성 (Executor 주입을 위해)
+        bffMissionService =
+                new BffMissionService(missionService, missionExecutionQueryService, directExecutor);
+    }
 
     private static final String TEST_USER_ID = "test-user-123";
 

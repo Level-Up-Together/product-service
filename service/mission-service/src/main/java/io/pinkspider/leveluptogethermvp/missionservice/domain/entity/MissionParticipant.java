@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -33,7 +34,8 @@ import org.hibernate.annotations.OnDeleteAction;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Table(name = "mission_participant",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"mission_id", "user_id"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"mission_id", "user_id"}),
+    indexes = @Index(name = "idx_mission_participant_user", columnList = "user_id"))
 @Comment("미션 참여자")
 public class MissionParticipant extends LocalDateTimeBaseEntity {
 
