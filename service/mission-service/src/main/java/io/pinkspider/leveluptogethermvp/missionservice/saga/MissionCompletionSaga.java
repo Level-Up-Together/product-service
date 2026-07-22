@@ -17,8 +17,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadMissionDat
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.LoadPinnedMissionDataStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateParticipantProgressStep;
 import io.pinkspider.leveluptogethermvp.missionservice.saga.steps.UpdateUserStatsStep;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -47,7 +48,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class MissionCompletionSaga {
 
     // Regular-only steps
@@ -68,6 +68,36 @@ public class MissionCompletionSaga {
     private final CreateFeedFromMissionStep createFeedFromMissionStep;
 
     private final SagaEventPublisher sagaEventPublisher;
+    private final Executor sagaTailExecutor;
+
+    public MissionCompletionSaga(
+            LoadMissionDataStep loadMissionDataStep,
+            CompleteExecutionStep completeExecutionStep,
+            UpdateParticipantProgressStep updateParticipantProgressStep,
+            GrantGuildExperienceStep grantGuildExperienceStep,
+            LoadPinnedMissionDataStep loadPinnedMissionDataStep,
+            CompletePinnedInstanceStep completePinnedInstanceStep,
+            CreateNextPinnedInstanceStep createNextPinnedInstanceStep,
+            GrantUserExperienceStep grantUserExperienceStep,
+            GrantMissionBookDiamondStep grantMissionBookDiamondStep,
+            UpdateUserStatsStep updateUserStatsStep,
+            CreateFeedFromMissionStep createFeedFromMissionStep,
+            SagaEventPublisher sagaEventPublisher,
+            @Qualifier("generalExecutor") Executor sagaTailExecutor) {
+        this.loadMissionDataStep = loadMissionDataStep;
+        this.completeExecutionStep = completeExecutionStep;
+        this.updateParticipantProgressStep = updateParticipantProgressStep;
+        this.grantGuildExperienceStep = grantGuildExperienceStep;
+        this.loadPinnedMissionDataStep = loadPinnedMissionDataStep;
+        this.completePinnedInstanceStep = completePinnedInstanceStep;
+        this.createNextPinnedInstanceStep = createNextPinnedInstanceStep;
+        this.grantUserExperienceStep = grantUserExperienceStep;
+        this.grantMissionBookDiamondStep = grantMissionBookDiamondStep;
+        this.updateUserStatsStep = updateUserStatsStep;
+        this.createFeedFromMissionStep = createFeedFromMissionStep;
+        this.sagaEventPublisher = sagaEventPublisher;
+        this.sagaTailExecutor = sagaTailExecutor;
+    }
 
     /**
      * 일반 미션 완료 Saga 실행
@@ -140,6 +170,8 @@ public class MissionCompletionSaga {
             new SagaOrchestrator<>(sagaEventPublisher);
 
         // Step 등록 (순서 중요!)
+        // 동기 구간: 응답 데이터를 만들거나(mandatory) 실패 시 보상이 필요한 Step만 실행.
+        // 비필수 후속 Step(다이아·통계/업적·피드)은 runTailStepsAsync 로 응답 이후 실행.
         // 1. 데이터 로드 (regular 또는 pinned 중 하나만 실행)
         orchestrator
             .addStep(loadMissionDataStep)
@@ -150,20 +182,14 @@ public class MissionCompletionSaga {
             .addStep(completeExecutionStep)
             .addStep(completePinnedInstanceStep);
 
-        // 3. 경험치 지급 + 미션북 다이아 지급 (QA-220)
+        // 3. 경험치 지급
         orchestrator
             .addStep(grantUserExperienceStep)
-            .addStep(grantGuildExperienceStep)
-            .addStep(grantMissionBookDiamondStep);
+            .addStep(grantGuildExperienceStep);
 
-        // 4. 진행도/통계 업데이트
+        // 4. 진행도 업데이트 + 다음 인스턴스 생성
         orchestrator
             .addStep(updateParticipantProgressStep)
-            .addStep(updateUserStatsStep);
-
-        // 5. 피드 생성 + 다음 인스턴스 생성
-        orchestrator
-            .addStep(createFeedFromMissionStep)
             .addStep(createNextPinnedInstanceStep);
 
         SagaResult<MissionCompletionContext> result = orchestrator.execute(context);
@@ -171,12 +197,42 @@ public class MissionCompletionSaga {
         if (result.isSuccess()) {
             log.info("MissionCompletionSaga succeeded: sagaId={}, pinned={}",
                 result.getSagaId(), context.isPinned());
+            runTailStepsAsync(context);
         } else {
             log.error("MissionCompletionSaga failed: sagaId={}, pinned={}, reason={}",
                 result.getSagaId(), context.isPinned(), result.getMessage());
         }
 
         return result;
+    }
+
+    /**
+     * 비필수 후속 Step 비동기 실행 (다이아 지급 QA-220 → 통계/업적 → 피드 생성)
+     *
+     * <p>세 Step 모두 isMandatory=false 라 기존에도 실패가 완료를 롤백하지 않았으므로, 응답 이후로 미뤄도 실패
+     * 의미는 동일하다(로그만 남김). 응답은 동기 구간에서 채워진 context 데이터만 사용한다. 이벤트 발행은 동기
+     * 오케스트레이터가 이미 수행했으므로 tail 은 publisher 없이 실행한다.
+     */
+    private void runTailStepsAsync(MissionCompletionContext context) {
+        sagaTailExecutor.execute(() -> {
+            try {
+                SagaOrchestrator<MissionCompletionContext> tailOrchestrator =
+                    new SagaOrchestrator<>(null);
+                tailOrchestrator
+                    .addStep(grantMissionBookDiamondStep)
+                    .addStep(updateUserStatsStep)
+                    .addStep(createFeedFromMissionStep);
+
+                SagaResult<MissionCompletionContext> tailResult = tailOrchestrator.execute(context);
+                if (!tailResult.isSuccess()) {
+                    log.warn("MissionCompletionSaga tail failed: sagaId={}, pinned={}, reason={}",
+                        tailResult.getSagaId(), context.isPinned(), tailResult.getMessage());
+                }
+            } catch (Exception e) {
+                log.error("MissionCompletionSaga tail execution error: sagaId={}, error={}",
+                    context.getSagaId(), e.getMessage(), e);
+            }
+        });
     }
 
     /**

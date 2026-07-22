@@ -37,7 +37,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -79,8 +78,29 @@ class MissionCompletionSagaTest {
     @Mock
     private SagaEventPublisher sagaEventPublisher;
 
-    @InjectMocks
     private MissionCompletionSaga missionCompletionSaga;
+
+    // 테스트용 동기 Executor - tail Step 이 즉시 실행되도록 함
+    private final java.util.concurrent.Executor directExecutor = Runnable::run;
+
+    @BeforeEach
+    void setUpSaga() {
+        // MissionCompletionSaga 수동 생성 (tail Executor 주입을 위해)
+        missionCompletionSaga = new MissionCompletionSaga(
+                loadMissionDataStep,
+                completeExecutionStep,
+                updateParticipantProgressStep,
+                grantGuildExperienceStep,
+                loadPinnedMissionDataStep,
+                completePinnedInstanceStep,
+                createNextPinnedInstanceStep,
+                grantUserExperienceStep,
+                grantMissionBookDiamondStep,
+                updateUserStatsStep,
+                createFeedFromMissionStep,
+                sagaEventPublisher,
+                directExecutor);
+    }
 
     private static final String TEST_USER_ID = "test-user-123";
     private static final Long EXECUTION_ID = 1L;
@@ -198,6 +218,101 @@ class MissionCompletionSagaTest {
             verify(loadPinnedMissionDataStep, never()).execute(any());
             verify(completePinnedInstanceStep, never()).execute(any());
             verify(createNextPinnedInstanceStep, never()).execute(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("tail 비동기 분리 테스트")
+    class TailAsyncSplitTest {
+
+        @Test
+        @DisplayName("tail Step(다이아·통계·피드)은 동기 Saga 응답 이후 실행된다")
+        void execute_tailStepsRunAfterSyncSagaReturns() {
+            // given - 실행을 큐에 쌓아두는 Executor 로 응답 시점과 tail 실행 시점을 분리
+            java.util.List<Runnable> queued = new java.util.ArrayList<>();
+            MissionCompletionSaga deferredSaga = new MissionCompletionSaga(
+                    loadMissionDataStep,
+                    completeExecutionStep,
+                    updateParticipantProgressStep,
+                    grantGuildExperienceStep,
+                    loadPinnedMissionDataStep,
+                    completePinnedInstanceStep,
+                    createNextPinnedInstanceStep,
+                    grantUserExperienceStep,
+                    grantMissionBookDiamondStep,
+                    updateUserStatsStep,
+                    createFeedFromMissionStep,
+                    sagaEventPublisher,
+                    queued::add);
+
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                .thenAnswer(invocation -> {
+                    MissionCompletionContext ctx = invocation.getArgument(0);
+                    ctx.setExecution(execution);
+                    ctx.setParticipant(participant);
+                    ctx.setMission(mission);
+                    ctx.setUserExpEarned(50);
+                    return SagaStepResult.success("데이터 로드 성공");
+                });
+            when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
+            when(grantUserExperienceStep.execute(any())).thenReturn(SagaStepResult.success("경험치 지급됨"));
+            when(updateParticipantProgressStep.execute(any())).thenReturn(SagaStepResult.success("진행도 업데이트됨"));
+            when(updateUserStatsStep.execute(any())).thenReturn(SagaStepResult.success("통계 업데이트됨"));
+            when(createFeedFromMissionStep.execute(any())).thenReturn(SagaStepResult.success("피드 스킵"));
+
+            // when - 동기 Saga 만 실행된 시점
+            SagaResult<MissionCompletionContext> result =
+                missionCompletionSaga_deferredExecute(deferredSaga);
+
+            // then - 응답은 성공이지만 tail Step 은 아직 미실행
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.getContext().getExecution()).isEqualTo(execution);
+            verify(grantMissionBookDiamondStep, never()).execute(any());
+            verify(updateUserStatsStep, never()).execute(any());
+            verify(createFeedFromMissionStep, never()).execute(any());
+            assertThat(queued).hasSize(1);
+
+            // when - tail 실행
+            queued.forEach(Runnable::run);
+
+            // then - tail Step 실행 확인
+            verify(grantMissionBookDiamondStep).execute(any());
+            verify(updateUserStatsStep).execute(any());
+            verify(createFeedFromMissionStep).execute(any());
+        }
+
+        private SagaResult<MissionCompletionContext> missionCompletionSaga_deferredExecute(
+                MissionCompletionSaga saga) {
+            return saga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
+        }
+
+        @Test
+        @DisplayName("동기 구간(필수 Step) 실패 시 tail Step 은 실행되지 않는다")
+        void execute_tailStepsNotRunWhenSyncSagaFails() {
+            // given
+            when(loadMissionDataStep.execute(any(MissionCompletionContext.class)))
+                .thenAnswer(invocation -> {
+                    MissionCompletionContext ctx = invocation.getArgument(0);
+                    ctx.setExecution(execution);
+                    ctx.setParticipant(participant);
+                    ctx.setMission(mission);
+                    return SagaStepResult.success("데이터 로드 성공");
+                });
+            when(completeExecutionStep.execute(any())).thenReturn(SagaStepResult.success("완료 처리됨"));
+            when(grantUserExperienceStep.execute(any()))
+                .thenReturn(SagaStepResult.failure(new RuntimeException("경험치 지급 실패")));
+            when(loadMissionDataStep.compensate(any())).thenReturn(SagaStepResult.success("보상됨"));
+            when(completeExecutionStep.compensate(any())).thenReturn(SagaStepResult.success("보상됨"));
+
+            // when
+            SagaResult<MissionCompletionContext> result =
+                missionCompletionSaga.execute(EXECUTION_ID, TEST_USER_ID, "완료 메모");
+
+            // then
+            assertThat(result.isSuccess()).isFalse();
+            verify(grantMissionBookDiamondStep, never()).execute(any());
+            verify(updateUserStatsStep, never()).execute(any());
+            verify(createFeedFromMissionStep, never()).execute(any());
         }
     }
 
