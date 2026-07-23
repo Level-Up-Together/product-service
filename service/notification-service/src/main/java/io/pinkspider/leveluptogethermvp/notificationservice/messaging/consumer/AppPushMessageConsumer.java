@@ -8,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.notificationservice.application.Notifica
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.PushMessageRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -24,6 +25,14 @@ import org.springframework.stereotype.Component;
 public class AppPushMessageConsumer implements StreamListener<String, MapRecord<String, String, String>> {
 
     private static final String NOTIFICATION_TYPE_INQUIRY_REPLIED = "INQUIRY_REPLIED";
+
+    /**
+     * 소비 시점에 i18n 재구성이 필요한 외부(admin-service) 발행 타입.
+     * 내부(NotificationService) 발행 푸시는 발행 시점에 이미 사용자 locale로 포맷된 최종 텍스트라
+     * 재구성 대상이 아니다 — 재구성하면 템플릿 인자 불일치로 "{1}" 등이 그대로 노출된다 (LUT-262).
+     */
+    private static final Set<String> EXTERNALLY_PUBLISHED_TYPES =
+            Set.of(NOTIFICATION_TYPE_INQUIRY_REPLIED);
 
     private final FcmPushService fcmPushService;
     private final NotificationService notificationService;
@@ -109,12 +118,14 @@ public class AppPushMessageConsumer implements StreamListener<String, MapRecord<
 
     /**
      * INQUIRY_REPLIED 등 외부에서 발행된 알림의 push 텍스트를 사용자 locale로 i18n 재구성.
-     * NotificationType이 매핑되지 않거나 단일 사용자 대상이 아니면 null 반환 (원본 사용).
+     * 외부 발행 타입이 아니거나 NotificationType이 매핑되지 않거나 단일 사용자 대상이 아니면
+     * null 반환 (원본 사용).
      */
     private String[] localizePushTextIfNeeded(AppPushMessageDto message) {
         String typeStr = message.getNotificationType();
         String userId = message.getUserId();
         if (typeStr == null || userId == null || userId.isBlank()) return null;
+        if (!EXTERNALLY_PUBLISHED_TYPES.contains(typeStr)) return null;
 
         NotificationType type;
         try {
