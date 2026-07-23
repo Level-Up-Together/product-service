@@ -115,8 +115,7 @@ public class TestLoginService {
 
         // 2. 이메일로 조회
         String encryptedEmail = CryptoUtils.encryptAes(email);
-        Optional<Users> byEmail = userRepository.findByEncryptedEmailAndProvider(
-            encryptedEmail, TEST_PROVIDER);
+        Optional<Users> byEmail = userRepository.findActiveByEncryptedEmailAndProvider(            encryptedEmail, TEST_PROVIDER);
         if (byEmail.isPresent()) {
             log.info("기존 테스트 사용자 로그인 (이메일): userId={}", byEmail.get().getId());
             return byEmail.get();

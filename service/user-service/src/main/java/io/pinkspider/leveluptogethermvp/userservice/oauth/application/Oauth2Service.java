@@ -244,38 +244,43 @@ public class Oauth2Service {
     @Transactional
     protected Optional<Users> findExistingUser(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
         String encryptedEmail = CryptoUtils.encryptAes(userInfo.getEmail());
-        Optional<Users> existingUser = userRepository.findByEncryptedEmailAndProvider(
+        // LUT-258: cool-down 만료 재가입 시 WITHDRAWN 구 row 와 ACTIVE 신 row 가 공존하므로,
+        // 상태 무관 단건 조회가 아닌 "활성 계정 우선" 조회를 사용한다 (2행 조회 예외 방지).
+        Optional<Users> existingUser = userRepository.findActiveByEncryptedEmailAndProvider(
             encryptedEmail,
             userInfo.getProvider()
         );
 
         if (existingUser.isEmpty()) {
+            // 활성 계정 없음 — 탈퇴 이력이 있으면 최신 탈퇴 기준으로 cool-down 판정 (QA-115)
+            java.util.List<Users> withdrawnUsers =
+                userRepository.findWithdrawnByEncryptedEmailAndProvider(
+                    encryptedEmail, userInfo.getProvider());
+            if (!withdrawnUsers.isEmpty()) {
+                Users withdrawnUser = withdrawnUsers.get(0);
+                int coolDownDays = withdrawalProperties.getCoolDownDays();
+                java.time.LocalDateTime withdrawnAt = withdrawnUser.getWithdrawnAt();
+                // withdrawnAt 이 null 인 레거시 row 는 cool-down 즉시 만료로 취급 (정책상 V007 이전 탈퇴자는 재가입 허용).
+                java.time.LocalDateTime availableAt = withdrawnAt == null
+                    ? java.time.LocalDateTime.now().minusDays(1)
+                    : withdrawnAt.plusDays(coolDownDays);
+                if (java.time.LocalDateTime.now().isBefore(availableAt)) {
+                    log.warn("탈퇴 cool-down 중 재가입 시도: userId={}, provider={}, withdrawnAt={}, availableAt={}",
+                        withdrawnUser.getId(), userInfo.getProvider(), withdrawnAt, availableAt);
+                    String availableDate = availableAt.toLocalDate().toString();
+                    String resolved = messageSource.getMessage(
+                        "error.account.withdrawn.cooldown",
+                        new Object[] { availableDate },
+                        LocaleContextHolder.getLocale());
+                    throw new CustomException("030001", resolved);
+                }
+                log.info("탈퇴 cool-down 만료, 재가입 허용: userId={}, provider={}, withdrawnAt={}",
+                    withdrawnUser.getId(), userInfo.getProvider(), withdrawnAt);
+            }
             return Optional.empty();
         }
 
         Users user = existingUser.get();
-        if (user.getStatus() == UserStatus.WITHDRAWN) {
-            // QA-115: cool-down 기간 내면 명확한 에러로 차단, 종료되었으면 신규 가입 진입 허용.
-            int coolDownDays = withdrawalProperties.getCoolDownDays();
-            java.time.LocalDateTime withdrawnAt = user.getWithdrawnAt();
-            // withdrawnAt 이 null 인 레거시 row 는 cool-down 즉시 만료로 취급 (정책상 V007 이전 탈퇴자는 재가입 허용).
-            java.time.LocalDateTime availableAt = withdrawnAt == null
-                ? java.time.LocalDateTime.now().minusDays(1)
-                : withdrawnAt.plusDays(coolDownDays);
-            if (java.time.LocalDateTime.now().isBefore(availableAt)) {
-                log.warn("탈퇴 cool-down 중 재가입 시도: userId={}, provider={}, withdrawnAt={}, availableAt={}",
-                    user.getId(), userInfo.getProvider(), withdrawnAt, availableAt);
-                String availableDate = availableAt.toLocalDate().toString();
-                String resolved = messageSource.getMessage(
-                    "error.account.withdrawn.cooldown",
-                    new Object[] { availableDate },
-                    LocaleContextHolder.getLocale());
-                throw new CustomException("030001", resolved);
-            }
-            log.info("탈퇴 cool-down 만료, 재가입 허용: userId={}, provider={}, withdrawnAt={}",
-                user.getId(), userInfo.getProvider(), withdrawnAt);
-            return Optional.empty();
-        }
 
         boolean needsSave = false;
         if (preferredLocale != null

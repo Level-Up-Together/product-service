@@ -260,7 +260,7 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
 
                 // 기존 사용자의 경우 save, event publish 등이 호출되지 않아야 함
@@ -293,8 +293,10 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
-                    .thenReturn(Optional.of(withdrawnUser));
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.findWithdrawnByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(java.util.List.of(withdrawnUser));
                 when(withdrawalProperties.getCoolDownDays()).thenReturn(7);
                 when(messageSource.getMessage(eq("error.account.withdrawn.cooldown"), any(), any()))
                     .thenReturn("탈퇴한 계정입니다. 2026-05-22부터 재가입할 수 있습니다.");
@@ -324,8 +326,10 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
-                    .thenReturn(Optional.of(withdrawnUser));
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.empty());
+                when(userRepository.findWithdrawnByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(java.util.List.of(withdrawnUser));
                 when(withdrawalProperties.getCoolDownDays()).thenReturn(7);
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
@@ -340,13 +344,46 @@ class Oauth2ServiceTest {
         }
 
         @Test
+        @DisplayName("탈퇴 구 계정과 재가입 활성 계정이 공존해도 활성 계정으로 로그인된다 (LUT-258)")
+        void findExistingUser_withdrawnAndActiveCoexist_returnsActiveUser() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                // given: cool-down 만료 재가입으로 WITHDRAWN row 와 ACTIVE row 가 공존하는 상태.
+                // 활성 계정 우선 조회가 ACTIVE row 만 반환하므로 2행 조회 예외가 발생하지 않아야 한다.
+                Users activeUser = Users.builder()
+                    .id("new-user-id")
+                    .email(TEST_EMAIL)
+                    .nickname("재가입 사용자")
+                    .provider("google")
+                    .status(UserStatus.ACTIVE)
+                    .build();
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(activeUser));
+
+                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
+                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
+
+                // when
+                Optional<Users> result = oauth2Service.findExistingUser(userInfo, null, null);
+
+                // then: 활성 계정 반환, 탈퇴 이력 조회는 불필요
+                assertThat(result).isPresent();
+                assertThat(result.get().getId()).isEqualTo("new-user-id");
+                verify(userRepository, never()).findWithdrawnByEncryptedEmailAndProvider(any(), any());
+            }
+        }
+
+        @Test
         @DisplayName("신규 사용자는 INSERT하지 않고 빈 Optional을 반환한다 (QA-108)")
         void findExistingUser_newUser_returnsEmptyOptional() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.empty());
+                when(userRepository.findWithdrawnByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(java.util.List.of());
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
@@ -387,7 +424,7 @@ class Oauth2ServiceTest {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
                     .thenReturn(googleUserInfoMap);
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
@@ -437,7 +474,7 @@ class Oauth2ServiceTest {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
                     .thenReturn(googleUserInfoMap);
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
@@ -478,7 +515,7 @@ class Oauth2ServiceTest {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
                     .thenReturn(googleUserInfoMap);
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
@@ -530,7 +567,7 @@ class Oauth2ServiceTest {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(googleUserInfoFeignClient.getUserInfo("Bearer google-provider-token"))
                     .thenReturn(googleUserInfoMap);
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.empty());
                 when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
                 when(signupTokenService.createOrRefresh(any())).thenReturn("signup-token");
@@ -653,7 +690,7 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
                 when(userRepository.save(any(Users.class))).thenReturn(existingUser);
 
@@ -684,7 +721,7 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
                 when(userRepository.save(any(Users.class))).thenReturn(existingUser);
 
@@ -715,7 +752,7 @@ class Oauth2ServiceTest {
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
@@ -736,7 +773,7 @@ class Oauth2ServiceTest {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.empty());
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
@@ -910,7 +947,7 @@ class Oauth2ServiceTest {
                     .thenReturn(kakaoUserInfo);
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "kakao"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "kakao"))
                     .thenReturn(java.util.Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
@@ -951,7 +988,7 @@ class Oauth2ServiceTest {
                 when(jwtUtil.decodeIdToken("apple-id-token")).thenReturn(claims);
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
                     .thenReturn(java.util.Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
@@ -1001,7 +1038,7 @@ class Oauth2ServiceTest {
                     .thenReturn(googleUserInfoMap);
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "google"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(java.util.Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());

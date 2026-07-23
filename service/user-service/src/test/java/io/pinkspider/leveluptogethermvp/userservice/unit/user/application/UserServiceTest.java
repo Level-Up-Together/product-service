@@ -89,7 +89,7 @@ class UserServiceTest {
 
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn(encryptedEmail);
-                when(userRepository.findByEncryptedEmailAndProvider(encryptedEmail, provider))
+                when(userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider))
                     .thenReturn(Optional.of(user));
 
                 // when
@@ -112,7 +112,7 @@ class UserServiceTest {
 
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn(encryptedEmail);
-                when(userRepository.findByEncryptedEmailAndProvider(encryptedEmail, provider))
+                when(userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider))
                     .thenReturn(Optional.empty());
 
                 // when & then

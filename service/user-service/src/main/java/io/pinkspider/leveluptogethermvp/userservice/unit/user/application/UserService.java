@@ -25,7 +25,7 @@ public class UserService {
      */
     public Users findByEmailAndProvider(String email, String provider) {
         String encryptedEmail = CryptoUtils.encryptAes(email);
-        return userRepository.findByEncryptedEmailAndProvider(encryptedEmail, provider)
+        return userRepository.findActiveByEncryptedEmailAndProvider(encryptedEmail, provider)
             .orElseThrow(() -> new CustomException("404", "error.user.not_found"));
     }
 

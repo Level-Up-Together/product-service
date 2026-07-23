@@ -21,12 +21,12 @@ public interface UserRepository extends JpaRepository<Users, String> {
     Optional<Users> findByEmailAndProvider(String email, String provider);
 
     /**
-     * 암호화된 이메일과 provider로 사용자 조회 (중복 가입 확인용)
-     * 이메일은 호출 전에 CryptoUtils.encryptAes()로 암호화해야 함
-     * provider는 대소문자 무시 (LOWER 함수 사용)
+     * 탈퇴 이력 조회 (cool-down 판정용). 재가입→재탈퇴 반복으로 WITHDRAWN row 가 여러 개일 수 있어
+     * List 로 반환하며, 최신 탈퇴가 첫 번째로 오도록 정렬한다. (LUT-258)
      */
-    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) = LOWER(:provider)", nativeQuery = true)
-    Optional<Users> findByEncryptedEmailAndProvider(
+    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail AND LOWER(provider) = LOWER(:provider) "
+        + "AND status = 'WITHDRAWN' ORDER BY withdrawn_at DESC NULLS LAST, created_at DESC", nativeQuery = true)
+    List<Users> findWithdrawnByEncryptedEmailAndProvider(
         @Param("encryptedEmail") String encryptedEmail,
         @Param("provider") String provider
     );
@@ -79,7 +79,13 @@ public interface UserRepository extends JpaRepository<Users, String> {
         @Param("provider") String provider,
         Pageable pageable);
 
-    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail", nativeQuery = true)
+    /**
+     * 이메일 단독 조회 (어드민용). 동일 이메일 row 가 여러 개일 수 있으므로(타 provider, 탈퇴 후 재가입)
+     * 활성 계정 우선 + 최신 가입 순으로 1건만 반환한다. (LUT-258)
+     */
+    @Query(value = "SELECT * FROM users WHERE email = :encryptedEmail "
+        + "ORDER BY CASE WHEN status = 'WITHDRAWN' THEN 1 ELSE 0 END, created_at DESC LIMIT 1",
+        nativeQuery = true)
     Optional<Users> findByEncryptedEmail(@Param("encryptedEmail") String encryptedEmail);
 
     @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :date")

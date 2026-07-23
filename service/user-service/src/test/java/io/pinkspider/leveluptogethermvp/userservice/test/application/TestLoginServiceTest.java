@@ -70,7 +70,7 @@ class TestLoginServiceTest {
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes("test@test.com"))
                     .thenReturn("encrypted-email");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted-email", "test"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "test"))
                     .thenReturn(Optional.of(existingUser));
                 when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
                     .thenReturn("access-token");
@@ -105,7 +105,7 @@ class TestLoginServiceTest {
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes("new@test.com"))
                     .thenReturn("encrypted");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
                     .thenReturn(Optional.empty());
                 when(userRepository.existsByNickname(anyString())).thenReturn(false);
                 when(userRepository.save(any(Users.class))).thenReturn(newUser);
@@ -152,7 +152,7 @@ class TestLoginServiceTest {
 
             // then
             assertThat(result.getUserId()).isEqualTo("specific-id");
-            verify(userRepository, never()).findByEncryptedEmailAndProvider(anyString(), anyString());
+            verify(userRepository, never()).findActiveByEncryptedEmailAndProvider(anyString(), anyString());
         }
 
         @Test
@@ -168,7 +168,7 @@ class TestLoginServiceTest {
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
                 when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
                     .thenReturn(Optional.empty());
                 when(userRepository.existsByNickname(anyString())).thenReturn(false);
                 when(userRepository.save(any(Users.class))).thenReturn(savedUser);
@@ -197,7 +197,7 @@ class TestLoginServiceTest {
                     .id("existing-id").email(email).nickname("exist").provider("test").build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(email)).thenReturn("encrypted");
-                when(userRepository.findByEncryptedEmailAndProvider("encrypted", "test"))
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted", "test"))
                     .thenReturn(Optional.of(existing));
                 when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("at");
                 when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("rt");
