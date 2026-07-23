@@ -1662,4 +1662,121 @@ class AchievementServiceTest {
             assertThat(result).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("LUT-255 다국어")
+    class LocaleTest {
+
+        @Test
+        @DisplayName("locale=en이면 getAllAchievements 응답의 이름/카테고리명이 영어로 채워진다")
+        void getAllAchievements_localeEn_returnsEnglishNameAndCategory() {
+            // given
+            Achievement achievement = Achievement.builder()
+                .name("첫 미션 완료")
+                .nameEn("First Mission Complete")
+                .description("첫 미션을 완료하세요")
+                .descriptionEn("Complete your first mission")
+                .categoryCode("MISSION")
+                .missionCategoryId(5L)
+                .requiredCount(1)
+                .rewardExp(50)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_STATS")
+                .checkLogicDataField("totalMissionCompletions")
+                .comparisonOperator("GTE")
+                .build();
+            setId(achievement, 1L);
+
+            when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(5L).name("독서").nameEn("Reading").isActive(true).build()
+            ));
+
+            // when
+            List<AchievementResponse> result = achievementService.getAllAchievements("en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("First Mission Complete");
+            assertThat(result.get(0).getDescription()).isEqualTo("Complete your first mission");
+            assertThat(result.get(0).getMissionCategoryName()).isEqualTo("Reading");
+        }
+
+        @Test
+        @DisplayName("locale=null이면 getAllAchievements 응답이 한국어로 채워진다")
+        void getAllAchievements_localeNull_returnsKorean() {
+            // given
+            Achievement achievement = Achievement.builder()
+                .name("첫 미션 완료")
+                .nameEn("First Mission Complete")
+                .description("첫 미션을 완료하세요")
+                .descriptionEn("Complete your first mission")
+                .categoryCode("MISSION")
+                .missionCategoryId(5L)
+                .requiredCount(1)
+                .rewardExp(50)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_STATS")
+                .checkLogicDataField("totalMissionCompletions")
+                .comparisonOperator("GTE")
+                .build();
+            setId(achievement, 1L);
+
+            when(achievementCacheService.getVisibleAchievements()).thenReturn(List.of(achievement));
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(
+                MissionCategoryResponse.builder().id(5L).name("독서").nameEn("Reading").isActive(true).build()
+            ));
+
+            // when
+            List<AchievementResponse> result = achievementService.getAllAchievements(null);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("첫 미션 완료");
+            assertThat(result.get(0).getDescription()).isEqualTo("첫 미션을 완료하세요");
+            assertThat(result.get(0).getMissionCategoryName()).isEqualTo("독서");
+        }
+
+        @Test
+        @DisplayName("locale=en이면 getUserAchievements의 rewardTitleName이 영어로 채워진다")
+        void getUserAchievements_localeEn_rewardTitleNameEnglish() {
+            // given
+            Achievement achievement = Achievement.builder()
+                .name("길드 첫 가입")
+                .description("길드에 최초 가입")
+                .categoryCode("GUILD")
+                .requiredCount(1)
+                .rewardExp(50)
+                .isActive(true)
+                .isHidden(false)
+                .checkLogicDataSource("USER_STATS")
+                .checkLogicDataField("guildJoinCount")
+                .comparisonOperator("GTE")
+                .rewardTitleId(10L)
+                .build();
+            setId(achievement, 1L);
+            UserAchievement ua = createTestUserAchievement(1L, TEST_USER_ID, achievement, 1, true);
+
+            io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title title =
+                io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title.builder()
+                    .name("최초의")
+                    .nameEn("The First")
+                    .rarity(io.pinkspider.global.enums.TitleRarity.LEGENDARY)
+                    .build();
+            setId(title, 10L);
+
+            when(userAchievementRepository.findByUserIdWithAchievement(TEST_USER_ID))
+                .thenReturn(List.of(ua));
+            when(titleRepository.findAllById(java.util.Set.of(10L))).thenReturn(List.of(title));
+
+            // when
+            List<UserAchievementResponse> result = achievementService.getUserAchievements(TEST_USER_ID, "en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getRewardTitleName()).isEqualTo("The First");
+        }
+    }
 }

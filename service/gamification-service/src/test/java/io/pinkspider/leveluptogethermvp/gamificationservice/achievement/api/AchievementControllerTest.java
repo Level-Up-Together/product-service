@@ -101,7 +101,7 @@ class AchievementControllerTest {
                 .build()
         );
 
-        when(achievementService.getAllAchievements()).thenReturn(responses);
+        when(achievementService.getAllAchievements(any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -202,7 +202,7 @@ class AchievementControllerTest {
                 .build()
         );
 
-        when(achievementService.getUserAchievements(anyString())).thenReturn(responses);
+        when(achievementService.getUserAchievements(anyString(), any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -326,7 +326,7 @@ class AchievementControllerTest {
                 .build()
         );
 
-        when(titleService.getAllTitles()).thenReturn(responses);
+        when(titleService.getAllTitles(any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -407,7 +407,7 @@ class AchievementControllerTest {
                 .build()
         );
 
-        when(titleService.getUserTitles(anyString())).thenReturn(responses);
+        when(titleService.getUserTitles(anyString(), any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(

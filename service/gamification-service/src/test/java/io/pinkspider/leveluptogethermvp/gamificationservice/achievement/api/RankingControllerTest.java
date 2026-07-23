@@ -98,7 +98,7 @@ class RankingControllerTest {
         Page<RankingResponse> page = new PageImpl<>(
             createMockRankings(), PageRequest.of(0, 20), 2);
 
-        when(rankingService.getOverallRanking(any(Pageable.class))).thenReturn(page);
+        when(rankingService.getOverallRanking(any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -177,7 +177,7 @@ class RankingControllerTest {
         Page<RankingResponse> page = new PageImpl<>(
             createMockRankings(), PageRequest.of(0, 20), 2);
 
-        when(rankingService.getMissionCompletionRanking(any(Pageable.class))).thenReturn(page);
+        when(rankingService.getMissionCompletionRanking(any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -213,7 +213,7 @@ class RankingControllerTest {
         Page<RankingResponse> page = new PageImpl<>(
             createMockRankings(), PageRequest.of(0, 20), 2);
 
-        when(rankingService.getStreakRanking(any(Pageable.class))).thenReturn(page);
+        when(rankingService.getStreakRanking(any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -249,7 +249,7 @@ class RankingControllerTest {
         Page<RankingResponse> page = new PageImpl<>(
             createMockRankings(), PageRequest.of(0, 20), 2);
 
-        when(rankingService.getAchievementRanking(any(Pageable.class))).thenReturn(page);
+        when(rankingService.getAchievementRanking(any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -294,7 +294,7 @@ class RankingControllerTest {
             .equippedTitleName("도전자")
             .build();
 
-        when(rankingService.getMyRanking(anyString())).thenReturn(response);
+        when(rankingService.getMyRanking(anyString(), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -422,7 +422,7 @@ class RankingControllerTest {
             ),
             PageRequest.of(0, 20), 2);
 
-        when(rankingService.getLevelRanking(any(Pageable.class))).thenReturn(page);
+        when(rankingService.getLevelRanking(any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -506,7 +506,7 @@ class RankingControllerTest {
             ),
             PageRequest.of(0, 20), 2);
 
-        when(rankingService.getLevelRankingByCategory(anyString(), any(Pageable.class))).thenReturn(page);
+        when(rankingService.getLevelRankingByCategory(anyString(), any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -597,7 +597,7 @@ class RankingControllerTest {
             .percentile(15.0)
             .build();
 
-        when(rankingService.getMyLevelRanking(anyString())).thenReturn(response);
+        when(rankingService.getMyLevelRanking(anyString(), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(

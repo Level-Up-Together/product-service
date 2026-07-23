@@ -36,15 +36,24 @@ public class TitleService {
 
     // 전체 칭호 목록
     public List<TitleResponse> getAllTitles() {
+        return getAllTitles(null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 응답 */
+    public List<TitleResponse> getAllTitles(String locale) {
         return titleRepository.findByIsActiveTrue().stream()
-            .map(TitleResponse::from)
+            .map(t -> TitleResponse.from(t, locale))
             .toList();
     }
 
     // 포지션별 칭호 목록 (LEFT 또는 RIGHT)
     public List<TitleResponse> getTitlesByPosition(TitlePosition position) {
+        return getTitlesByPosition(position, null);
+    }
+
+    public List<TitleResponse> getTitlesByPosition(TitlePosition position, String locale) {
         return titleRepository.findByPositionTypeAndIsActiveTrue(position).stream()
-            .map(TitleResponse::from)
+            .map(t -> TitleResponse.from(t, locale))
             .toList();
     }
 
@@ -56,23 +65,36 @@ public class TitleService {
 
     // 유저의 칭호 목록
     public List<UserTitleResponse> getUserTitles(String userId) {
+        return getUserTitles(userId, null);
+    }
+
+    public List<UserTitleResponse> getUserTitles(String userId, String locale) {
         return userTitleRepository.findByUserIdWithTitle(userId).stream()
-            .map(UserTitleResponse::from)
+            .map(ut -> UserTitleResponse.from(ut, locale))
             .toList();
     }
 
     // 유저의 포지션별 칭호 목록
     public List<UserTitleResponse> getUserTitlesByPosition(String userId, TitlePosition position) {
+        return getUserTitlesByPosition(userId, position, null);
+    }
+
+    public List<UserTitleResponse> getUserTitlesByPosition(String userId, TitlePosition position,
+                                                            String locale) {
         return userTitleRepository.findByUserIdWithTitle(userId).stream()
             .filter(ut -> position.equals(ut.getTitle().getPositionType()))
-            .map(UserTitleResponse::from)
+            .map(ut -> UserTitleResponse.from(ut, locale))
             .toList();
     }
 
     // 장착된 칭호 목록 조회 (LEFT와 RIGHT 모두)
     public List<UserTitleResponse> getEquippedTitles(String userId) {
+        return getEquippedTitles(userId, null);
+    }
+
+    public List<UserTitleResponse> getEquippedTitles(String userId, String locale) {
         return userTitleRepository.findEquippedTitlesByUserId(userId).stream()
-            .map(UserTitleResponse::from)
+            .map(ut -> UserTitleResponse.from(ut, locale))
             .toList();
     }
 
@@ -301,8 +323,13 @@ public class TitleService {
 
     // 포지션별 장착된 칭호 조회
     public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position) {
+        return getEquippedTitleByPosition(userId, position, null);
+    }
+
+    public Optional<UserTitleResponse> getEquippedTitleByPosition(String userId, TitlePosition position,
+                                                                   String locale) {
         return userTitleRepository.findEquippedByUserIdAndPosition(userId, position)
-            .map(UserTitleResponse::from);
+            .map(ut -> UserTitleResponse.from(ut, locale));
     }
 
     // 칭호 부여

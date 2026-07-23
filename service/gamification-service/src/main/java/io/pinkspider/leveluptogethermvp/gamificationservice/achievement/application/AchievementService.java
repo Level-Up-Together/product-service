@@ -67,62 +67,95 @@ public class AchievementService {
 
     // 업적 목록 조회 (캐시 사용)
     public List<AchievementResponse> getAllAchievements() {
+        return getAllAchievements(null);
+    }
+
+    public List<AchievementResponse> getAllAchievements(String locale) {
         List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories, locale);
         return achievementCacheService.getVisibleAchievements().stream()
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(a -> AchievementResponse.from(a, categoryNamesById))
+            .map(a -> AchievementResponse.from(a, categoryNamesById, locale))
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode) {
+        return getAchievementsByCategoryCode(categoryCode, null);
+    }
+
+    public List<AchievementResponse> getAchievementsByCategoryCode(String categoryCode, String locale) {
         List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories, locale);
         return achievementCacheService.getAchievementsByCategoryCode(categoryCode).stream()
             .filter(a -> !a.getIsHidden())
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(a -> AchievementResponse.from(a, categoryNamesById))
+            .map(a -> AchievementResponse.from(a, categoryNamesById, locale))
             .toList();
     }
 
     public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId) {
+        return getAchievementsByMissionCategoryId(missionCategoryId, null);
+    }
+
+    public List<AchievementResponse> getAchievementsByMissionCategoryId(Long missionCategoryId, String locale) {
         List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories, locale);
         return achievementCacheService.getAchievementsByMissionCategoryId(missionCategoryId).stream()
             .filter(a -> !a.getIsHidden())
             .filter(a -> !isOrphanedCategoryAchievement(a, activeCategoryIds))
-            .map(a -> AchievementResponse.from(a, categoryNamesById))
+            .map(a -> AchievementResponse.from(a, categoryNamesById, locale))
             .toList();
     }
 
     // 유저의 업적 목록 조회
     public List<UserAchievementResponse> getUserAchievements(String userId) {
-        return buildUserAchievementResponses(userAchievementRepository.findByUserIdWithAchievement(userId));
+        return getUserAchievements(userId, null);
+    }
+
+    public List<UserAchievementResponse> getUserAchievements(String userId, String locale) {
+        return buildUserAchievementResponses(
+            userAchievementRepository.findByUserIdWithAchievement(userId), locale);
     }
 
     public List<UserAchievementResponse> getCompletedAchievements(String userId) {
-        return buildUserAchievementResponses(userAchievementRepository.findCompletedByUserId(userId));
+        return getCompletedAchievements(userId, null);
+    }
+
+    public List<UserAchievementResponse> getCompletedAchievements(String userId, String locale) {
+        return buildUserAchievementResponses(
+            userAchievementRepository.findCompletedByUserId(userId), locale);
     }
 
     public List<UserAchievementResponse> getInProgressAchievements(String userId) {
-        return buildUserAchievementResponses(userAchievementRepository.findInProgressByUserId(userId));
+        return getInProgressAchievements(userId, null);
+    }
+
+    public List<UserAchievementResponse> getInProgressAchievements(String userId, String locale) {
+        return buildUserAchievementResponses(
+            userAchievementRepository.findInProgressByUserId(userId), locale);
     }
 
     public List<UserAchievementResponse> getClaimableAchievements(String userId) {
-        return buildUserAchievementResponses(userAchievementRepository.findClaimableByUserId(userId));
+        return getClaimableAchievements(userId, null);
+    }
+
+    public List<UserAchievementResponse> getClaimableAchievements(String userId, String locale) {
+        return buildUserAchievementResponses(
+            userAchievementRepository.findClaimableByUserId(userId), locale);
     }
 
     /**
      * QA-159: 마이페이지 업적 응답 빌더 — 메타 카테고리 이름 + 보상 칭호(name/rarity) 를 일괄 enrich.
-     * QA-145 안전망(orphaned mission_category)도 함께 적용.
+     * QA-145 안전망(orphaned mission_category)도 함께 적용. LUT-255: locale 반영.
      */
-    private List<UserAchievementResponse> buildUserAchievementResponses(List<UserAchievement> userAchievements) {
+    private List<UserAchievementResponse> buildUserAchievementResponses(
+        List<UserAchievement> userAchievements, String locale) {
         List<MissionCategoryResponse> activeCategories = missionCategoryService.getActiveCategories();
         Set<Long> activeCategoryIds = toCategoryIdSet(activeCategories);
-        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories);
+        Map<Long, String> categoryNamesById = toCategoryNameMap(activeCategories, locale);
 
         List<UserAchievement> filtered = userAchievements.stream()
             .filter(ua -> !isOrphanedCategoryAchievement(ua.getAchievement(), activeCategoryIds))
@@ -139,7 +172,7 @@ public class AchievementService {
                 .collect(Collectors.toMap(Title::getId, t -> t));
 
         return filtered.stream()
-            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById, titlesById))
+            .map(ua -> UserAchievementResponse.from(ua, categoryNamesById, titlesById, locale))
             .toList();
     }
 
@@ -167,10 +200,10 @@ public class AchievementService {
             .collect(Collectors.toSet());
     }
 
-    private Map<Long, String> toCategoryNameMap(List<MissionCategoryResponse> categories) {
+    private Map<Long, String> toCategoryNameMap(List<MissionCategoryResponse> categories, String locale) {
         return categories.stream()
-            .collect(Collectors.toMap(MissionCategoryResponse::getId, MissionCategoryResponse::getName,
-                (a, b) -> a));
+            .collect(Collectors.toMap(MissionCategoryResponse::getId,
+                c -> c.getLocalizedName(locale), (a, b) -> a));
     }
 
     // 업적 보상 수령

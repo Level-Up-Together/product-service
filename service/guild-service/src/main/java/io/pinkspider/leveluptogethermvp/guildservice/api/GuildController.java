@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -64,18 +65,20 @@ public class GuildController {
     @GetMapping("/{guildId}")
     public ResponseEntity<ApiResult<GuildResponse>> getGuild(
         @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId) {
+        @CurrentUser(required = false) String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        GuildResponse response = guildQueryService.getGuild(guildId, userId);
+        GuildResponse response = guildQueryService.getGuild(guildId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildResponse>builder().value(response).build());
     }
 
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> getPublicGuilds(
         @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<GuildResponse> responses = guildQueryService.getPublicGuilds(userId, pageable);
+        Page<GuildResponse> responses = guildQueryService.getPublicGuilds(userId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
@@ -83,17 +86,19 @@ public class GuildController {
     public ResponseEntity<ApiResult<Page<GuildResponse>>> searchGuilds(
         @CurrentUser(required = false) String userId,
         @RequestParam String keyword,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<GuildResponse> responses = guildQueryService.searchGuilds(userId, keyword, pageable);
+        Page<GuildResponse> responses = guildQueryService.searchGuilds(userId, keyword, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<GuildResponse>>> getMyGuilds(
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<GuildResponse> responses = guildQueryService.getMyGuilds(userId);
+        List<GuildResponse> responses = guildQueryService.getMyGuilds(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<GuildResponse>>builder().value(responses).build());
     }
 
@@ -133,9 +138,10 @@ public class GuildController {
     @GetMapping("/{guildId}/members")
     public ResponseEntity<ApiResult<List<GuildMemberResponse>>> getGuildMembers(
         @PathVariable Long guildId,
-        @CurrentUser(required = false) String userId) {
+        @CurrentUser(required = false) String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<GuildMemberResponse> responses = guildQueryService.getGuildMembers(guildId, userId);
+        List<GuildMemberResponse> responses = guildQueryService.getGuildMembers(guildId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<GuildMemberResponse>>builder().value(responses).build());
     }
 
@@ -208,9 +214,11 @@ public class GuildController {
     public ResponseEntity<ApiResult<GuildMemberResponse>> promoteToSubMaster(
         @PathVariable Long guildId,
         @PathVariable String targetUserId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        GuildMemberResponse response = guildMemberService.promoteToSubMaster(guildId, userId, targetUserId);
+        GuildMemberResponse response =
+            guildMemberService.promoteToSubMaster(guildId, userId, targetUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 
@@ -219,9 +227,11 @@ public class GuildController {
     public ResponseEntity<ApiResult<GuildMemberResponse>> demoteFromSubMaster(
         @PathVariable Long guildId,
         @PathVariable String targetUserId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        GuildMemberResponse response = guildMemberService.demoteFromSubMaster(guildId, userId, targetUserId);
+        GuildMemberResponse response =
+            guildMemberService.demoteFromSubMaster(guildId, userId, targetUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildMemberResponse>builder().value(response).build());
     }
 

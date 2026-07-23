@@ -1012,4 +1012,106 @@ class TitleServiceTest {
             assertThat(result.rarity()).isEqualTo(TitleRarity.LEGENDARY);
         }
     }
+
+    @Nested
+    @DisplayName("LUT-255 다국어")
+    class LocaleTest {
+
+        private Title createTestTitleWithEn(Long id, String name, String nameEn, String description,
+                                             String descriptionEn, TitlePosition position, TitleRarity rarity) {
+            Title title = Title.builder()
+                .name(name)
+                .nameEn(nameEn)
+                .description(description)
+                .descriptionEn(descriptionEn)
+                .rarity(rarity)
+                .positionType(position)
+                .acquisitionType(TitleAcquisitionType.LEVEL)
+                .acquisitionCondition("레벨 달성")
+                .colorCode(rarity.getColorCode())
+                .isActive(true)
+                .build();
+            setId(title, id);
+            return title;
+        }
+
+        @Test
+        @DisplayName("locale=en이면 getUserTitles 응답의 이름/설명이 영어로 채워진다")
+        void getUserTitles_localeEn_returnsEnglish() {
+            // given
+            Title title = createTestTitleWithEn(1L, "신입", "Newbie", "이제 막 시작한", "Just started",
+                TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
+                .thenReturn(List.of(userTitle));
+
+            // when
+            List<UserTitleResponse> result = titleService.getUserTitles(TEST_USER_ID, "en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("Newbie");
+            assertThat(result.get(0).getDisplayName()).isEqualTo("Newbie");
+            assertThat(result.get(0).getDescription()).isEqualTo("Just started");
+        }
+
+        @Test
+        @DisplayName("locale=null이면 getUserTitles 응답이 한국어로 채워진다")
+        void getUserTitles_localeNull_returnsKorean() {
+            // given
+            Title title = createTestTitleWithEn(1L, "신입", "Newbie", "이제 막 시작한", "Just started",
+                TitlePosition.LEFT, TitleRarity.COMMON);
+            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findByUserIdWithTitle(TEST_USER_ID))
+                .thenReturn(List.of(userTitle));
+
+            // when
+            List<UserTitleResponse> result = titleService.getUserTitles(TEST_USER_ID, null);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("신입");
+            assertThat(result.get(0).getDescription()).isEqualTo("이제 막 시작한");
+        }
+
+        @Test
+        @DisplayName("locale=en이면 getAllTitles 응답의 이름이 영어로 채워진다")
+        void getAllTitles_localeEn_returnsEnglish() {
+            // given
+            Title title = createTestTitleWithEn(2L, "모험가", "Adventurer", "모험을 시작한 자", "One who started an adventure",
+                TitlePosition.RIGHT, TitleRarity.COMMON);
+
+            when(titleRepository.findByIsActiveTrue()).thenReturn(List.of(title));
+
+            // when
+            List<TitleResponse> result = titleService.getAllTitles("en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("Adventurer");
+            assertThat(result.get(0).getDisplayName()).isEqualTo("Adventurer");
+        }
+
+        @Test
+        @DisplayName("locale=en이면 getEquippedTitleByPosition 응답의 이름이 영어로 채워진다")
+        void getEquippedTitleByPosition_localeEn_returnsEnglish() {
+            // given
+            Title title = createTestTitleWithEn(3L, "전설적인", "Legendary", "전설로 기록될", "To be recorded as a legend",
+                TitlePosition.LEFT, TitleRarity.EPIC);
+            UserTitle userTitle = createTestUserTitle(1L, TEST_USER_ID, title, true, TitlePosition.LEFT);
+
+            when(userTitleRepository.findEquippedByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT))
+                .thenReturn(Optional.of(userTitle));
+
+            // when
+            Optional<UserTitleResponse> result =
+                titleService.getEquippedTitleByPosition(TEST_USER_ID, TitlePosition.LEFT, "en");
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getName()).isEqualTo("Legendary");
+        }
+    }
 }

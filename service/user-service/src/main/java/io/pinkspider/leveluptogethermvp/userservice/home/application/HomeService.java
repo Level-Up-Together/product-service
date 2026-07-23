@@ -419,7 +419,8 @@ public class HomeService {
         if (userTitle == null) {
             return null;
         }
-        return LocaleUtils.getLocalizedText(userTitle.titleName(), userTitle.titleNameEn(), userTitle.titleNameAr(), locale);
+        return LocaleUtils.getLocalizedText(userTitle.titleName(), userTitle.titleNameEn(),
+            userTitle.titleNameAr(), userTitle.titleNameJa(), locale);
     }
 
     /**

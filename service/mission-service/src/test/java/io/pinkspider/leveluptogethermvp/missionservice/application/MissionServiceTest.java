@@ -1368,6 +1368,236 @@ class MissionServiceTest {
     }
 
     @Nested
+    @DisplayName("LUT-255 다국어(locale) 조회 테스트")
+    class LocalizationTest {
+
+        private MissionTemplate localizedTemplate() {
+            MissionTemplate template = MissionTemplate.builder()
+                .title("아침 운동")
+                .titleEn("Morning Exercise")
+                .description("아침에 운동하기")
+                .descriptionEn("Exercise in the morning")
+                .visibility(MissionVisibility.PUBLIC)
+                .source(MissionSource.SYSTEM)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(template, 1L);
+            return template;
+        }
+
+        private MissionCategoryResponse exerciseCategory() {
+            return MissionCategoryResponse.builder()
+                .id(10L)
+                .name("운동")
+                .nameEn("Exercise")
+                .build();
+        }
+
+        @Test
+        @DisplayName("미션북: locale=en이면 템플릿 title/description/categoryName이 영어로 반환된다")
+        void getSystemMissions_localeEn_returnsEnglish() {
+            // given
+            org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 10);
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(localizedTemplate())));
+            when(missionCategoryService.getCategoriesByIds(List.of(10L)))
+                .thenReturn(List.of(exerciseCategory()));
+
+            // when
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissions(null, pageable, "en");
+
+            // then
+            MissionTemplateResponse response = result.getContent().get(0);
+            assertThat(response.getTitle()).isEqualTo("Morning Exercise");
+            assertThat(response.getDescription()).isEqualTo("Exercise in the morning");
+            assertThat(response.getCategoryName()).isEqualTo("Exercise");
+            // raw 다국어 필드는 그대로 유지
+            assertThat(response.getTitleEn()).isEqualTo("Morning Exercise");
+        }
+
+        @Test
+        @DisplayName("미션북: locale이 없으면(기존 시그니처) 한국어가 유지되고 meta 조회를 생략한다")
+        void getSystemMissions_noLocale_returnsKorean() {
+            // given
+            org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 10);
+            when(missionTemplateRepository.findPublicTemplates(MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(localizedTemplate())));
+
+            // when
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissions(null, pageable);
+
+            // then
+            MissionTemplateResponse response = result.getContent().get(0);
+            assertThat(response.getTitle()).isEqualTo("아침 운동");
+            assertThat(response.getCategoryName()).isEqualTo("운동");
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("미션북 카테고리별: locale=en이면 영어로 반환된다")
+        void getSystemMissionsByCategory_localeEn_returnsEnglish() {
+            // given
+            org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 10);
+            when(missionTemplateRepository.findPublicTemplatesByCategory(
+                MissionSource.SYSTEM, MissionVisibility.PUBLIC, 10L, pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(localizedTemplate())));
+            when(missionCategoryService.getCategoriesByIds(List.of(10L)))
+                .thenReturn(List.of(exerciseCategory()));
+
+            // when
+            org.springframework.data.domain.Page<MissionTemplateResponse> result =
+                missionService.getSystemMissionsByCategory(null, 10L, pageable, "en");
+
+            // then
+            MissionTemplateResponse response = result.getContent().get(0);
+            assertThat(response.getTitle()).isEqualTo("Morning Exercise");
+            assertThat(response.getCategoryName()).isEqualTo("Exercise");
+        }
+
+        @Test
+        @DisplayName("나의미션: locale=en이면 title/categoryName이 영어로, 번역 없는 미션은 한국어 fallback")
+        void getMyMissions_localeEn_returnsEnglishWithFallback() {
+            // given
+            Mission systemMission = Mission.builder()
+                .title("아침 운동")
+                .titleEn("Morning Exercise")
+                .description("아침에 운동하기")
+                .descriptionEn("Exercise in the morning")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(systemMission, 1L);
+
+            // 유저가 직접 만든 미션 (title_en 없음)
+            Mission userMission = Mission.builder()
+                .title("내가 만든 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(userMission, 2L);
+
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
+                .thenReturn(List.of(systemMission, userMission));
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any()))
+                .thenReturn(Map.of());
+            when(missionCategoryService.getCategoriesByIds(List.of(10L)))
+                .thenReturn(List.of(exerciseCategory()));
+
+            // when
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID, "en");
+
+            // then
+            assertThat(result.get(0).getTitle()).isEqualTo("Morning Exercise");
+            assertThat(result.get(0).getCategoryName()).isEqualTo("Exercise");
+            assertThat(result.get(1).getTitle()).isEqualTo("내가 만든 미션");
+            assertThat(result.get(1).getCategoryName()).isNull();
+        }
+
+        @Test
+        @DisplayName("나의미션: locale이 없으면(기존 시그니처) 한국어가 유지된다")
+        void getMyMissions_noLocale_returnsKorean() {
+            // given
+            Mission mission = Mission.builder()
+                .title("아침 운동")
+                .titleEn("Morning Exercise")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(mission, 1L);
+
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
+                .thenReturn(List.of(mission));
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any()))
+                .thenReturn(Map.of());
+
+            // when
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID);
+
+            // then
+            assertThat(result.get(0).getTitle()).isEqualTo("아침 운동");
+            assertThat(result.get(0).getCategoryName()).isEqualTo("운동");
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("미션 상세: locale=en이면 title/categoryName이 영어로 반환된다")
+        void getMission_localeEn_returnsEnglish() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("아침 운동")
+                .titleEn("Morning Exercise")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(mission, missionId);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(participantRepository.countActiveParticipants(missionId)).thenReturn(5L);
+            when(missionCategoryService.getCategoriesByIds(List.of(10L)))
+                .thenReturn(List.of(exerciseCategory()));
+
+            // when
+            MissionResponse response = missionService.getMission(missionId, "en");
+
+            // then
+            assertThat(response.getTitle()).isEqualTo("Morning Exercise");
+            assertThat(response.getCategoryName()).isEqualTo("Exercise");
+        }
+
+        @Test
+        @DisplayName("meta 카테고리 조회 실패 시 스냅샷 한국어 categoryName이 유지된다")
+        void getMyMissions_categoryLookupFails_fallbackToSnapshot() {
+            // given
+            Mission mission = Mission.builder()
+                .title("아침 운동")
+                .titleEn("Morning Exercise")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(mission, 1L);
+
+            when(missionRepository.findByParticipantUserIdSorted(TEST_USER_ID))
+                .thenReturn(List.of(mission));
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.MISSION), any()))
+                .thenReturn(Map.of());
+            when(missionCategoryService.getCategoriesByIds(List.of(10L)))
+                .thenThrow(new RuntimeException("meta down"));
+
+            // when
+            List<MissionResponse> result = missionService.getMyMissions(TEST_USER_ID, "en");
+
+            // then
+            assertThat(result.get(0).getTitle()).isEqualTo("Morning Exercise");
+            assertThat(result.get(0).getCategoryName()).isEqualTo("운동");
+        }
+    }
+
+    @Nested
     @DisplayName("미션 수정 테스트")
     class UpdateMissionTest {
 

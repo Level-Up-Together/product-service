@@ -29,6 +29,9 @@ import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -62,6 +65,7 @@ public class FeedQueryService {
     private final AdminInternalFeignClient adminInternalFeignClient;
     private final UserQueryFacade userQueryFacadeService;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final GamificationQueryFacade gamificationQueryFacadeService;
     private final TranslationService translationService;
     private final ReportService reportService;
     private final FeedAccessChecker feedAccessChecker;
@@ -113,6 +117,7 @@ public class FeedQueryService {
             return response;
         });
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -229,6 +234,7 @@ public class FeedQueryService {
             return response;
         });
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), targetLocale);
         return result;
     }
 
@@ -323,6 +329,7 @@ public class FeedQueryService {
 
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(responseList);
+        localizeUserTitles(responseList, acceptLanguage);
 
         return new org.springframework.data.domain.PageImpl<>(
             responseList,
@@ -370,6 +377,7 @@ public class FeedQueryService {
         });
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -431,6 +439,7 @@ public class FeedQueryService {
             });
         // QA-139: 다중 이미지 응답 보강 (null 제외)
         enrichWithImageUrls(result.getContent().stream().filter(java.util.Objects::nonNull).toList());
+        localizeUserTitles(result.getContent().stream().filter(java.util.Objects::nonNull).toList(), acceptLanguage);
         return result;
     }
 
@@ -476,6 +485,7 @@ public class FeedQueryService {
         });
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -516,6 +526,7 @@ public class FeedQueryService {
         });
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -551,6 +562,7 @@ public class FeedQueryService {
         });
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -591,6 +603,7 @@ public class FeedQueryService {
         });
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
+        localizeUserTitles(result.getContent(), acceptLanguage);
         return result;
     }
 
@@ -620,6 +633,7 @@ public class FeedQueryService {
 
         // QA-53: 다중 이미지 캐러셀
         enrichWithImageUrls(List.of(response));
+        localizeUserTitles(List.of(response), acceptLanguage);
         return response;
     }
 
@@ -908,6 +922,45 @@ public class FeedQueryService {
                 r.setImageUrls(urls);
                 r.setImageUrl(urls.get(0));
             }
+        }
+    }
+
+    /**
+     * LUT-255: 피드의 user_title은 작성/칭호변경 시점의 한국어 스냅샷이라, 한국어 외 locale 요청 시
+     * 작성자의 현재 장착 칭호를 배치 조회해 locale에 맞는 조합 칭호명으로 교체한다.
+     * (칭호 변경 시 FeedProjectionEventListener가 스냅샷을 갱신하므로 현재 장착 칭호와 의미가 같다)
+     */
+    private void localizeUserTitles(List<ActivityFeedResponse> responses, String locale) {
+        if (responses == null || responses.isEmpty() || locale == null || locale.isBlank()) {
+            return;
+        }
+        String langCode = SupportedLocale.extractLanguageCode(locale);
+        if (SupportedLocale.KOREAN.getCode().equals(langCode)) {
+            return;
+        }
+        List<String> userIds = responses.stream()
+            .map(ActivityFeedResponse::getUserId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, List<UserTitleDto>> titlesByUser =
+                gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
+            for (ActivityFeedResponse response : responses) {
+                List<UserTitleDto> equipped = titlesByUser.get(response.getUserId());
+                if (equipped == null || equipped.isEmpty()) {
+                    continue;
+                }
+                String localized = TitleNameUtils.combinedTitleName(equipped, langCode);
+                if (localized != null && !localized.isBlank()) {
+                    response.setUserTitle(localized);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("피드 칭호 다국어 변환 실패 - 스냅샷 유지: {}", e.getMessage());
         }
     }
 }

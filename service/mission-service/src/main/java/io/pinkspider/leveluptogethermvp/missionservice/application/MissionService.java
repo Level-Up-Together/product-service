@@ -26,7 +26,9 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.application.Report
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -192,9 +194,15 @@ public class MissionService {
     }
 
     public MissionResponse getMission(Long missionId) {
+        return getMission(missionId, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 미션 상세 조회 */
+    public MissionResponse getMission(Long missionId, String locale) {
         Mission mission = findMissionById(missionId);
         int participantCount = (int) participantRepository.countActiveParticipants(missionId);
-        MissionResponse response = MissionResponse.from(mission, participantCount);
+        MissionResponse response = MissionResponse.from(mission, participantCount, locale);
+        localizeMissionCategoryNames(List.of(response), locale);
 
         // QA-176: 미션 누적 EXP (탈퇴/실패 참여자 제외)
         fillTotalExpEarned(response);
@@ -206,12 +214,18 @@ public class MissionService {
     }
 
     public List<MissionResponse> getMyMissions(String userId) {
+        return getMyMissions(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 내 미션 목록 조회 */
+    public List<MissionResponse> getMyMissions(String userId, String locale) {
         // 사용자가 참여중인 미션 목록 (ACCEPTED 상태)
         // 고정미션 > 길드미션 > 일반미션 순으로 정렬된 목록 반환
         List<Mission> missions = missionRepository.findByParticipantUserIdSorted(userId);
         List<MissionResponse> result = missions.stream()
-            .map(MissionResponse::from)
+            .map(mission -> MissionResponse.from(mission, locale))
             .toList();
+        localizeMissionCategoryNames(result, locale);
 
         // 배치로 신고 상태 조회
         if (!result.isEmpty()) {
@@ -286,6 +300,12 @@ public class MissionService {
      * - Stranger: PUBLIC만
      */
     public List<MissionResponse> getUserMissions(String targetUserId, String currentUserId) {
+        return getUserMissions(targetUserId, currentUserId, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 유저 미션 목록 조회 */
+    public List<MissionResponse> getUserMissions(
+        String targetUserId, String currentUserId, String locale) {
         boolean isSelf = currentUserId != null && currentUserId.equals(targetUserId);
         boolean isFriend = currentUserId != null && !isSelf
             && userQueryFacadeService.areFriends(currentUserId, targetUserId);
@@ -301,10 +321,19 @@ public class MissionService {
         }
 
         List<Mission> missions = missionRepository.findUserMissionsByVisibility(targetUserId, allowedVisibilities);
-        return missions.stream().map(MissionResponse::from).toList();
+        List<MissionResponse> result = missions.stream()
+            .map(mission -> MissionResponse.from(mission, locale))
+            .toList();
+        localizeMissionCategoryNames(result, locale);
+        return result;
     }
 
     public Page<MissionResponse> getPublicOpenMissions(Pageable pageable) {
+        return getPublicOpenMissions(pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 공개 미션 목록 조회 */
+    public Page<MissionResponse> getPublicOpenMissions(Pageable pageable, String locale) {
         Page<Mission> missions = missionRepository.findOpenPublicMissions(pageable);
 
         // 배치로 신고 상태 조회
@@ -313,11 +342,13 @@ public class MissionService {
             .toList();
         Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.MISSION, missionIds);
 
-        return missions.map(mission -> {
-            MissionResponse response = MissionResponse.from(mission);
+        Page<MissionResponse> responses = missions.map(mission -> {
+            MissionResponse response = MissionResponse.from(mission, locale);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(mission.getId()), false));
             return response;
         });
+        localizeMissionCategoryNames(responses.getContent(), locale);
+        return responses;
     }
 
     /**
@@ -327,10 +358,16 @@ public class MissionService {
         List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED);
 
     public List<MissionResponse> getGuildMissions(String guildId) {
+        return getGuildMissions(guildId, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 길드 미션 목록 조회 */
+    public List<MissionResponse> getGuildMissions(String guildId, String locale) {
         List<Mission> missions = missionRepository.findGuildMissions(guildId, GUILD_LIST_VISIBLE_STATUSES);
         List<MissionResponse> result = missions.stream()
-            .map(MissionResponse::from)
+            .map(mission -> MissionResponse.from(mission, locale))
             .toList();
+        localizeMissionCategoryNames(result, locale);
 
         // QA-176: 미션별 누적 EXP 채우기 (탈퇴/실패 참여자 제외)
         result.forEach(this::fillTotalExpEarned);
@@ -366,16 +403,79 @@ public class MissionService {
     }
 
     /**
+     * LUT-255: 미션 응답의 categoryName을 locale에 맞는 카테고리명으로 덮어쓴다.
+     * locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로 두고 meta 조회를 생략한다.
+     * 카테고리 조회 실패/미존재 시에도 기존 스냅샷 이름(fallback)이 유지된다.
+     */
+    private void localizeMissionCategoryNames(List<MissionResponse> responses, String locale) {
+        if (locale == null || locale.isBlank() || responses.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameMap = getLocalizedCategoryNames(
+            responses.stream().map(MissionResponse::getCategoryId).toList(), locale);
+        responses.forEach(r -> {
+            String localized = r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
+            if (localized != null) {
+                r.setCategoryName(localized);
+            }
+        });
+    }
+
+    /** LUT-255: 미션북 템플릿 응답의 categoryName을 locale에 맞는 카테고리명으로 덮어쓴다. */
+    private void localizeTemplateCategoryNames(
+        List<MissionTemplateResponse> responses, String locale) {
+        if (locale == null || locale.isBlank() || responses.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameMap = getLocalizedCategoryNames(
+            responses.stream().map(MissionTemplateResponse::getCategoryId).toList(), locale);
+        responses.forEach(r -> {
+            String localized = r.getCategoryId() != null ? nameMap.get(r.getCategoryId()) : null;
+            if (localized != null) {
+                r.setCategoryName(localized);
+            }
+        });
+    }
+
+    /** LUT-255: 카테고리 ID 목록 → locale에 맞는 카테고리명 Map (meta 배치 조회, 실패 시 빈 Map) */
+    private Map<Long, String> getLocalizedCategoryNames(List<Long> categoryIds, String locale) {
+        List<Long> ids = categoryIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return missionCategoryService.getCategoriesByIds(ids).stream()
+                .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
+                .collect(Collectors.toMap(
+                    MissionCategoryResponse::getId,
+                    c -> c.getLocalizedName(locale),
+                    (a, b) -> a));
+        } catch (Exception e) {
+            log.warn("카테고리 다국어 배치 조회 실패: locale={}, error={}", locale, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /**
      * 시스템 미션 템플릿 목록 조회 (미션북용)
      * mission_template 테이블에서 공개 시스템 템플릿 반환
      */
     public Page<MissionTemplateResponse> getSystemMissions(String userId, Pageable pageable) {
+        return getSystemMissions(userId, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 미션북 템플릿 목록 조회 */
+    public Page<MissionTemplateResponse> getSystemMissions(
+        String userId, Pageable pageable, String locale) {
         Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplates(
             MissionSource.SYSTEM, MissionVisibility.PUBLIC, pageable);
 
         // 비로그인 또는 목표시간 없는 경우 달성 여부 없이 반환
         if (userId == null) {
-            return templates.map(MissionTemplateResponse::from);
+            Page<MissionTemplateResponse> responses =
+                templates.map(t -> MissionTemplateResponse.from(t, locale));
+            localizeTemplateCategoryNames(responses.getContent(), locale);
+            return responses;
         }
 
         List<Long> templateIds = templates.stream()
@@ -390,13 +490,15 @@ public class MissionService {
         }
 
         Set<Long> finalAchievedIds = achievedIds;
-        return templates.map(t -> {
-            MissionTemplateResponse response = MissionTemplateResponse.from(t);
+        Page<MissionTemplateResponse> responses = templates.map(t -> {
+            MissionTemplateResponse response = MissionTemplateResponse.from(t, locale);
             if (t.getTargetDurationMinutes() != null) {
                 response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
             }
             return response;
         });
+        localizeTemplateCategoryNames(responses.getContent(), locale);
+        return responses;
     }
 
     /**
@@ -404,11 +506,20 @@ public class MissionService {
      * QA-158: has_achieved_target 도 같이 채워 마이페이지/미션북 응답 정의를 일관화한다.
      */
     public Page<MissionTemplateResponse> getSystemMissionsByCategory(String userId, Long categoryId, Pageable pageable) {
+        return getSystemMissionsByCategory(userId, categoryId, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 title/description/categoryName으로 카테고리별 미션북 템플릿 목록 조회 */
+    public Page<MissionTemplateResponse> getSystemMissionsByCategory(
+        String userId, Long categoryId, Pageable pageable, String locale) {
         Page<MissionTemplate> templates = missionTemplateRepository.findPublicTemplatesByCategory(
             MissionSource.SYSTEM, MissionVisibility.PUBLIC, categoryId, pageable);
 
         if (userId == null) {
-            return templates.map(MissionTemplateResponse::from);
+            Page<MissionTemplateResponse> responses =
+                templates.map(t -> MissionTemplateResponse.from(t, locale));
+            localizeTemplateCategoryNames(responses.getContent(), locale);
+            return responses;
         }
 
         List<Long> templateIds = templates.stream()
@@ -423,13 +534,15 @@ public class MissionService {
         }
 
         Set<Long> finalAchievedIds = achievedIds;
-        return templates.map(t -> {
-            MissionTemplateResponse response = MissionTemplateResponse.from(t);
+        Page<MissionTemplateResponse> responses = templates.map(t -> {
+            MissionTemplateResponse response = MissionTemplateResponse.from(t, locale);
             if (t.getTargetDurationMinutes() != null) {
                 response.setHasAchievedTarget(finalAchievedIds.contains(t.getId()));
             }
             return response;
         });
+        localizeTemplateCategoryNames(responses.getContent(), locale);
+        return responses;
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

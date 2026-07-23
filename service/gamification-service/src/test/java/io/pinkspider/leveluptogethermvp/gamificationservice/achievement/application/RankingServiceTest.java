@@ -680,4 +680,81 @@ class RankingServiceTest {
             assertThat(result.getNickname()).isEqualTo("사용자");
         }
     }
+
+    @Nested
+    @DisplayName("LUT-255 다국어")
+    class LocaleTest {
+
+        private UserTitle createUserTitleWithEn(Long id, String userId, Title title, TitlePosition position) {
+            UserTitle userTitle = UserTitle.builder()
+                .userId(userId)
+                .title(title)
+                .build();
+            userTitle.equip(position);
+            setId(userTitle, id);
+            return userTitle;
+        }
+
+        private Title createTitleWithEn(Long id, String name, String nameEn, TitleRarity rarity, TitlePosition position) {
+            Title title = Title.builder()
+                .name(name)
+                .nameEn(nameEn)
+                .rarity(rarity)
+                .positionType(position)
+                .build();
+            setId(title, id);
+            return title;
+        }
+
+        @Test
+        @DisplayName("locale=en이면 getMyRanking의 장착 칭호가 영어 조합으로 반환된다")
+        void getMyRanking_localeEn_returnsEnglishCombinedTitle() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+
+            Title leftTitle = createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
+            Title rightTitle = createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
+            UserTitle leftUserTitle = createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID, "en");
+
+            // then
+            assertThat(result.getEquippedTitleName()).isEqualTo("Brave Warrior");
+            assertThat(result.getEquippedTitleRarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("locale=null이면 getMyRanking의 장착 칭호가 한국어 조합으로 반환된다")
+        void getMyRanking_localeNull_returnsKoreanCombinedTitle() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 1000L);
+            UserExperience exp = createTestUserExperience(1L, TEST_USER_ID, 10, 1000);
+
+            Title leftTitle = createTitleWithEn(1L, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT);
+            Title rightTitle = createTitleWithEn(2L, "전사", "Warrior", TitleRarity.EPIC, TitlePosition.RIGHT);
+            UserTitle leftUserTitle = createUserTitleWithEn(1L, TEST_USER_ID, leftTitle, TitlePosition.LEFT);
+            UserTitle rightUserTitle = createUserTitleWithEn(2L, TEST_USER_ID, rightTitle, TitlePosition.RIGHT);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userStatsRepository.findUserRank(TEST_USER_ID)).thenReturn(5L);
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(exp));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftUserTitle, rightUserTitle));
+
+            // when
+            RankingResponse result = rankingService.getMyRanking(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getEquippedTitleName()).isEqualTo("용감한 전사");
+        }
+    }
 }

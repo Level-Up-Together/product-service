@@ -61,18 +61,26 @@ public class UserAchievementResponse {
     public static UserAchievementResponse from(UserAchievement userAchievement,
                                                 Map<Long, String> categoryNamesById,
                                                 Map<Long, Title> titlesById) {
+        return from(userAchievement, categoryNamesById, titlesById, null);
+    }
+
+    /** LUT-255: 업적명/설명/보상 칭호명/카테고리명을 locale에 맞게 채운다 */
+    public static UserAchievementResponse from(UserAchievement userAchievement,
+                                                Map<Long, String> categoryNamesById,
+                                                Map<Long, Title> titlesById,
+                                                String locale) {
         var achievement = userAchievement.getAchievement();
         Title rewardTitle = achievement.getRewardTitleId() != null
             ? titlesById.get(achievement.getRewardTitleId()) : null;
         return UserAchievementResponse.builder()
             .id(userAchievement.getId())
             .achievementId(achievement.getId())
-            .name(achievement.getName())
-            .description(achievement.getDescription())
+            .name(achievement.getLocalizedName(locale))
+            .description(achievement.getLocalizedDescription(locale))
             .categoryCode(achievement.getCategoryCode())
             .missionCategoryId(achievement.getMissionCategoryId())
             .missionCategoryName(resolveMissionCategoryName(achievement.getMissionCategoryName(),
-                achievement.getMissionCategoryId(), categoryNamesById))
+                achievement.getMissionCategoryId(), categoryNamesById, locale))
             .iconUrl(achievement.getIconUrl())
             .currentCount(userAchievement.getCurrentCount())
             .requiredCount(achievement.getRequiredCount())
@@ -82,21 +90,27 @@ public class UserAchievementResponse {
             .isRewardClaimed(userAchievement.getIsRewardClaimed())
             .rewardExp(achievement.getRewardExp())
             .rewardTitleId(achievement.getRewardTitleId())
-            .rewardTitleName(rewardTitle != null ? rewardTitle.getName() : null)
+            .rewardTitleName(rewardTitle != null ? rewardTitle.getLocalizedName(locale) : null)
             .rewardTitleRarity(rewardTitle != null ? rewardTitle.getRarity() : null)
             .checkLogicTypeId(achievement.getCheckLogicTypeId())
             .checkLogicDataField(achievement.getCheckLogicDataField())
             .build();
     }
 
+    /**
+     * QA-149: 저장된 이름이 없으면 메타 lookup으로 보충. LUT-255: locale이 지정되면 저장된 한국어 이름 대신
+     * locale이 반영된 lookup 이름을 우선한다.
+     */
     private static String resolveMissionCategoryName(String stored, Long id,
-                                                      Map<Long, String> categoryNamesById) {
+                                                      Map<Long, String> categoryNamesById,
+                                                      String locale) {
+        String lookup = id != null ? categoryNamesById.get(id) : null;
+        if (locale != null && lookup != null && !lookup.isBlank()) {
+            return lookup;
+        }
         if (stored != null && !stored.isBlank()) {
             return stored;
         }
-        if (id == null) {
-            return null;
-        }
-        return categoryNamesById.get(id);
+        return lookup;
     }
 }

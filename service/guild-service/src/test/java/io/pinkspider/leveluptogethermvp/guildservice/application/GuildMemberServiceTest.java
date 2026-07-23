@@ -32,6 +32,9 @@ import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDateTime;
@@ -642,6 +645,65 @@ class GuildMemberServiceTest {
             // then
             assertThat(targetMember.getRole()).isEqualTo(GuildMemberRole.SUB_MASTER);
             assertThat(response.getRole()).isEqualTo(GuildMemberRole.SUB_MASTER);
+        }
+
+        @Test
+        @DisplayName("LUT-255: locale=en이면 승격 응답의 장착 칭호가 영어로 반환된다")
+        void promoteToSubMaster_localeEn_returnsEnglishTitle() {
+            // given
+            GuildMember targetMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileInfo(testUserId, "테스트유저", null, 1, null, null, null));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(testUserId)).thenReturn(
+                List.of(new UserTitleDto(1L, testUserId, 10L, "용감한", "Brave", null, null,
+                    null, null, null, null, TitleRarity.EPIC, TitlePosition.LEFT, null, null,
+                    true, TitlePosition.LEFT, null)));
+
+            // when
+            GuildMemberResponse response =
+                guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId, "en");
+
+            // then
+            assertThat(response.getEquippedTitleName()).isEqualTo("Brave");
+            assertThat(response.getEquippedTitleRarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("LUT-255: locale이 없으면(기존 시그니처) 장착 칭호가 한국어로 유지된다")
+        void promoteToSubMaster_noLocale_returnsKoreanTitle() {
+            // given
+            GuildMember targetMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileInfo(testUserId, "테스트유저", null, 1, null, null, null));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(testUserId)).thenReturn(
+                List.of(new UserTitleDto(1L, testUserId, 10L, "용감한", "Brave", null, null,
+                    null, null, null, null, TitleRarity.EPIC, TitlePosition.LEFT, null, null,
+                    true, TitlePosition.LEFT, null)));
+
+            // when
+            GuildMemberResponse response =
+                guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId);
+
+            // then
+            assertThat(response.getEquippedTitleName()).isEqualTo("용감한");
         }
 
         @Test

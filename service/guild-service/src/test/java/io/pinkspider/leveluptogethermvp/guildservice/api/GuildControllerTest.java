@@ -205,7 +205,7 @@ class GuildControllerTest {
     @DisplayName("GET /api/v1/guilds/{guildId} : 길드 조회")
     void getGuildTest() throws Exception {
         // given
-        when(guildQueryService.getGuild(anyLong(), anyString()))
+        when(guildQueryService.getGuild(anyLong(), anyString(), any()))
             .thenReturn(createMockGuildResponse());
 
         // when
@@ -237,7 +237,7 @@ class GuildControllerTest {
     @DisplayName("GET /api/v1/guilds/{guildId} : 비로그인 유저도 공개 길드 상세 조회 (QA-200)")
     void getGuildWithoutAuthTest() throws Exception {
         // given - 인증 없이 진입해도 browse-first 로 알럿 없이 조회 가능해야 함
-        when(guildQueryService.getGuild(anyLong(), isNull()))
+        when(guildQueryService.getGuild(anyLong(), isNull(), any()))
             .thenReturn(createMockGuildResponse());
 
         // when - SecurityContext 에 인증 주체가 없는 비로그인 요청
@@ -248,7 +248,66 @@ class GuildControllerTest {
 
         // then - "인증이 필요합니다" 알럿 없이 200, userId 는 null 로 전달
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
-        verify(guildQueryService).getGuild(eq(1L), isNull());
+        verify(guildQueryService).getGuild(eq(1L), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 길드 상세 조회 locale로 전달된다")
+    void getGuild_acceptLanguageForwarded() throws Exception {
+        // given
+        when(guildQueryService.getGuild(anyLong(), anyString(), any()))
+            .thenReturn(createMockGuildResponse());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}", 1L)
+                .with(user(MOCK_USER_ID))
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(guildQueryService).getGuild(eq(1L), anyString(), eq("en"));
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 공개 길드 목록(길드 랭킹) locale로 전달된다")
+    void getPublicGuilds_acceptLanguageForwarded() throws Exception {
+        // given
+        Page<GuildResponse> page = new PageImpl<>(
+            List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
+        when(guildQueryService.getPublicGuilds(any(), any(Pageable.class), any())).thenReturn(page);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/public")
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(guildQueryService).getPublicGuilds(any(), any(Pageable.class), eq("en"));
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 길드 멤버 목록 locale로 전달된다")
+    void getGuildMembers_acceptLanguageForwarded() throws Exception {
+        // given
+        when(guildQueryService.getGuildMembers(anyLong(), anyString(), any())).thenReturn(List.of());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/{guildId}/members", 1L)
+                .with(user(MOCK_USER_ID))
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(guildQueryService).getGuildMembers(eq(1L), anyString(), eq("en"));
     }
 
     @Test
@@ -258,7 +317,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildQueryService.getPublicGuilds(any(), any(Pageable.class))).thenReturn(page);
+        when(guildQueryService.getPublicGuilds(any(), any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -294,7 +353,7 @@ class GuildControllerTest {
         Page<GuildResponse> page = new PageImpl<>(
             List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
 
-        when(guildQueryService.searchGuilds(any(), anyString(), any(Pageable.class))).thenReturn(page);
+        when(guildQueryService.searchGuilds(any(), anyString(), any(Pageable.class), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -329,7 +388,7 @@ class GuildControllerTest {
     @DisplayName("GET /api/v1/guilds/my : 내 길드 목록")
     void getMyGuildsTest() throws Exception {
         // given
-        when(guildQueryService.getMyGuilds(anyString()))
+        when(guildQueryService.getMyGuilds(anyString(), any()))
             .thenReturn(List.of(createMockGuildResponse()));
 
         // when
@@ -453,7 +512,7 @@ class GuildControllerTest {
                 .build()
         );
 
-        when(guildQueryService.getGuildMembers(anyLong(), anyString())).thenReturn(members);
+        when(guildQueryService.getGuildMembers(anyLong(), anyString(), any())).thenReturn(members);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -906,7 +965,7 @@ class GuildControllerTest {
             .joinedAt(LocalDateTime.now())
             .build();
 
-        when(guildMemberService.promoteToSubMaster(anyLong(), anyString(), anyString())).thenReturn(response);
+        when(guildMemberService.promoteToSubMaster(anyLong(), anyString(), anyString(), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -968,7 +1027,7 @@ class GuildControllerTest {
             .joinedAt(LocalDateTime.now())
             .build();
 
-        when(guildMemberService.demoteFromSubMaster(anyLong(), anyString(), anyString())).thenReturn(response);
+        when(guildMemberService.demoteFromSubMaster(anyLong(), anyString(), anyString(), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(

@@ -302,7 +302,8 @@ public class SeasonRankingService {
         if (title == null) {
             return null;
         }
-        return LocaleUtils.getLocalizedText(title.getName(), title.getNameEn(), title.getNameAr(), locale);
+        return LocaleUtils.getLocalizedText(title.getName(), title.getNameEn(), title.getNameAr(),
+                title.getNameJa(), locale);
     }
 
     private TitleRarity getHighestRarity(TitleRarity r1, TitleRarity r2) {

@@ -24,6 +24,7 @@ import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.translation.TitleNameUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -351,6 +352,13 @@ public class GuildMemberService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse promoteToSubMaster(Long guildId, String masterId, String targetUserId) {
+        return promoteToSubMaster(guildId, masterId, targetUserId, null);
+    }
+
+    /** LUT-255: locale에 맞는 장착 칭호명으로 응답 구성 */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildMemberResponse promoteToSubMaster(
+        Long guildId, String masterId, String targetUserId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
         guildHelper.validateMaster(guild, masterId);
 
@@ -376,7 +384,7 @@ public class GuildMemberService {
         targetMember.promoteToSubMaster();
         log.info("부길드마스터 승격: guildId={}, userId={}", guildId, targetUserId);
 
-        return buildGuildMemberResponse(targetMember);
+        return buildGuildMemberResponse(targetMember, locale);
     }
 
     /**
@@ -385,6 +393,13 @@ public class GuildMemberService {
      */
     @Transactional(transactionManager = "guildTransactionManager")
     public GuildMemberResponse demoteFromSubMaster(Long guildId, String masterId, String targetUserId) {
+        return demoteFromSubMaster(guildId, masterId, targetUserId, null);
+    }
+
+    /** LUT-255: locale에 맞는 장착 칭호명으로 응답 구성 */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public GuildMemberResponse demoteFromSubMaster(
+        Long guildId, String masterId, String targetUserId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
         guildHelper.validateMaster(guild, masterId);
 
@@ -398,7 +413,7 @@ public class GuildMemberService {
         targetMember.demoteToMember();
         log.info("부길드마스터 강등: guildId={}, userId={}", guildId, targetUserId);
 
-        return buildGuildMemberResponse(targetMember);
+        return buildGuildMemberResponse(targetMember, locale);
     }
 
     /**
@@ -464,7 +479,7 @@ public class GuildMemberService {
         return guildMemberRepository.isActiveMember(guildId, userId);
     }
 
-    private GuildMemberResponse buildGuildMemberResponse(GuildMember member) {
+    private GuildMemberResponse buildGuildMemberResponse(GuildMember member, String locale) {
         GuildMemberResponse response = GuildMemberResponse.from(member);
         UserProfileInfo profile = userQueryFacadeService.getUserProfile(member.getUserId());
         if (profile != null) {
@@ -472,7 +487,11 @@ public class GuildMemberService {
             response.setProfileImageUrl(profile.picture());
             response.setUserLevel(profile.level() != null ? profile.level() : 1);
             try {
-                DetailedTitleInfoDto titleInfo = gamificationQueryFacadeService.getDetailedEquippedTitleInfo(member.getUserId());
+                // LUT-255: 한국어 고정 캐시(getDetailedEquippedTitleInfo) 대신
+                // 다국어 필드가 포함된 장착 칭호 목록으로 locale에 맞게 조합
+                DetailedTitleInfoDto titleInfo = TitleNameUtils.buildDetailedTitleInfo(
+                    gamificationQueryFacadeService.getEquippedTitlesByUserId(member.getUserId()),
+                    locale);
                 response.setEquippedTitleName(titleInfo.combinedName());
                 response.setEquippedTitleRarity(titleInfo.highestRarity());
                 response.setLeftTitleName(titleInfo.leftTitle());

@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.translation.TranslationService;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.admin.FeedAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
@@ -28,10 +30,12 @@ import io.pinkspider.leveluptogethermvp.supportservice.report.application.Report
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.ActivityFeedResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.Collections;
 import java.util.HashMap;
@@ -81,6 +85,9 @@ class FeedQueryServiceTest {
 
     @Mock
     private GuildQueryFacade guildQueryFacadeService;
+
+    @Mock
+    private GamificationQueryFacade gamificationQueryFacadeService;
 
     @Mock
     private FeedAccessChecker feedAccessChecker;
@@ -2251,6 +2258,94 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             verify(activityFeedRepository).findPublicFeedsByGuildId(eq(guildId), any(Pageable.class));
             verify(activityFeedRepository, never()).findGuildFeeds(eq(guildId), any(Pageable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-255 다국어")
+    class LocaleUserTitleTest {
+
+        private UserTitleDto titleDto(String userId, String name, String nameEn, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, nameEn, null, null,
+                null, null, null, null,
+                TitleRarity.COMMON,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
+        }
+
+        @Test
+        @DisplayName("locale=en이면 응답의 userTitle이 장착 칭호 기반 영어 조합으로 교체된다")
+        void getPublicFeeds_localeEn_replacesUserTitleWithEnglishCombined() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사"); // 작성 시점 한국어 스냅샷
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    titleDto(TEST_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
+                    titleDto(TEST_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
+                )));
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("Brave Warrior");
+        }
+
+        @Test
+        @DisplayName("locale=ko이면 스냅샷을 유지하고 facade를 호출하지 않는다")
+        void getPublicFeeds_localeKo_keepsSnapshotAndSkipsFacade() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "ko");
+
+            // then
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
+            verify(gamificationQueryFacadeService, never()).getEquippedTitlesByUserIds(anyList());
+        }
+
+        @Test
+        @DisplayName("장착 칭호가 없는 유저는 스냅샷을 유지한다")
+        void getPublicFeeds_noEquippedTitle_keepsSnapshot() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of());
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
         }
     }
 }

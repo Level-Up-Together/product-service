@@ -763,4 +763,75 @@ class FriendServiceTest {
             assertThat(result).hasSize(1);
         }
     }
+
+    @Nested
+    @DisplayName("LUT-255 다국어")
+    class LocaleTest {
+
+        private UserTitleDto titleDtoWithEn(String userId, String name, String nameEn, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, nameEn, null, null,
+                null, null, null, null,
+                TitleRarity.COMMON,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
+        }
+
+        @Test
+        @DisplayName("locale=en이면 친구 목록의 좌/우 칭호명이 영어로 반환된다")
+        void getFriends_localeEn_returnsEnglishTitles() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDtoWithEn(FRIEND_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
+                    titleDtoWithEn(FRIEND_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
+                )));
+
+            // when
+            Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable, "en");
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getFriendTitleLeft()).isEqualTo("Brave");
+            assertThat(result.getContent().get(0).getFriendTitleRight()).isEqualTo("Warrior");
+        }
+
+        @Test
+        @DisplayName("locale=null이면 친구 목록의 좌/우 칭호명이 한국어로 반환된다")
+        void getFriends_localeNull_returnsKoreanTitles() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID, List.of(
+                    titleDtoWithEn(FRIEND_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
+                    titleDtoWithEn(FRIEND_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
+                )));
+
+            // when
+            Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable, null);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getFriendTitleLeft()).isEqualTo("용감한");
+            assertThat(result.getContent().get(0).getFriendTitleRight()).isEqualTo("전사");
+        }
+    }
 }

@@ -15,8 +15,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.ReportTargetType;
-import io.pinkspider.global.enums.TitlePosition;
-import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -49,6 +48,11 @@ public class GuildQueryService {
     private final GuildHelper guildHelper;
 
     public GuildResponse getGuild(Long guildId, String userId) {
+        return getGuild(guildId, userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 길드 상세 조회 */
+    public GuildResponse getGuild(Long guildId, String userId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate() && !isMember(guildId, userId)) {
@@ -56,7 +60,7 @@ public class GuildQueryService {
         }
 
         int memberCount = (int) guildMemberRepository.countActiveMembers(guildId);
-        GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
+        GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
 
         // 신고 처리중 여부 확인
         response.setIsUnderReview(reportService.isUnderReview(ReportTargetType.GUILD, String.valueOf(guildId)));
@@ -72,6 +76,11 @@ public class GuildQueryService {
     }
 
     public Page<GuildResponse> getPublicGuilds(String userId, Pageable pageable) {
+        return getPublicGuilds(userId, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 공개 길드 목록(길드 랭킹) 조회 */
+    public Page<GuildResponse> getPublicGuilds(String userId, Pageable pageable, String locale) {
         Page<Guild> guilds = guildRepository.findPublicGuilds(pageable);
 
         // 배치로 신고 상태 조회
@@ -91,7 +100,7 @@ public class GuildQueryService {
 
         return guilds.map(guild -> {
             int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
+            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
@@ -99,6 +108,11 @@ public class GuildQueryService {
     }
 
     public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable) {
+        return searchGuilds(userId, keyword, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 길드 검색 */
+    public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable, String locale) {
         Page<Guild> guilds = guildRepository.searchPublicGuilds(keyword, pageable);
 
         // 배치로 신고 상태 조회
@@ -118,7 +132,7 @@ public class GuildQueryService {
 
         return guilds.map(guild -> {
             int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount);
+            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
             response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
             response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
             return response;
@@ -196,6 +210,11 @@ public class GuildQueryService {
     }
 
     public List<GuildResponse> getMyGuilds(String userId) {
+        return getMyGuilds(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 내 길드 목록 조회 */
+    public List<GuildResponse> getMyGuilds(String userId, String locale) {
         List<GuildMember> members = guildMemberRepository.findActiveGuildsByUserId(userId);
 
         // 배치로 활성 멤버 수 조회 (길드별 개별 COUNT N+1 방지)
@@ -206,7 +225,7 @@ public class GuildQueryService {
             .map(member -> {
                 Guild guild = member.getGuild();
                 int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
-                return guildHelper.buildGuildResponseWithCategory(guild, memberCount);
+                return guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
             })
             .toList();
 
@@ -223,6 +242,11 @@ public class GuildQueryService {
     }
 
     public List<GuildMemberResponse> getGuildMembers(Long guildId, String userId) {
+        return getGuildMembers(guildId, userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 장착 칭호명으로 길드 멤버 목록 조회 */
+    public List<GuildMemberResponse> getGuildMembers(Long guildId, String userId, String locale) {
         Guild guild = guildHelper.findActiveGuildById(guildId);
 
         if (guild.isPrivate() && !isMember(guildId, userId)) {
@@ -265,8 +289,8 @@ public class GuildQueryService {
                     response.setProfileImageUrl(profile.picture());
                     // QA-193: UserProfileInfo.level은 GamificationQueryFacade.getUserLevel()로 채워진 값
                     response.setUserLevel(profile.level() != null ? profile.level() : 1);
-                    DetailedTitleInfoDto titleInfo = buildDetailedTitleInfo(
-                        equippedTitlesMap.getOrDefault(member.getUserId(), List.of()));
+                    DetailedTitleInfoDto titleInfo = TitleNameUtils.buildDetailedTitleInfo(
+                        equippedTitlesMap.getOrDefault(member.getUserId(), List.of()), locale);
                     response.setEquippedTitleName(titleInfo.combinedName());
                     response.setEquippedTitleRarity(titleInfo.highestRarity());
                     response.setLeftTitleName(titleInfo.leftTitle());
@@ -277,47 +301,6 @@ public class GuildQueryService {
                 return response;
             })
             .toList();
-    }
-
-    /**
-     * 배치 조회된 장착 칭호 목록으로 상세 칭호 정보 구성
-     * (TitleService.getDetailedEquippedTitleInfo 와 동일한 조합 규칙)
-     */
-    private DetailedTitleInfoDto buildDetailedTitleInfo(List<UserTitleDto> equippedTitles) {
-        UserTitleDto left = equippedTitles.stream()
-            .filter(t -> t.equippedPosition() == TitlePosition.LEFT)
-            .findFirst()
-            .orElse(null);
-        UserTitleDto right = equippedTitles.stream()
-            .filter(t -> t.equippedPosition() == TitlePosition.RIGHT)
-            .findFirst()
-            .orElse(null);
-
-        String leftTitle = left != null ? left.titleName() : null;
-        TitleRarity leftRarity = left != null ? left.titleRarity() : null;
-        String rightTitle = right != null ? right.titleName() : null;
-        TitleRarity rightRarity = right != null ? right.titleRarity() : null;
-
-        TitleRarity highestRarity;
-        if (leftRarity == null) {
-            highestRarity = rightRarity;
-        } else if (rightRarity == null) {
-            highestRarity = leftRarity;
-        } else {
-            highestRarity = leftRarity.ordinal() > rightRarity.ordinal() ? leftRarity : rightRarity;
-        }
-
-        String combinedTitle;
-        if (leftTitle != null && rightTitle != null) {
-            combinedTitle = leftTitle + " " + rightTitle;
-        } else if (leftTitle != null) {
-            combinedTitle = leftTitle;
-        } else {
-            combinedTitle = rightTitle;
-        }
-
-        return new DetailedTitleInfoDto(
-            combinedTitle, highestRarity, leftTitle, leftRarity, rightTitle, rightRarity);
     }
 
     private boolean isMember(Long guildId, String userId) {

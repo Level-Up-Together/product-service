@@ -79,7 +79,7 @@ class FriendControllerTest {
             new TypeReference<List<FriendResponse>>() {});
         Page<FriendResponse> responses = new PageImpl<>(friendList, PageRequest.of(0, 20), friendList.size());
 
-        when(friendService.getFriends(anyString(), any()))
+        when(friendService.getFriends(anyString(), any(), any()))
             .thenReturn(responses);
 
         // when
@@ -519,7 +519,7 @@ class FriendControllerTest {
             "fixture/friend/friendResponseList.json",
             new TypeReference<List<FriendResponse>>() {});
 
-        when(friendService.getAllFriends(anyString()))
+        when(friendService.getAllFriends(anyString(), any()))
             .thenReturn(responses);
 
         // when

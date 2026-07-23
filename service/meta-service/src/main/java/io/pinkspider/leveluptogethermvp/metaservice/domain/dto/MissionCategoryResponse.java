@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.metaservice.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.entity.MissionCategory;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -32,6 +33,17 @@ public class MissionCategoryResponse {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
+
+    /** locale에 맞는 카테고리명 반환 (해당 언어 값이 없으면 한국어 기본값) — 캐시된 인스턴스를 변경하지 않는다 */
+    public String getLocalizedName(String locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale);
+    }
+
+    /** locale에 맞는 카테고리 설명 반환 (해당 언어 값이 없으면 한국어 기본값) */
+    public String getLocalizedDescription(String locale) {
+        return LocaleUtils.getLocalizedText(
+                description, descriptionEn, descriptionAr, descriptionJa, locale);
+    }
 
     public static MissionCategoryResponse from(MissionCategory category) {
         return MissionCategoryResponse.builder()

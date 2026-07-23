@@ -5,7 +5,9 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -190,7 +192,7 @@ class MissionControllerTest {
         MissionResponse response = MockUtil.readJsonFileToClass(
             "fixture/missionservice/missionResponse.json", MissionResponse.class);
 
-        when(missionService.getMission(anyLong()))
+        when(missionService.getMission(anyLong(), any()))
             .thenReturn(response);
 
         // when
@@ -267,7 +269,7 @@ class MissionControllerTest {
             "fixture/missionservice/missionResponseList.json",
             new TypeReference<List<MissionResponse>>() {});
 
-        when(missionService.getMyMissions(anyString()))
+        when(missionService.getMyMissions(anyString(), any()))
             .thenReturn(responses);
 
         // when
@@ -347,7 +349,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionResponse>>() {});
 
         doNothing().when(missionService).reorderMyMissions(anyString(), any());
-        when(missionService.getMyMissions(anyString())).thenReturn(responses);
+        when(missionService.getMyMissions(anyString(), any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -384,7 +386,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionResponse>>() {});
         Page<MissionResponse> responses = new PageImpl<>(missionList, PageRequest.of(0, 20), missionList.size());
 
-        when(missionService.getPublicOpenMissions(any()))
+        when(missionService.getPublicOpenMissions(any(), any()))
             .thenReturn(responses);
 
         // when
@@ -488,7 +490,7 @@ class MissionControllerTest {
             "fixture/missionservice/missionResponseList.json",
             new TypeReference<List<MissionResponse>>() {});
 
-        when(missionService.getGuildMissions(anyString()))
+        when(missionService.getGuildMissions(anyString(), any()))
             .thenReturn(responses);
 
         // when
@@ -1019,7 +1021,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionTemplateResponse>>() {});
         Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
 
-        when(missionService.getSystemMissions(any(), any()))
+        when(missionService.getSystemMissions(any(), any(), any()))
             .thenReturn(responses);
 
         // when
@@ -1098,6 +1100,76 @@ class MissionControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 미션북 목록 조회 locale로 전달된다")
+    void getSystemMissions_acceptLanguageForwarded() throws Exception {
+        // given
+        List<MissionTemplateResponse> templateList = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionTemplateResponseList.json",
+            new TypeReference<List<MissionTemplateResponse>>() {});
+        Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
+
+        when(missionService.getSystemMissions(any(), any(), any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/system")
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(missionService).getSystemMissions(any(), any(), eq("en"));
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 내 미션 목록 조회 locale로 전달된다")
+    void getMyMissions_acceptLanguageForwarded() throws Exception {
+        // given
+        List<MissionResponse> responses = MockUtil.readJsonFileToClassList(
+            "fixture/missionservice/missionResponseList.json",
+            new TypeReference<List<MissionResponse>>() {});
+
+        when(missionService.getMyMissions(anyString(), any()))
+            .thenReturn(responses);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/my")
+                .with(user(MOCK_USER_ID))
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(missionService).getMyMissions(anyString(), eq("en"));
+    }
+
+    @Test
+    @DisplayName("LUT-255: Accept-Language 헤더가 미션 상세 조회 locale로 전달된다")
+    void getMission_acceptLanguageForwarded() throws Exception {
+        // given
+        MissionResponse response = MockUtil.readJsonFileToClass(
+            "fixture/missionservice/missionResponse.json", MissionResponse.class);
+
+        when(missionService.getMission(anyLong(), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/{missionId}", 1L)
+                .header("Accept-Language", "en")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(missionService).getMission(eq(1L), eq("en"));
     }
 
     @Test
@@ -1188,7 +1260,7 @@ class MissionControllerTest {
             new TypeReference<List<MissionTemplateResponse>>() {});
         Page<MissionTemplateResponse> responses = new PageImpl<>(templateList, PageRequest.of(0, 20), templateList.size());
 
-        when(missionService.getSystemMissionsByCategory(any(), anyLong(), any()))
+        when(missionService.getSystemMissionsByCategory(any(), anyLong(), any(), any()))
             .thenReturn(responses);
 
         // when

@@ -8,6 +8,7 @@ import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
@@ -213,6 +214,11 @@ public class FriendService {
 
     // 친구 목록 조회
     public Page<FriendResponse> getFriends(String userId, Pageable pageable) {
+        return getFriends(userId, pageable, null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 응답 */
+    public Page<FriendResponse> getFriends(String userId, Pageable pageable, String locale) {
         Page<Friendship> friendships = friendshipRepository.findFriends(userId, pageable);
 
         // 친구 ID 목록 추출
@@ -223,7 +229,7 @@ public class FriendService {
         // 사용자 정보, 레벨, 좌/우 칭호 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
 
         return friendships.map(friendship -> {
             String friendId = friendship.getUserId().equals(userId)
@@ -247,6 +253,11 @@ public class FriendService {
 
     // 전체 친구 목록 조회
     public List<FriendResponse> getAllFriends(String userId) {
+        return getAllFriends(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 응답 */
+    public List<FriendResponse> getAllFriends(String userId, String locale) {
         List<Friendship> friendships = friendshipRepository.findAllFriends(userId);
 
         // 친구 ID 목록 추출
@@ -257,7 +268,7 @@ public class FriendService {
         // 사용자 정보, 레벨, 좌/우 칭호 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
-        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
 
         return friendships.stream()
             .map(friendship -> {
@@ -292,8 +303,8 @@ public class FriendService {
         return gamificationQueryFacadeService.getUserLevelMap(userIds);
     }
 
-    // 좌/우 칭호 모두 배치 조회 (QA-93)
-    private Map<String, EquippedTitlePair> getEquippedTitlePairMap(List<String> userIds) {
+    // 좌/우 칭호 모두 배치 조회 (QA-93, LUT-255: locale 반영)
+    private Map<String, EquippedTitlePair> getEquippedTitlePairMap(List<String> userIds, String locale) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
@@ -303,7 +314,7 @@ public class FriendService {
         return titlesByUser.entrySet().stream()
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
-                e -> EquippedTitlePair.from(e.getValue())
+                e -> EquippedTitlePair.from(e.getValue(), locale)
             ));
     }
 
@@ -319,7 +330,7 @@ public class FriendService {
     ) {
         static final EquippedTitlePair EMPTY = new EquippedTitlePair(null, null, null, null);
 
-        static EquippedTitlePair from(List<UserTitleDto> titles) {
+        static EquippedTitlePair from(List<UserTitleDto> titles, String locale) {
             String left = null;
             String leftRarity = null;
             String right = null;
@@ -327,10 +338,10 @@ public class FriendService {
             if (titles != null) {
                 for (UserTitleDto t : titles) {
                     if (t.equippedPosition() == TitlePosition.LEFT) {
-                        left = t.titleName();
+                        left = TitleNameUtils.localizedTitleName(t, locale);
                         leftRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     } else if (t.equippedPosition() == TitlePosition.RIGHT) {
-                        right = t.titleName();
+                        right = TitleNameUtils.localizedTitleName(t, locale);
                         rightRarity = t.titleRarity() != null ? t.titleRarity().name() : null;
                     }
                 }

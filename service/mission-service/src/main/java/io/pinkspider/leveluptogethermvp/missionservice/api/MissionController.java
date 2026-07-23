@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,16 +49,19 @@ public class MissionController {
     }
 
     @GetMapping("/{missionId}")
-    public ResponseEntity<ApiResult<MissionResponse>> getMission(@PathVariable Long missionId) {
-        MissionResponse response = missionService.getMission(missionId);
+    public ResponseEntity<ApiResult<MissionResponse>> getMission(
+        @PathVariable Long missionId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        MissionResponse response = missionService.getMission(missionId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<MissionResponse>builder().value(response).build());
     }
 
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<MissionResponse>>> getMyMissions(
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<MissionResponse> responses = missionService.getMyMissions(userId);
+        List<MissionResponse> responses = missionService.getMyMissions(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
@@ -67,35 +72,40 @@ public class MissionController {
     @PatchMapping("/my/reorder")
     public ResponseEntity<ApiResult<List<MissionResponse>>> reorderMyMissions(
         @CurrentUser String userId,
-        @Valid @RequestBody MissionReorderRequest request) {
+        @Valid @RequestBody MissionReorderRequest request,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         missionService.reorderMyMissions(userId, request.getOrderedMissionIds());
-        List<MissionResponse> responses = missionService.getMyMissions(userId);
+        List<MissionResponse> responses = missionService.getMyMissions(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResult<List<MissionResponse>>> getUserMissions(
         @PathVariable String userId,
-        @CurrentUser(required = false) String currentUserId) {
+        @CurrentUser(required = false) String currentUserId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<MissionResponse> responses = missionService.getUserMissions(userId, currentUserId);
+        List<MissionResponse> responses =
+            missionService.getUserMissions(userId, currentUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/public")
     public ResponseEntity<ApiResult<Page<MissionResponse>>> getPublicOpenMissions(
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<MissionResponse> responses = missionService.getPublicOpenMissions(pageable);
+        Page<MissionResponse> responses = missionService.getPublicOpenMissions(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<MissionResponse>>builder().value(responses).build());
     }
 
     @GetMapping("/guild/{guildId}")
     public ResponseEntity<ApiResult<List<MissionResponse>>> getGuildMissions(
-        @PathVariable String guildId) {
+        @PathVariable String guildId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<MissionResponse> responses = missionService.getGuildMissions(guildId);
+        List<MissionResponse> responses = missionService.getGuildMissions(guildId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionResponse>>builder().value(responses).build());
     }
 
@@ -105,9 +115,11 @@ public class MissionController {
     @GetMapping("/system")
     public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissions(
         @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        Page<MissionTemplateResponse> responses = missionService.getSystemMissions(userId, pageable);
+        Page<MissionTemplateResponse> responses =
+            missionService.getSystemMissions(userId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 
@@ -130,10 +142,11 @@ public class MissionController {
     public ResponseEntity<ApiResult<Page<MissionTemplateResponse>>> getSystemMissionsByCategory(
         @PathVariable Long categoryId,
         @CurrentUser(required = false) String userId,
-        @PageableDefault(size = 20) Pageable pageable) {
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         Page<MissionTemplateResponse> responses =
-            missionService.getSystemMissionsByCategory(userId, categoryId, pageable);
+            missionService.getSystemMissionsByCategory(userId, categoryId, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<MissionTemplateResponse>>builder().value(responses).build());
     }
 

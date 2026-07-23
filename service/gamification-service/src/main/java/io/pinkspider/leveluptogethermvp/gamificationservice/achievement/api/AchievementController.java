@@ -14,10 +14,12 @@ import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,56 +37,69 @@ public class AchievementController {
 
     // 전체 업적 목록
     @GetMapping
-    public ResponseEntity<ApiResult<List<AchievementResponse>>> getAllAchievements() {
-        List<AchievementResponse> responses = achievementService.getAllAchievements();
+    public ResponseEntity<ApiResult<List<AchievementResponse>>> getAllAchievements(
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<AchievementResponse> responses = achievementService.getAllAchievements(acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
     }
 
     // 카테고리 코드별 업적 목록
     @GetMapping("/category/{categoryCode}")
     public ResponseEntity<ApiResult<List<AchievementResponse>>> getAchievementsByCategoryCode(
-        @PathVariable String categoryCode) {
-        List<AchievementResponse> responses = achievementService.getAchievementsByCategoryCode(categoryCode);
+        @PathVariable String categoryCode,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<AchievementResponse> responses =
+            achievementService.getAchievementsByCategoryCode(categoryCode, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
     }
 
     // 미션 카테고리별 업적 목록 (업적 카테고리가 MISSION인 경우)
     @GetMapping("/mission-category/{missionCategoryId}")
     public ResponseEntity<ApiResult<List<AchievementResponse>>> getAchievementsByMissionCategoryId(
-        @PathVariable Long missionCategoryId) {
-        List<AchievementResponse> responses = achievementService.getAchievementsByMissionCategoryId(missionCategoryId);
+        @PathVariable Long missionCategoryId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<AchievementResponse> responses =
+            achievementService.getAchievementsByMissionCategoryId(missionCategoryId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<AchievementResponse>>builder().value(responses).build());
     }
 
     // 내 업적 목록
     @GetMapping("/my")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyAchievements(
-        @CurrentUser String userId) {
-        List<UserAchievementResponse> responses = achievementService.getUserAchievements(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserAchievementResponse> responses =
+            achievementService.getUserAchievements(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
 
     // 완료한 업적
     @GetMapping("/my/completed")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyCompletedAchievements(
-        @CurrentUser String userId) {
-        List<UserAchievementResponse> responses = achievementService.getCompletedAchievements(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserAchievementResponse> responses =
+            achievementService.getCompletedAchievements(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
 
     // 진행 중인 업적
     @GetMapping("/my/in-progress")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getMyInProgressAchievements(
-        @CurrentUser String userId) {
-        List<UserAchievementResponse> responses = achievementService.getInProgressAchievements(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserAchievementResponse> responses =
+            achievementService.getInProgressAchievements(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
 
     // 수령 가능한 보상
     @GetMapping("/my/claimable")
     public ResponseEntity<ApiResult<List<UserAchievementResponse>>> getClaimableAchievements(
-        @CurrentUser String userId) {
-        List<UserAchievementResponse> responses = achievementService.getClaimableAchievements(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserAchievementResponse> responses =
+            achievementService.getClaimableAchievements(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserAchievementResponse>>builder().value(responses).build());
     }
 
@@ -101,24 +116,27 @@ public class AchievementController {
 
     // 전체 칭호 목록
     @GetMapping("/titles")
-    public ResponseEntity<ApiResult<List<TitleResponse>>> getAllTitles() {
-        List<TitleResponse> responses = titleService.getAllTitles();
+    public ResponseEntity<ApiResult<List<TitleResponse>>> getAllTitles(
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<TitleResponse> responses = titleService.getAllTitles(acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<TitleResponse>>builder().value(responses).build());
     }
 
     // 포지션별 칭호 목록 (LEFT 또는 RIGHT)
     @GetMapping("/titles/position/{position}")
     public ResponseEntity<ApiResult<List<TitleResponse>>> getTitlesByPosition(
-        @PathVariable TitlePosition position) {
-        List<TitleResponse> responses = titleService.getTitlesByPosition(position);
+        @PathVariable TitlePosition position,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<TitleResponse> responses = titleService.getTitlesByPosition(position, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<TitleResponse>>builder().value(responses).build());
     }
 
     // 내 칭호 목록
     @GetMapping("/titles/my")
     public ResponseEntity<ApiResult<List<UserTitleResponse>>> getMyTitles(
-        @CurrentUser String userId) {
-        List<UserTitleResponse> responses = titleService.getUserTitles(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserTitleResponse> responses = titleService.getUserTitles(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserTitleResponse>>builder().value(responses).build());
     }
 
@@ -126,18 +144,23 @@ public class AchievementController {
     @GetMapping("/titles/my/position/{position}")
     public ResponseEntity<ApiResult<List<UserTitleResponse>>> getMyTitlesByPosition(
         @CurrentUser String userId,
-        @PathVariable TitlePosition position) {
-        List<UserTitleResponse> responses = titleService.getUserTitlesByPosition(userId, position);
+        @PathVariable TitlePosition position,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<UserTitleResponse> responses =
+            titleService.getUserTitlesByPosition(userId, position, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<UserTitleResponse>>builder().value(responses).build());
     }
 
     // 장착된 칭호 (LEFT와 RIGHT 모두)
     @GetMapping("/titles/my/equipped")
     public ResponseEntity<ApiResult<EquippedTitlesResponse>> getEquippedTitles(
-        @CurrentUser String userId) {
-        UserTitleResponse leftTitle = titleService.getEquippedTitleByPosition(userId, TitlePosition.LEFT)
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        UserTitleResponse leftTitle =
+            titleService.getEquippedTitleByPosition(userId, TitlePosition.LEFT, acceptLanguage)
             .orElse(null);
-        UserTitleResponse rightTitle = titleService.getEquippedTitleByPosition(userId, TitlePosition.RIGHT)
+        UserTitleResponse rightTitle =
+            titleService.getEquippedTitleByPosition(userId, TitlePosition.RIGHT, acceptLanguage)
             .orElse(null);
 
         EquippedTitlesResponse response = EquippedTitlesResponse.builder()
@@ -153,8 +176,9 @@ public class AchievementController {
     @GetMapping("/titles/my/equipped/{position}")
     public ResponseEntity<ApiResult<UserTitleResponse>> getEquippedTitleByPosition(
         @CurrentUser String userId,
-        @PathVariable TitlePosition position) {
-        return titleService.getEquippedTitleByPosition(userId, position)
+        @PathVariable TitlePosition position,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        return titleService.getEquippedTitleByPosition(userId, position, acceptLanguage)
             .map(response -> ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(response).build()))
             .orElse(ResponseEntity.ok(ApiResult.<UserTitleResponse>builder().value(null).build()));
     }

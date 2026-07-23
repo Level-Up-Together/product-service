@@ -44,30 +44,50 @@ public class RankingService {
 
     // 종합 랭킹 (랭킹 포인트 기준)
     public Page<RankingResponse> getOverallRanking(Pageable pageable) {
+        return getOverallRanking(pageable, null);
+    }
+
+    public Page<RankingResponse> getOverallRanking(Pageable pageable, String locale) {
         Page<UserStats> statsPage = userStatsRepository.findAllByOrderByRankingPointsDesc(pageable);
-        return convertToRankingResponse(statsPage, pageable);
+        return convertToRankingResponse(statsPage, pageable, locale);
     }
 
     // 미션 완료 랭킹
     public Page<RankingResponse> getMissionCompletionRanking(Pageable pageable) {
+        return getMissionCompletionRanking(pageable, null);
+    }
+
+    public Page<RankingResponse> getMissionCompletionRanking(Pageable pageable, String locale) {
         Page<UserStats> statsPage = userStatsRepository.findAllByOrderByTotalMissionCompletionsDesc(pageable);
-        return convertToRankingResponse(statsPage, pageable);
+        return convertToRankingResponse(statsPage, pageable, locale);
     }
 
     // 연속 활동 랭킹
     public Page<RankingResponse> getStreakRanking(Pageable pageable) {
+        return getStreakRanking(pageable, null);
+    }
+
+    public Page<RankingResponse> getStreakRanking(Pageable pageable, String locale) {
         Page<UserStats> statsPage = userStatsRepository.findAllByOrderByMaxStreakDesc(pageable);
-        return convertToRankingResponse(statsPage, pageable);
+        return convertToRankingResponse(statsPage, pageable, locale);
     }
 
     // 업적 달성 랭킹
     public Page<RankingResponse> getAchievementRanking(Pageable pageable) {
+        return getAchievementRanking(pageable, null);
+    }
+
+    public Page<RankingResponse> getAchievementRanking(Pageable pageable, String locale) {
         Page<UserStats> statsPage = userStatsRepository.findAllByOrderByTotalAchievementsCompletedDesc(pageable);
-        return convertToRankingResponse(statsPage, pageable);
+        return convertToRankingResponse(statsPage, pageable, locale);
     }
 
     // 내 랭킹 조회
     public RankingResponse getMyRanking(String userId) {
+        return getMyRanking(userId, null);
+    }
+
+    public RankingResponse getMyRanking(String userId, String locale) {
         UserStats stats = userStatsRepository.findByUserId(userId)
             .orElse(null);
 
@@ -89,7 +109,7 @@ public class RankingService {
             .map(exp -> exp.getCurrentLevel())
             .orElse(1);
 
-        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
 
         return RankingResponse.from(stats, rank, null, userLevel, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
             titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
@@ -118,7 +138,8 @@ public class RankingService {
         return result;
     }
 
-    private Page<RankingResponse> convertToRankingResponse(Page<UserStats> statsPage, Pageable pageable) {
+    private Page<RankingResponse> convertToRankingResponse(Page<UserStats> statsPage, Pageable pageable,
+                                                            String locale) {
         // 탈퇴 사용자 필터링
         List<String> userIds = statsPage.getContent().stream()
             .map(UserStats::getUserId)
@@ -139,7 +160,7 @@ public class RankingService {
                 .orElse(1);
 
             // 장착된 칭호 조회 (LEFT + RIGHT 조합 및 등급)
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(stats.getUserId());
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(stats.getUserId(), locale);
 
             responses.add(RankingResponse.from(stats, startRank++, null, userLevel,
                 titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
@@ -154,6 +175,10 @@ public class RankingService {
      * (레벨 기준, 동일 레벨 시 총 경험치 기준)
      */
     public LevelRankingResponse getMyLevelRanking(String userId) {
+        return getMyLevelRanking(userId, null);
+    }
+
+    public LevelRankingResponse getMyLevelRanking(String userId, String locale) {
         // 활성 사용자만 대상으로 랭킹 계산
         List<String> allUserIds = userExperienceRepository.findAll().stream()
             .map(UserExperience::getUserId)
@@ -167,7 +192,7 @@ public class RankingService {
         String profileImageUrl = profile.picture();
 
         // 장착된 칭호 조회 (이름, 등급, 색상 코드)
-        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
 
         UserExperience userExp = userExperienceRepository.findByUserId(userId)
             .orElse(null);
@@ -194,6 +219,10 @@ public class RankingService {
      * (레벨 내림차순, 동일 레벨 시 총 경험치 내림차순)
      */
     public Page<LevelRankingResponse> getLevelRanking(Pageable pageable) {
+        return getLevelRanking(pageable, null);
+    }
+
+    public Page<LevelRankingResponse> getLevelRanking(Pageable pageable, String locale) {
         // QA-206: 목록 순위를 내 랭킹(getMyLevelRanking: COUNT(나보다 위)+1)과 동일한 의미로 맞춘다.
         // 전체를 정렬해 로드 → 탈퇴자 제외 → 동점 공동순위(RANK) 부여 → 활성 기준 페이징.
         List<UserExperience> sorted =
@@ -230,7 +259,7 @@ public class RankingService {
             UserProfileInfo profile = profileMap.get(exp.getUserId());
             String nickname = profile != null ? profile.nickname() : null;
             String profileImageUrl = profile != null ? profile.picture() : null;
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(exp.getUserId());
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(exp.getUserId(), locale);
 
             responses.add(LevelRankingResponse.from(
                 exp, ranks[from + i], totalUsers, nickname, profileImageUrl,
@@ -263,6 +292,11 @@ public class RankingService {
      * (해당 카테고리 미션에서 획득한 경험치 기준)
      */
     public Page<LevelRankingResponse> getLevelRankingByCategory(String category, Pageable pageable) {
+        return getLevelRankingByCategory(category, pageable, null);
+    }
+
+    public Page<LevelRankingResponse> getLevelRankingByCategory(String category, Pageable pageable,
+                                                                String locale) {
         log.info("카테고리별 레벨 랭킹 조회 요청: category={}", category);
 
         // 카테고리별 전체 사용자 수
@@ -297,7 +331,7 @@ public class RankingService {
 
             UserProfileInfo profile = profileMap.get(userId);
             UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
 
             responses.add(LevelRankingResponse.builder()
                 .rank(rank)
@@ -327,8 +361,12 @@ public class RankingService {
      * 카테고리를 선택하면 목록은 카테고리 순위인데 내 랭킹은 전체였던 불일치를 해소한다.
      */
     public LevelRankingResponse getMyLevelRankingByCategory(String userId, String category) {
+        return getMyLevelRankingByCategory(userId, category, null);
+    }
+
+    public LevelRankingResponse getMyLevelRankingByCategory(String userId, String category, String locale) {
         UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
-        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
         UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
 
         List<Object[]> activeRows = activeCategoryRanking(category);
@@ -399,6 +437,11 @@ public class RankingService {
      * 예: "용감한 전사", 최고 등급, 색상 코드
      */
     private TitleInfo getCombinedEquippedTitleInfo(String userId) {
+        return getCombinedEquippedTitleInfo(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 칭호명으로 조합 */
+    private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
         List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
         if (equippedTitles.isEmpty()) {
             return new TitleInfo(null, null, null, null, null, null, null);
@@ -414,8 +457,8 @@ public class RankingService {
             .findFirst()
             .orElse(null);
 
-        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getDisplayName() : null;
-        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getDisplayName() : null;
+        String leftTitle = leftUserTitle != null ? leftUserTitle.getTitle().getLocalizedName(locale) : null;
+        String rightTitle = rightUserTitle != null ? rightUserTitle.getTitle().getLocalizedName(locale) : null;
 
         // 조합된 칭호 이름
         String combinedTitle;

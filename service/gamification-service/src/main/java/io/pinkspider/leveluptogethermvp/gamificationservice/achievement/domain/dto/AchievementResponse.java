@@ -33,19 +33,31 @@ public class AchievementResponse {
         return from(achievement, Collections.emptyMap());
     }
 
+    public static AchievementResponse from(Achievement achievement, Map<Long, String> categoryNamesById) {
+        return from(achievement, categoryNamesById, null);
+    }
+
     /**
      * QA-149: mission_category_name 컬럼이 NULL 인 데이터가 다수라 메타 카테고리 이름을 lookup 으로 채운다.
+     * LUT-255: locale이 지정되면 저장된 한국어 이름 대신 locale이 반영된 lookup 이름을 우선한다.
      */
-    public static AchievementResponse from(Achievement achievement, Map<Long, String> categoryNamesById) {
-        String missionCategoryName = achievement.getMissionCategoryName();
-        if ((missionCategoryName == null || missionCategoryName.isBlank())
-            && achievement.getMissionCategoryId() != null) {
-            missionCategoryName = categoryNamesById.get(achievement.getMissionCategoryId());
+    public static AchievementResponse from(Achievement achievement, Map<Long, String> categoryNamesById,
+                                            String locale) {
+        String lookup = achievement.getMissionCategoryId() != null
+            ? categoryNamesById.get(achievement.getMissionCategoryId()) : null;
+        String missionCategoryName;
+        if (locale != null && lookup != null && !lookup.isBlank()) {
+            missionCategoryName = lookup;
+        } else if (achievement.getMissionCategoryName() != null
+            && !achievement.getMissionCategoryName().isBlank()) {
+            missionCategoryName = achievement.getMissionCategoryName();
+        } else {
+            missionCategoryName = lookup;
         }
         return AchievementResponse.builder()
             .id(achievement.getId())
-            .name(achievement.getName())
-            .description(achievement.getDescription())
+            .name(achievement.getLocalizedName(locale))
+            .description(achievement.getLocalizedDescription(locale))
             .categoryCode(achievement.getCategoryCode())
             .missionCategoryId(achievement.getMissionCategoryId())
             .missionCategoryName(missionCategoryName)

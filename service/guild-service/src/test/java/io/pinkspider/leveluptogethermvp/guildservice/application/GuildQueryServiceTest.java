@@ -32,6 +32,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,6 +115,13 @@ class GuildQueryServiceTest {
 
         // Default stub for guildHelper.buildGuildResponseWithCategory
         lenient().when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt()))
+            .thenAnswer(inv -> {
+                Guild g = inv.getArgument(0);
+                int mc = inv.getArgument(1);
+                return GuildResponse.from(g, mc, null, null);
+            });
+        // LUT-255: locale 오버로드 stub (locale null 포함)
+        lenient().when(guildHelper.buildGuildResponseWithCategory(any(Guild.class), anyInt(), any()))
             .thenAnswer(inv -> {
                 Guild g = inv.getArgument(0);
                 int mc = inv.getArgument(1);
@@ -503,6 +513,96 @@ class GuildQueryServiceTest {
             assertThatThrownBy(() -> guildQueryService.getGuildMembers(2L, testUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("비공개 길드의 멤버 목록을 조회할 수 없습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-255 다국어(locale) 조회 테스트")
+    class LocalizationTest {
+
+        private UserTitleDto titleDto(TitlePosition position, String ko, String en) {
+            return new UserTitleDto(1L, testMasterId, 10L, ko, en, null, null,
+                null, null, null, null, TitleRarity.RARE, position, null, null,
+                true, position, null);
+        }
+
+        private void stubMemberLookups() {
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            UserProfileInfo profile =
+                new UserProfileInfo(testMasterId, "마스터닉네임", "pic.png", 7, null, null, null);
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(testMasterId, profile));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenReturn(Map.of(testMasterId, List.of(
+                    titleDto(TitlePosition.LEFT, "용감한", "Brave"),
+                    titleDto(TitlePosition.RIGHT, "전사", "Warrior"))));
+        }
+
+        @Test
+        @DisplayName("locale=en이면 길드 멤버 장착 칭호가 영어로 반환된다")
+        void getGuildMembers_localeEn_returnsEnglishTitles() {
+            // given
+            stubMemberLookups();
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId, "en");
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedTitleName()).isEqualTo("Brave Warrior");
+            assertThat(result.get(0).getLeftTitleName()).isEqualTo("Brave");
+            assertThat(result.get(0).getRightTitleName()).isEqualTo("Warrior");
+            assertThat(result.get(0).getEquippedTitleRarity()).isEqualTo(TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("locale이 없으면(기존 시그니처) 장착 칭호가 한국어로 유지된다")
+        void getGuildMembers_noLocale_returnsKoreanTitles() {
+            // given
+            stubMemberLookups();
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedTitleName()).isEqualTo("용감한 전사");
+            assertThat(result.get(0).getLeftTitleName()).isEqualTo("용감한");
+            assertThat(result.get(0).getRightTitleName()).isEqualTo("전사");
+        }
+
+        @Test
+        @DisplayName("길드 상세 조회 시 locale이 카테고리명 조립에 전달된다")
+        void getGuild_localePassedToHelper() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(5L);
+            when(reportService.isUnderReview(ReportTargetType.GUILD, "1")).thenReturn(false);
+
+            // when
+            guildQueryService.getGuild(1L, testUserId, "en");
+
+            // then
+            verify(guildHelper).buildGuildResponseWithCategory(any(Guild.class), anyInt(), eq("en"));
+        }
+
+        @Test
+        @DisplayName("공개 길드 목록 조회 시 locale이 카테고리명 조립에 전달된다")
+        void getPublicGuilds_localePassedToHelper() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            when(guildRepository.findPublicGuilds(any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(testGuild)));
+            when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 10L}));
+
+            // when
+            guildQueryService.getPublicGuilds(testUserId, pageable, "en");
+
+            // then
+            verify(guildHelper).buildGuildResponseWithCategory(any(Guild.class), anyInt(), eq("en"));
         }
     }
 

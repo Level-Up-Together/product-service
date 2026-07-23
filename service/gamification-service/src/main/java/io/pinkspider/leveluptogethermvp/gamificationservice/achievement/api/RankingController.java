@@ -8,11 +8,13 @@ import io.pinkspider.global.annotation.CurrentUser;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,40 +29,46 @@ public class RankingController {
     // 종합 랭킹
     @GetMapping
     public ResponseEntity<ApiResult<Page<RankingResponse>>> getOverallRanking(
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<RankingResponse> responses = rankingService.getOverallRanking(pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<RankingResponse> responses = rankingService.getOverallRanking(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<RankingResponse>>builder().value(responses).build());
     }
 
     // 미션 완료 랭킹
     @GetMapping("/missions")
     public ResponseEntity<ApiResult<Page<RankingResponse>>> getMissionRanking(
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<RankingResponse> responses = rankingService.getMissionCompletionRanking(pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<RankingResponse> responses =
+            rankingService.getMissionCompletionRanking(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<RankingResponse>>builder().value(responses).build());
     }
 
     // 연속 활동 랭킹
     @GetMapping("/streaks")
     public ResponseEntity<ApiResult<Page<RankingResponse>>> getStreakRanking(
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<RankingResponse> responses = rankingService.getStreakRanking(pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<RankingResponse> responses = rankingService.getStreakRanking(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<RankingResponse>>builder().value(responses).build());
     }
 
     // 업적 달성 랭킹
     @GetMapping("/achievements")
     public ResponseEntity<ApiResult<Page<RankingResponse>>> getAchievementRanking(
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<RankingResponse> responses = rankingService.getAchievementRanking(pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<RankingResponse> responses = rankingService.getAchievementRanking(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<RankingResponse>>builder().value(responses).build());
     }
 
     // 내 랭킹
     @GetMapping("/my")
     public ResponseEntity<ApiResult<RankingResponse>> getMyRanking(
-        @CurrentUser String userId) {
-        RankingResponse response = rankingService.getMyRanking(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        RankingResponse response = rankingService.getMyRanking(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<RankingResponse>builder().value(response).build());
     }
 
@@ -76,8 +84,9 @@ public class RankingController {
     // 내 레벨 랭킹 (레벨 + 경험치 기준)
     @GetMapping("/my/level")
     public ResponseEntity<ApiResult<LevelRankingResponse>> getMyLevelRanking(
-        @CurrentUser String userId) {
-        LevelRankingResponse response = rankingService.getMyLevelRanking(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        LevelRankingResponse response = rankingService.getMyLevelRanking(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
     }
 
@@ -85,16 +94,19 @@ public class RankingController {
     @GetMapping("/my/level/category/{category}")
     public ResponseEntity<ApiResult<LevelRankingResponse>> getMyLevelRankingByCategory(
         @CurrentUser String userId,
-        @PathVariable String category) {
-        LevelRankingResponse response = rankingService.getMyLevelRankingByCategory(userId, category);
+        @PathVariable String category,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        LevelRankingResponse response =
+            rankingService.getMyLevelRankingByCategory(userId, category, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
     }
 
     // 전체 레벨 랭킹 (레벨 + 총 경험치 기준)
     @GetMapping("/level")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRanking(
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<LevelRankingResponse> responses = rankingService.getLevelRanking(pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<LevelRankingResponse> responses = rankingService.getLevelRanking(pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 
@@ -102,8 +114,10 @@ public class RankingController {
     @GetMapping("/level/category/{category}")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRankingByCategory(
         @PathVariable String category,
-        @PageableDefault(size = 20) Pageable pageable) {
-        Page<LevelRankingResponse> responses = rankingService.getLevelRankingByCategory(category, pageable);
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<LevelRankingResponse> responses =
+            rankingService.getLevelRankingByCategory(category, pageable, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 }
