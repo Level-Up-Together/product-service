@@ -101,6 +101,29 @@ class DeviceTokenServiceTest {
         }
 
         @Test
+        @DisplayName("같은 토큰 재등록 시 현재 토큰은 벌크 비활성화에서 제외된다 (LUT-261)")
+        void registerToken_existingTokenSameUser_excludesSelfFromBulkDeactivation() {
+            // given: 앱을 열 때마다 같은 토큰으로 재등록되는 상황.
+            // 벌크 UPDATE가 영속성 컨텍스트를 우회하므로, 현재 토큰이 벌크 대상에 포함되면
+            // 스테일 스냅샷 때문에 activate()가 dirty로 감지되지 않아 DB에 비활성으로 남는다.
+            DeviceTokenRequest request = new DeviceTokenRequest(
+                TEST_FCM_TOKEN, DeviceType.IOS, TEST_DEVICE_ID, "iPhone 16", "1.1.0"
+            );
+            DeviceToken existingToken = createTestDeviceToken(1L, TEST_USER_ID, TEST_FCM_TOKEN, TEST_DEVICE_ID);
+
+            when(deviceTokenRepository.findByFcmToken(TEST_FCM_TOKEN)).thenReturn(Optional.of(existingToken));
+            when(deviceTokenRepository.save(any(DeviceToken.class))).thenReturn(existingToken);
+
+            // when
+            deviceTokenService.registerToken(TEST_USER_ID, request);
+
+            // then: 현재 토큰을 제외한 벌크 비활성화만 호출되어야 한다
+            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
+            verify(deviceTokenRepository, never()).deactivateAllByUserId(anyString());
+            assertThat(existingToken.getIsActive()).isTrue();
+        }
+
+        @Test
         @DisplayName("동일한 FCM 토큰이 다른 사용자에게 있으면 현재 사용자로 이전한다")
         void registerToken_existingTokenDifferentUser_transfers() {
             // given
@@ -120,7 +143,7 @@ class DeviceTokenServiceTest {
             assertThat(existingToken.getUserId()).isEqualTo(TEST_USER_ID);
             assertThat(existingToken.getDeviceId()).isEqualTo(TEST_DEVICE_ID);
             assertThat(existingToken.getIsActive()).isTrue();
-            verify(deviceTokenRepository).deactivateAllByUserId(TEST_USER_ID);
+            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
             verify(deviceTokenRepository).save(existingToken);
         }
 
@@ -141,8 +164,10 @@ class DeviceTokenServiceTest {
             // when
             DeviceTokenResponse result = deviceTokenService.registerToken(TEST_USER_ID, request);
 
-            // then
+            // then: 벌크 비활성화는 기존 토큰(구 토큰) 기준으로 제외되어야 한다
             assertThat(result).isNotNull();
+            assertThat(existingByDevice.getIsActive()).isTrue();
+            verify(deviceTokenRepository).deactivateAllByUserIdExceptToken(TEST_USER_ID, TEST_FCM_TOKEN);
             verify(deviceTokenRepository).save(existingByDevice);
         }
     }

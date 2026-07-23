@@ -40,8 +40,8 @@ public class DeviceTokenService {
 
             // 다른 사용자의 토큰이면 기존 것을 현재 사용자로 이전
             if (!existing.getUserId().equals(userId)) {
-                // 현재 사용자의 다른 디바이스 비활성화
-                deviceTokenRepository.deactivateAllByUserId(userId);
+                // 현재 사용자의 다른 디바이스 비활성화 (LUT-261: 로드된 엔티티는 벌크에서 제외)
+                deviceTokenRepository.deactivateAllByUserIdExceptToken(userId, existing.getFcmToken());
 
                 // 토큰을 현재 사용자로 이전
                 existing.setUserId(userId);
@@ -55,8 +55,11 @@ public class DeviceTokenService {
                 log.info("Device token transferred from another user to user: {}", userId);
                 return DeviceTokenResponse.from(saved);
             } else {
-                // 같은 사용자의 토큰이면 다른 디바이스 비활성화 후 현재 토큰 활성화
-                deviceTokenRepository.deactivateAllByUserId(userId);
+                // 같은 사용자의 토큰이면 다른 디바이스 비활성화 후 현재 토큰 활성화.
+                // deactivateAllByUserId(벌크)를 쓰면 영속성 컨텍스트의 existing이 스테일 상태(active=true)라
+                // activate()가 변경으로 감지되지 않아 DB에 비활성 상태로 남는다 — 앱을 열 때마다
+                // 활성/비활성이 토글되어 푸시가 간헐 수신되는 원인이었다 (LUT-261).
+                deviceTokenRepository.deactivateAllByUserIdExceptToken(userId, existing.getFcmToken());
                 existing.activate();
                 existing.setDeviceId(request.deviceId());
                 existing.setDeviceName(request.deviceName());
@@ -73,10 +76,11 @@ public class DeviceTokenService {
                     deviceTokenRepository.findByUserIdAndDeviceId(userId, request.deviceId());
 
             if (existingByDevice.isPresent()) {
-                // 다른 디바이스 비활성화
-                deviceTokenRepository.deactivateAllByUserId(userId);
-
                 DeviceToken existing = existingByDevice.get();
+
+                // 다른 디바이스 비활성화 (LUT-261: 로드된 엔티티는 벌크에서 제외)
+                deviceTokenRepository.deactivateAllByUserIdExceptToken(userId, existing.getFcmToken());
+
                 existing.updateToken(request.fcmToken());
                 existing.setDeviceName(request.deviceName());
                 existing.setAppVersion(request.appVersion());

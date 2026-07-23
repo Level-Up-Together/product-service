@@ -52,6 +52,18 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
     void deactivateAllByUserId(@Param("userId") String userId);
 
     /**
+     * 사용자의 모든 토큰 비활성화 (특정 토큰 제외)
+     * 벌크 UPDATE는 영속성 컨텍스트를 우회하므로, 이미 로드된 엔티티를 재활성화하는 흐름에서
+     * deactivateAllByUserId를 쓰면 스테일 스냅샷 때문에 활성화 UPDATE가 유실될 수 있다 (LUT-261).
+     * 재등록 대상 토큰을 벌크에서 제외해 이 문제를 방지한다.
+     */
+    @Modifying
+    @Query("UPDATE DeviceToken dt SET dt.isActive = false "
+        + "WHERE dt.userId = :userId AND dt.fcmToken <> :fcmToken")
+    void deactivateAllByUserIdExceptToken(@Param("userId") String userId,
+                                          @Param("fcmToken") String fcmToken);
+
+    /**
      * 특정 토큰 비활성화
      */
     @Modifying
