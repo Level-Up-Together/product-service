@@ -24,6 +24,9 @@ import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.entity.Friendship;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.enums.FriendshipStatus;
@@ -84,6 +87,9 @@ class MyPageServiceTest {
     private io.pinkspider.global.facade.MissionQueryFacade missionQueryFacadeService;
 
     @Mock
+    private MissionCategoryService missionCategoryService;
+
+    @Mock
     private ContentReviewChecker contentReviewChecker;
 
     @Mock
@@ -132,6 +138,12 @@ class MyPageServiceTest {
         return new UserStatsDto(
             null, userId, 0, 0, 0, 0, 0, null, 0, 0, 0L, 0, 0L, 0
         );
+    }
+
+    /** LUT-257: 진행중 미션 DTO 생성 헬퍼 */
+    private InProgressMissionDto createInProgressMissionDto(String visibility, String guildId) {
+        return new InProgressMissionDto(
+            100L, 10L, "운동", "달리기", visibility, guildId, LocalDateTime.now());
     }
 
     /** getPublicProfile 공통 스텁 설정 */
@@ -401,6 +413,303 @@ class MyPageServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.getFriendshipStatus()).isEqualTo("PENDING_RECEIVED");
             assertThat(result.getFriendRequestId()).isEqualTo(99L);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-257: getPublicProfile 진행중 미션 노출 판정 테스트")
+    class GetPublicProfileInProgressMissionTest {
+
+        @Test
+        @DisplayName("진행중인 미션이 없으면 in_progress_mission이 null이다")
+        void noInProgressMission_returnsNull() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            // then
+            assertThat(result.getInProgressMission()).isNull();
+        }
+
+        @Test
+        @DisplayName("본인 조회 시 PRIVATE 미션도 전부 노출된다")
+        void owner_privateMission_fullyVisible() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            // then
+            var mission = result.getInProgressMission();
+            assertThat(mission).isNotNull();
+            assertThat(mission.getIsVisible()).isTrue();
+            assertThat(mission.getMissionId()).isEqualTo(100L);
+            assertThat(mission.getTitle()).isEqualTo("달리기");
+            assertThat(mission.getVisibility()).isEqualTo("PRIVATE");
+        }
+
+        @Test
+        @DisplayName("타인이 PUBLIC 미션을 조회하면 노출된다")
+        void stranger_publicMission_visible() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PUBLIC", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            var mission = result.getInProgressMission();
+            assertThat(mission.getIsVisible()).isTrue();
+            assertThat(mission.getMissionId()).isEqualTo(100L);
+        }
+
+        @Test
+        @DisplayName("친구가 FRIENDS_ONLY 미션을 조회하면 노출된다")
+        void friend_friendsOnlyMission_visible() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            Friendship friendship = Friendship.builder()
+                .userId(viewerId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.ACCEPTED)
+                .build();
+            setId(friendship, 1L);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.of(friendship));
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("친구가 아니면 FRIENDS_ONLY 미션은 마스킹된다")
+        void nonFriend_friendsOnlyMission_masked() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            var mission = result.getInProgressMission();
+            assertThat(mission.getIsVisible()).isFalse();
+            assertThat(mission.getMissionId()).isNull();
+            assertThat(mission.getCategoryId()).isNull();
+            assertThat(mission.getCategoryName()).isNull();
+            assertThat(mission.getTitle()).isNull();
+            // visibility/startedAt은 마스킹되지 않고 유지된다
+            assertThat(mission.getVisibility()).isEqualTo("FRIENDS_ONLY");
+            assertThat(mission.getStartedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("같은 길드 소속이면 GUILD_ONLY 미션이 노출된다")
+        void sameGuild_guildOnlyMission_visible() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            GuildMembershipInfo sharedGuild = new GuildMembershipInfo(5L, "공유 길드", null, 1, false, false);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of(sharedGuild));
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L))).thenReturn(java.util.Map.of(5L, 3));
+            when(guildQueryFacadeService.getUserGuildMemberships(viewerId)).thenReturn(List.of(sharedGuild));
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("GUILD_ONLY", "5")));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("다른 길드 소속이면 GUILD_ONLY 미션은 마스킹된다")
+        void differentGuild_guildOnlyMission_masked() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            GuildMembershipInfo targetGuild = new GuildMembershipInfo(5L, "타겟 길드", null, 1, false, false);
+            GuildMembershipInfo viewerGuild = new GuildMembershipInfo(9L, "뷰어 길드", null, 1, false, false);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(1);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(0L);
+            when(gamificationQueryFacadeService.countAttendanceDays(TEST_USER_ID)).thenReturn(1L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(List.of(targetGuild));
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L))).thenReturn(java.util.Map.of(5L, 3));
+            when(guildQueryFacadeService.getUserGuildMemberships(viewerId)).thenReturn(List.of(viewerGuild));
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("GUILD_ONLY", "5")));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isFalse();
+        }
+
+        @Test
+        @DisplayName("FRIENDS_AND_GUILD: 친구이기만 해도(길드 무관) 노출된다")
+        void friendsAndGuild_friendOnly_visible() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            Friendship friendship = Friendship.builder()
+                .userId(viewerId)
+                .friendId(TEST_USER_ID)
+                .status(FriendshipStatus.ACCEPTED)
+                .build();
+            setId(friendship, 1L);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.of(friendship));
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_AND_GUILD", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("비로그인 조회자에게 PUBLIC 미션은 노출된다")
+        void anonymous_publicMission_visible() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PUBLIC", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isTrue();
+            verify(friendshipRepository, never()).findFriendship(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("비로그인 조회자에게 FRIENDS_ONLY 미션은 마스킹된다")
+        void anonymous_friendsOnlyMission_masked() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getInProgressMission().getIsVisible()).isFalse();
+            assertThat(result.getInProgressMission().getTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("진행중 미션 조회 실패 시 in_progress_mission은 null이고 프로필은 정상 반환된다")
+        void facadeException_inProgressMissionNullButProfileSucceeds() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenThrow(new RuntimeException("facade error"));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.getInProgressMission()).isNull();
+        }
+
+        @Test
+        @DisplayName("locale과 categoryId가 있으면 카테고리명이 현지화된다")
+        void localizedCategoryName_appliedWhenLocaleAndCategoryIdPresent() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
+
+            MissionCategoryResponse category = MissionCategoryResponse.builder()
+                .id(10L)
+                .name("운동")
+                .nameEn("Exercise")
+                .isActive(true)
+                .build();
+            when(missionCategoryService.getCategory(10L)).thenReturn(category);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID, "en");
+
+            // then
+            assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("Exercise");
+        }
+
+        @Test
+        @DisplayName("카테고리 조회 실패 시 스냅샷 카테고리명으로 폴백한다")
+        void localizedCategoryName_fallsBackOnException() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
+            when(missionCategoryService.getCategory(10L)).thenThrow(new IllegalArgumentException("not found"));
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID, "en");
+
+            // then: 스냅샷 이름("운동")으로 폴백
+            assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("운동");
         }
     }
 

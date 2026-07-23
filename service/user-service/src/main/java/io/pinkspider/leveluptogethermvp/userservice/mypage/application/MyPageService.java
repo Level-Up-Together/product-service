@@ -60,6 +60,7 @@ public class MyPageService {
     private final ProfileImageStorageService profileImageStorageService;
     private final GuildQueryFacade guildQueryFacadeService;
     private final MissionQueryFacade missionQueryFacadeService;
+    private final io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
     private final ContentReviewChecker contentReviewChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final UserProfileCacheService userProfileCacheService;
@@ -87,6 +88,12 @@ public class MyPageService {
      * @return 공개 프로필 정보
      */
     public PublicProfileResponse getPublicProfile(String targetUserId, String currentUserId) {
+        return getPublicProfile(targetUserId, currentUserId, null);
+    }
+
+    /** LUT-257: locale은 진행중 미션 카테고리명 다국어 처리(Accept-Language)에 사용 */
+    public PublicProfileResponse getPublicProfile(String targetUserId, String currentUserId,
+                                                   String locale) {
         Users user = findUserOrThrow(targetUserId);
 
         // 장착된 칭호 조회
@@ -168,6 +175,11 @@ public class MyPageService {
         // 신고 처리중 여부 확인
         boolean isUnderReview = contentReviewChecker.isUnderReview(ReportTargetType.USER_PROFILE, targetUserId);
 
+        // LUT-257: 현재 실시간 진행중인 미션 (공개범위 판정 후 마스킹)
+        PublicProfileResponse.InProgressMissionInfo inProgressMission = buildInProgressMission(
+            targetUserId, currentUserId, isOwner,
+            "ACCEPTED".equals(friendshipStatusStr), guildIds, locale);
+
         return PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname(user.getDisplayName())
@@ -185,7 +197,75 @@ public class MyPageService {
             .friendshipStatus(friendshipStatusStr)
             .friendRequestId(friendRequestId)
             .isUnderReview(isUnderReview)
+            .inProgressMission(inProgressMission)
             .build();
+    }
+
+    /**
+     * LUT-257: 진행중 미션의 공개범위 판정.
+     * PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=대상과 같은 길드, FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만.
+     * 비노출 시 카테고리/미션명을 null 로 마스킹하고 is_visible=false 로 내린다.
+     */
+    private PublicProfileResponse.InProgressMissionInfo buildInProgressMission(
+            String targetUserId, String currentUserId, boolean isOwner,
+            boolean isFriend, java.util.List<Long> targetGuildIds, String locale) {
+        try {
+            return missionQueryFacadeService.findInProgressMission(targetUserId)
+                .map(m -> {
+                    boolean visible = isOwner
+                        || isMissionVisibleToViewer(m.visibility(), currentUserId, isFriend, targetGuildIds);
+                    return PublicProfileResponse.InProgressMissionInfo.builder()
+                        .missionId(visible ? m.missionId() : null)
+                        .categoryId(visible ? m.categoryId() : null)
+                        .categoryName(visible ? localizeCategoryName(m.categoryId(), m.categoryName(), locale) : null)
+                        .title(visible ? m.title() : null)
+                        .visibility(m.visibility())
+                        .isVisible(visible)
+                        .startedAt(m.startedAt())
+                        .build();
+                })
+                .orElse(null);
+        } catch (Exception e) {
+            log.warn("진행중 미션 조회 실패 - 프로필에서 생략: targetUserId={}, error={}",
+                targetUserId, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isMissionVisibleToViewer(String visibility, String currentUserId,
+                                              boolean isFriend, java.util.List<Long> targetGuildIds) {
+        if ("PUBLIC".equals(visibility)) {
+            return true;
+        }
+        if (currentUserId == null) {
+            return false;
+        }
+        boolean friendAllowed = "FRIENDS_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+        if (friendAllowed && isFriend) {
+            return true;
+        }
+        boolean guildAllowed = "GUILD_ONLY".equals(visibility) || "FRIENDS_AND_GUILD".equals(visibility);
+        if (guildAllowed && targetGuildIds != null && !targetGuildIds.isEmpty()) {
+            java.util.Set<Long> viewerGuildIds = guildQueryFacadeService
+                .getUserGuildMemberships(currentUserId).stream()
+                .map(io.pinkspider.global.facade.dto.GuildMembershipInfo::guildId)
+                .collect(java.util.stream.Collectors.toSet());
+            return targetGuildIds.stream().anyMatch(viewerGuildIds::contains);
+        }
+        return false;
+    }
+
+    /** LUT-257: 카테고리명 다국어 — categoryId가 있으면 메타에서 locale 반영, 없으면(커스텀) 스냅샷 사용 */
+    private String localizeCategoryName(Long categoryId, String fallbackName, String locale) {
+        if (categoryId == null || locale == null) {
+            return fallbackName;
+        }
+        try {
+            var category = missionCategoryService.getCategory(categoryId);
+            return category != null ? category.getLocalizedName(locale) : fallbackName;
+        } catch (Exception e) {
+            return fallbackName;
+        }
     }
 
     /**

@@ -61,9 +61,11 @@ public class MyPageController {
     @GetMapping("/profile/{userId}")
     public ResponseEntity<ApiResult<PublicProfileResponse>> getPublicProfile(
         @PathVariable("userId") String targetUserId,
-        @CurrentUser(required = false) String currentUserId) {
+        @CurrentUser(required = false) String currentUserId,
+        @org.springframework.web.bind.annotation.RequestHeader(value = org.springframework.http.HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        PublicProfileResponse response = myPageService.getPublicProfile(targetUserId, currentUserId);
+        PublicProfileResponse response =
+            myPageService.getPublicProfile(targetUserId, currentUserId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<PublicProfileResponse>builder().value(response).build());
     }
 

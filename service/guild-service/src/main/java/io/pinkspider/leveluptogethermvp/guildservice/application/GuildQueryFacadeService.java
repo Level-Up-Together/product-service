@@ -58,6 +58,13 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
     }
 
     @Override
+    public boolean isGuildPublic(Long guildId) {
+        return guildRepository.findById(guildId)
+            .map(Guild::isPublic)
+            .orElse(false);
+    }
+
+    @Override
     public String getGuildMasterId(Long guildId) {
         return guildRepository.findByIdAndIsActiveTrue(guildId)
             .map(Guild::getMasterId)

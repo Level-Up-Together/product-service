@@ -36,7 +36,8 @@ public class MissionCreateRequest {
     private String description;
 
     @Builder.Default
-    private MissionVisibility visibility = MissionVisibility.PRIVATE;
+    // LUT-257: 기본 공개 (미전송 구클라이언트 포함)
+    private MissionVisibility visibility = MissionVisibility.PUBLIC;
 
     @NotNull(message = "미션 타입은 필수입니다.")
     private MissionType type;

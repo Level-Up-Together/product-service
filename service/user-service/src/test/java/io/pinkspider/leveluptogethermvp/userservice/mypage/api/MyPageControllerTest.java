@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.userservice.mypage.api;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.mock.web.MockMultipartFile;
@@ -573,7 +574,7 @@ class MyPageControllerTest {
             .friendRequestId(null)
             .build();
 
-        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+        when(myPageService.getPublicProfile(eq(targetUserId), eq(MOCK_USER_ID), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -612,7 +613,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (본인 조회 시 null)").optional(),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional()
                         )
                         .build()
                 )
@@ -655,7 +657,7 @@ class MyPageControllerTest {
             .friendRequestId(null)
             .build();
 
-        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+        when(myPageService.getPublicProfile(eq(targetUserId), eq(MOCK_USER_ID), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -694,7 +696,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)").optional(),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional()
                         )
                         .build()
                 )
@@ -730,7 +733,7 @@ class MyPageControllerTest {
             .friendRequestId(123L)  // 수락/거절에 사용할 요청 ID
             .build();
 
-        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+        when(myPageService.getPublicProfile(eq(targetUserId), eq(MOCK_USER_ID), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -764,7 +767,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (PENDING_RECEIVED)"),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)"),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional()
                         )
                         .build()
                 )
@@ -800,7 +804,7 @@ class MyPageControllerTest {
             .friendRequestId(null)
             .build();
 
-        when(myPageService.getPublicProfile(targetUserId, MOCK_USER_ID)).thenReturn(response);
+        when(myPageService.getPublicProfile(eq(targetUserId), eq(MOCK_USER_ID), any())).thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -834,7 +838,8 @@ class MyPageControllerTest {
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (ACCEPTED)"),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional(),
-                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional()
+                            fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
+                            fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional()
                         )
                         .build()
                 )

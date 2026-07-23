@@ -1,12 +1,18 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.facade.MissionQueryFacade;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemplate;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +33,47 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
     private final MissionExecutionRepository missionExecutionRepository;
     private final DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionTemplateRepository missionTemplateRepository;
+
+    @Override
+    public Optional<InProgressMissionDto> findInProgressMission(String userId) {
+        Optional<MissionExecution> execution = missionExecutionRepository.findInProgressByUserId(userId);
+        Optional<DailyMissionInstance> instance = dailyMissionInstanceRepository.findInProgressByUserId(userId);
+
+        InProgressMissionDto fromExecution = execution
+            .map(e -> toDto(e.getParticipant().getMission(), e.getStartedAt()))
+            .orElse(null);
+        InProgressMissionDto fromInstance = instance
+            .map(i -> toDto(i.getParticipant().getMission(), i.getStartedAt()))
+            .orElse(null);
+
+        if (fromExecution == null) {
+            return Optional.ofNullable(fromInstance);
+        }
+        if (fromInstance == null) {
+            return Optional.of(fromExecution);
+        }
+        // 둘 다 진행중이면 최근 시작한 쪽 우선
+        return Optional.of(isAfter(fromExecution.startedAt(), fromInstance.startedAt())
+            ? fromExecution : fromInstance);
+    }
+
+    private InProgressMissionDto toDto(Mission mission, LocalDateTime startedAt) {
+        return new InProgressMissionDto(
+            mission.getId(),
+            mission.getCategoryId(),
+            mission.getCategoryName(),
+            mission.getTitle(),
+            mission.getVisibility() != null ? mission.getVisibility().name() : null,
+            mission.getGuildId(),
+            startedAt);
+    }
+
+    private boolean isAfter(LocalDateTime a, LocalDateTime b) {
+        if (a == null) {
+            return false;
+        }
+        return b == null || a.isAfter(b);
+    }
 
     @Override
     public int countClearedMissionBookTemplates(String userId) {

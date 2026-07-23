@@ -1031,6 +1031,110 @@ class MissionServiceTest {
     }
 
     @Nested
+    @DisplayName("LUT-257: 길드 미션 생성 시 공개범위 강제 테스트")
+    class ResolveGuildMissionVisibilityTest {
+
+        @Test
+        @DisplayName("공개 길드의 미션은 요청 visibility와 무관하게 PUBLIC으로 저장된다")
+        void createMission_publicGuild_forcesVisibilityPublic() {
+            // given
+            String guildIdStr = "100";
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PRIVATE)  // 요청은 비공개지만 무시되어야 함
+                .type(MissionType.GUILD)
+                .guildId(guildIdStr)
+                .build();
+
+            when(guildQueryFacadeService.isGuildPublic(100L)).thenReturn(true);
+            when(guildQueryFacadeService.getGuildName(100L)).thenReturn("공개 길드");
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getVisibility()).isEqualTo(MissionVisibility.PUBLIC);
+        }
+
+        @Test
+        @DisplayName("비공개 길드의 미션은 요청 visibility와 무관하게 PRIVATE으로 저장된다")
+        void createMission_privateGuild_forcesVisibilityPrivate() {
+            // given
+            String guildIdStr = "200";
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)  // 요청은 공개지만 무시되어야 함
+                .type(MissionType.GUILD)
+                .guildId(guildIdStr)
+                .build();
+
+            when(guildQueryFacadeService.isGuildPublic(200L)).thenReturn(false);
+            when(guildQueryFacadeService.getGuildName(200L)).thenReturn("비공개 길드");
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getVisibility()).isEqualTo(MissionVisibility.PRIVATE);
+        }
+
+        @Test
+        @DisplayName("guildId 파싱 실패 시 PRIVATE으로 저장된다")
+        void createMission_invalidGuildId_forcesVisibilityPrivate() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("길드 미션")
+                .description("설명")
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("invalid-guild-id")
+                .build();
+
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getVisibility()).isEqualTo(MissionVisibility.PRIVATE);
+            verify(guildQueryFacadeService, never()).isGuildPublic(any());
+        }
+
+        @Test
+        @DisplayName("개인 미션은 길드 공개여부와 무관하게 요청한 visibility를 그대로 사용한다")
+        void createMission_personalMission_keepsRequestedVisibility() {
+            // given
+            MissionCreateRequest request = MissionCreateRequest.builder()
+                .title("개인 미션")
+                .description("설명")
+                .visibility(MissionVisibility.FRIENDS_ONLY)
+                .type(MissionType.PERSONAL)
+                .build();
+
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            missionService.createMission(TEST_USER_ID, request);
+
+            // then
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getVisibility()).isEqualTo(MissionVisibility.FRIENDS_ONLY);
+            verify(guildQueryFacadeService, never()).isGuildPublic(any());
+        }
+    }
+
+    @Nested
     @DisplayName("미션 조회 테스트")
     class GetMissionTest {
 
@@ -1635,8 +1739,8 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("DRAFT 상태가 아닌 미션을 수정하면 예외가 발생한다")
-        void updateMission_notDraft_throwsException() {
+        @DisplayName("LUT-257: OPEN 상태의 미션은 안전 필드(제목)만 반영되어 수정된다")
+        void updateMission_openStatus_appliesSafeFieldOnly() {
             // given
             Long missionId = 1L;
             Mission mission = Mission.builder()
@@ -1657,10 +1761,155 @@ class MissionServiceTest {
 
             when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
 
+            // when
+            MissionResponse response = missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 완료/취소가 아니므로 예외 없이 수정되고, 안전 필드(제목)는 반영된다
+            assertThat(response).isNotNull();
+            assertThat(mission.getTitle()).isEqualTo("수정된 제목");
+        }
+
+        @Test
+        @DisplayName("LUT-257: OPEN 상태의 미션은 기간·경험치·인원 필드가 무시된다")
+        void updateMission_openStatus_ignoresUnsafeFields() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.OPEN)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            Integer originalMaxParticipants = mission.getMaxParticipants();
+            MissionInterval originalInterval = mission.getMissionInterval();
+            Integer originalDurationMinutes = mission.getDurationMinutes();
+            Integer originalExpPerCompletion = mission.getExpPerCompletion();
+            Integer originalBonusExp = mission.getBonusExpOnFullCompletion();
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .maxParticipants(5)
+                    .startAt(java.time.LocalDateTime.now())
+                    .endAt(java.time.LocalDateTime.now().plusDays(7))
+                    .missionInterval(MissionInterval.WEEKLY)
+                    .durationDays(10)
+                    .durationMinutes(30)
+                    .expPerCompletion(99)
+                    .bonusExpOnFullCompletion(99)
+                    .targetDurationMinutes(15)
+                    .dailyExecutionLimit(3)
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 모집중/진행중 상태에서는 기간·경험치·인원 필드가 반영되지 않는다
+            assertThat(mission.getMaxParticipants()).isEqualTo(originalMaxParticipants);
+            assertThat(mission.getStartAt()).isNull();
+            assertThat(mission.getEndAt()).isNull();
+            assertThat(mission.getMissionInterval()).isEqualTo(originalInterval);
+            assertThat(mission.getDurationDays()).isNull();
+            assertThat(mission.getDurationMinutes()).isEqualTo(originalDurationMinutes);
+            assertThat(mission.getExpPerCompletion()).isEqualTo(originalExpPerCompletion);
+            assertThat(mission.getBonusExpOnFullCompletion()).isEqualTo(originalBonusExp);
+            assertThat(mission.getTargetDurationMinutes()).isNull();
+            assertThat(mission.getDailyExecutionLimit()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-257: COMPLETED 상태의 미션을 수정하면 예외가 발생한다")
+        void updateMission_completedStatus_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.COMPLETED)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
             // when & then
             assertThatThrownBy(() -> missionService.updateMission(missionId, TEST_USER_ID, request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("작성중 상태의 미션만 수정할 수 있습니다.");
+                .hasMessage("완료되거나 취소된 미션은 수정할 수 없습니다.");
+        }
+
+        @Test
+        @DisplayName("LUT-257: CANCELLED 상태의 미션을 수정하면 예외가 발생한다")
+        void updateMission_cancelledStatus_throwsException() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .description("설명")
+                .status(MissionStatus.CANCELLED)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when & then
+            assertThatThrownBy(() -> missionService.updateMission(missionId, TEST_USER_ID, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("완료되거나 취소된 미션은 수정할 수 없습니다.");
+        }
+
+        @Test
+        @DisplayName("LUT-257: 길드 미션은 수정 요청에 visibility가 있어도 무시된다")
+        void updateMission_guildMission_visibilityChangeIgnored() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("길드 미션")
+                .description("설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .guildId("100")
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .visibility(MissionVisibility.PRIVATE)
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 길드 미션의 공개범위는 길드 공개여부로 강제되므로 요청이 무시된다
+            assertThat(mission.getVisibility()).isEqualTo(MissionVisibility.PUBLIC);
         }
 
         @Test
@@ -2266,6 +2515,35 @@ class MissionServiceTest {
             verify(missionParticipantService).addCreatorAsParticipant(any(Mission.class), eq(TEST_USER_ID));
             verify(missionRepository).existsActiveByBaseMissionIdAndCreatorId(eq(templateId), eq(TEST_USER_ID));
         }
+
+        @Test
+        @DisplayName("LUT-257: 템플릿의 visibility와 무관하게 생성된 미션은 항상 PUBLIC이다")
+        void createMissionFromTemplate_forcesVisibilityPublic() {
+            // given: 템플릿 자체의 visibility가 PRIVATE 이어도 무시되어야 한다
+            Long templateId = 1L;
+            MissionTemplate template = MissionTemplate.builder()
+                .title("30분 독서")
+                .description("매일 30분 독서하기")
+                .visibility(MissionVisibility.PRIVATE)
+                .source(MissionSource.SYSTEM)
+                .missionInterval(MissionInterval.DAILY)
+                .durationMinutes(30)
+                .build();
+            TestReflectionUtils.setField(template, "id", templateId);
+
+            when(missionTemplateRepository.findById(templateId)).thenReturn(Optional.of(template));
+            when(missionRepository.existsActiveByBaseMissionIdAndCreatorId(templateId, TEST_USER_ID))
+                .thenReturn(false);
+            when(missionRepository.save(any(Mission.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            missionService.createMissionFromTemplate(templateId, TEST_USER_ID);
+
+            // then
+            ArgumentCaptor<Mission> missionCaptor = ArgumentCaptor.forClass(Mission.class);
+            verify(missionRepository).save(missionCaptor.capture());
+            assertThat(missionCaptor.getValue().getVisibility()).isEqualTo(MissionVisibility.PUBLIC);
+        }
     }
 
     // ============================================================
@@ -2421,13 +2699,13 @@ class MissionServiceTest {
         }
 
         @Test
-        @DisplayName("수정 불가 상태 미션 수정 시 예외가 발생한다")
+        @DisplayName("LUT-257: 완료 상태 미션 수정 시 예외가 발생한다")
         void updateMission_nonModifiableStatus_throwsException() {
             // given
             Mission mission = Mission.builder()
-                .title("진행중 미션")
+                .title("완료된 미션")
                 .description("설명")
-                .status(MissionStatus.IN_PROGRESS)
+                .status(MissionStatus.COMPLETED)
                 .visibility(MissionVisibility.PUBLIC)
                 .type(MissionType.PERSONAL)
                 .creatorId(TEST_USER_ID)
@@ -2444,7 +2722,39 @@ class MissionServiceTest {
             // when & then
             assertThatThrownBy(() -> missionService.updateMission(1L, TEST_USER_ID, request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("작성중 상태의 미션만 수정할 수 있습니다");
+                .hasMessageContaining("완료되거나 취소된 미션은 수정할 수 없습니다");
+        }
+
+        @Test
+        @DisplayName("LUT-257: IN_PROGRESS 상태 미션은 예외 없이 안전 필드만 반영된다")
+        void updateMission_inProgressStatus_appliesSafeFieldsOnly() {
+            // given
+            Mission mission = Mission.builder()
+                .title("기존 제목")
+                .description("기존 설명")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, 1L);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            when(missionRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(mission));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .maxParticipants(10)
+                    .build();
+
+            // when
+            MissionResponse result = missionService.updateMission(1L, TEST_USER_ID, request);
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(mission.getTitle()).isEqualTo("수정된 제목");
+            assertThat(mission.getMaxParticipants()).isNull();
         }
 
         @Test

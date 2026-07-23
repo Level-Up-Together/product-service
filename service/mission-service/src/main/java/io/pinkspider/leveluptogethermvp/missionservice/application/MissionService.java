@@ -99,7 +99,10 @@ public class MissionService {
             .status(request.getType() == MissionType.GUILD
                 ? MissionStatus.IN_PROGRESS
                 : MissionStatus.DRAFT)
-            .visibility(request.getVisibility())
+            // LUT-257: 길드 미션 공개범위는 길드 공개여부로 강제 (요청값 무시)
+            .visibility(request.getType() == MissionType.GUILD && request.getGuildId() != null
+                ? resolveGuildMissionVisibility(request.getGuildId())
+                : request.getVisibility())
             .type(request.getType())
             .source(MissionSource.USER)  // 명시적으로 USER로 설정
             .creatorId(creatorId)
@@ -166,7 +169,8 @@ public class MissionService {
             .descriptionAr(template.getDescriptionAr())
             .descriptionJa(template.getDescriptionJa())
             .status(MissionStatus.DRAFT)
-            .visibility(MissionVisibility.PRIVATE)
+            // LUT-257: 미션북에서 추가한 미션은 무조건 공개
+            .visibility(MissionVisibility.PUBLIC)
             .type(MissionType.PERSONAL)
             .source(MissionSource.SYSTEM)
             .participationType(template.getParticipationType())
@@ -550,9 +554,13 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         validateMissionOwner(mission, userId);
 
-        if (!mission.getStatus().isModifiable()) {
-            throw new IllegalStateException("작성중 상태의 미션만 수정할 수 있습니다.");
+        // LUT-257: 완료/취소 미션만 수정 불가. 작성중(DRAFT)은 전체 수정,
+        // 모집중/진행중은 안전 필드(제목·설명·공개범위·카테고리)만 수정 허용 —
+        // 진행 데이터에 영향 주는 필드(기간·경험치·인원 등)는 DRAFT 에서만 변경 가능.
+        if (!mission.getStatus().isActive()) {
+            throw new IllegalStateException("완료되거나 취소된 미션은 수정할 수 없습니다.");
         }
+        boolean fullEdit = mission.getStatus().isModifiable();
 
         if (request.getTitle() != null) {
             mission.setTitle(request.getTitle());
@@ -561,36 +569,39 @@ public class MissionService {
             mission.setDescription(request.getDescription());
         }
         if (request.getVisibility() != null) {
-            mission.setVisibility(request.getVisibility());
+            // LUT-257: 길드 미션 공개범위는 길드 공개여부로 강제되므로 변경 요청 무시
+            if (mission.getType() != MissionType.GUILD) {
+                mission.setVisibility(request.getVisibility());
+            }
         }
-        if (request.getMaxParticipants() != null) {
+        if (fullEdit && request.getMaxParticipants() != null) {
             mission.setMaxParticipants(request.getMaxParticipants());
         }
-        if (request.getStartAt() != null) {
+        if (fullEdit && request.getStartAt() != null) {
             mission.setStartAt(request.getStartAt());
         }
-        if (request.getEndAt() != null) {
+        if (fullEdit && request.getEndAt() != null) {
             mission.setEndAt(request.getEndAt());
         }
-        if (request.getMissionInterval() != null) {
+        if (fullEdit && request.getMissionInterval() != null) {
             mission.setMissionInterval(request.getMissionInterval());
         }
-        if (request.getDurationDays() != null) {
+        if (fullEdit && request.getDurationDays() != null) {
             mission.setDurationDays(request.getDurationDays());
         }
-        if (request.getDurationMinutes() != null) {
+        if (fullEdit && request.getDurationMinutes() != null) {
             mission.setDurationMinutes(request.getDurationMinutes());
         }
-        if (request.getExpPerCompletion() != null) {
+        if (fullEdit && request.getExpPerCompletion() != null) {
             mission.setExpPerCompletion(request.getExpPerCompletion());
         }
-        if (request.getBonusExpOnFullCompletion() != null) {
+        if (fullEdit && request.getBonusExpOnFullCompletion() != null) {
             mission.setBonusExpOnFullCompletion(request.getBonusExpOnFullCompletion());
         }
-        if (request.getTargetDurationMinutes() != null) {
+        if (fullEdit && request.getTargetDurationMinutes() != null) {
             mission.setTargetDurationMinutes(request.getTargetDurationMinutes());
         }
-        if (request.getDailyExecutionLimit() != null) {
+        if (fullEdit && request.getDailyExecutionLimit() != null) {
             mission.setDailyExecutionLimit(request.getDailyExecutionLimit());
         }
 
@@ -620,6 +631,21 @@ public class MissionService {
 
         log.info("미션 수정 완료: id={}", missionId);
         return MissionResponse.from(mission);
+    }
+
+    /**
+     * LUT-257: 길드 미션 공개범위는 길드 공개여부를 따른다 (공개 길드=PUBLIC, 비공개 길드=PRIVATE).
+     */
+    private MissionVisibility resolveGuildMissionVisibility(String guildIdRaw) {
+        try {
+            Long guildId = Long.parseLong(guildIdRaw);
+            return guildQueryFacadeService.isGuildPublic(guildId)
+                ? MissionVisibility.PUBLIC
+                : MissionVisibility.PRIVATE;
+        } catch (NumberFormatException e) {
+            log.warn("길드 ID 파싱 실패로 비공개 처리: guildId={}", guildIdRaw);
+            return MissionVisibility.PRIVATE;
+        }
     }
 
     @Transactional(transactionManager = "missionTransactionManager")

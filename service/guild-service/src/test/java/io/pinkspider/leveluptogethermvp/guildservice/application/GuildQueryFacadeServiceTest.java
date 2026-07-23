@@ -202,6 +202,43 @@ class GuildQueryFacadeServiceTest {
     }
 
     @Nested
+    @DisplayName("isGuildPublic")
+    class IsGuildPublicTest {
+
+        @Test
+        @DisplayName("LUT-257: 공개(PUBLIC) 길드이면 true 반환")
+        void shouldReturnTrueWhenGuildIsPublic() {
+            Guild guild = createGuild(1L, "공개 길드", "master-1");
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(guild));
+
+            assertThat(facadeService.isGuildPublic(1L)).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-257: 비공개(PRIVATE) 길드이면 false 반환")
+        void shouldReturnFalseWhenGuildIsPrivate() {
+            Guild guild = Guild.builder()
+                .name("비공개 길드")
+                .masterId("master-1")
+                .visibility(GuildVisibility.PRIVATE)
+                .isActive(true)
+                .build();
+            setEntityId(guild, 2L, Guild.class);
+            when(guildRepository.findById(2L)).thenReturn(Optional.of(guild));
+
+            assertThat(facadeService.isGuildPublic(2L)).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-257: 길드가 없으면 false 반환")
+        void shouldReturnFalseWhenGuildNotFound() {
+            when(guildRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThat(facadeService.isGuildPublic(999L)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("getGuildBasicInfo")
     class GetGuildBasicInfoTest {
 

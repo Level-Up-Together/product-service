@@ -53,6 +53,29 @@ public class PublicProfileResponse {
     // 신고 처리중 여부
     private Boolean isUnderReview;
 
+    // LUT-257: 현재 실시간 진행중인 미션 (없으면 null)
+    private InProgressMissionInfo inProgressMission;
+
+    /**
+     * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 카테고리/미션명은 null 로
+     * 마스킹되어 내려간다 (프론트는 "비공개 미션 진행중" 표시).
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class InProgressMissionInfo {
+        private Long missionId;
+        private Long categoryId;
+        private String categoryName;
+        private String title;
+        private String visibility;
+        @JsonProperty("is_visible")
+        private Boolean isVisible;
+        private java.time.LocalDateTime startedAt;
+    }
+
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
