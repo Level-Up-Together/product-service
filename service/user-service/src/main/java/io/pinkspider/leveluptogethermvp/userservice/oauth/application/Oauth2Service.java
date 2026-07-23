@@ -283,14 +283,11 @@ public class Oauth2Service {
         Users user = existingUser.get();
 
         boolean needsSave = false;
-        if (preferredLocale != null
-            && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale)
-            && "en".equals(user.getPreferredLocale())
-            && !preferredLocale.equals("en")) {
-            user.updatePreferredLocale(preferredLocale);
-            needsSave = true;
-            log.info("기존 사용자 locale 업데이트: userId={}, locale={}", user.getId(), preferredLocale);
-        }
+        // LUT-256: 로그인 시 디바이스 locale 로 preferred_locale 을 덮어쓰지 않는다.
+        // 기존 휴리스틱("저장값이 en 이면 디바이스 값으로 갱신")은 사용자가 마이페이지에서
+        // 직접 선택한 English('en')와 미설정 기본값 'en' 을 구분하지 못해, English 선택
+        // 유저가 재로그인하면 푸시 언어가 디바이스 언어로 되돌아갔다. locale 은 가입 시점
+        // (prepareSignupSession)과 마이페이지 변경으로만 결정된다.
         if (preferredTimezone != null
             && io.pinkspider.global.translation.enums.SupportedTimezone.isValid(preferredTimezone)
             && "Asia/Seoul".equals(user.getPreferredTimezone())

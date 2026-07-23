@@ -676,33 +676,33 @@ class Oauth2ServiceTest {
     class FindExistingUserLocaleTimezoneTest {
 
         @Test
-        @DisplayName("기존 사용자의 locale이 en이고 다른 locale이 전달되면 locale을 업데이트한다")
-        void findExistingUser_existingUser_updatesLocale() {
+        @DisplayName("로그인 시 디바이스 locale로 저장된 locale을 덮어쓰지 않는다 (LUT-256)")
+        void findExistingUser_existingUser_doesNotOverwriteLocale() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
-                // given
+                // given - 사용자가 마이페이지에서 English를 직접 선택한 상태 ('en')
                 Users existingUser = Users.builder()
                     .id(TEST_USER_ID)
                     .email(TEST_EMAIL)
                     .nickname(TEST_NICKNAME)
                     .provider("google")
                     .preferredLocale("en")
-                    .preferredTimezone("Asia/Seoul")
+                    .preferredTimezone("Asia/Tokyo")
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
                 when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
                     .thenReturn(Optional.of(existingUser));
-                when(userRepository.save(any(Users.class))).thenReturn(existingUser);
 
                 io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
                     createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
 
-                // when
+                // when - 디바이스 locale(ko)로 재로그인
                 Optional<Users> result = oauth2Service.findExistingUser(userInfo, "ko", null);
 
-                // then
+                // then - locale 유지, save 미호출
                 assertThat(result).isPresent();
-                verify(userRepository).save(any(Users.class));
+                assertThat(result.get().getPreferredLocale()).isEqualTo("en");
+                verify(userRepository, never()).save(any(Users.class));
             }
         }
 
