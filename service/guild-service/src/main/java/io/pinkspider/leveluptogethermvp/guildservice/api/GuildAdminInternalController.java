@@ -35,6 +35,7 @@ public class GuildAdminInternalController {
     public ApiResult<GuildAdminPageResponse> searchGuilds(
             @RequestParam(required = false) String keyword,
             @RequestParam(name = "category_id", required = false) Long categoryId,
+            @RequestParam(name = "category_ids", required = false) java.util.List<Long> categoryIds,
             @RequestParam(name = "is_active", required = false) Boolean isActive,
             @RequestParam(required = false) String visibility,
             @RequestParam(required = false, defaultValue = "0") int page,
@@ -46,7 +47,7 @@ public class GuildAdminInternalController {
             : Sort.by(sortBy).descending();
         return ApiResult.<GuildAdminPageResponse>builder()
             .value(guildAdminInternalService.searchGuilds(
-                keyword, categoryId, isActive, visibility, PageRequest.of(page, size, sort)))
+                keyword, categoryId, categoryIds, isActive, visibility, PageRequest.of(page, size, sort)))
             .build();
     }
 

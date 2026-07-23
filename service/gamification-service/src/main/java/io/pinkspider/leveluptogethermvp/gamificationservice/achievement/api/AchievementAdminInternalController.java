@@ -36,6 +36,7 @@ public class AchievementAdminInternalController {
     public ApiResult<AchievementAdminPageResponse> searchAchievements(
             @RequestParam(required = false) String keyword,
             @RequestParam(name = "category_id", required = false) Long categoryId,
+            @RequestParam(name = "category_ids", required = false) java.util.List<Long> categoryIds,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size,
             @RequestParam(name = "sort_by", required = false, defaultValue = "id") String sortBy,
@@ -44,7 +45,7 @@ public class AchievementAdminInternalController {
             ? Sort.by(sortBy).ascending()
             : Sort.by(sortBy).descending();
         return ApiResult.<AchievementAdminPageResponse>builder()
-            .value(achievementAdminService.searchAchievements(keyword, categoryId, PageRequest.of(page, size, sort)))
+            .value(achievementAdminService.searchAchievements(keyword, categoryId, categoryIds, PageRequest.of(page, size, sort)))
             .build();
     }
 

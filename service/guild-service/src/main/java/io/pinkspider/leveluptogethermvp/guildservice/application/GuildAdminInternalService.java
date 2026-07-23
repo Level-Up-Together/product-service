@@ -44,11 +44,27 @@ public class GuildAdminInternalService {
 
     public GuildAdminPageResponse searchGuilds(String keyword, Long categoryId,
             Boolean isActive, String visibility, Pageable pageable) {
+        return searchGuilds(keyword, categoryId, null, isActive, visibility, pageable);
+    }
+
+    /** 멀티 카테고리 필터 지원 — categoryIds 우선, 없으면 단일 categoryId 사용 (하위 호환) */
+    public GuildAdminPageResponse searchGuilds(String keyword, Long categoryId,
+            List<Long> categoryIds, Boolean isActive, String visibility, Pageable pageable) {
         GuildVisibility guildVisibility = visibility != null
             ? GuildVisibility.valueOf(visibility) : null;
 
+        List<Long> effectiveCategoryIds = categoryIds != null && !categoryIds.isEmpty()
+            ? categoryIds
+            : (categoryId != null ? List.of(categoryId) : List.of());
+        boolean hasCategoryFilter = !effectiveCategoryIds.isEmpty();
+
         Page<Guild> guilds = guildRepository.searchGuildsForAdmin(
-            keyword, categoryId, isActive, guildVisibility, pageable);
+            keyword,
+            hasCategoryFilter,
+            hasCategoryFilter ? effectiveCategoryIds : List.of(-1L),
+            isActive,
+            guildVisibility,
+            pageable);
 
         Map<Long, MissionCategoryResponse> categoryMap = getCategoryMap();
         Map<Long, Integer> memberCountMap = getMemberCountMap(

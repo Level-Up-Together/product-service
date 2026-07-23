@@ -4,6 +4,7 @@ import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -82,7 +83,7 @@ class GuildAdminInternalServiceTest {
             Guild guild = createTestGuild(1L);
             Page<Guild> page = new PageImpl<>(List.of(guild));
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), any(), any(), any(), any()))
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), any(), any()))
                 .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
             when(guildMemberRepository.countActiveMembersByGuildIds(anyList()))
@@ -103,7 +104,7 @@ class GuildAdminInternalServiceTest {
             // given
             Page<Guild> page = new PageImpl<>(List.of());
             Pageable pageable = PageRequest.of(0, 10);
-            when(guildRepository.searchGuildsForAdmin(any(), any(), any(), eq(GuildVisibility.PRIVATE), any()))
+            when(guildRepository.searchGuildsForAdmin(any(), anyBoolean(), anyList(), any(), eq(GuildVisibility.PRIVATE), any()))
                 .thenReturn(page);
             when(missionCategoryService.getAllCategories()).thenReturn(List.of());
 

@@ -198,7 +198,9 @@ class AchievementAdminServiceTest {
             Achievement achievement = createTestAchievement(1L, "미션 달성", category);
             Page<Achievement> page = new PageImpl<>(List.of(achievement), pageable, 1);
 
-            when(achievementRepository.searchByKeywordAndCategoryId("미션", 1L, pageable)).thenReturn(page);
+            when(achievementRepository.searchByKeywordAndCategoryIds(
+                            "미션", true, java.util.List.of(1L), pageable))
+                    .thenReturn(page);
 
             // when
             AchievementAdminPageResponse result = achievementAdminService.searchAchievements("미션", 1L, pageable);

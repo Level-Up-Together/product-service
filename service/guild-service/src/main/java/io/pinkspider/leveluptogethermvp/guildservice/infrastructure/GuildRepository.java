@@ -80,12 +80,13 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
 
     @Query("SELECT g FROM Guild g WHERE " +
            "(:keyword IS NULL OR :keyword = '' OR LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(g.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-           "AND (:categoryId IS NULL OR g.categoryId = :categoryId) " +
+           "AND (:hasCategoryFilter = false OR g.categoryId IN :categoryIds) " +
            "AND (:isActive IS NULL OR g.isActive = :isActive) " +
            "AND (:visibility IS NULL OR g.visibility = :visibility)")
     Page<Guild> searchGuildsForAdmin(
         @Param("keyword") String keyword,
-        @Param("categoryId") Long categoryId,
+        @Param("hasCategoryFilter") boolean hasCategoryFilter,
+        @Param("categoryIds") List<Long> categoryIds,
         @Param("isActive") Boolean isActive,
         @Param("visibility") GuildVisibility visibility,
         Pageable pageable

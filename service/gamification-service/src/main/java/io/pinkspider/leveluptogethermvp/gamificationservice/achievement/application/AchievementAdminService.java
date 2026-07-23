@@ -55,8 +55,24 @@ public class AchievementAdminService {
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public AchievementAdminPageResponse searchAchievements(String keyword, Long categoryId, Pageable pageable) {
+        return searchAchievements(keyword, categoryId, null, pageable);
+    }
+
+    /** 멀티 카테고리 필터 지원 — categoryIds 우선, 없으면 단일 categoryId 사용 (하위 호환) */
+    @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
+    public AchievementAdminPageResponse searchAchievements(
+            String keyword, Long categoryId, java.util.List<Long> categoryIds, Pageable pageable) {
+        java.util.List<Long> effectiveCategoryIds = categoryIds != null && !categoryIds.isEmpty()
+            ? categoryIds
+            : (categoryId != null ? java.util.List.of(categoryId) : java.util.List.of());
+        boolean hasCategoryFilter = !effectiveCategoryIds.isEmpty();
+
         Page<AchievementAdminResponse> page = achievementRepository
-            .searchByKeywordAndCategoryId(keyword, categoryId, pageable)
+            .searchByKeywordAndCategoryIds(
+                keyword,
+                hasCategoryFilter,
+                hasCategoryFilter ? effectiveCategoryIds : java.util.List.of(-1L),
+                pageable)
             .map(this::toResponseWithEnrichment);
         return AchievementAdminPageResponse.from(page);
     }

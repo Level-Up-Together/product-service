@@ -68,6 +68,18 @@ public interface AchievementRepository extends JpaRepository<Achievement, Long> 
         "(:keyword IS NULL OR :keyword = '' OR " +
         "LOWER(a.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
         "LOWER(a.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+        "AND (:hasCategoryFilter = false OR a.category.id IN :categoryIds)")
+    Page<Achievement> searchByKeywordAndCategoryIds(
+        @Param("keyword") String keyword,
+        @Param("hasCategoryFilter") boolean hasCategoryFilter,
+        @Param("categoryIds") java.util.List<Long> categoryIds,
+        Pageable pageable);
+
+    @Deprecated(forRemoval = false)
+    @Query("SELECT a FROM Achievement a WHERE " +
+        "(:keyword IS NULL OR :keyword = '' OR " +
+        "LOWER(a.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+        "LOWER(a.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
         "AND (:categoryId IS NULL OR a.category.id = :categoryId)")
     Page<Achievement> searchByKeywordAndCategoryId(
         @Param("keyword") String keyword,
