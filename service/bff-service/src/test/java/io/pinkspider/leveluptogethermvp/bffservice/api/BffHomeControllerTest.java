@@ -771,7 +771,7 @@ class BffHomeControllerTest {
             .pendingCount(1)
             .build();
 
-        when(bffMissionService.getTodayMissions(anyString()))
+        when(bffMissionService.getTodayMissions(anyString(), any()))
             .thenReturn(mockResponse);
 
         // when

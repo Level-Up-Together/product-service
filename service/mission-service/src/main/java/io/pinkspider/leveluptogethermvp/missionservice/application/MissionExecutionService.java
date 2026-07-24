@@ -40,6 +40,7 @@ public class MissionExecutionService {
     private final io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository dailyMissionInstanceRepository;
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
+    private final MissionExecutionQueryService executionQueryService;
     private final UserQueryFacade userQueryFacadeService;
     private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
 
@@ -185,11 +186,19 @@ public class MissionExecutionService {
 
     @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date, Long instanceId) {
+        return getExecutionByDate(missionId, userId, date, instanceId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 특정 날짜 수행 기록 조회 (미션 상세 기록 화면) */
+    @Transactional(transactionManager = "missionTransactionManager", readOnly = true)
+    public MissionExecutionResponse getExecutionByDate(
+            Long missionId, String userId, LocalDate date, Long instanceId, String locale) {
         MissionExecutionResponse response = strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date, instanceId);
         // 연결된 피드의 공개범위 조회
         if (response.getId() != null) {
             response.setFeedVisibility(feedQueryService.getFeedVisibilityByExecutionId(response.getId()));
         }
+        executionQueryService.localizeCategoryNames(List.of(response), locale);
         return response;
     }
 

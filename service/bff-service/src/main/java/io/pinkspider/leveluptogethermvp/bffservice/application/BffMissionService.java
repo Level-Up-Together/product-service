@@ -42,12 +42,17 @@ public class BffMissionService {
      * @return MissionTodayDataResponse 오늘의 미션 데이터
      */
     public MissionTodayDataResponse getTodayMissions(String userId) {
+        return getTodayMissions(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명/미션명으로 오늘의 미션 데이터 조회 */
+    public MissionTodayDataResponse getTodayMissions(String userId, String locale) {
         log.info("BFF getTodayMissions called: userId={}", userId);
 
         // 병렬로 모든 데이터 조회
         CompletableFuture<List<MissionResponse>> myMissionsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return missionService.getMyMissions(userId);
+                return missionService.getMyMissions(userId, locale);
             } catch (Exception e) {
                 log.error("Failed to fetch my missions", e);
                 return Collections.emptyList();
@@ -56,7 +61,7 @@ public class BffMissionService {
 
         CompletableFuture<List<MissionExecutionResponse>> todayExecutionsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return missionExecutionQueryService.getTodayExecutions(userId);
+                return missionExecutionQueryService.getTodayExecutions(userId, locale);
             } catch (Exception e) {
                 log.error("Failed to fetch today executions", e);
                 return Collections.emptyList();
@@ -65,7 +70,7 @@ public class BffMissionService {
 
         CompletableFuture<List<MissionExecutionResponse>> completedPinnedFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                return missionExecutionQueryService.getCompletedPinnedInstancesForToday(userId);
+                return missionExecutionQueryService.getCompletedPinnedInstancesForToday(userId, locale);
             } catch (Exception e) {
                 log.error("Failed to fetch completed pinned instances", e);
                 return Collections.emptyList();

@@ -62,6 +62,26 @@ class BffMissionServiceTest {
     class GetTodayMissionsTest {
 
         @Test
+        @DisplayName("locale 지정 시 하위 서비스들에 locale을 전달한다 (LUT-255)")
+        void getTodayMissions_passesLocaleToSubServices() {
+            // given
+            when(missionService.getMyMissions(TEST_USER_ID, "en")).thenReturn(List.of());
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, "en"))
+                .thenReturn(List.of());
+            when(missionExecutionQueryService.getCompletedPinnedInstancesForToday(TEST_USER_ID, "en"))
+                .thenReturn(List.of());
+
+            // when
+            bffMissionService.getTodayMissions(TEST_USER_ID, "en");
+
+            // then
+            org.mockito.Mockito.verify(missionService).getMyMissions(TEST_USER_ID, "en");
+            org.mockito.Mockito.verify(missionExecutionQueryService).getTodayExecutions(TEST_USER_ID, "en");
+            org.mockito.Mockito.verify(missionExecutionQueryService)
+                .getCompletedPinnedInstancesForToday(TEST_USER_ID, "en");
+        }
+
+        @Test
         @DisplayName("오늘의 미션 데이터를 성공적으로 조회한다")
         void getTodayMissions_success() {
             // given
@@ -76,8 +96,8 @@ class BffMissionServiceTest {
                 createTestExecutionResponse(3L, ExecutionStatus.PENDING)
             );
 
-            when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionService.getMyMissions(TEST_USER_ID, null)).thenReturn(myMissions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -95,9 +115,9 @@ class BffMissionServiceTest {
         @DisplayName("미션 서비스 예외 발생 시 빈 리스트 반환")
         void getTodayMissions_missionServiceException_returnsEmptyList() {
             // given
-            when(missionService.getMyMissions(TEST_USER_ID))
+            when(missionService.getMyMissions(TEST_USER_ID, null))
                 .thenThrow(new RuntimeException("미션 서비스 오류"));
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID))
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null))
                 .thenReturn(Collections.emptyList());
 
             // when
@@ -113,9 +133,9 @@ class BffMissionServiceTest {
         @DisplayName("실행 서비스 예외 발생 시 빈 리스트 반환")
         void getTodayMissions_executionServiceException_returnsEmptyList() {
             // given
-            when(missionService.getMyMissions(TEST_USER_ID))
+            when(missionService.getMyMissions(TEST_USER_ID, null))
                 .thenReturn(Collections.emptyList());
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID))
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null))
                 .thenThrow(new RuntimeException("실행 서비스 오류"));
 
             // when
@@ -131,8 +151,8 @@ class BffMissionServiceTest {
         @DisplayName("미션이 없는 경우 통계가 모두 0")
         void getTodayMissions_noMissions_zeroStats() {
             // given
-            when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(Collections.emptyList());
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(missionService.getMyMissions(TEST_USER_ID, null)).thenReturn(Collections.emptyList());
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null)).thenReturn(Collections.emptyList());
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -158,8 +178,8 @@ class BffMissionServiceTest {
                 createTestExecutionResponse(3L, ExecutionStatus.COMPLETED)
             );
 
-            when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionService.getMyMissions(TEST_USER_ID, null)).thenReturn(myMissions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);
@@ -182,8 +202,8 @@ class BffMissionServiceTest {
                 createTestExecutionResponse(2L, ExecutionStatus.IN_PROGRESS)
             );
 
-            when(missionService.getMyMissions(TEST_USER_ID)).thenReturn(myMissions);
-            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID)).thenReturn(todayExecutions);
+            when(missionService.getMyMissions(TEST_USER_ID, null)).thenReturn(myMissions);
+            when(missionExecutionQueryService.getTodayExecutions(TEST_USER_ID, null)).thenReturn(todayExecutions);
 
             // when
             MissionTodayDataResponse result = bffMissionService.getTodayMissions(TEST_USER_ID);

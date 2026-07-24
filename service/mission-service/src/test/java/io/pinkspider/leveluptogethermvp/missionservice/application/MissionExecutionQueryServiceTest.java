@@ -72,6 +72,12 @@ class MissionExecutionQueryServiceTest {
     @Mock
     private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacade;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository missionRepository;
+
+    @Mock
+    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
+
     @InjectMocks
     private MissionExecutionQueryService executionService;
 
@@ -943,6 +949,84 @@ class MissionExecutionQueryServiceTest {
 
             // then
             assertThat(responses).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("수행 기록 카테고리 다국어 테스트 (LUT-255)")
+    class LocalizeCategoryNamesTest {
+
+        private void givenMissionWithCategory() {
+            TestReflectionUtils.setField(testMission, "categoryId", 7L);
+            TestReflectionUtils.setField(testMission, "categoryName", "기타");
+        }
+
+        @Test
+        @DisplayName("locale 지정 시 missionCategoryName을 locale 카테고리명으로 덮어쓴다")
+        void getExecutionsForMission_localizesCategoryName() {
+            // given
+            givenMissionWithCategory();
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+            when(missionRepository.findAllById(List.of(testMission.getId())))
+                .thenReturn(List.of(testMission));
+            when(missionCategoryService.getCategoriesByIds(List.of(7L)))
+                .thenReturn(List.of(
+                    io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse
+                        .builder()
+                        .id(7L)
+                        .name("기타")
+                        .nameEn("Others")
+                        .build()));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
+                testMission.getId(), testUserId, "en");
+
+            // then
+            assertThat(responses).hasSize(1);
+            assertThat(responses.get(0).getMissionCategoryName()).isEqualTo("Others");
+        }
+
+        @Test
+        @DisplayName("locale이 없으면 한국어 스냅샷 이름을 유지하고 meta 조회를 생략한다")
+        void getExecutionsForMission_nullLocale_keepsSnapshotName() {
+            // given
+            givenMissionWithCategory();
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
+                testMission.getId(), testUserId, null);
+
+            // then
+            assertThat(responses.get(0).getMissionCategoryName()).isEqualTo("기타");
+            verify(missionCategoryService, never()).getCategoriesByIds(any());
+        }
+
+        @Test
+        @DisplayName("meta 조회 실패 시에도 스냅샷 이름으로 정상 응답한다 (fail-safe)")
+        void getExecutionsForMission_lookupFails_keepsSnapshotName() {
+            // given
+            givenMissionWithCategory();
+            when(participantRepository.findByMissionIdAndUserId(testMission.getId(), testUserId))
+                .thenReturn(Optional.of(testParticipant));
+            when(executionRepository.findByParticipantId(testParticipant.getId()))
+                .thenReturn(List.of(createCompletedExecution(1L, today().minusDays(1), 50, 30)));
+            when(missionRepository.findAllById(List.of(testMission.getId())))
+                .thenThrow(new RuntimeException("meta down"));
+
+            // when
+            List<MissionExecutionResponse> responses = executionService.getExecutionsForMission(
+                testMission.getId(), testUserId, "en");
+
+            // then
+            assertThat(responses.get(0).getMissionCategoryName()).isEqualTo("기타");
         }
     }
 

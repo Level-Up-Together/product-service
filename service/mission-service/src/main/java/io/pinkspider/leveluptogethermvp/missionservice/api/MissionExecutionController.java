@@ -15,6 +15,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -90,9 +91,11 @@ public class MissionExecutionController {
     @GetMapping("/{missionId}/executions")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getExecutions(
         @PathVariable Long missionId,
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<MissionExecutionResponse> responses = executionQueryService.getExecutionsForMission(missionId, userId);
+        List<MissionExecutionResponse> responses =
+            executionQueryService.getExecutionsForMission(missionId, userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
@@ -104,10 +107,11 @@ public class MissionExecutionController {
         @PathVariable Long missionId,
         @CurrentUser String userId,
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
-        @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
         List<MissionExecutionResponse> responses = executionQueryService.getExecutionsByDateRange(
-            missionId, userId, startDate, endDate);
+            missionId, userId, startDate, endDate, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
@@ -116,9 +120,11 @@ public class MissionExecutionController {
      */
     @GetMapping("/executions/today")
     public ResponseEntity<ApiResult<List<MissionExecutionResponse>>> getTodayExecutions(
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        List<MissionExecutionResponse> responses = executionQueryService.getTodayExecutions(userId);
+        List<MissionExecutionResponse> responses =
+            executionQueryService.getTodayExecutions(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<MissionExecutionResponse>>builder().value(responses).build());
     }
 
@@ -165,9 +171,11 @@ public class MissionExecutionController {
      */
     @GetMapping("/executions/in-progress")
     public ResponseEntity<ApiResult<MissionExecutionResponse>> getInProgressExecution(
-        @CurrentUser String userId) {
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        MissionExecutionResponse response = executionQueryService.getInProgressExecution(userId);
+        MissionExecutionResponse response =
+            executionQueryService.getInProgressExecution(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 
@@ -209,9 +217,11 @@ public class MissionExecutionController {
         @PathVariable Long missionId,
         @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate executionDate,
         @CurrentUser String userId,
-        @RequestParam(required = false) Long instanceId) {
+        @RequestParam(required = false) Long instanceId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        MissionExecutionResponse response = executionService.getExecutionByDate(missionId, userId, executionDate, instanceId);
+        MissionExecutionResponse response = executionService.getExecutionByDate(
+            missionId, userId, executionDate, instanceId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<MissionExecutionResponse>builder().value(response).build());
     }
 

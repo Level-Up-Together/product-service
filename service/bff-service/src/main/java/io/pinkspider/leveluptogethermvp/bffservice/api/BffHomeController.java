@@ -159,9 +159,10 @@ public class BffHomeController {
      */
     @GetMapping("/mission/today")
     public ResponseEntity<ApiResult<MissionTodayDataResponse>> getTodayMissions(
-        @CurrentUser String userId
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        MissionTodayDataResponse response = bffMissionService.getTodayMissions(userId);
+        MissionTodayDataResponse response = bffMissionService.getTodayMissions(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<MissionTodayDataResponse>builder().value(response).build());
     }
 

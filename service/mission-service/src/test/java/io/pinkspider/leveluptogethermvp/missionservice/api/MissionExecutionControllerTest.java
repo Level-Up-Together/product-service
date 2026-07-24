@@ -179,7 +179,7 @@ class MissionExecutionControllerTest {
     @DisplayName("GET /api/v1/missions/{missionId}/executions : 미션 실행 기록 조회")
     void getExecutionsTest() throws Exception {
         // given
-        when(executionQueryService.getExecutionsForMission(anyLong(), anyString()))
+        when(executionQueryService.getExecutionsForMission(anyLong(), anyString(), any()))
             .thenReturn(createMockExecutions());
 
         // when
@@ -237,7 +237,7 @@ class MissionExecutionControllerTest {
     void getExecutionsByDateRangeTest() throws Exception {
         // given
         when(executionQueryService.getExecutionsByDateRange(anyLong(), anyString(),
-            any(LocalDate.class), any(LocalDate.class)))
+            any(LocalDate.class), any(LocalDate.class), any()))
             .thenReturn(createMockExecutions());
 
         // when
@@ -296,7 +296,7 @@ class MissionExecutionControllerTest {
                 .build()
         );
 
-        when(executionQueryService.getTodayExecutions(anyString())).thenReturn(responses);
+        when(executionQueryService.getTodayExecutions(anyString(), any())).thenReturn(responses);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -873,7 +873,7 @@ class MissionExecutionControllerTest {
             .startedAt(LocalDateTime.now().minusMinutes(30))
             .build();
 
-        when(executionQueryService.getInProgressExecution(anyString()))
+        when(executionQueryService.getInProgressExecution(anyString(), any()))
             .thenReturn(response);
 
         // when
@@ -939,7 +939,7 @@ class MissionExecutionControllerTest {
             .completedAt(LocalDateTime.now())
             .build();
 
-        when(executionService.getExecutionByDate(anyLong(), anyString(), any(LocalDate.class), any()))
+        when(executionService.getExecutionByDate(anyLong(), anyString(), any(LocalDate.class), any(), any()))
             .thenReturn(response);
 
         // when

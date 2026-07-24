@@ -10,11 +10,15 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecutionImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionImageRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
+import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
 import java.time.LocalDate;
@@ -27,6 +31,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +52,8 @@ public class MissionExecutionQueryService {
     private final MissionExecutionStrategyResolver strategyResolver;
     private final FeedQueryService feedQueryService;
     private final GamificationQueryFacade gamificationQueryFacade;
+    private final MissionRepository missionRepository;
+    private final MissionCategoryService missionCategoryService;
 
     public List<MissionExecutionResponse> getExecutionsByParticipant(Long participantId) {
         return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
@@ -59,20 +67,49 @@ public class MissionExecutionQueryService {
     }
 
     public List<MissionExecutionResponse> getExecutionsForMission(Long missionId, String userId) {
-        return getExecutionsByMissionAndUser(missionId, userId);
+        return getExecutionsForMission(missionId, userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 미션 수행 기록 목록 조회 */
+    public List<MissionExecutionResponse> getExecutionsForMission(
+            Long missionId, String userId, String locale) {
+        List<MissionExecutionResponse> responses = getExecutionsByMissionAndUser(missionId, userId);
+        localizeCategoryNames(responses, locale);
+        return responses;
     }
 
     public MissionExecutionResponse getExecutionByDate(Long missionId, String userId, LocalDate date) {
-        return strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date);
+        return getExecutionByDate(missionId, userId, date, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 특정 날짜 수행 기록 조회 (미션 상세 기록 화면) */
+    public MissionExecutionResponse getExecutionByDate(
+            Long missionId, String userId, LocalDate date, String locale) {
+        MissionExecutionResponse response =
+            strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date);
+        if (response != null) {
+            localizeCategoryNames(List.of(response), locale);
+        }
+        return response;
     }
 
     public List<MissionExecutionResponse> getExecutionsByDateRange(Long missionId, String userId,
                                                                     LocalDate startDate, LocalDate endDate) {
+        return getExecutionsByDateRange(missionId, userId, startDate, endDate, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 기간별 수행 기록 조회 */
+    public List<MissionExecutionResponse> getExecutionsByDateRange(Long missionId, String userId,
+                                                                    LocalDate startDate, LocalDate endDate,
+                                                                    String locale) {
         MissionParticipant participant = participantRepository.findByMissionIdAndUserId(missionId, userId)
             .orElseThrow(() -> new IllegalArgumentException("미션 참여 정보를 찾을 수 없습니다."));
 
-        return toResponsesWithImages(executionRepository.findByParticipantIdAndExecutionDateBetween(
-            participant.getId(), startDate, endDate));
+        List<MissionExecutionResponse> responses = toResponsesWithImages(
+            executionRepository.findByParticipantIdAndExecutionDateBetween(
+                participant.getId(), startDate, endDate));
+        localizeCategoryNames(responses, locale);
+        return responses;
     }
 
     public double getCompletionRate(Long missionId, String userId) {
@@ -94,9 +131,18 @@ public class MissionExecutionQueryService {
      * 사용자의 현재 진행 중인 미션 조회
      */
     public MissionExecutionResponse getInProgressExecution(String userId) {
-        return executionRepository.findInProgressByUserId(userId)
+        return getInProgressExecution(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 진행 중 미션 조회 */
+    public MissionExecutionResponse getInProgressExecution(String userId, String locale) {
+        MissionExecutionResponse response = executionRepository.findInProgressByUserId(userId)
             .map(this::toResponseWithImages)
             .orElse(null);
+        if (response != null) {
+            localizeCategoryNames(List.of(response), locale);
+        }
+        return response;
     }
 
     /**
@@ -105,6 +151,12 @@ public class MissionExecutionQueryService {
      */
     @Transactional(transactionManager = "missionTransactionManager")
     public List<MissionExecutionResponse> getTodayExecutions(String userId) {
+        return getTodayExecutions(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 오늘 실행 목록 조회 */
+    @Transactional(transactionManager = "missionTransactionManager")
+    public List<MissionExecutionResponse> getTodayExecutions(String userId, String locale) {
         ZoneId kst = ZoneId.of("Asia/Seoul");
         LocalDate today = LocalDate.now(kst);
         LocalDate yesterday = today.minusDays(1);
@@ -133,6 +185,8 @@ public class MissionExecutionQueryService {
         // QA-152: is_shared_to_feed=true 인데 feed_db 에 매칭 피드가 없는 행은 false 로 보정.
         reconcileSharedToFeedFlag(responses);
 
+        localizeCategoryNames(responses, locale);
+
         log.info("getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
             userId, regularExecutions.size(), instanceResponses.size());
 
@@ -149,6 +203,12 @@ public class MissionExecutionQueryService {
      * @return 완료된 고정 미션 인스턴스 목록
      */
     public List<MissionExecutionResponse> getCompletedPinnedInstancesForToday(String userId) {
+        return getCompletedPinnedInstancesForToday(userId, null);
+    }
+
+    /** LUT-255: locale에 맞는 카테고리명으로 오늘 완료된 고정 미션 인스턴스 조회 */
+    public List<MissionExecutionResponse> getCompletedPinnedInstancesForToday(
+            String userId, String locale) {
         ZoneId kst = ZoneId.of("Asia/Seoul");
         LocalDate today = LocalDate.now(kst);
         // QA-151: completedAt(UTC) 의 KST 날짜가 오늘인 인스턴스를 조회.
@@ -162,6 +222,8 @@ public class MissionExecutionQueryService {
 
         // QA-152: 동일 안전망 — feed 가 없는 행은 is_shared_to_feed=false 로 보정.
         reconcileSharedToFeedFlag(responses);
+
+        localizeCategoryNames(responses, locale);
 
         log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
 
@@ -437,6 +499,51 @@ public class MissionExecutionQueryService {
                 log.info("고정 미션 오늘 인스턴스 자동 생성: missionId={}, userId={}, date={}",
                     participant.getMission().getId(), userId, today);
             }
+        }
+    }
+
+    /**
+     * LUT-255: 수행 기록 응답의 missionCategoryName을 locale에 맞는 카테고리명으로 덮어쓴다.
+     * 응답에는 categoryId가 없으므로 missionId → 미션의 categoryId → meta 카테고리 순으로 배치 조회한다.
+     * locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로 두고, 조회 실패 시에도 fallback 유지.
+     */
+    void localizeCategoryNames(List<MissionExecutionResponse> responses, String locale) {
+        if (locale == null || locale.isBlank() || responses.isEmpty()) {
+            return;
+        }
+        try {
+            List<Long> missionIds = responses.stream()
+                .map(MissionExecutionResponse::getMissionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+            if (missionIds.isEmpty()) {
+                return;
+            }
+            Map<Long, Long> categoryIdByMissionId = missionRepository.findAllById(missionIds).stream()
+                .filter(m -> m.getCategoryId() != null)
+                .collect(Collectors.toMap(Mission::getId, Mission::getCategoryId, (a, b) -> a));
+            List<Long> categoryIds = categoryIdByMissionId.values().stream().distinct().toList();
+            if (categoryIds.isEmpty()) {
+                return;
+            }
+            Map<Long, String> nameByCategoryId =
+                missionCategoryService.getCategoriesByIds(categoryIds).stream()
+                    .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
+                    .collect(Collectors.toMap(
+                        MissionCategoryResponse::getId,
+                        c -> c.getLocalizedName(locale),
+                        (a, b) -> a));
+            responses.forEach(r -> {
+                Long categoryId = r.getMissionId() != null
+                    ? categoryIdByMissionId.get(r.getMissionId()) : null;
+                String localized = categoryId != null ? nameByCategoryId.get(categoryId) : null;
+                if (localized != null) {
+                    r.setMissionCategoryName(localized);
+                }
+            });
+        } catch (Exception e) {
+            log.warn("수행 기록 카테고리 다국어 조회 실패: locale={}, error={}", locale, e.getMessage());
         }
     }
 
