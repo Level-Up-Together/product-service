@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectCon
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectMessage;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMessageRepository;
+import io.pinkspider.leveluptogethermvp.chatservice.realtime.DmRealtimePublisher;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -53,6 +56,12 @@ class GuildDirectMessageServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private DmPresenceService dmPresenceService;
+
+    @Mock
+    private DmRealtimePublisher dmRealtimePublisher;
 
     @InjectMocks
     private GuildDirectMessageService dmService;
@@ -163,6 +172,72 @@ class GuildDirectMessageServiceTest {
             assertThat(event.messageId()).isEqualTo(77L);
             assertThat(event.messageContent()).isEqualTo("알림 이벤트 테스트");
             assertThat(event.recipientId()).isEqualTo(USER_ID_2);
+        }
+
+        @Test
+        @DisplayName("수신자가 대화방을 보고 있으면 알림 이벤트를 발행하지 않는다 (LUT-263)")
+        void sendMessage_recipientViewing_skipsNotificationEvent() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("보고 있는 중")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+                .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
+                GuildDirectMessage msg = inv.getArgument(0);
+                setId(msg, GuildDirectMessage.class, 1L);
+                return msg;
+            });
+            when(dmPresenceService.isViewing(USER_ID_2, 1L)).thenReturn(true);
+
+            // when
+            dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            // then: 알림(레코드+푸시) 이벤트는 생략, 실시간 전달은 정상 수행
+            verify(eventPublisher, never()).publishEvent(any(GuildDirectMessageEvent.class));
+            verify(dmRealtimePublisher).publishToUser(
+                eq(USER_ID_2), eq(GuildDirectMessageService.DM_DESTINATION), any());
+            verify(dmRealtimePublisher).publishToUser(
+                eq(USER_ID_1), eq(GuildDirectMessageService.DM_DESTINATION), any());
+        }
+
+        @Test
+        @DisplayName("DM 전송 시 수신자와 발신자(에코)에게 실시간 발행한다 (LUT-263)")
+        void sendMessage_publishesRealtimeToBothUsers() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("실시간 전달")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+                .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
+                GuildDirectMessage msg = inv.getArgument(0);
+                setId(msg, GuildDirectMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            // then
+            ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+            verify(dmRealtimePublisher).publishToUser(
+                eq(USER_ID_2), eq(GuildDirectMessageService.DM_DESTINATION), payloadCaptor.capture());
+            verify(dmRealtimePublisher).publishToUser(
+                eq(USER_ID_1), eq(GuildDirectMessageService.DM_DESTINATION), any());
+            assertThat(payloadCaptor.getValue()).isInstanceOf(DirectMessageResponse.class);
+            // 보고 있지 않으므로 알림 이벤트도 발행
+            verify(eventPublisher).publishEvent(any(GuildDirectMessageEvent.class));
         }
 
         @Test
@@ -406,6 +481,8 @@ class GuildDirectMessageServiceTest {
 
             // then
             verify(messageRepository).markAllAsRead(1L, USER_ID_2);
+            // LUT-263: 읽음 처리는 방을 보고 있다는 신호 → presence 갱신
+            verify(dmPresenceService).markViewing(USER_ID_2, 1L);
         }
     }
 

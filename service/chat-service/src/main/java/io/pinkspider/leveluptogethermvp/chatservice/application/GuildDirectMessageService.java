@@ -7,6 +7,7 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectCon
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectMessage;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectConversationRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMessageRepository;
+import io.pinkspider.leveluptogethermvp.chatservice.realtime.DmRealtimePublisher;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -29,11 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(transactionManager = "chatTransactionManager", readOnly = true)
 public class GuildDirectMessageService {
 
+    /** 수신자가 방을 보고 있어도 발신자 에코가 전달되도록 하는 user destination */
+    public static final String DM_DESTINATION = "/queue/dm";
+
     private final GuildDirectConversationRepository conversationRepository;
     private final GuildDirectMessageRepository messageRepository;
     private final GuildQueryFacade guildQueryFacadeService;
     private final UserQueryFacade userQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final DmPresenceService dmPresenceService;
+    private final DmRealtimePublisher dmRealtimePublisher;
 
     @Transactional(transactionManager = "chatTransactionManager")
     public DirectMessageResponse sendMessage(
@@ -68,12 +74,26 @@ public class GuildDirectMessageService {
 
         log.debug("DM 전송: guildId={}, senderId={}, recipientId={}", guildId, senderId, recipientId);
 
-        // LUT-224: AFTER_COMMIT 리스너가 알림 레코드 생성 + 실시간 채널 + 푸시를 일괄 처리
-        eventPublisher.publishEvent(new GuildDirectMessageEvent(
-            senderId, senderNickname, guildId, conversation.getId(),
-            savedMessage.getId(), request.getContent(), recipientId));
+        DirectMessageResponse response = DirectMessageResponse.from(savedMessage);
 
-        return DirectMessageResponse.from(savedMessage);
+        // LUT-263: WS/REST 어느 경로로 보내도 수신자·발신자(다중 디바이스 에코)에게 실시간 전달.
+        // Redis pub/sub 릴레이라 상대 세션이 다른 인스턴스에 있어도 전달된다.
+        dmRealtimePublisher.publishToUser(recipientId, DM_DESTINATION, response);
+        dmRealtimePublisher.publishToUser(senderId, DM_DESTINATION, response);
+
+        // LUT-263: 수신자가 이 대화방을 보고 있으면 알림(레코드+레드닷+푸시) 생략 —
+        // 실시간 채널로 이미 보고 있는 메시지에 푸시가 오면 대화를 방해한다.
+        if (dmPresenceService.isViewing(recipientId, conversation.getId())) {
+            log.debug("DM 알림 생략(수신자 대화방 조회 중): conversationId={}, recipientId={}",
+                conversation.getId(), recipientId);
+        } else {
+            // LUT-224: AFTER_COMMIT 리스너가 알림 레코드 생성 + 실시간 채널 + 푸시를 일괄 처리
+            eventPublisher.publishEvent(new GuildDirectMessageEvent(
+                senderId, senderNickname, guildId, conversation.getId(),
+                savedMessage.getId(), request.getContent(), recipientId));
+        }
+
+        return response;
     }
 
     public List<DirectConversationResponse> getConversations(Long guildId, String userId) {
@@ -160,6 +180,8 @@ public class GuildDirectMessageService {
         validateConversationAccess(conversationId, userId, guildId);
 
         int updatedCount = messageRepository.markAllAsRead(conversationId, userId);
+        // LUT-263: 읽음 처리는 방을 보고 있다는 신호이므로 presence도 갱신
+        dmPresenceService.markViewing(userId, conversationId);
         log.debug("DM 읽음 처리: conversationId={}, userId={}, count={}", conversationId, userId, updatedCount);
     }
 
