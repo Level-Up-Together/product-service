@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.facade.GamificationQueryFacade;
@@ -232,7 +233,7 @@ class BffHomeServiceTest {
                 List.of(testGuildResponse), PageRequest.of(0, 5), 1
             );
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -259,7 +260,7 @@ class BffHomeServiceTest {
                 List.of(testFeedResponse), PageRequest.of(0, 20), 1
             );
 
-            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenReturn(List.of(testGuildResponse));
@@ -278,13 +279,37 @@ class BffHomeServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-273: 전체/카테고리 피드 조회에 locale이 전달된다 (유저 칭호 다국어 치환)")
+        void getHomeData_passesLocaleToFeedQueries() {
+            // given
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 20), 1
+            );
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeedsByCategory(eq(1L), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
+            when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
+            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(new PageImpl<>(List.of(testGuildResponse)));
+            when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(1L))).thenReturn(List.of(testGuildResponse));
+            when(noticeService.getActiveNotices()).thenReturn(List.of(testNoticeResponse));
+
+            // when — 전체 피드 + 카테고리 피드 각각 en locale로 호출
+            bffHomeService.getHomeData(testUserId, null, null, 0, 20, 5, "en", null);
+            bffHomeService.getHomeData(testUserId, 1L, null, 0, 20, 5, "en", null);
+
+            // then — locale이 feed 조회까지 전달되어야 localizeUserTitles가 동작한다
+            verify(feedQueryService).getPublicFeeds(anyString(), anyInt(), anyInt(), eq("en"));
+            verify(feedQueryService).getPublicFeedsByCategory(eq(1L), anyString(), anyInt(), anyInt(), eq("en"));
+        }
+
+        @Test
         @DisplayName("카테고리별 공개 길드 조회 실패 시 빈 목록 반환")
         void getHomeData_withCategory_publicGuildsFetchFailed() {
             // given
             Long categoryId = 1L;
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
-            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeedsByCategory(eq(categoryId), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuildsByCategory(anyString(), eq(categoryId))).thenThrow(new RuntimeException("길드 조회 실패"));
@@ -305,7 +330,7 @@ class BffHomeServiceTest {
             // given
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt()))
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any()))
                 .thenThrow(new RuntimeException("피드 조회 실패"));
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
@@ -329,7 +354,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenThrow(new RuntimeException("카테고리 조회 실패"));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -352,7 +377,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("내 길드 조회 실패"));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -374,7 +399,7 @@ class BffHomeServiceTest {
             // given
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenThrow(new RuntimeException("공개 길드 조회 실패"));
@@ -397,7 +422,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -420,7 +445,7 @@ class BffHomeServiceTest {
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(List.of(testFeedResponse));
             Page<GuildResponse> guildPage = new PageImpl<>(List.of(testGuildResponse));
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(List.of(testCategoryResponse));
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
@@ -444,7 +469,7 @@ class BffHomeServiceTest {
             );
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
 
-            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(feedQueryService.getPublicFeeds(anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
             when(missionCategoryService.getActiveCategories()).thenReturn(Collections.emptyList());
             when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
             when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);

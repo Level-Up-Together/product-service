@@ -132,10 +132,11 @@ public class BffHomeService {
                     feedPage1 = feedQueryService.getFilteredFeeds(feedSearchType, userId, feedPage, feedSize, locale);
                 } else if (categoryId != null) {
                     // 카테고리별 피드 조회 (하이브리드)
-                    feedPage1 = feedQueryService.getPublicFeedsByCategory(categoryId, userId, feedPage, feedSize);
+                    // LUT-273: locale 미전달 시 유저 칭호 다국어 치환(localizeUserTitles)이 스킵됨
+                    feedPage1 = feedQueryService.getPublicFeedsByCategory(categoryId, userId, feedPage, feedSize, locale);
                 } else {
                     // 전체 피드 조회
-                    feedPage1 = feedQueryService.getPublicFeeds(userId, feedPage, feedSize);
+                    feedPage1 = feedQueryService.getPublicFeeds(userId, feedPage, feedSize, locale);
                 }
                 return FeedPageData.builder()
                     .content(feedPage1.getContent())
