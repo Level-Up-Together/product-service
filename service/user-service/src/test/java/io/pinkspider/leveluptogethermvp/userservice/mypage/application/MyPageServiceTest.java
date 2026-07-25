@@ -1683,6 +1683,52 @@ class MyPageServiceTest {
     }
 
     @Nested
+    @DisplayName("getPreferredLocale 테스트 (LUT-256 쿠키 복원용)")
+    class GetPreferredLocaleTest {
+
+        @Test
+        @DisplayName("저장된 locale을 반환한다")
+        void getPreferredLocale_returnsStoredLocale() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            user.updatePreferredLocale("ja");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            String locale = myPageService.getPreferredLocale(TEST_USER_ID);
+
+            // then
+            assertThat(locale).isEqualTo("ja");
+        }
+
+        @Test
+        @DisplayName("locale 미설정(레거시) 유저는 기본값 en을 반환한다")
+        void getPreferredLocale_nullLocale_returnsDefault() {
+            // given (builder 생성 유저는 preferredLocale 미지정)
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            user.updatePreferredLocale(null);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            String locale = myPageService.getPreferredLocale(TEST_USER_ID);
+
+            // then
+            assertThat(locale).isEqualTo("en");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 유저면 예외가 발생한다")
+        void getPreferredLocale_userNotFound_throwsException() {
+            // given
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.getPreferredLocale(TEST_USER_ID))
+                .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("updatePreferredTimezone 테스트")
     class UpdatePreferredTimezoneTest {
 

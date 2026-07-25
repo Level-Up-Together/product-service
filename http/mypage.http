@@ -105,3 +105,10 @@ Accept: application/json
 GET {{baseUrl}}/api/v1/mypage/nickname/status
 Authorization: Bearer {{accessToken}}
 Accept: application/json
+
+### ----------------------------------------------------------
+### 선호 언어 조회 (LUT-256 — 앱 웹뷰 NEXT_LOCALE 쿠키 유실 시 복원용)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/mypage/preferred-locale
+Authorization: Bearer {{accessToken}}
+Accept: application/json

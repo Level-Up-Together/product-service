@@ -85,6 +85,22 @@ public class MyPageController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
+    /**
+     * 선호 언어 조회 (LUT-256)
+     *
+     * 앱 웹뷰(iOS WKWebView)는 강제 종료 시 JS 로 설정한 NEXT_LOCALE 쿠키가 유실될 수 있어,
+     * 웹 /auth/mobile 진입 시 이 API 로 서버 저장값을 조회해 쿠키를 복원한다.
+     */
+    @GetMapping("/preferred-locale")
+    public ResponseEntity<ApiResult<java.util.Map<String, String>>> getPreferredLocale(
+        @CurrentUser String userId) {
+
+        String locale = myPageService.getPreferredLocale(userId);
+        return ResponseEntity.ok(ApiResult.<java.util.Map<String, String>>builder()
+            .value(java.util.Map.of("preferred_locale", locale))
+            .build());
+    }
+
     @GetMapping("/preferred-feed-visibility")
     public ResponseEntity<ApiResult<java.util.Map<String, String>>> getPreferredFeedVisibility(
         @CurrentUser String userId) {

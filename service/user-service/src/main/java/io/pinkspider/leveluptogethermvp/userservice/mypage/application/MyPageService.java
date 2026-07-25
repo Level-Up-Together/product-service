@@ -286,6 +286,15 @@ public class MyPageService {
         log.info("언어 설정 변경: userId={}, locale={}", userId, locale);
     }
 
+    /**
+     * 선호 언어 조회 (LUT-256) — 웹뷰 쿠키 유실 시 복원용. 미설정(레거시) 유저는 기본값 'en'.
+     */
+    public String getPreferredLocale(String userId) {
+        Users user = findUserOrThrow(userId);
+        String locale = user.getPreferredLocale();
+        return locale != null && !locale.isBlank() ? locale : "en";
+    }
+
     public String getPreferredFeedVisibility(String userId) {
         Users user = findUserOrThrow(userId);
         return user.getPreferredFeedVisibility();

@@ -889,6 +889,40 @@ class MyPageControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/mypage/preferred-locale : 선호 언어 조회 (LUT-256 쿠키 복원용)")
+    void getPreferredLocaleTest() throws Exception {
+        // given
+        when(myPageService.getPreferredLocale(anyString())).thenReturn("en");
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/preferred-locale")
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-10-1. 선호 언어 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("사용자 언어(locale) 설정 조회 — 앱 웹뷰 NEXT_LOCALE 쿠키 유실 시 복원용 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value.preferred_locale").type(JsonFieldType.STRING).description("저장된 언어 코드 (ko, en, ja, ar / 미설정 시 en)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.preferred_locale").value("en"));
+    }
+
+    @Test
     @DisplayName("PUT /api/v1/mypage/bio : 자기소개 수정")
     void updateBioTest() throws Exception {
         // given
