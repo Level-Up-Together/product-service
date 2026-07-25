@@ -26,6 +26,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepos
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
@@ -929,6 +930,10 @@ public class FeedQueryService {
      * LUT-255: 피드의 user_title은 작성/칭호변경 시점의 한국어 스냅샷이라, 한국어 외 locale 요청 시
      * 작성자의 현재 장착 칭호를 배치 조회해 locale에 맞는 조합 칭호명으로 교체한다.
      * (칭호 변경 시 FeedProjectionEventListener가 스냅샷을 갱신하므로 현재 장착 칭호와 의미가 같다)
+     *
+     * LUT-274: 웹은 user_left_title / user_right_title 이 있으면 그것으로 렌더하므로
+     * (좌/우 개별 rarity 색상), 조합명(user_title)만 교체하면 화면에 반영되지 않는다.
+     * 좌/우 칭호명과 rarity 까지 함께 교체한다.
      */
     private void localizeUserTitles(List<ActivityFeedResponse> responses, String locale) {
         if (responses == null || responses.isEmpty() || locale == null || locale.isBlank()) {
@@ -954,10 +959,16 @@ public class FeedQueryService {
                 if (equipped == null || equipped.isEmpty()) {
                     continue;
                 }
-                String localized = TitleNameUtils.combinedTitleName(equipped, langCode);
-                if (localized != null && !localized.isBlank()) {
-                    response.setUserTitle(localized);
+                DetailedTitleInfoDto localized =
+                    TitleNameUtils.buildDetailedTitleInfo(equipped, langCode);
+                if (localized.combinedName() == null || localized.combinedName().isBlank()) {
+                    continue;
                 }
+                response.setUserTitle(localized.combinedName());
+                response.setUserLeftTitle(localized.leftTitle());
+                response.setUserLeftTitleRarity(localized.leftRarity());
+                response.setUserRightTitle(localized.rightTitle());
+                response.setUserRightTitleRarity(localized.rightRarity());
             }
         } catch (Exception e) {
             log.warn("피드 칭호 다국어 변환 실패 - 스냅샷 유지: {}", e.getMessage());

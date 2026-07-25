@@ -2347,5 +2347,40 @@ class FeedQueryServiceTest {
             // then
             assertThat(result.getContent().get(0).getUserTitle()).isEqualTo("용감한 전사");
         }
+
+        // LUT-274: 웹은 user_left_title / user_right_title 로 렌더하므로 (좌/우 개별 rarity 색상)
+        // 조합명(userTitle)만 교체하면 화면에는 여전히 한국어 스냅샷이 노출된다.
+        @Test
+        @DisplayName("LUT-274: locale=en이면 좌/우 칭호명과 rarity도 함께 교체된다")
+        void getPublicFeeds_localeEn_replacesLeftRightTitlesToo() {
+            // given — 작성 시점 한국어 좌/우 스냅샷
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            feed.setUserTitle("용감한 전사");
+            feed.setUserLeftTitle("용감한");
+            feed.setUserRightTitle("전사");
+            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
+
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(feedPage);
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    titleDto(TEST_USER_ID, "용감한", "Brave", TitlePosition.LEFT),
+                    titleDto(TEST_USER_ID, "전사", "Warrior", TitlePosition.RIGHT)
+                )));
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10, "en");
+
+            // then — 조합명 + 좌/우 칭호명 + rarity 모두 현재 장착 칭호 기준으로 교체
+            ActivityFeedResponse response = result.getContent().get(0);
+            assertThat(response.getUserTitle()).isEqualTo("Brave Warrior");
+            assertThat(response.getUserLeftTitle()).isEqualTo("Brave");
+            assertThat(response.getUserRightTitle()).isEqualTo("Warrior");
+            assertThat(response.getUserLeftTitleRarity()).isEqualTo(TitleRarity.COMMON);
+            assertThat(response.getUserRightTitleRarity()).isEqualTo(TitleRarity.COMMON);
+        }
     }
 }
