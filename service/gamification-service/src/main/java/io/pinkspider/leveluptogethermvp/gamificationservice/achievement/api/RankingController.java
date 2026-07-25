@@ -102,11 +102,14 @@ public class RankingController {
     }
 
     // 전체 레벨 랭킹 (레벨 + 총 경험치 기준)
+    // LUT-275: 각 유저의 진행중 미션(in_progress_mission) 포함 — 본인 행 노출 판정용으로 userId 를 받는다
     @GetMapping("/level")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRanking(
         @PageableDefault(size = 20) Pageable pageable,
+        @CurrentUser(required = false) String userId,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
-        Page<LevelRankingResponse> responses = rankingService.getLevelRanking(pageable, acceptLanguage);
+        Page<LevelRankingResponse> responses =
+            rankingService.getLevelRanking(pageable, acceptLanguage, userId);
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 
@@ -115,9 +118,10 @@ public class RankingController {
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRankingByCategory(
         @PathVariable String category,
         @PageableDefault(size = 20) Pageable pageable,
+        @CurrentUser(required = false) String userId,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
         Page<LevelRankingResponse> responses =
-            rankingService.getLevelRankingByCategory(category, pageable, acceptLanguage);
+            rankingService.getLevelRankingByCategory(category, pageable, acceptLanguage, userId);
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 }

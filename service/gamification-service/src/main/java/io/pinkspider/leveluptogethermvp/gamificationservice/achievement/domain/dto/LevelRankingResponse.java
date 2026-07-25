@@ -33,6 +33,28 @@ public class LevelRankingResponse {
     private Long totalUsers;
     private Double percentile;  // 상위 X%
 
+    // LUT-275: 현재 실시간 진행중인 미션 (없으면 null). 프로필(LUT-257)과 동일 스펙 —
+    // 비노출 시 미션 정보는 null 마스킹되고 is_visible=false 로 내려간다.
+    @lombok.Setter
+    private InProgressMissionInfo inProgressMission;
+
+    /** LUT-275: 진행중 미션 정보 (PublicProfileResponse.InProgressMissionInfo 와 동일 형태). */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class InProgressMissionInfo {
+        private Long missionId;
+        private Long categoryId;
+        private String categoryName;
+        private String title;
+        private String visibility;
+        @com.fasterxml.jackson.annotation.JsonProperty("is_visible")
+        private Boolean isVisible;
+        private java.time.LocalDateTime startedAt;
+    }
+
     public static LevelRankingResponse from(UserExperience exp, long rank, long totalUsers) {
         double percentile = totalUsers > 0
             ? Math.round((double) rank / totalUsers * 1000) / 10.0

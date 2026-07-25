@@ -270,4 +270,84 @@ class MissionQueryFacadeServiceTest {
             assertThat(facadeService.getMissionBookTemplateTitles(null)).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("findInProgressMissions (배치, LUT-275)")
+    class FindInProgressMissionsTest {
+
+        private static final String USER_A = "user-a";
+        private static final String USER_B = "user-b";
+
+        private MissionExecution executionFor(String userId, Mission mission, LocalDateTime startedAt) {
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(userId)
+                .build();
+            return MissionExecution.builder()
+                .participant(participant)
+                .startedAt(startedAt)
+                .build();
+        }
+
+        private DailyMissionInstance instanceFor(String userId, Mission mission, LocalDateTime startedAt) {
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(userId)
+                .build();
+            return DailyMissionInstance.builder()
+                .participant(participant)
+                .missionTitle(mission.getTitle())
+                .startedAt(startedAt)
+                .build();
+        }
+
+        @Test
+        @DisplayName("userIds가 비어있으면 repository 호출 없이 빈 맵을 반환한다")
+        void returnsEmptyMapForEmptyInput() {
+            assertThat(facadeService.findInProgressMissions(List.of())).isEmpty();
+            assertThat(facadeService.findInProgressMissions(null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("유저별로 병합되며, execution/instance 둘 다 있으면 최근 시작 쪽을 반환한다")
+        void mergesLatestPerUser() {
+            LocalDateTime now = LocalDateTime.now();
+            Mission missionA = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            Mission missionB1 = buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
+            Mission missionB2 = buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
+            List<String> userIds = List.of(USER_A, USER_B);
+
+            when(missionExecutionRepository.findInProgressByUserIdIn(userIds))
+                .thenReturn(List.of(
+                    executionFor(USER_A, missionA, now.minusMinutes(30)),
+                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
+            when(dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds))
+                .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
+
+            var result = facadeService.findInProgressMissions(userIds);
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(USER_A).missionId()).isEqualTo(1L);
+            // USER_B는 instance(3L)가 execution(2L)보다 최근 시작 → instance 우선
+            assertThat(result.get(USER_B).missionId()).isEqualTo(3L);
+            assertThat(result.get(USER_B).visibility()).isEqualTo("PUBLIC");
+        }
+
+        @Test
+        @DisplayName("진행중 미션이 없는 유저는 결과 맵에 포함되지 않는다")
+        void excludesUsersWithoutInProgressMission() {
+            List<String> userIds = List.of(USER_A, USER_B);
+            Mission missionA = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            LocalDateTime now = LocalDateTime.now();
+
+            when(missionExecutionRepository.findInProgressByUserIdIn(userIds))
+                .thenReturn(List.of(executionFor(USER_A, missionA, now)));
+            when(dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds))
+                .thenReturn(List.of());
+
+            var result = facadeService.findInProgressMissions(userIds);
+
+            assertThat(result).containsOnlyKeys(USER_A);
+        }
+    }
 }

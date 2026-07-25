@@ -11,8 +11,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserT
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
+import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,6 +44,9 @@ public class RankingService {
     private final UserExperienceRepository userExperienceRepository;
     private final UserQueryFacade userQueryFacadeService;
     private final ExperienceHistoryRepository experienceHistoryRepository;
+    // LUT-275: 랭킹 목록의 "현재 진행중인 미션" 표시용
+    private final MissionQueryFacade missionQueryFacade;
+    private final MissionCategoryService missionCategoryService;
 
     // 종합 랭킹 (랭킹 포인트 기준)
     public Page<RankingResponse> getOverallRanking(Pageable pageable) {
@@ -223,6 +229,11 @@ public class RankingService {
     }
 
     public Page<LevelRankingResponse> getLevelRanking(Pageable pageable, String locale) {
+        return getLevelRanking(pageable, locale, null);
+    }
+
+    public Page<LevelRankingResponse> getLevelRanking(Pageable pageable, String locale,
+                                                       String viewerUserId) {
         // QA-206: 목록 순위를 내 랭킹(getMyLevelRanking: COUNT(나보다 위)+1)과 동일한 의미로 맞춘다.
         // 전체를 정렬해 로드 → 탈퇴자 제외 → 동점 공동순위(RANK) 부여 → 활성 기준 페이징.
         List<UserExperience> sorted =
@@ -268,6 +279,7 @@ public class RankingService {
                 titleInfo.rightRarity()));
         }
 
+        enrichInProgressMissions(responses, viewerUserId, locale);
         return new PageImpl<>(responses, pageable, totalUsers);
     }
 
@@ -297,6 +309,11 @@ public class RankingService {
 
     public Page<LevelRankingResponse> getLevelRankingByCategory(String category, Pageable pageable,
                                                                 String locale) {
+        return getLevelRankingByCategory(category, pageable, locale, null);
+    }
+
+    public Page<LevelRankingResponse> getLevelRankingByCategory(String category, Pageable pageable,
+                                                                String locale, String viewerUserId) {
         log.info("카테고리별 레벨 랭킹 조회 요청: category={}", category);
 
         // 카테고리별 전체 사용자 수
@@ -353,7 +370,63 @@ public class RankingService {
                 .build());
         }
 
+        enrichInProgressMissions(responses, viewerUserId, locale);
         return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /**
+     * LUT-275: 랭킹 목록에 각 유저의 실시간 진행중 미션을 채운다.
+     *
+     * <p>랭킹은 불특정 다수에게 노출되는 화면이므로 PUBLIC 미션(과 본인 행)만 상세를 노출하고,
+     * 그 외 공개범위는 프로필(LUT-257)과 동일하게 미션 정보를 null 마스킹 + is_visible=false 로
+     * 내린다 (프론트는 "비공개 미션 진행중" 표시 가능). 조회 실패 시 필드 없이 기존 응답을 유지한다.
+     */
+    private void enrichInProgressMissions(List<LevelRankingResponse> responses, String viewerUserId,
+                                           String locale) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        try {
+            List<String> userIds = responses.stream()
+                .map(LevelRankingResponse::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+            Map<String, InProgressMissionDto> missions =
+                missionQueryFacade.findInProgressMissions(userIds);
+            for (LevelRankingResponse response : responses) {
+                InProgressMissionDto m = missions.get(response.getUserId());
+                if (m == null) {
+                    continue;
+                }
+                boolean visible = "PUBLIC".equals(m.visibility())
+                    || (viewerUserId != null && viewerUserId.equals(response.getUserId()));
+                response.setInProgressMission(LevelRankingResponse.InProgressMissionInfo.builder()
+                    .missionId(visible ? m.missionId() : null)
+                    .categoryId(visible ? m.categoryId() : null)
+                    .categoryName(visible
+                        ? localizeMissionCategoryName(m.categoryId(), m.categoryName(), locale)
+                        : null)
+                    .title(visible ? m.title() : null)
+                    .visibility(m.visibility())
+                    .isVisible(visible)
+                    .startedAt(m.startedAt())
+                    .build());
+            }
+        } catch (Exception e) {
+            log.warn("랭킹 진행중 미션 조회 실패 - 필드 생략: {}", e.getMessage());
+        }
+    }
+
+    private String localizeMissionCategoryName(Long categoryId, String fallbackName, String locale) {
+        if (categoryId == null || locale == null) {
+            return fallbackName;
+        }
+        try {
+            var category = missionCategoryService.getCategory(categoryId);
+            return category != null ? category.getLocalizedName(locale) : fallbackName;
+        } catch (Exception e) {
+            return fallbackName;
+        }
     }
 
     /**

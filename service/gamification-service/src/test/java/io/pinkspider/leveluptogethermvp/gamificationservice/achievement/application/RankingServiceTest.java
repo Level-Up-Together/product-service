@@ -20,8 +20,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserS
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.RankingResponse;
+import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +57,12 @@ class RankingServiceTest {
 
     @Mock
     private ExperienceHistoryRepository experienceHistoryRepository;
+
+    @Mock
+    private MissionQueryFacade missionQueryFacade;
+
+    @Mock
+    private MissionCategoryService missionCategoryService;
 
     @InjectMocks
     private RankingService rankingService;
@@ -427,6 +436,69 @@ class RankingServiceTest {
             assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
             assertThat(result.getContent().get(0).getCurrentLevel()).isEqualTo(20);
             assertThat(result.getContent().get(1).getRank()).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("LUT-275: 진행중 미션이 랭킹 응답에 포함되고, PUBLIC 외에는 마스킹된다")
+        void getLevelRanking_enrichesInProgressMissions_withMasking() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+            UserExperience exp2 = createTestUserExperience(2L, "user2", 15, 3000);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(exp1, exp2));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+            // user1=PUBLIC(노출), user2=PRIVATE(마스킹)
+            when(missionQueryFacade.findInProgressMissions(List.of("user1", "user2")))
+                .thenReturn(java.util.Map.of(
+                    "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                        java.time.LocalDateTime.now()),
+                    "user2", new InProgressMissionDto(22L, 2L, "독서", "비밀 미션", "PRIVATE", null,
+                        java.time.LocalDateTime.now())));
+
+            // when
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, null);
+
+            // then
+            LevelRankingResponse first = result.getContent().get(0);
+            assertThat(first.getInProgressMission()).isNotNull();
+            assertThat(first.getInProgressMission().getIsVisible()).isTrue();
+            assertThat(first.getInProgressMission().getTitle()).isEqualTo("달리기");
+            assertThat(first.getInProgressMission().getMissionId()).isEqualTo(11L);
+
+            LevelRankingResponse second = result.getContent().get(1);
+            assertThat(second.getInProgressMission()).isNotNull();
+            assertThat(second.getInProgressMission().getIsVisible()).isFalse();
+            assertThat(second.getInProgressMission().getTitle()).isNull();
+            assertThat(second.getInProgressMission().getMissionId()).isNull();
+            assertThat(second.getInProgressMission().getVisibility()).isEqualTo("PRIVATE");
+        }
+
+        @Test
+        @DisplayName("LUT-275: 본인 행은 비공개 미션이어도 상세가 노출된다")
+        void getLevelRanking_ownRow_alwaysVisible() {
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+
+            when(userExperienceRepository.findAllByOrderByCurrentLevelDescTotalExpDesc())
+                .thenReturn(List.of(exp1));
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(java.util.Map.of());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+            when(missionQueryFacade.findInProgressMissions(List.of("user1")))
+                .thenReturn(java.util.Map.of(
+                    "user1", new InProgressMissionDto(11L, 1L, "운동", "비공개 달리기", "PRIVATE", null,
+                        java.time.LocalDateTime.now())));
+
+            // viewer == user1 (본인)
+            Page<LevelRankingResponse> result = rankingService.getLevelRanking(pageable, null, "user1");
+
+            LevelRankingResponse own = result.getContent().get(0);
+            assertThat(own.getInProgressMission().getIsVisible()).isTrue();
+            assertThat(own.getInProgressMission().getTitle()).isEqualTo("비공개 달리기");
         }
 
         @Test

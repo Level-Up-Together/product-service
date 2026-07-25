@@ -57,6 +57,36 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
             ? fromExecution : fromInstance);
     }
 
+    /**
+     * LUT-275: 여러 유저의 진행중 미션 배치 조회. 단건과 동일한 병합 규칙(일반/고정 통합, 최근 시작 우선)을
+     * 유저별로 적용한다. 진행중 미션이 없는 유저는 결과 맵에 포함되지 않는다.
+     */
+    @Override
+    public Map<String, InProgressMissionDto> findInProgressMissions(
+            java.util.Collection<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
+        for (MissionExecution e : missionExecutionRepository.findInProgressByUserIdIn(userIds)) {
+            mergeLatest(result, e.getParticipant().getUserId(),
+                toDto(e.getParticipant().getMission(), e.getStartedAt()));
+        }
+        for (DailyMissionInstance i : dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds)) {
+            mergeLatest(result, i.getParticipant().getUserId(),
+                toDto(i.getParticipant().getMission(), i.getStartedAt()));
+        }
+        return result;
+    }
+
+    private void mergeLatest(Map<String, InProgressMissionDto> result, String userId,
+                              InProgressMissionDto candidate) {
+        InProgressMissionDto existing = result.get(userId);
+        if (existing == null || isAfter(candidate.startedAt(), existing.startedAt())) {
+            result.put(userId, candidate);
+        }
+    }
+
     private InProgressMissionDto toDto(Mission mission, LocalDateTime startedAt) {
         return new InProgressMissionDto(
             mission.getId(),

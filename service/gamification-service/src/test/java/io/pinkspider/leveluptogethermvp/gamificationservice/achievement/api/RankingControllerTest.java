@@ -408,6 +408,18 @@ class RankingControllerTest {
             .totalExp(totalExp)
             .totalUsers(100L)
             .percentile(rank / 100.0 * 100)
+            // LUT-275: 1위 행에만 진행중 미션 예시 부여 (없는 유저는 null 임을 함께 문서화)
+            .inProgressMission(rank == 1L
+                ? LevelRankingResponse.InProgressMissionInfo.builder()
+                    .missionId(11L)
+                    .categoryId(1L)
+                    .categoryName("운동")
+                    .title("달리기 30분")
+                    .visibility("PUBLIC")
+                    .isVisible(true)
+                    .startedAt(java.time.LocalDateTime.of(2026, 1, 1, 10, 0))
+                    .build()
+                : null)
             .build();
     }
 
@@ -422,7 +434,7 @@ class RankingControllerTest {
             ),
             PageRequest.of(0, 20), 2);
 
-        when(rankingService.getLevelRanking(any(Pageable.class), any())).thenReturn(page);
+        when(rankingService.getLevelRanking(any(Pageable.class), any(), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -463,6 +475,14 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
                             fieldWithPath("value.content[].total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
                             fieldWithPath("value.content[].percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)"),
+                            fieldWithPath("value.content[].in_progress_mission").type(JsonFieldType.OBJECT).description("현재 실시간 진행중인 미션 (없으면 null, LUT-275)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.mission_id").type(JsonFieldType.NUMBER).description("미션 ID (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.category_name").type(JsonFieldType.STRING).description("카테고리명 (locale 적용, 비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.title").type(JsonFieldType.STRING).description("미션명 (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.visibility").type(JsonFieldType.STRING).description("미션 공개범위").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.is_visible").type(JsonFieldType.BOOLEAN).description("조회자 노출 여부 — false면 미션 정보가 null 마스킹됨 (PUBLIC 또는 본인만 true)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.started_at").type(JsonFieldType.STRING).description("시작 시각").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
@@ -506,7 +526,7 @@ class RankingControllerTest {
             ),
             PageRequest.of(0, 20), 2);
 
-        when(rankingService.getLevelRankingByCategory(anyString(), any(Pageable.class), any())).thenReturn(page);
+        when(rankingService.getLevelRankingByCategory(anyString(), any(Pageable.class), any(), any())).thenReturn(page);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -550,6 +570,14 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
                             fieldWithPath("value.content[].total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
                             fieldWithPath("value.content[].percentile").type(JsonFieldType.NUMBER).description("상위 몇 %"),
+                            fieldWithPath("value.content[].in_progress_mission").type(JsonFieldType.OBJECT).description("현재 실시간 진행중인 미션 (없으면 null, LUT-275)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.mission_id").type(JsonFieldType.NUMBER).description("미션 ID (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.category_name").type(JsonFieldType.STRING).description("카테고리명 (locale 적용, 비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.title").type(JsonFieldType.STRING).description("미션명 (비노출 시 null)").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.visibility").type(JsonFieldType.STRING).description("미션 공개범위").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.is_visible").type(JsonFieldType.BOOLEAN).description("조회자 노출 여부 — false면 미션 정보가 null 마스킹됨").optional(),
+                            fieldWithPath("value.content[].in_progress_mission.started_at").type(JsonFieldType.STRING).description("시작 시각").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
@@ -631,7 +659,8 @@ class RankingControllerTest {
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
                             fieldWithPath("value.total_users").type(JsonFieldType.NUMBER).description("전체 사용자 수"),
-                            fieldWithPath("value.percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)")
+                            fieldWithPath("value.percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)"),
+                            fieldWithPath("value.in_progress_mission").description("현재 실시간 진행중인 미션 (목록 API 전용 — 내 랭킹 단건에서는 항상 null)").optional()
                         )
                         .build()
                 )
