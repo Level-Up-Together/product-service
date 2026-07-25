@@ -214,14 +214,14 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         @Param("executionIds") java.util.Collection<Long> executionIds);
 
     // 사용자의 모든 피드의 프로필 스냅샷 업데이트
+    // LUT-276: 레벨은 작성 당시 스냅샷을 유지한다 — 닉네임/프로필 사진만 동기화
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE ActivityFeed f SET f.userNickname = :nickname, f.userProfileImageUrl = :profileImageUrl, f.userLevel = :level WHERE f.userId = :userId")
+    @Query("UPDATE ActivityFeed f SET f.userNickname = :nickname, f.userProfileImageUrl = :profileImageUrl WHERE f.userId = :userId")
     int updateUserProfileByUserId(
         @Param("userId") String userId,
         @Param("nickname") String nickname,
-        @Param("profileImageUrl") String profileImageUrl,
-        @Param("level") Integer level);
+        @Param("profileImageUrl") String profileImageUrl);
 
     // ===== Admin 내부 API용 쿼리 =====
 

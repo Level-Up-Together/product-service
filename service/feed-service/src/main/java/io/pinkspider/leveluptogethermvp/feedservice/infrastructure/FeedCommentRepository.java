@@ -53,12 +53,12 @@ public interface FeedCommentRepository extends JpaRepository<FeedComment, Long> 
     @Query("SELECT DISTINCT c.userId FROM FeedComment c WHERE c.parent.id = :parentId AND c.isDeleted = false")
     List<String> findReplyAuthorsByParentId(@Param("parentId") Long parentId);
 
+    // LUT-276: 레벨은 작성 당시 스냅샷을 유지한다 — 닉네임/프로필 사진만 동기화
     @Modifying
     @Transactional(transactionManager = "feedTransactionManager")
-    @Query("UPDATE FeedComment c SET c.userNickname = :nickname, c.userProfileImageUrl = :profileImageUrl, c.userLevel = :level WHERE c.userId = :userId")
+    @Query("UPDATE FeedComment c SET c.userNickname = :nickname, c.userProfileImageUrl = :profileImageUrl WHERE c.userId = :userId")
     int updateUserProfileByUserId(
         @Param("userId") String userId,
         @Param("nickname") String nickname,
-        @Param("profileImageUrl") String profileImageUrl,
-        @Param("level") Integer level);
+        @Param("profileImageUrl") String profileImageUrl);
 }

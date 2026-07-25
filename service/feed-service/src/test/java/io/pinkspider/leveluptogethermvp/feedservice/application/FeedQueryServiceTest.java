@@ -1335,6 +1335,40 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getUserLevel()).isEqualTo(1);
         }
+
+        // LUT-276: 레벨은 작성 당시 스냅샷 — 현재 프로필 레벨이 있어도 스냅샷이 우선한다
+        @Test
+        @DisplayName("LUT-276: 현재 프로필 레벨이 달라도 comment에 저장된 작성 당시 레벨을 사용한다")
+        void getComments_prefersSnapshotLevelOverCurrentProfile() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+
+            FeedComment comment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname("테스트유저")
+                .content("댓글")
+                .isDeleted(false)
+                .userLevel(7)  // 작성 당시 레벨 스냅샷
+                .build();
+            setId(comment, 5L);
+
+            Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            // 현재 프로필은 레벨 20으로 성장한 상태
+            when(userQueryFacadeService.getUserProfiles(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID,
+                    new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 20, null, null, null)));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then - 작성 당시 스냅샷(7) 유지
+            assertThat(result.getContent().get(0).getUserLevel()).isEqualTo(7);
+        }
     }
 
     @Nested

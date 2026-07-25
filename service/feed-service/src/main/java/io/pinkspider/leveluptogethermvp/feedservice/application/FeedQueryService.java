@@ -734,12 +734,13 @@ public class FeedQueryService {
                                                      Map<Long, TranslationInfo> translationMap, boolean hasReplies) {
         TranslationInfo translation = translationMap.getOrDefault(
             comment.getId(), TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode()));
+        // LUT-276: 레벨은 작성 당시 스냅샷 우선. 스냅샷이 없는 레거시 댓글만 현재 프로필 레벨로 폴백.
         Integer userLevel;
-        UserProfileInfo userProfile = profileMap.get(comment.getUserId());
-        if (userProfile != null) {
-            userLevel = userProfile.level();
+        if (comment.getUserLevel() != null) {
+            userLevel = comment.getUserLevel();
         } else {
-            userLevel = comment.getUserLevel() != null ? comment.getUserLevel() : 1;
+            UserProfileInfo userProfile = profileMap.get(comment.getUserId());
+            userLevel = userProfile != null ? userProfile.level() : 1;
         }
 
         FeedCommentResponse response = FeedCommentResponse.from(comment, translation, currentUserId, userLevel);
