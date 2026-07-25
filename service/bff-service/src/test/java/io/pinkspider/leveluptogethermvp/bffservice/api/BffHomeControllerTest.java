@@ -613,7 +613,7 @@ class BffHomeControllerTest {
             .guildJoined(true)
             .build();
 
-        when(bffGuildService.getGuildList(anyString(), anyInt(), anyInt()))
+        when(bffGuildService.getGuildList(anyString(), anyInt(), anyInt(), any()))
             .thenReturn(mockResponse);
 
         // when

@@ -169,7 +169,7 @@ public class BffHomeService {
         CompletableFuture<List<GuildResponse>> myGuildsFuture = userId != null
             ? CompletableFuture.supplyAsync(() -> {
                 try {
-                    return guildQueryService.getMyGuilds(userId);
+                    return guildQueryService.getMyGuilds(userId, locale);
                 } catch (Exception e) {
                     log.error("Failed to fetch my guilds", e);
                     return Collections.<GuildResponse>emptyList();
@@ -181,7 +181,7 @@ public class BffHomeService {
             try {
                 if (categoryId != null) {
                     // 카테고리별 공개 길드 조회 (하이브리드)
-                    List<GuildResponse> guilds = guildQueryService.getPublicGuildsByCategory(userId, categoryId);
+                    List<GuildResponse> guilds = guildQueryService.getPublicGuildsByCategory(userId, categoryId, locale);
                     return GuildPageData.builder()
                         .content(guilds)
                         .page(0)
@@ -191,7 +191,7 @@ public class BffHomeService {
                         .build();
                 } else {
                     // 전체 공개 길드 조회
-                    Page<GuildResponse> guildPage = guildQueryService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize));
+                    Page<GuildResponse> guildPage = guildQueryService.getPublicGuilds(userId, PageRequest.of(0, publicGuildSize), locale);
                     return GuildPageData.builder()
                         .content(guildPage.getContent())
                         .page(guildPage.getNumber())

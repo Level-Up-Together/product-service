@@ -146,6 +146,11 @@ public class GuildQueryService {
      * 3. 중복 제거 후 최대 5개 반환
      */
     public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId) {
+        return getPublicGuildsByCategory(userId, categoryId, null);
+    }
+
+    /** LUT-277: locale에 맞는 카테고리명으로 카테고리별 공개 길드 조회 */
+    public List<GuildResponse> getPublicGuildsByCategory(String userId, Long categoryId, String locale) {
         List<Guild> selectedGuilds = new ArrayList<>();
         Set<Long> addedGuildIds = new HashSet<>();
         int maxGuilds = 5;
@@ -188,7 +193,7 @@ public class GuildQueryService {
             selectedGuilds.stream().map(Guild::getId).toList());
         List<GuildResponse> result = selectedGuilds.stream()
             .map(guild -> guildHelper.buildGuildResponseWithCategory(
-                guild, memberCountMap.getOrDefault(guild.getId(), 0)))
+                guild, memberCountMap.getOrDefault(guild.getId(), 0), locale))
             .collect(Collectors.toCollection(ArrayList::new));
 
         // 배치로 신고 상태 및 가입 신청 상태 조회

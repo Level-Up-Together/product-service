@@ -140,9 +140,11 @@ public class BffHomeController {
     public ResponseEntity<ApiResult<GuildListDataResponse>> getGuildList(
         @CurrentUser(required = false) String userId,
         @RequestParam(defaultValue = "10") int recommendedGuildSize,
-        @RequestParam(defaultValue = "10") int activityFeedSize
+        @RequestParam(defaultValue = "10") int activityFeedSize,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        GuildListDataResponse response = bffGuildService.getGuildList(userId, recommendedGuildSize, activityFeedSize);
+        GuildListDataResponse response =
+            bffGuildService.getGuildList(userId, recommendedGuildSize, activityFeedSize, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<GuildListDataResponse>builder().value(response).build());
     }
 

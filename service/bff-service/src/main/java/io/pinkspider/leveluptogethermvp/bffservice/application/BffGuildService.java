@@ -138,13 +138,19 @@ public class BffGuildService {
      * @return GuildListDataResponse 길드 목록 데이터
      */
     public GuildListDataResponse getGuildList(String userId, int recommendedGuildSize, int activityFeedSize) {
-        log.info("BFF getGuildList called: userId={}", userId);
+        return getGuildList(userId, recommendedGuildSize, activityFeedSize, null);
+    }
+
+    /** LUT-277: 길드 홈 카드 카테고리·공지·활동피드에 locale 적용 */
+    public GuildListDataResponse getGuildList(String userId, int recommendedGuildSize, int activityFeedSize,
+                                               String locale) {
+        log.info("BFF getGuildList called: userId={}, locale={}", userId, locale);
 
         // 먼저 내 길드 목록 조회 (비인증 시 빈 리스트)
         List<GuildResponse> myGuilds;
         if (userId != null) {
             try {
-                myGuilds = guildQueryService.getMyGuilds(userId);
+                myGuilds = guildQueryService.getMyGuilds(userId, locale);
             } catch (Exception e) {
                 log.error("Failed to fetch my guilds", e);
                 myGuilds = Collections.emptyList();
@@ -163,7 +169,7 @@ public class BffGuildService {
         CompletableFuture<GuildPageData> recommendedGuildsFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 Page<GuildResponse> guildsPage =
-                        guildQueryService.getPublicGuilds(userId, PageRequest.of(0, recommendedGuildSize));
+                        guildQueryService.getPublicGuilds(userId, PageRequest.of(0, recommendedGuildSize), locale);
                 return GuildPageData.builder()
                         .content(guildsPage.getContent())
                         .page(guildsPage.getNumber())
@@ -193,7 +199,7 @@ public class BffGuildService {
                 return myGuildIds.stream()
                         .flatMap(guildId -> {
                             try {
-                                return guildPostService.getNotices(guildId, userId, null).stream();
+                                return guildPostService.getNotices(guildId, userId, locale).stream();
                             } catch (Exception e) {
                                 log.warn("Failed to fetch notices for guild {}: {}", guildId, e.getMessage());
                                 return java.util.stream.Stream.empty();
@@ -225,7 +231,7 @@ public class BffGuildService {
                         .flatMap(guildId -> {
                             try {
                                 return feedQueryService
-                                        .getGuildFeeds(guildId, userId, 0, activityFeedSize)
+                                        .getGuildFeeds(guildId, userId, 0, activityFeedSize, locale)
                                         .getContent()
                                         .stream();
                             } catch (Exception e) {

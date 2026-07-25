@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -214,10 +215,10 @@ class BffGuildServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(guildPostService.getNotices(1L, testUserId, null)).thenReturn(List.of(noticePost));
-            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildPostService.getNotices(eq(1L), eq(testUserId), any())).thenReturn(List.of(noticePost));
+            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -230,6 +231,32 @@ class BffGuildServiceTest {
             assertThat(response.getGuildNotices()).hasSize(1);
         }
 
+        // LUT-277: locale 미전달 시 길드 카드 카테고리·공지·활동피드 다국어가 스킵된다
+        @Test
+        @DisplayName("LUT-277: 나의 길드/추천 길드/공지/활동피드 조회에 locale이 전달된다")
+        void getGuildList_passesLocaleToGuildQueries() {
+            // given
+            Page<GuildResponse> guildPage = new PageImpl<>(
+                List.of(testGuildResponse), PageRequest.of(0, 10), 1
+            );
+            Page<ActivityFeedResponse> feedPage = new PageImpl<>(
+                List.of(testFeedResponse), PageRequest.of(0, 10), 1
+            );
+            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse));
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildPostService.getNotices(eq(1L), eq(testUserId), any())).thenReturn(List.of());
+            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
+
+            // when
+            bffGuildService.getGuildList(testUserId, 10, 10, "en");
+
+            // then
+            org.mockito.Mockito.verify(guildQueryService).getMyGuilds(testUserId, "en");
+            org.mockito.Mockito.verify(guildQueryService).getPublicGuilds(eq(testUserId), any(), eq("en"));
+            org.mockito.Mockito.verify(guildPostService).getNotices(1L, testUserId, "en");
+            org.mockito.Mockito.verify(feedQueryService).getGuildFeeds(eq(1L), eq(testUserId), anyInt(), anyInt(), eq("en"));
+        }
+
         @Test
         @DisplayName("길드에 가입되지 않은 사용자의 목록 데이터를 조회한다")
         void getGuildList_withoutGuild_success() {
@@ -238,8 +265,8 @@ class BffGuildServiceTest {
                 List.of(testGuildResponse), PageRequest.of(0, 10), 1
             );
 
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(Collections.emptyList());
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
+            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(Collections.emptyList());
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -280,11 +307,11 @@ class BffGuildServiceTest {
             Page<GuildResponse> guildPage = new PageImpl<>(Collections.emptyList());
             Page<ActivityFeedResponse> feedPage = new PageImpl<>(Collections.emptyList());
 
-            when(guildQueryService.getMyGuilds(testUserId)).thenReturn(List.of(testGuildResponse, secondGuild));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(guildPage);
-            when(guildPostService.getNotices(1L, testUserId, null)).thenReturn(List.of(notice1));
-            when(guildPostService.getNotices(2L, testUserId, null)).thenReturn(List.of(notice2));
-            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt())).thenReturn(feedPage);
+            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenReturn(List.of(testGuildResponse, secondGuild));
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(guildPage);
+            when(guildPostService.getNotices(eq(1L), eq(testUserId), any())).thenReturn(List.of(notice1));
+            when(guildPostService.getNotices(eq(2L), eq(testUserId), any())).thenReturn(List.of(notice2));
+            when(feedQueryService.getGuildFeeds(anyLong(), anyString(), anyInt(), anyInt(), any())).thenReturn(feedPage);
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
@@ -301,8 +328,8 @@ class BffGuildServiceTest {
         @DisplayName("내 길드 조회 실패 시 빈 목록 반환")
         void getGuildList_myGuildsFetchFailed() {
             // given
-            when(guildQueryService.getMyGuilds(testUserId)).thenThrow(new RuntimeException("조회 실패"));
-            when(guildQueryService.getPublicGuilds(any(), any())).thenReturn(Page.empty());
+            when(guildQueryService.getMyGuilds(eq(testUserId), any())).thenThrow(new RuntimeException("조회 실패"));
+            when(guildQueryService.getPublicGuilds(any(), any(), any())).thenReturn(Page.empty());
 
             // when
             GuildListDataResponse response = bffGuildService.getGuildList(testUserId, 10, 10);
