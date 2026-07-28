@@ -21,8 +21,10 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -160,6 +162,15 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("하루 수행 횟수 제한 (null = 무제한)")
     private Integer dailyExecutionLimit;
 
+    @Column(name = "reminder_hour")
+    @Comment("LUT-282: 푸시 리마인더 시각 (유저 로컬 0-23시, null = 리마인더 없음)")
+    private Integer reminderHour;
+
+    @Size(max = 70)
+    @Column(name = "reminder_days_of_week", length = 70)
+    @Comment("LUT-282: 푸시 리마인더 요일 CSV (예: MONDAY,WEDNESDAY, null = 리마인더 없음)")
+    private String reminderDaysOfWeek;
+
     @NotNull
     @Column(name = "creator_id", nullable = false)
     @Comment("생성자 ID")
@@ -237,6 +248,34 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Builder.Default
     @OneToMany(mappedBy = "mission")
     private List<MissionParticipant> participants = new ArrayList<>();
+
+    /** LUT-282: 리마인더 요일 CSV → DayOfWeek 리스트 (미설정/파싱 불가 값은 무시) */
+    public List<DayOfWeek> getReminderDaysOfWeekList() {
+        if (reminderDaysOfWeek == null || reminderDaysOfWeek.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(reminderDaysOfWeek.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .map(DayOfWeek::valueOf)
+            .toList();
+    }
+
+    /** LUT-282: 리마인더 설정 (요일 리스트 → CSV 저장). null/빈 요일이면 리마인더 해제 */
+    public void updateReminder(Integer hour, List<DayOfWeek> daysOfWeek) {
+        if (hour == null || daysOfWeek == null || daysOfWeek.isEmpty()) {
+            this.reminderHour = null;
+            this.reminderDaysOfWeek = null;
+            return;
+        }
+        this.reminderHour = hour;
+        this.reminderDaysOfWeek = daysOfWeek.stream()
+            .distinct()
+            .sorted()
+            .map(DayOfWeek::name)
+            .reduce((a, b) -> a + "," + b)
+            .orElse(null);
+    }
 
     /**
      * 카테고리 이름 반환 (스냅샷 카테고리 또는 사용자 정의)

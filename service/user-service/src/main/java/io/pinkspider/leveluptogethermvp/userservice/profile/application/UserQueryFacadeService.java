@@ -105,6 +105,15 @@ public class UserQueryFacadeService implements UserQueryFacade {
         });
     }
 
+    // ========== 선호 타임존 ==========
+
+    @Override
+    public String getPreferredTimezone(String userId) {
+        return userRepository.findById(userId)
+            .map(Users::getPreferredTimezone)
+            .orElse("Asia/Seoul");
+    }
+
     // ========== 친구 관계 ==========
 
     public List<String> getFriendIds(String userId) {

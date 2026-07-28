@@ -270,6 +270,7 @@ public void run() { ...}
 |-------------------------------------------------------------|-----------------------------|----------------------------|
 | `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
+| `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (서버 기본존)       | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
 | `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST           | 만료된 OAuth 세션 정리            |
 | `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST          | 고아 user_sessions 참조 정리     |
 | `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (KST/AST/UTC) | 타임존별 일간 MVP 기록             |

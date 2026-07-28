@@ -212,4 +212,17 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
            "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
     long countActivePersonalByCreatorId(@Param("creatorId") String creatorId);
+
+    /**
+     * LUT-282: 푸시 리마인더가 설정된 활성 개인 미션 조회 (리마인더 스케줄러 전용).
+     * 완료/취소/삭제 미션 제외 — DRAFT 포함 (개인 미션은 생성 직후 DRAFT 상태로 목록에 노출됨).
+     */
+    @Query("SELECT m FROM Mission m " +
+           "WHERE m.reminderHour IS NOT NULL " +
+           "AND m.reminderDaysOfWeek IS NOT NULL " +
+           "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
+           "AND m.isDeleted = false " +
+           "AND m.status NOT IN (io.pinkspider.global.enums.MissionStatus.COMPLETED, " +
+           "                     io.pinkspider.global.enums.MissionStatus.CANCELLED)")
+    List<Mission> findActiveReminderMissions();
 }

@@ -11,7 +11,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSourc
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -60,6 +62,10 @@ public class MissionResponse {
     private Integer bonusExpOnFullCompletion;
     private Integer targetDurationMinutes;
     private Integer dailyExecutionLimit;
+
+    // LUT-282: 푸시 리마인더 (미설정 시 null / 빈 리스트)
+    private Integer reminderHour;
+    private List<DayOfWeek> reminderDaysOfWeek;
 
     // 카테고리 정보
     private Long categoryId;
@@ -124,6 +130,8 @@ public class MissionResponse {
             .bonusExpOnFullCompletion(mission.getBonusExpOnFullCompletion())
             .targetDurationMinutes(mission.getTargetDurationMinutes())
             .dailyExecutionLimit(mission.getDailyExecutionLimit())
+            .reminderHour(mission.getReminderHour())
+            .reminderDaysOfWeek(mission.getReminderDaysOfWeekList())
             .categoryId(mission.getCategoryId())
             .categoryName(mission.getCategoryName())
             .createdAt(mission.getCreatedAt())

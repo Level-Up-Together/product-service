@@ -12,7 +12,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -92,4 +94,12 @@ public class MissionCreateRequest {
     // 하루 수행 횟수 제한 (null이면 무제한)
     @Min(value = 1, message = "일일 수행 제한은 최소 1회 이상이어야 합니다.")
     private Integer dailyExecutionLimit;
+
+    // LUT-282: 푸시 리마인더 시각 (유저 로컬 0-23시). 요일과 함께 설정해야 활성화
+    @Min(value = 0, message = "리마인더 시각은 0시 이상이어야 합니다.")
+    @Max(value = 23, message = "리마인더 시각은 23시 이하여야 합니다.")
+    private Integer reminderHour;
+
+    // LUT-282: 푸시 리마인더 요일 (MONDAY~SUNDAY, 중복 선택 가능)
+    private List<DayOfWeek> reminderDaysOfWeek;
 }

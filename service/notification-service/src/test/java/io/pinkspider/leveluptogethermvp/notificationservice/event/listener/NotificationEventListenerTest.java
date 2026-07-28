@@ -26,6 +26,7 @@ import io.pinkspider.global.event.GuildInvitationEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
+import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
@@ -62,6 +63,34 @@ class NotificationEventListenerTest {
     private static final String MEMBER_ID_2 = "member-user-102";
     private static final String INVITEE_ID = "invitee-user-200";
     private static final String MISSION_CREATOR_ID = "mission-creator-300";
+
+    // ==================== 미션 리마인더 (LUT-282) ====================
+
+    @Nested
+    @DisplayName("미션 리마인더 이벤트 처리")
+    class HandleMissionReminderTest {
+
+        @Test
+        @DisplayName("리마인더 이벤트 발생 시 MISSION_REMINDER 알림 서비스 호출")
+        void shouldCallNotificationServiceOnMissionReminder() {
+            MissionReminderEvent event = new MissionReminderEvent("user-123", 10L, "아침 운동");
+            eventListener.handleMissionReminder(event);
+            verify(notificationService).sendNotification(
+                eq("user-123"), eq(NotificationType.MISSION_REMINDER),
+                eq(10L), isNull(), eq("아침 운동"));
+        }
+
+        @Test
+        @DisplayName("알림 서비스 실패해도 예외를 던지지 않음")
+        void shouldNotThrowExceptionOnNotificationFailure() {
+            MissionReminderEvent event = new MissionReminderEvent("user-123", 10L, "아침 운동");
+            doThrow(new RuntimeException("알림 전송 실패"))
+                .when(notificationService).sendNotification(
+                    anyString(), eq(NotificationType.MISSION_REMINDER),
+                    anyLong(), isNull(), anyString());
+            eventListener.handleMissionReminder(event);
+        }
+    }
 
     // ==================== 칭호/업적 ====================
 

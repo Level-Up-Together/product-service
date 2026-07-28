@@ -20,6 +20,7 @@ import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
+import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -256,6 +257,15 @@ public class NotificationEventListener {
         };
         safeHandle("미션 자동종료 임박(" + milestone + ")", () -> notificationService.sendNotification(
             event.userId(), type, event.missionId(), null, event.missionTitle()));
+    }
+
+    /** LUT-282: 미션 푸시 리마인더 — 유저가 설정한 요일·시각에 MissionReminderScheduler 가 발행 */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleMissionReminder(MissionReminderEvent event) {
+        safeHandle("미션 리마인더", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.MISSION_REMINDER,
+            event.missionId(), null, event.missionTitle()));
     }
 
     @Async(EVENT_EXECUTOR)

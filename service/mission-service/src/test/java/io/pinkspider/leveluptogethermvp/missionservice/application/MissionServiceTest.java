@@ -1739,6 +1739,73 @@ class MissionServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-282: 리마인더 시각·요일을 설정한다 (진행중 상태에서도 가능)")
+        void updateMission_setReminder_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .reminderHour(9)
+                    .reminderDaysOfWeek(java.util.List.of(
+                        java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.MONDAY))
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            MissionResponse response = missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 요일은 정렬·중복 제거된 CSV 로 저장
+            assertThat(response.getReminderHour()).isEqualTo(9);
+            assertThat(mission.getReminderHour()).isEqualTo(9);
+            assertThat(mission.getReminderDaysOfWeek()).isEqualTo("MONDAY,WEDNESDAY");
+            assertThat(mission.getReminderDaysOfWeekList())
+                .containsExactly(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.WEDNESDAY);
+        }
+
+        @Test
+        @DisplayName("LUT-282: clearReminder=true면 리마인더가 해제된다")
+        void updateMission_clearReminder_success() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+            mission.updateReminder(9, java.util.List.of(java.time.DayOfWeek.MONDAY));
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .clearReminder(true)
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when
+            missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then
+            assertThat(mission.getReminderHour()).isNull();
+            assertThat(mission.getReminderDaysOfWeek()).isNull();
+            assertThat(mission.getReminderDaysOfWeekList()).isEmpty();
+        }
+
+        @Test
         @DisplayName("LUT-257: OPEN 상태의 미션은 안전 필드(제목)만 반영되어 수정된다")
         void updateMission_openStatus_appliesSafeFieldOnly() {
             // given
