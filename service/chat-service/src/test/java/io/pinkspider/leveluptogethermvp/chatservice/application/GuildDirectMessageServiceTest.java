@@ -118,8 +118,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
                 GuildDirectMessage msg = inv.getArgument(0);
@@ -148,8 +150,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
                 GuildDirectMessage msg = inv.getArgument(0);
@@ -185,8 +189,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
                 GuildDirectMessage msg = inv.getArgument(0);
@@ -217,8 +223,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
                 GuildDirectMessage msg = inv.getArgument(0);
@@ -252,8 +260,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
                 GuildDirectMessage msg = inv.getArgument(0);
@@ -280,8 +290,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.empty());
             when(conversationRepository.save(any(GuildDirectConversation.class))).thenAnswer(inv -> {
                 GuildDirectConversation conv = inv.getArgument(0);
@@ -354,6 +366,57 @@ class GuildDirectMessageServiceTest {
         }
 
         @Test
+        @DisplayName("비활성화된 대화방에 메시지를 보내면 재활성화된다 (LUT-287 재가입)")
+        void sendMessage_reactivatesInactiveConversation() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("재가입 후 첫 메시지")
+                .build();
+            testConversation.deactivate();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
+                .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
+                GuildDirectMessage msg = inv.getArgument(0);
+                setId(msg, GuildDirectMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            // then
+            assertThat(testConversation.getIsActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴한 유저에게는 DM을 보낼 수 없다 (LUT-285)")
+        void sendMessage_recipientWithdrawn_fail() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("안녕하세요!")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            // 회원 탈퇴자는 길드 멤버십이 잔존해(LUT-287) 멤버 검사를 통과한다
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2))).thenReturn(List.of());
+
+            // when & then
+            assertThatThrownBy(() -> dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("탈퇴한 회원에게는 DM을 보낼 수 없습니다");
+            verify(messageRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("존재하지 않는 길드에 DM 전송 시 예외 발생")
         void sendMessage_guildNotFound_fail() {
             // given
@@ -381,6 +444,10 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
                 .thenReturn(List.of(testConversation));
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(USER_ID_1, USER_ID_2));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
             when(userQueryFacadeService.getUserProfiles(List.of(USER_ID_2)))
                 .thenReturn(java.util.Map.of(USER_ID_2, new UserProfileInfo(USER_ID_2, NICKNAME_2, null, 1, null, null, null)));
             when(messageRepository.countUnreadMessages(1L, USER_ID_1)).thenReturn(3);
@@ -393,6 +460,45 @@ class GuildDirectMessageServiceTest {
             assertThat(result.get(0).getOtherUserId()).isEqualTo(USER_ID_2);
             assertThat(result.get(0).getOtherUserNickname()).isEqualTo(NICKNAME_2);
             assertThat(result.get(0).getUnreadCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("길드를 탈퇴한 상대와의 대화는 목록에서 제외한다 (LUT-285)")
+        void getConversations_excludesGuildLeftUser() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+            // 상대(USER_ID_2)가 길드 활성 멤버 목록에 없음 (길드 탈퇴)
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L)).thenReturn(List.of(USER_ID_1));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+
+            // when
+            List<DirectConversationResponse> result = dmService.getConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(result).isEmpty();
+            verify(messageRepository, never()).countUnreadMessages(anyLong(), anyString());
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴한 상대와의 대화는 목록에서 제외한다 (LUT-285)")
+        void getConversations_excludesWithdrawnUser() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+            // 회원 탈퇴자는 길드 멤버십이 정리되지 않아(LUT-287) 멤버 목록에는 남아 있다
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(USER_ID_1, USER_ID_2));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2))).thenReturn(List.of());
+
+            // when
+            List<DirectConversationResponse> result = dmService.getConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -516,7 +622,9 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.of(testConversation));
             when(userQueryFacadeService.getUserProfile(USER_ID_2)).thenReturn(new UserProfileInfo(USER_ID_2, NICKNAME_2, null, 1, null, null, null));
             when(messageRepository.countUnreadMessages(1L, USER_ID_1)).thenReturn(0);
@@ -537,7 +645,9 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
-            when(conversationRepository.findConversation(1L, USER_ID_1, USER_ID_2))
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
                 .thenReturn(Optional.empty());
             when(conversationRepository.save(any(GuildDirectConversation.class))).thenAnswer(inv -> {
                 GuildDirectConversation conv = inv.getArgument(0);
@@ -553,6 +663,41 @@ class GuildDirectMessageServiceTest {
             // then
             assertThat(result).isNotNull();
             verify(conversationRepository).save(any(GuildDirectConversation.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("DM 대화방 비활성화 테스트 (LUT-287)")
+    class DeactivateConversationsTest {
+
+        @Test
+        @DisplayName("회원 탈퇴 시 유저의 모든 활성 대화방을 비활성화한다")
+        void deactivateConversationsForUser_success() {
+            // given
+            when(conversationRepository.findAllActiveByUserId(USER_ID_1))
+                .thenReturn(List.of(testConversation));
+
+            // when
+            int count = dmService.deactivateConversationsForUser(USER_ID_1);
+
+            // then
+            assertThat(count).isEqualTo(1);
+            assertThat(testConversation.getIsActive()).isFalse();
+        }
+
+        @Test
+        @DisplayName("길드 탈퇴/추방 시 해당 길드의 대화방을 비활성화한다")
+        void deactivateConversations_success() {
+            // given
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+
+            // when
+            int count = dmService.deactivateConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(count).isEqualTo(1);
+            assertThat(testConversation.getIsActive()).isFalse();
         }
     }
 

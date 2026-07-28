@@ -101,4 +101,9 @@ public class GuildDirectConversation extends LocalDateTimeBaseEntity {
     public void deactivate() {
         this.isActive = false;
     }
+
+    /** LUT-287: 길드 재가입 후 첫 메시지 시점에 비활성 대화방을 되살린다 (유니크 제약상 재생성 불가) */
+    public void activate() {
+        this.isActive = true;
+    }
 }

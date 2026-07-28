@@ -14,6 +14,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -54,11 +55,15 @@ public class GuildDirectMessageService {
         String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
         GuildDirectConversation conversation = conversationRepository
-            .findConversation(guildId, senderId, recipientId)
+            .findConversationIncludingInactive(guildId, senderId, recipientId)
             .orElseGet(() -> {
                 GuildDirectConversation newConversation = GuildDirectConversation.create(guildId, senderId, recipientId);
                 return conversationRepository.save(newConversation);
             });
+        // LUT-287: 탈퇴/재가입으로 비활성화된 대화방은 새 메시지 시점에 재활성화
+        if (!conversation.getIsActive()) {
+            conversation.activate();
+        }
 
         GuildDirectMessage message;
         if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
@@ -102,14 +107,37 @@ public class GuildDirectMessageService {
         List<GuildDirectConversation> conversations = conversationRepository
             .findAllByGuildIdAndUserId(guildId, userId);
 
+        if (conversations.isEmpty()) {
+            return List.of();
+        }
+
         List<String> otherUserIds = conversations.stream()
             .map(c -> c.getOtherUserId(userId))
             .distinct()
             .toList();
 
-        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(otherUserIds);
+        // LUT-285: 길드를 탈퇴한 상대(비활성 멤버)와 회원 탈퇴(WITHDRAWN) 상대의 대화는 목록에서 제외.
+        // 회원 탈퇴는 길드 멤버십을 정리하지 않아(LUT-287) 멤버 검사만으로는 걸러지지 않는다.
+        Set<String> activeMemberIds =
+            Set.copyOf(guildQueryFacadeService.getActiveMemberUserIds(guildId));
+        Set<String> activeUserIds = Set.copyOf(userQueryFacadeService.getActiveUserIds(otherUserIds));
 
-        return conversations.stream()
+        List<GuildDirectConversation> visibleConversations = conversations.stream()
+            .filter(conv -> {
+                String otherUserId = conv.getOtherUserId(userId);
+                return activeMemberIds.contains(otherUserId) && activeUserIds.contains(otherUserId);
+            })
+            .toList();
+
+        List<String> visibleOtherUserIds = visibleConversations.stream()
+            .map(c -> c.getOtherUserId(userId))
+            .distinct()
+            .toList();
+
+        Map<String, UserProfileInfo> profileMap =
+            userQueryFacadeService.getUserProfiles(visibleOtherUserIds);
+
+        return visibleConversations.stream()
             .map(conv -> {
                 String otherUserId = conv.getOtherUserId(userId);
                 UserProfileInfo otherProfile = profileMap.get(otherUserId);
@@ -196,11 +224,15 @@ public class GuildDirectMessageService {
         validateBothAreMember(guildId, userId, otherUserId);
 
         GuildDirectConversation conversation = conversationRepository
-            .findConversation(guildId, userId, otherUserId)
+            .findConversationIncludingInactive(guildId, userId, otherUserId)
             .orElseGet(() -> {
                 GuildDirectConversation newConversation = GuildDirectConversation.create(guildId, userId, otherUserId);
                 return conversationRepository.save(newConversation);
             });
+        // LUT-287: 탈퇴/재가입으로 비활성화된 대화방은 대화 재시작 시점에 재활성화
+        if (!conversation.getIsActive()) {
+            conversation.activate();
+        }
 
         UserProfileInfo otherProfile = userQueryFacadeService.getUserProfile(otherUserId);
         String otherNickname = otherProfile != null ? otherProfile.nickname() : "알 수 없음";
@@ -229,6 +261,32 @@ public class GuildDirectMessageService {
         log.info("DM 삭제: messageId={}, deletedBy={}", messageId, userId);
     }
 
+    /**
+     * 회원 탈퇴 시 유저가 참여한 모든 DM 대화방 비활성화 (LUT-287)
+     *
+     * @return 비활성화된 대화방 수
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public int deactivateConversationsForUser(String userId) {
+        List<GuildDirectConversation> conversations =
+            conversationRepository.findAllActiveByUserId(userId);
+        conversations.forEach(GuildDirectConversation::deactivate);
+        return conversations.size();
+    }
+
+    /**
+     * 길드 탈퇴/추방 시 해당 길드에서 유저가 참여한 DM 대화방 비활성화 (LUT-287)
+     *
+     * @return 비활성화된 대화방 수
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public int deactivateConversations(Long guildId, String userId) {
+        List<GuildDirectConversation> conversations =
+            conversationRepository.findAllByGuildIdAndUserId(guildId, userId);
+        conversations.forEach(GuildDirectConversation::deactivate);
+        return conversations.size();
+    }
+
     // ============ 헬퍼 메서드 ============
 
     private void validateGuildExists(Long guildId) {
@@ -252,6 +310,11 @@ public class GuildDirectMessageService {
         }
         if (!guildQueryFacadeService.isActiveMember(guildId, userId2)) {
             throw new IllegalStateException("수신자가 길드 멤버가 아닙니다.");
+        }
+        // LUT-285: 회원 탈퇴자는 길드 멤버십이 정리되지 않아(LUT-287) 위 멤버 검사를 통과한다.
+        // 유저 상태(ACTIVE)를 별도로 확인해 탈퇴 회원에게 DM이 전송되는 것을 막는다.
+        if (userQueryFacadeService.getActiveUserIds(List.of(userId2)).isEmpty()) {
+            throw new IllegalStateException("탈퇴한 회원에게는 DM을 보낼 수 없습니다.");
         }
     }
 
