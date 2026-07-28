@@ -12,7 +12,8 @@ public enum ShopItemType {
     BASIC("기본"),
     FULL("풀"),
     HEAD("머리"),
-    EFFECT("이펙트");
+    EFFECT("이펙트"),
+    ETC("기타");
 
     private final String displayName;
 }

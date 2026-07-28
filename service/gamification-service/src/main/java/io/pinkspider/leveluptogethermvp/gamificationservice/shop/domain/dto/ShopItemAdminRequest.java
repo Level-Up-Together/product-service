@@ -36,6 +36,18 @@ public class ShopItemAdminRequest {
     @Size(max = 50, message = "아이템명(일본어)은 50자 이하이어야 합니다.")
     private String nameJa;
 
+    @Size(max = 200, message = "아이템 설명은 200자 이하이어야 합니다.")
+    private String description;
+
+    @Size(max = 200, message = "아이템 설명(영어)은 200자 이하이어야 합니다.")
+    private String descriptionEn;
+
+    @Size(max = 200, message = "아이템 설명(아랍어)은 200자 이하이어야 합니다.")
+    private String descriptionAr;
+
+    @Size(max = 200, message = "아이템 설명(일본어)은 200자 이하이어야 합니다.")
+    private String descriptionJa;
+
     @NotNull(message = "아이템 타입은 필수입니다.")
     private ShopItemType itemType;
 

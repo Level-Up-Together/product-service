@@ -53,6 +53,10 @@ public class ShopItemAdminService {
             .nameEn(request.getNameEn())
             .nameAr(request.getNameAr())
             .nameJa(request.getNameJa())
+            .description(request.getDescription())
+            .descriptionEn(request.getDescriptionEn())
+            .descriptionAr(request.getDescriptionAr())
+            .descriptionJa(request.getDescriptionJa())
             .itemType(request.getItemType())
             .rarity(request.getRarity())
             .imageUrl(request.getImageUrl())
@@ -87,6 +91,10 @@ public class ShopItemAdminService {
         item.setNameEn(request.getNameEn());
         item.setNameAr(request.getNameAr());
         item.setNameJa(request.getNameJa());
+        item.setDescription(request.getDescription());
+        item.setDescriptionEn(request.getDescriptionEn());
+        item.setDescriptionAr(request.getDescriptionAr());
+        item.setDescriptionJa(request.getDescriptionJa());
         item.setItemType(request.getItemType());
         item.setRarity(request.getRarity());
         item.setImageUrl(request.getImageUrl());

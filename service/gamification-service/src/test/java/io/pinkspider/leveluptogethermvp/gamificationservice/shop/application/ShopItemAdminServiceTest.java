@@ -169,6 +169,48 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("ETC 타입으로 생성한다 (LUT-271)")
+        void createShopItem_etcType() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("기타 아이템");
+            request.setItemType(ShopItemType.ETC);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.itemType()).isEqualTo(ShopItemType.ETC);
+        }
+
+        @Test
+        @DisplayName("다국어 설명을 함께 저장한다 (LUT-271)")
+        void createShopItem_withDescriptions() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("새 아이템");
+            request.setDescription("멋진 아이템");
+            request.setDescriptionEn("Cool item");
+            request.setDescriptionAr("عنصر رائع");
+            request.setDescriptionJa("かっこいいアイテム");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.description()).isEqualTo("멋진 아이템");
+            assertThat(response.descriptionEn()).isEqualTo("Cool item");
+            assertThat(response.descriptionAr()).isEqualTo("عنصر رائع");
+            assertThat(response.descriptionJa()).isEqualTo("かっこいいアイテム");
+        }
+
+        @Test
         @DisplayName("중복 이름이면 예외")
         void createShopItem_duplicateName() {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(true);
@@ -228,6 +270,26 @@ class ShopItemAdminServiceTest {
             ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
 
             assertThat(response.imagePosition()).isEqualTo(ShopItemImagePosition.FRONT);
+        }
+
+        @Test
+        @DisplayName("다국어 설명을 수정한다 (LUT-271)")
+        void updateShopItem_changesDescriptions() {
+            ShopItem item = createItem(1L, "우주 헬멧");
+            when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
+            when(shopItemRepository.save(any(ShopItem.class))).thenReturn(item);
+
+            ShopItemAdminRequest request = createRequest("우주 헬멧");
+            request.setDescription("수정된 설명");
+            request.setDescriptionEn("Updated description");
+
+            ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
+
+            assertThat(response.description()).isEqualTo("수정된 설명");
+            assertThat(response.descriptionEn()).isEqualTo("Updated description");
+            // 미입력 언어는 null 반영 (기존 값 유지 아님 — 전체 치환 시맨틱)
+            assertThat(response.descriptionAr()).isNull();
+            assertThat(response.descriptionJa()).isNull();
         }
 
         @Test
