@@ -125,6 +125,73 @@ class FcmPushServiceTest {
     }
 
     @Nested
+    @DisplayName("배지 카운트 업데이트 push 테스트 (LUT-291)")
+    class SendBadgeUpdateTest {
+
+        @Test
+        @DisplayName("iOS 토큰에 badge-only push를 전송한다")
+        void sendBadgeUpdate_iosToken_sends() throws FirebaseMessagingException {
+            // given
+            DeviceToken iosToken = DeviceToken.builder()
+                .userId(testUserId)
+                .fcmToken("ios-fcm-token")
+                .deviceType(DeviceType.IOS)
+                .isActive(true)
+                .build();
+            setId(iosToken, 2L);
+
+            when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
+                .thenReturn(List.of(iosToken));
+            when(firebaseMessaging.send(any(Message.class)))
+                .thenReturn("projects/test/messages/12345");
+
+            // when
+            fcmPushService.sendBadgeUpdate(testUserId, 0);
+
+            // then
+            verify(firebaseMessaging).send(any(Message.class));
+        }
+
+        @Test
+        @DisplayName("Android 토큰만 있으면 전송하지 않는다 (iOS 전용)")
+        void sendBadgeUpdate_androidOnly_skips() throws FirebaseMessagingException {
+            // given (testDeviceToken은 ANDROID)
+            when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
+                .thenReturn(List.of(testDeviceToken));
+
+            // when
+            fcmPushService.sendBadgeUpdate(testUserId, 0);
+
+            // then
+            verify(firebaseMessaging, never()).send(any());
+        }
+
+        @Test
+        @DisplayName("iOS/Android 혼재 시 iOS 토큰에만 전송한다")
+        void sendBadgeUpdate_mixedTokens_sendsToIosOnly() throws FirebaseMessagingException {
+            // given
+            DeviceToken iosToken = DeviceToken.builder()
+                .userId(testUserId)
+                .fcmToken("ios-fcm-token")
+                .deviceType(DeviceType.IOS)
+                .isActive(true)
+                .build();
+            setId(iosToken, 2L);
+
+            when(deviceTokenRepository.findByUserIdAndIsActiveTrue(testUserId))
+                .thenReturn(List.of(testDeviceToken, iosToken));
+            when(firebaseMessaging.send(any(Message.class)))
+                .thenReturn("projects/test/messages/12345");
+
+            // when
+            fcmPushService.sendBadgeUpdate(testUserId, 3);
+
+            // then
+            verify(firebaseMessaging, times(1)).send(any(Message.class));
+        }
+    }
+
+    @Nested
     @DisplayName("다중 사용자 푸시 전송 테스트")
     class SendToUsersTest {
 

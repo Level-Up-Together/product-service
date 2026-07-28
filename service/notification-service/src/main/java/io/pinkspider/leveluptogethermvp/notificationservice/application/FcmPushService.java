@@ -179,7 +179,11 @@ public class FcmPushService {
     }
 
     /**
-     * 배지 카운트 업데이트 silent push 전송 (iOS만 해당)
+     * 배지 카운트 업데이트 push 전송 (iOS만 해당)
+     *
+     * LUT-291: content-available 없이 aps.badge만 실어 보낸다. content-available 이 붙으면
+     * background push 로 분류되어 APNs 스로틀/드랍 대상이 되지만(저전력 모드·강제종료 시
+     * 미전달 가능), badge-only push 는 스로틀 없이 OS 가 뱃지를 즉시 반영한다.
      */
     public void sendBadgeUpdate(String userId, int badgeCount) {
         if (firebaseMessaging == null) {
@@ -195,7 +199,6 @@ public class FcmPushService {
                             .setApnsConfig(ApnsConfig.builder()
                                     .setAps(Aps.builder()
                                             .setBadge(badgeCount)
-                                            .setContentAvailable(true)
                                             .build())
                                     .build())
                             .build();
