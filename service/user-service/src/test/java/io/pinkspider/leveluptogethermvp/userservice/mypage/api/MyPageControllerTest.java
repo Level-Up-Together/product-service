@@ -923,6 +923,76 @@ class MyPageControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/mypage/preferred-feed-visibility : 공개범위 기본 설정 조회 (LUT-280)")
+    void getPreferredFeedVisibilityTest() throws Exception {
+        // given
+        when(myPageService.getPreferredFeedVisibility(anyString())).thenReturn("PUBLIC");
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/mypage/preferred-feed-visibility")
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-10-2. 공개범위 기본 설정 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개범위 기본 설정 조회 — 미션 생성/피드 작성 폼의 기본값 주입용 (JWT 토큰 인증 필요)")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value.preferred_feed_visibility").type(JsonFieldType.STRING).description("공개범위 기본 설정 (PUBLIC, FRIENDS, GUILD, PRIVATE / 기본 PUBLIC)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.preferred_feed_visibility").value("PUBLIC"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/mypage/preferred-feed-visibility : 공개범위 기본 설정 변경 (LUT-280)")
+    void updatePreferredFeedVisibilityTest() throws Exception {
+        // given
+        org.mockito.Mockito.doNothing().when(myPageService).updatePreferredFeedVisibility(anyString(), anyString());
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.put("/api/v1/mypage/preferred-feed-visibility")
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"preferred_feed_visibility\":\"FRIENDS\"}")
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("마이페이지-10-3. 공개범위 기본 설정 변경",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("MyPage")
+                        .description("공개범위 기본 설정 변경 (PUBLIC, FRIENDS, GUILD, PRIVATE) (JWT 토큰 인증 필요)")
+                        .requestFields(
+                            fieldWithPath("preferred_feed_visibility").type(JsonFieldType.STRING).description("변경할 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE)")
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
     @DisplayName("PUT /api/v1/mypage/bio : 자기소개 수정")
     void updateBioTest() throws Exception {
         // given

@@ -125,25 +125,31 @@ public class MissionExecutionService {
         // SIMPLE 일일 한도는 차단하지 않음 (Strategy/Saga에서 EXP 0 처리 + 응답 플래그)
         validateMissionStarted(missionId);
 
-        // feedVisibility가 null이면 비공개 (명시적 선택 없음 = 공유 의사 없음)
+        // LUT-280: feedVisibility 미지정 시 유저의 공개범위 기본 설정 사용
         FeedVisibility resolvedVisibility = feedVisibility != null
             ? feedVisibility
-            : FeedVisibility.PRIVATE;
+            : resolvePreferredFeedVisibility(userId);
 
         // 미션 완료 처리 (Saga)
-        MissionExecutionResponse response = strategyResolver.resolve(missionId, userId)
+        return strategyResolver.resolve(missionId, userId)
             .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
+    }
 
-        // 유저가 명시적으로 공개범위를 선택한 경우에만 선호 값 업데이트
-        if (feedVisibility != null) {
-            try {
-                userQueryFacadeService.updatePreferredFeedVisibility(userId, resolvedVisibility.name());
-            } catch (Exception e) {
-                log.warn("선호 공개범위 업데이트 실패 (무시): userId={}, error={}", userId, e.getMessage());
+    /**
+     * LUT-280: 유저의 공개범위 기본 설정(preferred_feed_visibility) 조회.
+     * 설정 메뉴가 단일 소스이므로 완료 시 last-used 덮어쓰기는 하지 않는다.
+     * 조회 실패 시 프라이버시 안전한 PRIVATE으로 폴백.
+     */
+    private FeedVisibility resolvePreferredFeedVisibility(String userId) {
+        try {
+            String preferred = userQueryFacadeService.getPreferredFeedVisibility(userId);
+            if (preferred != null && !preferred.isBlank()) {
+                return FeedVisibility.valueOf(preferred);
             }
+        } catch (Exception e) {
+            log.warn("선호 공개범위 조회 실패 (PRIVATE 폴백): userId={}, error={}", userId, e.getMessage());
         }
-
-        return response;
+        return FeedVisibility.PRIVATE;
     }
 
     // === 후처리 메서드 (instanceId 지원) ===

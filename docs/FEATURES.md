@@ -53,9 +53,13 @@ SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 
 피드 공개범위를 미션 생성이 아닌 **실행 완료 시** 선택:
 
-- `MissionExecutionController.completeExecution()` — `feedVisibility` 파라미터 (PUBLIC/FRIENDS/PRIVATE)
-- `Users.preferredFeedVisibility` — 유저의 최근 선택값을 기억 (쿠팡 UX 패턴)
-- `GET/PUT /api/v1/mypage/preferred-feed-visibility` — 선호 공개범위 조회/수정
+- `MissionExecutionController.completeExecution()` — `feedVisibility` 파라미터 (PUBLIC/FRIENDS/GUILD/PRIVATE)
+- `Users.preferredFeedVisibility` — **공개범위 기본 설정** (LUT-280): 마이페이지 설정 메뉴에서만 변경 (단일 소스).
+  완료 시 명시 선택해도 이 값을 덮어쓰지 않음 (기존 last-used 방식 폐기)
+- `feedVisibility` 미지정 시 유저의 공개범위 기본 설정으로 폴백, 조회 실패 시 PRIVATE
+  (`MissionExecutionService.resolvePreferredFeedVisibility()`)
+- `GET/PUT /api/v1/mypage/preferred-feed-visibility` — 공개범위 기본 설정 조회/수정.
+  웹 미션 생성/피드 작성 폼도 이 값을 기본값으로 주입
 - Saga의 `CreateFeedFromMissionStep`은 `context.getFeedVisibility()`를 직접 사용
 - **피드 중복 생성 방지**: `shareExecutionToFeed()`에서 기존 피드가 있으면 업데이트, 없으면 생성
   (`FeedCommandService.updateFeedContentByExecutionId()`)

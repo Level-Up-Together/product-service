@@ -1779,6 +1779,71 @@ class MyPageServiceTest {
     }
 
     @Nested
+    @DisplayName("공개범위 기본 설정 테스트 (LUT-280)")
+    class PreferredFeedVisibilityTest {
+
+        @Test
+        @DisplayName("유효한 공개범위로 변경이 성공한다")
+        void updatePreferredFeedVisibility_success() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when & then
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> myPageService.updatePreferredFeedVisibility(TEST_USER_ID, "FRIENDS")
+            );
+            assertThat(user.getPreferredFeedVisibility()).isEqualTo("FRIENDS");
+            verify(userRepository).save(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("빈 값이면 예외가 발생한다")
+        void updatePreferredFeedVisibility_blank_throwsException() {
+            // when & then
+            assertThatThrownBy(() -> myPageService.updatePreferredFeedVisibility(TEST_USER_ID, " "))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "VISIBILITY_001");
+        }
+
+        @Test
+        @DisplayName("FeedVisibility에 없는 값이면 예외가 발생한다")
+        void updatePreferredFeedVisibility_invalid_throwsException() {
+            // when & then
+            assertThatThrownBy(() -> myPageService.updatePreferredFeedVisibility(TEST_USER_ID, "EVERYONE"))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("code", "VISIBILITY_002");
+        }
+
+        @Test
+        @DisplayName("저장된 공개범위를 반환한다")
+        void getPreferredFeedVisibility_returnsStoredValue() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            user.updatePreferredFeedVisibility("GUILD");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+
+            // when
+            String visibility = myPageService.getPreferredFeedVisibility(TEST_USER_ID);
+
+            // then
+            assertThat(visibility).isEqualTo("GUILD");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 유저면 예외가 발생한다")
+        void getPreferredFeedVisibility_userNotFound_throwsException() {
+            // given
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> myPageService.getPreferredFeedVisibility(TEST_USER_ID))
+                .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("updateBio null 분기 테스트")
     class UpdateBioNullTest {
 

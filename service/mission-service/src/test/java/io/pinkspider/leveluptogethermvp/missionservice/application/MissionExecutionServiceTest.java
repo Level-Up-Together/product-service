@@ -370,17 +370,47 @@ class MissionExecutionServiceTest {
             assertThat(result).isEqualTo(expectedResponse);
             verify(strategyResolver).resolve(testMission.getId(), testUserId);
             verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, feedVisibility);
+            // LUT-280: 설정 메뉴가 단일 소스 — 명시적 선택도 선호 값을 덮어쓰지 않음
+            verify(userQueryFacadeService, never()).updatePreferredFeedVisibility(anyString(), anyString());
         }
 
         @Test
-        @DisplayName("feedVisibility가 null이면 PRIVATE으로 처리한다")
-        void completeExecution_nullVisibility_defaultsToPrivate() {
+        @DisplayName("LUT-280: feedVisibility가 null이면 유저의 공개범위 기본 설정을 사용한다")
+        void completeExecution_nullVisibility_usesPreferredFeedVisibility() {
             // given
             LocalDate date = today();
             String note = "완료!";
             MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
             MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
 
+            when(userQueryFacadeService.getPreferredFeedVisibility(testUserId))
+                .thenReturn(FeedVisibility.FRIENDS.name());
+            when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
+            when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.FRIENDS))
+                .thenReturn(expectedResponse);
+
+            // when
+            MissionExecutionResponse result = executionService.completeExecution(
+                testMission.getId(), testUserId, date, note, (FeedVisibility) null);
+
+            // then
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(userQueryFacadeService).getPreferredFeedVisibility(testUserId);
+            verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.FRIENDS);
+            verify(userQueryFacadeService, never()).updatePreferredFeedVisibility(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("LUT-280: 기본 설정 조회 실패 시 PRIVATE으로 폴백한다")
+        void completeExecution_preferredVisibilityLookupFails_fallsBackToPrivate() {
+            // given
+            LocalDate date = today();
+            String note = "완료!";
+            MissionExecution execution = createCompletedExecution(1L, date, 50, 30);
+            MissionExecutionResponse expectedResponse = MissionExecutionResponse.from(execution);
+
+            when(userQueryFacadeService.getPreferredFeedVisibility(testUserId))
+                .thenThrow(new RuntimeException("user_db unavailable"));
             when(strategyResolver.resolve(testMission.getId(), testUserId)).thenReturn(mockStrategy);
             when(mockStrategy.completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.PRIVATE))
                 .thenReturn(expectedResponse);
@@ -392,8 +422,6 @@ class MissionExecutionServiceTest {
             // then
             assertThat(result).isEqualTo(expectedResponse);
             verify(mockStrategy).completeExecution(testMission.getId(), testUserId, date, note, FeedVisibility.PRIVATE);
-            // preferred visibility는 업데이트하지 않음 (명시적 선택 아님)
-            verify(userQueryFacadeService, never()).updatePreferredFeedVisibility(anyString(), anyString());
         }
 
         @Test
