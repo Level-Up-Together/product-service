@@ -1,10 +1,13 @@
 package io.pinkspider.leveluptogethermvp.chatservice.application;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
+import io.pinkspider.global.event.UserWithdrawnEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,6 +21,9 @@ class ChatEventListenerTest {
 
     @Mock
     private GuildChatService guildChatService;
+
+    @Mock
+    private GuildDirectMessageService guildDirectMessageService;
 
     @InjectMocks
     private ChatEventListener chatEventListener;
@@ -79,6 +85,39 @@ class ChatEventListenerTest {
 
             // then
             verify(guildChatService).notifyMemberKick(guildId, nickname);
+        }
+    }
+
+    @Nested
+    @DisplayName("DM 대화방 정리 테스트 (LUT-287)")
+    class DmCleanupTest {
+
+        @Test
+        @DisplayName("길드 탈퇴/추방 이벤트 수신 시 해당 길드의 DM 대화방을 비활성화한다")
+        void handleGuildMemberRemoved_deactivatesGuildConversations() {
+            // given
+            GuildMemberRemovedEvent event = new GuildMemberRemovedEvent("user-1", 1L);
+            when(guildDirectMessageService.deactivateConversations(1L, "user-1")).thenReturn(2);
+
+            // when
+            chatEventListener.handleGuildMemberRemoved(event);
+
+            // then
+            verify(guildDirectMessageService).deactivateConversations(1L, "user-1");
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴 이벤트 수신 시 전 길드의 DM 대화방을 비활성화한다")
+        void handleUserWithdrawn_deactivatesAllConversations() {
+            // given
+            UserWithdrawnEvent event = new UserWithdrawnEvent("user-1");
+            when(guildDirectMessageService.deactivateConversationsForUser("user-1")).thenReturn(3);
+
+            // when
+            chatEventListener.handleUserWithdrawn(event);
+
+            // then
+            verify(guildDirectMessageService).deactivateConversationsForUser("user-1");
         }
     }
 }

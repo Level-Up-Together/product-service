@@ -32,6 +32,9 @@
 | GuildMemberService           | `GuildMemberKickedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 추방 알림                               |
 | UserService                  | `UserSignedUpEvent`                | `UserSignedUpEventListener`          | 기본 칭호 부여                                |
 | UserService                  | `UserProfileChangedEvent`          | `*ProfileSnapshotEventListener` (x4) | 비정규화 닉네임 동기화 (chat/feed/guild/mission)  |
+| MyPageService                | `UserWithdrawnEvent`               | `UserWithdrawnEventListener` (guild) | 회원 탈퇴 시 길드 멤버십 정리 — 마스터는 승계/해체 (LUT-287) |
+| MyPageService                | `UserWithdrawnEvent`               | `ChatEventListener`                  | 회원 탈퇴 시 전 길드 DM 대화방 비활성화 (LUT-287)      |
+| GuildMemberService           | `GuildMemberRemovedEvent`          | `ChatEventListener`                  | 길드 탈퇴/추방 시 해당 길드 DM 대화방 비활성화 (LUT-287)  |
 | FeedCommandService           | `FeedLikedEvent`                   | `UserStatsCounterEventListener`      | likesReceived 증가 + 업적 체크                |
 | FeedCommandService           | `FeedUnlikedEvent`                 | `UserStatsCounterEventListener`      | likesReceived 감소                        |
 | MissionCompletionSaga        | `MissionCompletedCountEvent`       | `UserStatsCounterEventListener`      | totalMissionCompletions 증가 + 업적 체크      |

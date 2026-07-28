@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.UserProfileChangedEvent;
+import io.pinkspider.global.event.UserWithdrawnEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.test.TestReflectionUtils;
 import io.pinkspider.global.facade.GamificationQueryFacade;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1174,6 +1176,25 @@ class MyPageServiceTest {
             verify(multiDeviceTokenService).logoutAllDevices(TEST_USER_ID);
             verify(userExistsCacheService).evictUserExistsCache(TEST_USER_ID);
             verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("탈퇴 시 크로스 서비스 정리용 UserWithdrawnEvent를 발행한다 (LUT-287)")
+        void withdrawUser_publishesUserWithdrawnEvent() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(userRepository.save(any(Users.class))).thenReturn(user);
+
+            // when
+            myPageService.withdrawUser(TEST_USER_ID);
+
+            // then
+            ArgumentCaptor<UserWithdrawnEvent> captor =
+                ArgumentCaptor.forClass(UserWithdrawnEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
         }
 
         @Test

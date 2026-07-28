@@ -4,6 +4,7 @@ import io.pinkspider.global.domain.ContentReviewChecker;
 import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.event.UserProfileChangedEvent;
+import io.pinkspider.global.event.UserWithdrawnEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -560,6 +561,9 @@ public class MyPageService {
         // 캐시 무효화 (JWT 인증 필터 + 프로필 조회)
         userExistsCacheService.evictUserExistsCache(userId);
         userProfileCacheService.evictUserProfileCache(userId);
+
+        // LUT-287: 크로스 서비스 정리(길드 멤버십 정리, DM 대화방 비활성화)를 위한 탈퇴 이벤트 발행
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId));
 
         log.info("회원 탈퇴 처리 완료: userId={}", userId);
     }

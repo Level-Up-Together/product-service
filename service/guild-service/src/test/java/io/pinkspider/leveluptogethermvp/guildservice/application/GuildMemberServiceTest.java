@@ -29,6 +29,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
+import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
+import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
@@ -1525,6 +1527,140 @@ class GuildMemberServiceTest {
             assertThatThrownBy(() -> guildMemberService.transferMaster(1L, testMasterId, newMasterId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("활성 상태의 길드원만 마스터가 될 수 있습니다");
+        }
+    }
+
+    @Nested
+    @DisplayName("회원 탈퇴 멤버십 정리 테스트 (LUT-287)")
+    class CleanupMembershipsForWithdrawnUserTest {
+
+        @Test
+        @DisplayName("일반 멤버는 탈퇴 처리하고 채팅 알림·미션 정리 이벤트를 발행한다")
+        void cleanup_regularMember_leaves() {
+            // given
+            GuildMember member = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildMemberRepository.findAllActiveGuildMemberships(testUserId))
+                .thenReturn(List.of(member));
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("탈퇴유저");
+
+            // when
+            guildMemberService.cleanupMembershipsForWithdrawnUser(testUserId);
+
+            // then
+            assertThat(member.isActive()).isFalse();
+            verify(eventPublisher).publishEvent(any(GuildMemberLeftChatNotifyEvent.class));
+            verify(eventPublisher).publishEvent(any(GuildMemberRemovedEvent.class));
+        }
+
+        @Test
+        @DisplayName("마스터는 부마스터에게 승계한 뒤 탈퇴 처리한다 (최고참 일반 멤버보다 우선)")
+        void cleanup_master_transfersToSubMaster() {
+            // given
+            GuildMember subMaster = GuildMember.builder()
+                .guild(testGuild)
+                .userId("sub-master-id")
+                .role(GuildMemberRole.SUB_MASTER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            GuildMember olderMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId("older-member-id")
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now().minusDays(30))
+                .build();
+
+            when(guildMemberRepository.findAllActiveGuildMemberships(testMasterId))
+                .thenReturn(List.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(testMasterMember, olderMember, subMaster));
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("탈퇴마스터");
+
+            // when
+            guildMemberService.cleanupMembershipsForWithdrawnUser(testMasterId);
+
+            // then
+            assertThat(testGuild.getMasterId()).isEqualTo("sub-master-id");
+            assertThat(subMaster.getRole()).isEqualTo(GuildMemberRole.MASTER);
+            assertThat(testMasterMember.isActive()).isFalse();
+            verify(eventPublisher).publishEvent(any(GuildMemberRemovedEvent.class));
+        }
+
+        @Test
+        @DisplayName("부마스터가 없으면 최고참 멤버가 마스터를 승계한다")
+        void cleanup_master_transfersToOldestMember() {
+            // given
+            GuildMember newerMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId("newer-member-id")
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            GuildMember olderMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId("older-member-id")
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now().minusDays(30))
+                .build();
+
+            when(guildMemberRepository.findAllActiveGuildMemberships(testMasterId))
+                .thenReturn(List.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(testMasterMember, newerMember, olderMember));
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("탈퇴마스터");
+
+            // when
+            guildMemberService.cleanupMembershipsForWithdrawnUser(testMasterId);
+
+            // then
+            assertThat(testGuild.getMasterId()).isEqualTo("older-member-id");
+            assertThat(olderMember.getRole()).isEqualTo(GuildMemberRole.MASTER);
+        }
+
+        @Test
+        @DisplayName("마스터가 마지막 멤버면 길드를 해체한다")
+        void cleanup_soleMaster_dissolvesGuild() {
+            // given
+            when(guildMemberRepository.findAllActiveGuildMemberships(testMasterId))
+                .thenReturn(List.of(testMasterMember));
+            when(guildMemberRepository.findByGuildIdAndStatus(1L, GuildMemberStatus.ACTIVE))
+                .thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("탈퇴마스터");
+
+            // when
+            guildMemberService.cleanupMembershipsForWithdrawnUser(testMasterId);
+
+            // then
+            assertThat(testMasterMember.isActive()).isFalse();
+            assertThat(testGuild.getIsActive()).isFalse();
+            // 해체된 길드에는 채팅 알림을 남기지 않고 미션 정리 이벤트만 발행
+            verify(eventPublisher, never()).publishEvent(any(GuildMemberLeftChatNotifyEvent.class));
+            verify(eventPublisher).publishEvent(any(GuildMemberRemovedEvent.class));
+        }
+
+        @Test
+        @DisplayName("활성 멤버십이 없으면 아무 것도 하지 않는다")
+        void cleanup_noMemberships_noop() {
+            // given
+            when(guildMemberRepository.findAllActiveGuildMemberships(testUserId))
+                .thenReturn(List.of());
+
+            // when
+            guildMemberService.cleanupMembershipsForWithdrawnUser(testUserId);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any());
+            verify(userQueryFacadeService, never()).getUserNickname(anyString());
         }
     }
 }

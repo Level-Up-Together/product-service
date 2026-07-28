@@ -26,6 +26,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.translation.TitleNameUtils;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -344,6 +345,65 @@ public class GuildMemberService {
         eventPublisher.publishEvent(new GuildMemberRemovedEvent(userId, guildId));
 
         log.info("길드 탈퇴: guildId={}, userId={}", guildId, userId);
+    }
+
+    /**
+     * 회원 탈퇴에 따른 길드 멤버십 일괄 정리 (LUT-287)
+     *
+     * <p>일반 멤버는 탈퇴 처리한다. 길드 마스터는 남은 멤버가 있으면 부마스터 → 최고참 순으로
+     * 마스터를 승계한 뒤 탈퇴하고, 남은 멤버가 없으면 길드를 해체한다.
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void cleanupMembershipsForWithdrawnUser(String userId) {
+        List<GuildMember> memberships = guildMemberRepository.findAllActiveGuildMemberships(userId);
+        if (memberships.isEmpty()) {
+            return;
+        }
+
+        String memberNickname = userQueryFacadeService.getUserNickname(userId);
+
+        for (GuildMember member : memberships) {
+            Guild guild = member.getGuild();
+            if (guild.isMaster(userId)) {
+                handleMasterWithdrawal(guild, member, userId, memberNickname);
+            } else {
+                member.leave();
+                eventPublisher.publishEvent(
+                    new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
+                log.info("회원 탈퇴로 길드 탈퇴 처리: guildId={}, userId={}", guild.getId(), userId);
+            }
+            // 길드 미션 참여 정리 + DM 대화방 비활성화(chatservice) 트리거
+            eventPublisher.publishEvent(new GuildMemberRemovedEvent(userId, guild.getId()));
+        }
+    }
+
+    private void handleMasterWithdrawal(
+            Guild guild, GuildMember masterMember, String userId, String memberNickname) {
+        List<GuildMember> successors = guildMemberRepository
+            .findByGuildIdAndStatus(guild.getId(), GuildMemberStatus.ACTIVE).stream()
+            .filter(m -> !m.getUserId().equals(userId))
+            .sorted(Comparator
+                .comparing((GuildMember m) -> m.getRole() == GuildMemberRole.SUB_MASTER ? 0 : 1)
+                .thenComparing(GuildMember::getJoinedAt))
+            .toList();
+
+        if (successors.isEmpty()) {
+            // 마지막 1인(마스터)의 회원 탈퇴 → 길드 해체 (dissolveGuild와 동일한 정리)
+            masterMember.leave();
+            guild.deactivate();
+            log.info("회원 탈퇴로 길드 해체: guildId={}, masterId={}", guild.getId(), userId);
+            return;
+        }
+
+        GuildMember successor = successors.get(0);
+        masterMember.demoteToMember();
+        successor.promoteToMaster();
+        guild.transferMaster(successor.getUserId());
+        masterMember.leave();
+        eventPublisher.publishEvent(
+            new GuildMemberLeftChatNotifyEvent(guild.getId(), memberNickname));
+        log.info("회원 탈퇴로 길드 마스터 승계: guildId={}, {} -> {}",
+            guild.getId(), userId, successor.getUserId());
     }
 
     /**
