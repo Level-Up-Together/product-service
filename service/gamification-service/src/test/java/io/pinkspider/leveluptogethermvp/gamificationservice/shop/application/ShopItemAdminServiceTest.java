@@ -211,6 +211,25 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("설명 2000자까지 저장한다 (LUT-294)")
+        void createShopItem_withMaxLengthDescription() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            String maxDescription = "가".repeat(2000);
+            ShopItemAdminRequest request = createRequest("룰북 아이템");
+            request.setDescription(maxDescription);
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.description()).hasSize(2000).isEqualTo(maxDescription);
+        }
+
+        @Test
         @DisplayName("중복 이름이면 예외")
         void createShopItem_duplicateName() {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(true);

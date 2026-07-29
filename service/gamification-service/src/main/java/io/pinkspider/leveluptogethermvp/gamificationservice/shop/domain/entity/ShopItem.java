@@ -58,19 +58,19 @@ public class ShopItem extends LocalDateTimeBaseEntity {
     @Comment("아이템명 (일본어)")
     private String nameJa;
 
-    @Column(name = "description", length = 200)
+    @Column(name = "description", length = 2000)
     @Comment("아이템 설명")
     private String description;
 
-    @Column(name = "description_en", length = 200)
+    @Column(name = "description_en", length = 2000)
     @Comment("아이템 설명 (영어)")
     private String descriptionEn;
 
-    @Column(name = "description_ar", length = 200)
+    @Column(name = "description_ar", length = 2000)
     @Comment("아이템 설명 (아랍어)")
     private String descriptionAr;
 
-    @Column(name = "description_ja", length = 200)
+    @Column(name = "description_ja", length = 2000)
     @Comment("아이템 설명 (일본어)")
     private String descriptionJa;
 
