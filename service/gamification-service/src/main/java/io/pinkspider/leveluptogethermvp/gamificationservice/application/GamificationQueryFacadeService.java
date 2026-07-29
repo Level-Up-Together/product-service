@@ -13,6 +13,7 @@ import io.pinkspider.global.facade.dto.TitleChangeResultDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
 import io.pinkspider.global.facade.dto.UserAchievementDto;
 import io.pinkspider.global.facade.dto.UserExperienceDto;
+import io.pinkspider.global.facade.dto.UserItemDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
@@ -56,6 +57,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     private final TitleService titleService;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
     private final UserExperienceService userExperienceService;
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
@@ -187,6 +189,34 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void grantAndEquipDefaultTitles(String userId) {
         titleService.grantAndEquipDefaultTitles(userId);
+    }
+
+    // ========== 아이템 조회 (LUT-296) ==========
+
+    @Override
+    public List<UserItemDto> getEquippedItemsByUserId(String userId) {
+        return userItemService.getEquippedItemEntities(userId).stream()
+            .map(this::toUserItemDto)
+            .toList();
+    }
+
+    private UserItemDto toUserItemDto(
+            io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem userItem) {
+        var item = userItem.getShopItem();
+        return new UserItemDto(
+            userItem.getId(),
+            userItem.getUserId(),
+            item.getId(),
+            item.getName(),
+            item.getNameEn(),
+            item.getNameAr(),
+            item.getNameJa(),
+            item.getItemType() != null ? item.getItemType().name() : null,
+            item.getRarity(),
+            item.getImageUrl(),
+            item.getImagePosition() != null ? item.getImagePosition().name() : null,
+            userItem.getIsEquipped(),
+            userItem.getAcquiredAt());
     }
 
     // ========== 스탯 조회 ==========

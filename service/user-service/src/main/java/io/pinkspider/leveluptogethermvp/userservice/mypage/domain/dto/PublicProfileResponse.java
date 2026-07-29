@@ -56,6 +56,9 @@ public class PublicProfileResponse {
     // LUT-257: 현재 실시간 진행중인 미션 (없으면 null)
     private InProgressMissionInfo inProgressMission;
 
+    // LUT-296: 장착중 아이템 목록 (타입당 최대 1개, 없으면 빈 배열)
+    private java.util.List<EquippedItemInfo> equippedItems;
+
     /**
      * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 카테고리/미션명은 null 로
      * 마스킹되어 내려간다 (프론트는 "비공개 미션 진행중" 표시).
@@ -91,6 +94,24 @@ public class PublicProfileResponse {
         private String rarity;
         private String colorCode;
         private String iconUrl;
+    }
+
+    /** LUT-296: 장착중 아이템 정보. 다국어 이름은 원본 그대로 내려 프론트에서 locale 처리한다. */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public static class EquippedItemInfo {
+        private Long shopItemId;
+        private String name;
+        private String nameEn;
+        private String nameAr;
+        private String nameJa;
+        private String itemType;
+        private String rarity;
+        private String imageUrl;
+        private String imagePosition;
     }
 
     @Getter

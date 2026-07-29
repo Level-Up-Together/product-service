@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.event.listener;
 
 import io.pinkspider.global.event.UserSignedUpEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,6 +23,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class UserSignedUpEventListener {
 
     private final TitleService titleService;
+    private final UserItemService userItemService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -31,6 +33,14 @@ public class UserSignedUpEventListener {
             log.info("기본 칭호 부여 완료: userId={}", event.userId());
         } catch (Exception e) {
             log.error("기본 칭호 부여 실패: userId={}", event.userId(), e);
+        }
+
+        // LUT-296: 기본 아이템(ID:2) 지급 — 칭호 부여 실패와 독립적으로 수행
+        try {
+            userItemService.grantDefaultItems(event.userId());
+            log.info("기본 아이템 지급 완료: userId={}", event.userId());
+        } catch (Exception e) {
+            log.error("기본 아이템 지급 실패: userId={}", event.userId(), e);
         }
     }
 }

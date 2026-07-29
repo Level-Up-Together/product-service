@@ -72,6 +72,9 @@ class GamificationQueryFacadeServiceTest {
     private TitleService titleService;
 
     @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
+
+    @Mock
     private UserExperienceService userExperienceService;
 
     @Mock
@@ -101,6 +104,7 @@ class GamificationQueryFacadeServiceTest {
     void setUp() {
         facadeService = new GamificationQueryFacadeService(
             titleService,
+            userItemService,
             userExperienceService,
             userStatsService,
             achievementService,
@@ -1124,6 +1128,53 @@ class GamificationQueryFacadeServiceTest {
 
             // then
             assertThat(result).isEqualTo(7L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getEquippedItemsByUserId 테스트 (LUT-296)")
+    class GetEquippedItemsByUserIdTest {
+
+        @Test
+        @DisplayName("장착중 아이템을 ShopItem 정보 평탄화 DTO로 반환한다")
+        void getEquippedItemsByUserId_flattensShopItem() {
+            // given
+            var shopItem =
+                io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem
+                    .builder()
+                    .name("메딕의 날개")
+                    .nameEn("Medic Wings")
+                    .itemType(io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain
+                        .enums.ShopItemType.EFFECT)
+                    .rarity(TitleRarity.RARE)
+                    .imageUrl("/uploads/shop-items/3.png")
+                    .imagePosition(io.pinkspider.leveluptogethermvp.gamificationservice.shop
+                        .domain.enums.ShopItemImagePosition.BACK)
+                    .price(10)
+                    .isActive(true)
+                    .build();
+            setId(shopItem, 3L);
+            var userItem =
+                io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem
+                    .builder()
+                    .userId(TEST_USER_ID)
+                    .shopItem(shopItem)
+                    .isEquipped(true)
+                    .build();
+            setId(userItem, 11L);
+            when(userItemService.getEquippedItemEntities(TEST_USER_ID))
+                .thenReturn(java.util.List.of(userItem));
+
+            // when
+            var result = facadeService.getEquippedItemsByUserId(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).shopItemId()).isEqualTo(3L);
+            assertThat(result.get(0).name()).isEqualTo("메딕의 날개");
+            assertThat(result.get(0).itemType()).isEqualTo("EFFECT");
+            assertThat(result.get(0).imagePosition()).isEqualTo("BACK");
+            assertThat(result.get(0).isEquipped()).isTrue();
         }
     }
 }

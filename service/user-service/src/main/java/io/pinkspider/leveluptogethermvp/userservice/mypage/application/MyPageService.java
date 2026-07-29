@@ -181,6 +181,19 @@ public class MyPageService {
             targetUserId, currentUserId, isOwner,
             "ACCEPTED".equals(friendshipStatusStr), guildIds, locale);
 
+        // LUT-296: 장착중 아이템 (조회 실패 시 빈 목록 — 프로필 응답 자체는 유지)
+        java.util.List<PublicProfileResponse.EquippedItemInfo> equippedItems;
+        try {
+            equippedItems = gamificationQueryFacadeService.getEquippedItemsByUserId(targetUserId)
+                .stream()
+                .map(this::toPublicEquippedItemInfo)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("장착 아이템 조회 실패 - 빈 목록으로 대체: userId={}, error={}",
+                targetUserId, e.getMessage());
+            equippedItems = java.util.List.of();
+        }
+
         return PublicProfileResponse.builder()
             .userId(targetUserId)
             .nickname(user.getDisplayName())
@@ -199,6 +212,23 @@ public class MyPageService {
             .friendRequestId(friendRequestId)
             .isUnderReview(isUnderReview)
             .inProgressMission(inProgressMission)
+            .equippedItems(equippedItems)
+            .build();
+    }
+
+    /** LUT-296: 파사드 아이템 DTO → 프로필 장착 아이템 정보 */
+    private PublicProfileResponse.EquippedItemInfo toPublicEquippedItemInfo(
+            io.pinkspider.global.facade.dto.UserItemDto item) {
+        return PublicProfileResponse.EquippedItemInfo.builder()
+            .shopItemId(item.shopItemId())
+            .name(item.name())
+            .nameEn(item.nameEn())
+            .nameAr(item.nameAr())
+            .nameJa(item.nameJa())
+            .itemType(item.itemType())
+            .rarity(item.rarity() != null ? item.rarity().name() : null)
+            .imageUrl(item.imageUrl())
+            .imagePosition(item.imagePosition())
             .build();
     }
 
