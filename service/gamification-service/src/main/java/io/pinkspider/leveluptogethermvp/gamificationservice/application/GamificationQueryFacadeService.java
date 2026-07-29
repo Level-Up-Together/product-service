@@ -17,12 +17,12 @@ import io.pinkspider.global.facade.dto.UserItemDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
-import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.DetailedTitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleChangeResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService.TitleInfo;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.UserAchievementResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.attendance.application.AttendanceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
@@ -35,6 +35,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.S
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -57,7 +58,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     private final TitleService titleService;
-    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
+    private final UserItemService userItemService;
     private final UserExperienceService userExperienceService;
     private final UserStatsService userStatsService;
     private final AchievementService achievementService;
@@ -68,6 +69,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     public GamificationQueryFacadeService(
         TitleService titleService,
+        UserItemService userItemService,
         UserExperienceService userExperienceService,
         UserStatsService userStatsService,
         AchievementService achievementService,
@@ -77,6 +79,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         DiamondService diamondService
     ) {
         this.titleService = titleService;
+        this.userItemService = userItemService;
         this.userExperienceService = userExperienceService;
         this.userStatsService = userStatsService;
         this.achievementService = achievementService;
