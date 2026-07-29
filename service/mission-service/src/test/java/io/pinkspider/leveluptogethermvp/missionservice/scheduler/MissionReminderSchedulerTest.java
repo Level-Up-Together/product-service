@@ -84,7 +84,7 @@ class MissionReminderSchedulerTest {
             .creatorId(USER_ID)
             .isPinned(false)
             .build();
-        reminderMission.updateReminder(9, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
+        reminderMission.updateReminder(9, 0, List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
         setId(reminderMission, 1L);
 
         when(userQueryFacadeService.getPreferredTimezone(USER_ID)).thenReturn("Asia/Seoul");
@@ -110,7 +110,7 @@ class MissionReminderSchedulerTest {
     @Test
     @DisplayName("설정 시각이 아니면 발행하지 않는다")
     void sendReminders_wrongHour_skips() {
-        reminderMission.updateReminder(10, List.of(DayOfWeek.MONDAY));
+        reminderMission.updateReminder(10, 0, List.of(DayOfWeek.MONDAY));
 
         scheduler.sendReminders();
 
@@ -120,7 +120,7 @@ class MissionReminderSchedulerTest {
     @Test
     @DisplayName("설정 요일이 아니면 발행하지 않는다")
     void sendReminders_wrongDay_skips() {
-        reminderMission.updateReminder(9, List.of(DayOfWeek.TUESDAY));
+        reminderMission.updateReminder(9, 0, List.of(DayOfWeek.TUESDAY));
 
         scheduler.sendReminders();
 
@@ -131,7 +131,7 @@ class MissionReminderSchedulerTest {
     @DisplayName("30분 오프셋 타임존은 UTC 30분 실행에서 로컬 정각으로 매칭된다")
     void sendReminders_halfHourZone_matchesOnHalfHourRun() {
         when(userQueryFacadeService.getPreferredTimezone(USER_ID)).thenReturn("Asia/Kolkata");
-        reminderMission.updateReminder(6, List.of(DayOfWeek.MONDAY));
+        reminderMission.updateReminder(6, 0, List.of(DayOfWeek.MONDAY));
 
         // UTC 정각 실행: 콜카타 로컬 05:30 → 분(minute) 30 이상이라 미발행
         scheduler.setClock(Clock.fixed(MON_00_UTC, ZoneOffset.UTC));
@@ -140,6 +140,39 @@ class MissionReminderSchedulerTest {
 
         // UTC 30분 실행: 콜카타 로컬 06:00 → 발행
         scheduler.setClock(Clock.fixed(MON_0030_UTC, ZoneOffset.UTC));
+        scheduler.sendReminders();
+        verify(eventPublisher).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    @Test
+    @DisplayName("LUT-295: 30분 설정 미션은 로컬 30분 구간 실행에서만 발행된다")
+    void sendReminders_minute30_matchesOnHalfHourWindow() {
+        reminderMission.updateReminder(9, 30, List.of(DayOfWeek.MONDAY));
+
+        // UTC 정각 실행: 서울 로컬 09:00 → 0분 구간이라 미발행
+        scheduler.setClock(Clock.fixed(MON_00_UTC, ZoneOffset.UTC));
+        scheduler.sendReminders();
+        verify(eventPublisher, never()).publishEvent(any(MissionReminderEvent.class));
+
+        // UTC 30분 실행: 서울 로컬 09:30 → 발행
+        scheduler.setClock(Clock.fixed(MON_0030_UTC, ZoneOffset.UTC));
+        scheduler.sendReminders();
+        verify(eventPublisher).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    @Test
+    @DisplayName("LUT-295: 30분 오프셋 타임존의 30분 설정은 UTC 정각 실행에서 매칭된다")
+    void sendReminders_minute30_halfHourZone_matchesOnTopOfHourRun() {
+        when(userQueryFacadeService.getPreferredTimezone(USER_ID)).thenReturn("Asia/Kolkata");
+        reminderMission.updateReminder(5, 30, List.of(DayOfWeek.MONDAY));
+
+        // UTC 30분 실행: 콜카타 로컬 06:00 → 시(5) 불일치라 미발행
+        scheduler.setClock(Clock.fixed(MON_0030_UTC, ZoneOffset.UTC));
+        scheduler.sendReminders();
+        verify(eventPublisher, never()).publishEvent(any(MissionReminderEvent.class));
+
+        // UTC 정각 실행: 콜카타 로컬 05:30 → 시(5)+30분 구간 매칭 → 발행
+        scheduler.setClock(Clock.fixed(MON_00_UTC, ZoneOffset.UTC));
         scheduler.sendReminders();
         verify(eventPublisher).publishEvent(any(MissionReminderEvent.class));
     }
@@ -210,7 +243,7 @@ class MissionReminderSchedulerTest {
             .creatorId("user-err")
             .isPinned(false)
             .build();
-        failing.updateReminder(9, List.of(DayOfWeek.MONDAY));
+        failing.updateReminder(9, 0, List.of(DayOfWeek.MONDAY));
         setId(failing, 2L);
 
         when(missionRepository.findActiveReminderMissions())

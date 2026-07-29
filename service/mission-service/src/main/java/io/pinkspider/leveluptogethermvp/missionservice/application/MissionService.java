@@ -126,7 +126,8 @@ public class MissionService {
             .build();
 
         // LUT-282: 푸시 리마인더 — 시각+요일이 모두 있어야 활성화 (아니면 null 유지)
-        mission.updateReminder(request.getReminderHour(), request.getReminderDaysOfWeek());
+        mission.updateReminder(
+            request.getReminderHour(), request.getReminderMinute(), request.getReminderDaysOfWeek());
 
         Mission saved = missionRepository.save(mission);
         log.info("미션 생성 완료: id={}, title={}, creator={}, category={}",
@@ -634,9 +635,12 @@ public class MissionService {
 
         // LUT-282: 푸시 리마인더 수정 — 진행 데이터와 무관하므로 활성 상태면 언제나 변경 가능
         if (Boolean.TRUE.equals(request.getClearReminder())) {
-            mission.updateReminder(null, null);
+            mission.updateReminder(null, null, null);
         } else if (request.getReminderHour() != null || request.getReminderDaysOfWeek() != null) {
-            mission.updateReminder(request.getReminderHour(), request.getReminderDaysOfWeek());
+            mission.updateReminder(
+                request.getReminderHour(),
+                request.getReminderMinute(),
+                request.getReminderDaysOfWeek());
         }
 
         log.info("미션 수정 완료: id={}", missionId);

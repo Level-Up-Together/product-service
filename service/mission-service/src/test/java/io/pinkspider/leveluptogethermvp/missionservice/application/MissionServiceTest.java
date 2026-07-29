@@ -1756,6 +1756,7 @@ class MissionServiceTest {
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
                     .reminderHour(9)
+                    .reminderMinute(30)
                     .reminderDaysOfWeek(java.util.List.of(
                         java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.MONDAY))
                     .build();
@@ -1765,12 +1766,50 @@ class MissionServiceTest {
             // when
             MissionResponse response = missionService.updateMission(missionId, TEST_USER_ID, request);
 
-            // then: 요일은 정렬·중복 제거된 CSV 로 저장
+            // then: 요일은 정렬·중복 제거된 CSV 로 저장, 분(LUT-295)은 그대로 반영
             assertThat(response.getReminderHour()).isEqualTo(9);
+            assertThat(response.getReminderMinute()).isEqualTo(30);
             assertThat(mission.getReminderHour()).isEqualTo(9);
+            assertThat(mission.getReminderMinute()).isEqualTo(30);
             assertThat(mission.getReminderDaysOfWeek()).isEqualTo("MONDAY,WEDNESDAY");
             assertThat(mission.getReminderDaysOfWeekList())
                 .containsExactly(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.WEDNESDAY);
+        }
+
+        @Test
+        @DisplayName("LUT-295: 리마인더 분 미지정·비정상 값은 0으로 정규화된다")
+        void updateMission_reminderMinute_normalized() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("테스트 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .reminderHour(9)
+                    .reminderDaysOfWeek(java.util.List.of(java.time.DayOfWeek.MONDAY))
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+
+            // when: 분 미지정
+            missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 0으로 저장
+            assertThat(mission.getReminderMinute()).isEqualTo(0);
+
+            // when: 30 이외 값은 0으로 정규화 (30분 격자 스케줄러와 1:1)
+            mission.updateReminder(9, 15, java.util.List.of(java.time.DayOfWeek.MONDAY));
+
+            // then
+            assertThat(mission.getReminderMinute()).isEqualTo(0);
         }
 
         @Test
@@ -1787,7 +1826,7 @@ class MissionServiceTest {
                 .build();
             setId(mission, missionId);
             TestReflectionUtils.setField(mission, "source", MissionSource.USER);
-            mission.updateReminder(9, java.util.List.of(java.time.DayOfWeek.MONDAY));
+            mission.updateReminder(9, 0, java.util.List.of(java.time.DayOfWeek.MONDAY));
 
             io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
                 io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
@@ -1801,6 +1840,7 @@ class MissionServiceTest {
 
             // then
             assertThat(mission.getReminderHour()).isNull();
+            assertThat(mission.getReminderMinute()).isNull();
             assertThat(mission.getReminderDaysOfWeek()).isNull();
             assertThat(mission.getReminderDaysOfWeekList()).isEmpty();
         }

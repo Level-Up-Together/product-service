@@ -823,6 +823,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.my_missions[].target_duration_minutes").type(JsonFieldType.NUMBER).description("목표 수행 시간 (분)").optional(),
                             fieldWithPath("value.my_missions[].daily_execution_limit").type(JsonFieldType.NUMBER).description("일일 수행 제한").optional(),
                             fieldWithPath("value.my_missions[].reminder_hour").type(JsonFieldType.NUMBER).description("LUT-282: 푸시 리마인더 시각 (0-23시)").optional(),
+                            fieldWithPath("value.my_missions[].reminder_minute").type(JsonFieldType.NUMBER).description("LUT-295: 푸시 리마인더 분 (0 또는 30)").optional(),
                             fieldWithPath("value.my_missions[].reminder_days_of_week").type(JsonFieldType.ARRAY).description("LUT-282: 푸시 리마인더 요일 (MONDAY~SUNDAY)").optional(),
                             fieldWithPath("value.my_missions[].category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.my_missions[].category_name").type(JsonFieldType.STRING).description("카테고리명").optional(),

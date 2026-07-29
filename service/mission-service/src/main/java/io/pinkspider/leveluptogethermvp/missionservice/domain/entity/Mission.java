@@ -166,6 +166,10 @@ public class Mission extends LocalDateTimeBaseEntity {
     @Comment("LUT-282: 푸시 리마인더 시각 (유저 로컬 0-23시, null = 리마인더 없음)")
     private Integer reminderHour;
 
+    @Column(name = "reminder_minute")
+    @Comment("LUT-295: 푸시 리마인더 분 (0 또는 30, null = 리마인더 없음)")
+    private Integer reminderMinute;
+
     @Size(max = 70)
     @Column(name = "reminder_days_of_week", length = 70)
     @Comment("LUT-282: 푸시 리마인더 요일 CSV (예: MONDAY,WEDNESDAY, null = 리마인더 없음)")
@@ -261,14 +265,19 @@ public class Mission extends LocalDateTimeBaseEntity {
             .toList();
     }
 
-    /** LUT-282: 리마인더 설정 (요일 리스트 → CSV 저장). null/빈 요일이면 리마인더 해제 */
-    public void updateReminder(Integer hour, List<DayOfWeek> daysOfWeek) {
+    /**
+     * LUT-282/295: 리마인더 설정 (요일 리스트 → CSV 저장). null/빈 요일이면 리마인더 해제.
+     * 분은 0/30만 유효 — 30 이외 값은 0으로 정규화한다 (30분 격자 스케줄러와 1:1).
+     */
+    public void updateReminder(Integer hour, Integer minute, List<DayOfWeek> daysOfWeek) {
         if (hour == null || daysOfWeek == null || daysOfWeek.isEmpty()) {
             this.reminderHour = null;
+            this.reminderMinute = null;
             this.reminderDaysOfWeek = null;
             return;
         }
         this.reminderHour = hour;
+        this.reminderMinute = (minute != null && minute == 30) ? 30 : 0;
         this.reminderDaysOfWeek = daysOfWeek.stream()
             .distinct()
             .sorted()

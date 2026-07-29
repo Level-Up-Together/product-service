@@ -30,8 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>동작 방식: UTC 기준 매시 정각/30분에 실행되어, 리마인더가 설정된 활성 개인 미션 각각에 대해
  * 생성자의 선호 타임존(preferred_timezone) 로컬 시각을 계산한다. 로컬 시(hour)가 설정 시각과
- * 일치하고 로컬 분(minute)이 0-29 구간일 때만 발송하므로, 정수/30분 오프셋 타임존 모두
- * 시간당 정확히 1회 매칭된다 (예: Asia/Seoul은 UTC 정각 실행에서, Asia/Kolkata(+5:30)는
+ * 일치하고 로컬 분(minute)이 설정 분의 30분 구간(0분 설정=0-29, 30분 설정=30-59, LUT-295)에
+ * 들어올 때만 발송하므로, 정수/30분 오프셋 타임존 모두 시간당 정확히 1회 매칭된다
+ * (예: Asia/Seoul 0분 설정은 UTC 정각 실행에서, Asia/Kolkata(+5:30) 0분 설정은
  * UTC 30분 실행에서 로컬 정각이 된다).
  *
  * <p>당일(유저 로컬 날짜) 이미 완료한 미션은 리마인더를 보내지 않는다.
@@ -88,8 +89,13 @@ public class MissionReminderScheduler {
         String userId = mission.getCreatorId();
         ZonedDateTime userNow = ZonedDateTime.now(clock.withZone(resolveUserZone(userId)));
 
-        // 유저 로컬 시각 매칭 — 30분 격자에서 시간당 1회만 (minute 0-29 구간)
-        if (userNow.getHour() != mission.getReminderHour() || userNow.getMinute() >= 30) {
+        // 유저 로컬 시각 매칭 — 30분 격자에서 시간당 1회만.
+        // LUT-295: 설정 분(0|30)의 30분 구간에 로컬 분이 들어와야 발송 (0분=0-29, 30분=30-59)
+        int reminderMinute = mission.getReminderMinute() != null ? mission.getReminderMinute() : 0;
+        boolean minuteInWindow = reminderMinute == 30
+            ? userNow.getMinute() >= 30
+            : userNow.getMinute() < 30;
+        if (userNow.getHour() != mission.getReminderHour() || !minuteInWindow) {
             return false;
         }
         if (!mission.getReminderDaysOfWeekList().contains(userNow.getDayOfWeek())) {

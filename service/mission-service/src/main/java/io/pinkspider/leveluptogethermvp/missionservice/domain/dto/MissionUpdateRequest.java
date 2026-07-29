@@ -80,6 +80,11 @@ public class MissionUpdateRequest {
     @Max(value = 23, message = "리마인더 시각은 23시 이하여야 합니다.")
     private Integer reminderHour;
 
+    // LUT-295: 푸시 리마인더 분 (0 또는 30, 미지정 시 0)
+    @Min(value = 0, message = "리마인더 분은 0 또는 30이어야 합니다.")
+    @Max(value = 30, message = "리마인더 분은 0 또는 30이어야 합니다.")
+    private Integer reminderMinute;
+
     // LUT-282: 푸시 리마인더 요일 (MONDAY~SUNDAY). null이면 변경 없음
     private List<DayOfWeek> reminderDaysOfWeek;
 

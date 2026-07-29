@@ -65,6 +65,8 @@ public class MissionResponse {
 
     // LUT-282: 푸시 리마인더 (미설정 시 null / 빈 리스트)
     private Integer reminderHour;
+    // LUT-295: 푸시 리마인더 분 (0 또는 30, 미설정 시 null)
+    private Integer reminderMinute;
     private List<DayOfWeek> reminderDaysOfWeek;
 
     // 카테고리 정보
@@ -131,6 +133,7 @@ public class MissionResponse {
             .targetDurationMinutes(mission.getTargetDurationMinutes())
             .dailyExecutionLimit(mission.getDailyExecutionLimit())
             .reminderHour(mission.getReminderHour())
+            .reminderMinute(mission.getReminderMinute())
             .reminderDaysOfWeek(mission.getReminderDaysOfWeekList())
             .categoryId(mission.getCategoryId())
             .categoryName(mission.getCategoryName())
