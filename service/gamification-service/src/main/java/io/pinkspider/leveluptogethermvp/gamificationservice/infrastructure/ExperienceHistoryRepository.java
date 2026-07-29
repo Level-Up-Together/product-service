@@ -60,6 +60,22 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
         Pageable pageable);
 
     /**
+     * LUT-297: 기간 내 획득 경험치 합계로 사용자 랭킹 조회 (주간/월간 랭킹용).
+     * 전체 소스(미션/출석/업적 등) 합산 — 전체 레벨 랭킹(UserExperience.totalExp)과 동일한 범위.
+     */
+    @Query("""
+        SELECT eh.userId, SUM(eh.expAmount) as totalPeriodExp
+        FROM ExperienceHistory eh
+        WHERE eh.createdAt >= :startDate AND eh.createdAt < :endDate
+        AND eh.expAmount > 0
+        GROUP BY eh.userId
+        ORDER BY totalPeriodExp DESC
+        """)
+    List<Object[]> findUserExpRankingByPeriod(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
+
+    /**
      * 특정 카테고리의 전체 사용자 수 조회
      */
     @Query("""

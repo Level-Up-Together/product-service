@@ -829,4 +829,178 @@ class RankingServiceTest {
             assertThat(result.getEquippedTitleName()).isEqualTo("용감한 전사");
         }
     }
+
+    @Nested
+    @DisplayName("getRealtimeRanking 테스트 (LUT-297)")
+    class GetRealtimeRankingTest {
+
+        @Test
+        @DisplayName("진행중 미션 유저를 오래 진행한 순으로 조회하고 PRIVATE는 마스킹한다")
+        void getRealtimeRanking_sortsByStartedAtAsc_withMasking() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
+            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of(
+                "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    now.minusHours(1)),
+                "user2", new InProgressMissionDto(22L, 2L, "독서", "비밀 미션", "PRIVATE", null,
+                    now.minusHours(3))));
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("user1", "user2"));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString()))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<LevelRankingResponse> result = rankingService.getRealtimeRanking(pageable, null, null);
+
+            // then — 3시간 진행중인 user2가 1위 (started_at 오름차순)
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getUserId()).isEqualTo("user2");
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(0).getInProgressMission().getIsVisible()).isFalse();
+            assertThat(result.getContent().get(0).getInProgressMission().getTitle()).isNull();
+            assertThat(result.getContent().get(1).getUserId()).isEqualTo("user1");
+            assertThat(result.getContent().get(1).getInProgressMission().getIsVisible()).isTrue();
+            assertThat(result.getContent().get(1).getInProgressMission().getTitle()).isEqualTo("달리기");
+        }
+
+        @Test
+        @DisplayName("진행중 미션이 없으면 빈 페이지를 반환한다")
+        void getRealtimeRanking_empty() {
+            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of());
+
+            Page<LevelRankingResponse> result =
+                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("탈퇴 유저는 실시간 랭킹에서 제외된다")
+        void getRealtimeRanking_excludesWithdrawn() {
+            java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
+            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of(
+                "active1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
+                    now.minusHours(1)),
+                "withdrawn1", new InProgressMissionDto(22L, 2L, "독서", "책읽기", "PUBLIC", null,
+                    now.minusHours(2))));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("active1"));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString()))
+                .thenReturn(Collections.emptyList());
+
+            Page<LevelRankingResponse> result =
+                rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getUserId()).isEqualTo("active1");
+            assertThat(result.getContent().get(0).getTotalUsers()).isEqualTo(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getWeeklyLevelRanking / getMonthlyLevelRanking 테스트 (LUT-297)")
+    class GetPeriodLevelRankingTest {
+
+        @Test
+        @DisplayName("주간 랭킹은 기간 획득 경험치 순이며 period_exp와 누적 total_exp를 함께 담는다")
+        void getWeeklyLevelRanking_success() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            UserExperience exp1 = createTestUserExperience(1L, "user1", 20, 5000);
+            List<Object[]> rows = List.of(
+                new Object[]{"user1", 800L},
+                new Object[]{"user2", 300L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("user1", "user2"));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserId("user1")).thenReturn(Optional.of(exp1));
+            when(userExperienceRepository.findByUserId("user2")).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString()))
+                .thenReturn(Collections.emptyList());
+
+            // when
+            Page<LevelRankingResponse> result =
+                rankingService.getWeeklyLevelRanking(pageable, null, null, "Asia/Seoul");
+
+            // then
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getUserId()).isEqualTo("user1");
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(0).getPeriodExp()).isEqualTo(800L);
+            assertThat(result.getContent().get(0).getTotalExp()).isEqualTo(5000); // 우측 표기용 누적
+            assertThat(result.getContent().get(1).getPeriodExp()).isEqualTo(300L);
+            assertThat(result.getContent().get(1).getTotalExp()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("주간 경계는 타임존 기준 월요일 자정을 UTC로 변환해 조회한다")
+        void getWeeklyLevelRanking_usesMondayBoundaryInTimezone() {
+            org.mockito.ArgumentCaptor<java.time.LocalDateTime> startCaptor =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            org.mockito.ArgumentCaptor<java.time.LocalDateTime> endCaptor =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(
+                startCaptor.capture(), endCaptor.capture())).thenReturn(List.of());
+
+            rankingService.getWeeklyLevelRanking(PageRequest.of(0, 10), null, null, "Asia/Seoul");
+
+            // UTC 저장 시각을 KST로 되돌리면 월요일 00:00 이어야 한다
+            java.time.ZonedDateTime startKst = startCaptor.getValue()
+                .atZone(java.time.ZoneId.of("UTC"))
+                .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
+            assertThat(startKst.getDayOfWeek()).isEqualTo(java.time.DayOfWeek.MONDAY);
+            assertThat(startKst.toLocalTime()).isEqualTo(java.time.LocalTime.MIDNIGHT);
+            assertThat(endCaptor.getValue()).isEqualTo(startCaptor.getValue().plusDays(7));
+        }
+
+        @Test
+        @DisplayName("월간 경계는 타임존 기준 1일 자정이며, 잘못된 타임존은 기본값으로 폴백한다")
+        void getMonthlyLevelRanking_usesMonthBoundary_invalidTimezoneFallsBack() {
+            org.mockito.ArgumentCaptor<java.time.LocalDateTime> startCaptor =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(
+                startCaptor.capture(), any())).thenReturn(List.of());
+
+            rankingService.getMonthlyLevelRanking(PageRequest.of(0, 10), null, null, "Invalid/Zone");
+
+            // 폴백 타임존(Asia/Seoul) 기준 이번달 1일 00:00
+            java.time.ZonedDateTime startKst = startCaptor.getValue()
+                .atZone(java.time.ZoneId.of("UTC"))
+                .withZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"));
+            assertThat(startKst.getDayOfMonth()).isEqualTo(1);
+            assertThat(startKst.toLocalTime()).isEqualTo(java.time.LocalTime.MIDNIGHT);
+        }
+
+        @Test
+        @DisplayName("기간 내 동점 유저는 공동순위로 매겨진다")
+        void getPeriodRanking_ties_useCompetitionRank() {
+            List<Object[]> rows = List.of(
+                new Object[]{"u1", 500L},
+                new Object[]{"u2", 500L},
+                new Object[]{"u3", 100L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("u1", "u2", "u3"));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(userExperienceRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString()))
+                .thenReturn(Collections.emptyList());
+
+            Page<LevelRankingResponse> result =
+                rankingService.getMonthlyLevelRanking(PageRequest.of(0, 10), null, null, null);
+
+            assertThat(result.getContent().get(0).getRank()).isEqualTo(1L);
+            assertThat(result.getContent().get(1).getRank()).isEqualTo(1L); // 동점 → 공동 1위
+            assertThat(result.getContent().get(2).getRank()).isEqualTo(3L);
+        }
+    }
 }

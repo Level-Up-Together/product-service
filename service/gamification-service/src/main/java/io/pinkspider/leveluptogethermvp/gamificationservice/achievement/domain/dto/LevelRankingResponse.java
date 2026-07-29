@@ -33,6 +33,9 @@ public class LevelRankingResponse {
     private Long totalUsers;
     private Double percentile;  // 상위 X%
 
+    // LUT-297: 주간/월간 랭킹에서 해당 기간 획득 경험치 (정렬 기준). 그 외 랭킹에서는 null.
+    private Long periodExp;
+
     // LUT-275: 현재 실시간 진행중인 미션 (없으면 null). 프로필(LUT-257)과 동일 스펙 —
     // 비노출 시 미션 정보는 null 마스킹되고 is_visible=false 로 내려간다.
     @lombok.Setter

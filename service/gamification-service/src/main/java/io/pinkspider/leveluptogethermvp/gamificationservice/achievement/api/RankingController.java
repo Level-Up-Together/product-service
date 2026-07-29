@@ -113,6 +113,41 @@ public class RankingController {
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 
+    // LUT-297: 실시간 랭킹 (진행중 미션 보유 유저, 오래 진행한 순) — 비로그인 접근 허용
+    @GetMapping("/realtime")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getRealtimeRanking(
+        @PageableDefault(size = 20) Pageable pageable,
+        @CurrentUser(required = false) String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        Page<LevelRankingResponse> responses =
+            rankingService.getRealtimeRanking(pageable, acceptLanguage, userId);
+        return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
+    }
+
+    // LUT-297: 주간 레벨 랭킹 (이번주 획득 경험치 순, X-Timezone 기준) — 비로그인 접근 허용
+    @GetMapping("/level/weekly")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getWeeklyLevelRanking(
+        @PageableDefault(size = 20) Pageable pageable,
+        @CurrentUser(required = false) String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        Page<LevelRankingResponse> responses =
+            rankingService.getWeeklyLevelRanking(pageable, acceptLanguage, userId, timezone);
+        return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
+    }
+
+    // LUT-297: 월간 레벨 랭킹 (이번달 획득 경험치 순, X-Timezone 기준) — 비로그인 접근 허용
+    @GetMapping("/level/monthly")
+    public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getMonthlyLevelRanking(
+        @PageableDefault(size = 20) Pageable pageable,
+        @CurrentUser(required = false) String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        Page<LevelRankingResponse> responses =
+            rankingService.getMonthlyLevelRanking(pageable, acceptLanguage, userId, timezone);
+        return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
+    }
+
     // 카테고리별 레벨 랭킹 (카테고리별 경험치 획득 기준)
     @GetMapping("/level/category/{category}")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRankingByCategory(

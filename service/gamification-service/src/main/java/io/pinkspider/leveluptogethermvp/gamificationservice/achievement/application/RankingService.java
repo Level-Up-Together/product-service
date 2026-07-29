@@ -16,7 +16,12 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -375,6 +380,163 @@ public class RankingService {
     }
 
     /**
+     * LUT-297: 실시간 랭킹 — 진행중 미션이 있는 유저를 오래 진행한 순(started_at 오름차순)으로 조회한다.
+     * 순위는 경과시간 순번이며, 미션 공개범위 마스킹은 LUT-275 목록 규칙과 동일하다.
+     */
+    public Page<LevelRankingResponse> getRealtimeRanking(Pageable pageable, String locale,
+                                                          String viewerUserId) {
+        Map<String, InProgressMissionDto> missions = missionQueryFacade.findAllInProgressMissions();
+        if (missions.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(
+            new ArrayList<>(missions.keySet())));
+
+        List<Map.Entry<String, InProgressMissionDto>> sorted = missions.entrySet().stream()
+            .filter(e -> activeUserIds.contains(e.getKey()))
+            .sorted(Comparator.comparing(e -> e.getValue().startedAt(),
+                Comparator.nullsLast(Comparator.naturalOrder())))
+            .collect(Collectors.toList());
+        long totalUsers = sorted.size();
+
+        int from = (int) Math.min(pageable.getOffset(), sorted.size());
+        int to = (int) Math.min((long) from + pageable.getPageSize(), (long) sorted.size());
+        List<Map.Entry<String, InProgressMissionDto>> slice = sorted.subList(from, to);
+
+        List<String> sliceIds = slice.stream().map(Map.Entry::getKey).collect(Collectors.toList());
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+
+        List<LevelRankingResponse> responses = new ArrayList<>();
+        for (int i = 0; i < slice.size(); i++) {
+            String userId = slice.get(i).getKey();
+            long rank = from + i + 1L;
+            UserProfileInfo profile = profileMap.get(userId);
+            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+
+            LevelRankingResponse response = LevelRankingResponse.builder()
+                .rank(rank)
+                .userId(userId)
+                .nickname(profile != null ? profile.nickname() : null)
+                .profileImageUrl(profile != null ? profile.picture() : null)
+                .equippedTitle(titleInfo.name())
+                .equippedTitleRarity(titleInfo.rarity())
+                .equippedTitleColorCode(titleInfo.colorCode())
+                .leftTitle(titleInfo.leftTitle())
+                .leftTitleRarity(titleInfo.leftRarity())
+                .rightTitle(titleInfo.rightTitle())
+                .rightTitleRarity(titleInfo.rightRarity())
+                .currentLevel(userExp != null ? userExp.getCurrentLevel() : 1)
+                .currentExp(userExp != null ? userExp.getCurrentExp() : 0)
+                .totalExp(userExp != null ? userExp.getTotalExp() : 0)
+                .totalUsers(totalUsers)
+                .percentile(calculatePercentile(rank, totalUsers))
+                .build();
+            response.setInProgressMission(
+                toInProgressMissionInfo(slice.get(i).getValue(), userId, viewerUserId, locale));
+            responses.add(response);
+        }
+        return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /** LUT-297: 주간 레벨 랭킹 — 이번주(타임존 기준 월요일 시작) 획득 경험치 순 */
+    public Page<LevelRankingResponse> getWeeklyLevelRanking(Pageable pageable, String locale,
+                                                             String viewerUserId, String timezone) {
+        ZoneId zone = resolveZone(timezone);
+        LocalDate weekStart = LocalDate.now(zone).with(DayOfWeek.MONDAY);
+        return getPeriodLevelRanking(toUtc(weekStart, zone), toUtc(weekStart.plusWeeks(1), zone),
+            pageable, locale, viewerUserId);
+    }
+
+    /** LUT-297: 월간 레벨 랭킹 — 이번달(타임존 기준 1일 시작) 획득 경험치 순 */
+    public Page<LevelRankingResponse> getMonthlyLevelRanking(Pageable pageable, String locale,
+                                                              String viewerUserId, String timezone) {
+        ZoneId zone = resolveZone(timezone);
+        LocalDate monthStart = LocalDate.now(zone).withDayOfMonth(1);
+        return getPeriodLevelRanking(toUtc(monthStart, zone), toUtc(monthStart.plusMonths(1), zone),
+            pageable, locale, viewerUserId);
+    }
+
+    /**
+     * LUT-297: 기간 획득 경험치 랭킹 공통 로직. QA-206 공동순위 규칙(활성 유저만, 동점 동일 순위)을 준용하며
+     * period_exp 에 정렬 기준(기간 획득 경험치), total_exp 에 우측 표기용 누적 총 경험치를 담는다.
+     */
+    private Page<LevelRankingResponse> getPeriodLevelRanking(LocalDateTime startUtc,
+                                                              LocalDateTime endUtc, Pageable pageable,
+                                                              String locale, String viewerUserId) {
+        List<Object[]> allRows =
+            experienceHistoryRepository.findUserExpRankingByPeriod(startUtc, endUtc);
+        if (allRows.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(
+            allRows.stream().map(row -> (String) row[0]).collect(Collectors.toList())));
+        List<Object[]> active = allRows.stream()
+            .filter(row -> activeUserIds.contains((String) row[0]))
+            .collect(Collectors.toList());
+        long totalUsers = active.size();
+
+        long[] ranks = assignCompetitionRanks(active.size(), i ->
+            categoryExpOf(active.get(i)) == categoryExpOf(active.get(i - 1)));
+
+        int from = (int) Math.min(pageable.getOffset(), active.size());
+        int to = (int) Math.min((long) from + pageable.getPageSize(), (long) active.size());
+        List<Object[]> slice = active.subList(from, to);
+
+        List<String> sliceIds = slice.stream()
+            .map(row -> (String) row[0])
+            .collect(Collectors.toList());
+        Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+
+        List<LevelRankingResponse> responses = new ArrayList<>();
+        for (int i = 0; i < slice.size(); i++) {
+            String userId = (String) slice.get(i)[0];
+            long periodExp = categoryExpOf(slice.get(i));
+            long rank = ranks[from + i];
+
+            UserProfileInfo profile = profileMap.get(userId);
+            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
+            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+
+            responses.add(LevelRankingResponse.builder()
+                .rank(rank)
+                .userId(userId)
+                .nickname(profile != null ? profile.nickname() : null)
+                .profileImageUrl(profile != null ? profile.picture() : null)
+                .equippedTitle(titleInfo.name())
+                .equippedTitleRarity(titleInfo.rarity())
+                .equippedTitleColorCode(titleInfo.colorCode())
+                .leftTitle(titleInfo.leftTitle())
+                .leftTitleRarity(titleInfo.leftRarity())
+                .rightTitle(titleInfo.rightTitle())
+                .rightTitleRarity(titleInfo.rightRarity())
+                .currentLevel(userExp != null ? userExp.getCurrentLevel() : 1)
+                .currentExp(userExp != null ? userExp.getCurrentExp() : 0)
+                .totalExp(userExp != null ? userExp.getTotalExp() : 0)
+                .periodExp(periodExp)
+                .totalUsers(totalUsers)
+                .percentile(calculatePercentile(rank, totalUsers))
+                .build());
+        }
+        enrichInProgressMissions(responses, viewerUserId, locale);
+        return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /** 잘못된 타임존 문자열은 기본값(Asia/Seoul)으로 폴백 — 무인증 공개 API의 클라이언트 헤더 방어 */
+    private static ZoneId resolveZone(String timezone) {
+        try {
+            return ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        } catch (Exception e) {
+            return ZoneId.of("Asia/Seoul");
+        }
+    }
+
+    /** 타임존 기준 날짜의 자정을 UTC LocalDateTime 으로 변환 (created_at 은 UTC 저장) */
+    private static LocalDateTime toUtc(LocalDate date, ZoneId zone) {
+        return date.atStartOfDay(zone).withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+    }
+
+    /**
      * LUT-275: 랭킹 목록에 각 유저의 실시간 진행중 미션을 채운다.
      *
      * <p>랭킹은 불특정 다수에게 노출되는 화면이므로 PUBLIC 미션(과 본인 행)만 상세를 노출하고,
@@ -398,23 +560,30 @@ public class RankingService {
                 if (m == null) {
                     continue;
                 }
-                boolean visible = "PUBLIC".equals(m.visibility())
-                    || (viewerUserId != null && viewerUserId.equals(response.getUserId()));
-                response.setInProgressMission(LevelRankingResponse.InProgressMissionInfo.builder()
-                    .missionId(visible ? m.missionId() : null)
-                    .categoryId(visible ? m.categoryId() : null)
-                    .categoryName(visible
-                        ? localizeMissionCategoryName(m.categoryId(), m.categoryName(), locale)
-                        : null)
-                    .title(visible ? m.title() : null)
-                    .visibility(m.visibility())
-                    .isVisible(visible)
-                    .startedAt(m.startedAt())
-                    .build());
+                response.setInProgressMission(
+                    toInProgressMissionInfo(m, response.getUserId(), viewerUserId, locale));
             }
         } catch (Exception e) {
             log.warn("랭킹 진행중 미션 조회 실패 - 필드 생략: {}", e.getMessage());
         }
+    }
+
+    /** LUT-275/LUT-297 공통: 공개범위 마스킹(PUBLIC 또는 본인만 노출)을 적용한 진행중 미션 정보 생성 */
+    private LevelRankingResponse.InProgressMissionInfo toInProgressMissionInfo(
+            InProgressMissionDto m, String ownerUserId, String viewerUserId, String locale) {
+        boolean visible = "PUBLIC".equals(m.visibility())
+            || (viewerUserId != null && viewerUserId.equals(ownerUserId));
+        return LevelRankingResponse.InProgressMissionInfo.builder()
+            .missionId(visible ? m.missionId() : null)
+            .categoryId(visible ? m.categoryId() : null)
+            .categoryName(visible
+                ? localizeMissionCategoryName(m.categoryId(), m.categoryName(), locale)
+                : null)
+            .title(visible ? m.title() : null)
+            .visibility(m.visibility())
+            .isVisible(visible)
+            .startedAt(m.startedAt())
+            .build();
     }
 
     private String localizeMissionCategoryName(Long categoryId, String fallbackName, String locale) {

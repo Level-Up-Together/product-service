@@ -349,5 +349,36 @@ class MissionQueryFacadeServiceTest {
 
             assertThat(result).containsOnlyKeys(USER_A);
         }
+
+        @Test
+        @DisplayName("LUT-297: 전체 진행중 미션 조회도 유저별 최근 시작 병합 규칙을 따른다")
+        void findAllInProgressMissions_mergesLatestPerUser() {
+            LocalDateTime now = LocalDateTime.now();
+            Mission missionA = buildMission(1L, 10L, "운동", "달리기", MissionVisibility.PUBLIC, null);
+            Mission missionB1 = buildMission(2L, 20L, "독서", "일반 미션", MissionVisibility.PRIVATE, null);
+            Mission missionB2 = buildMission(3L, 30L, "공부", "고정 미션", MissionVisibility.PUBLIC, null);
+
+            when(missionExecutionRepository.findAllInProgress())
+                .thenReturn(List.of(
+                    executionFor(USER_A, missionA, now.minusMinutes(30)),
+                    executionFor(USER_B, missionB1, now.minusMinutes(20))));
+            when(dailyMissionInstanceRepository.findAllInProgress())
+                .thenReturn(List.of(instanceFor(USER_B, missionB2, now.minusMinutes(5))));
+
+            var result = facadeService.findAllInProgressMissions();
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(USER_A).missionId()).isEqualTo(1L);
+            assertThat(result.get(USER_B).missionId()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("LUT-297: 진행중 미션이 하나도 없으면 빈 맵을 반환한다")
+        void findAllInProgressMissions_empty() {
+            when(missionExecutionRepository.findAllInProgress()).thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findAllInProgress()).thenReturn(List.of());
+
+            assertThat(facadeService.findAllInProgressMissions()).isEmpty();
+        }
     }
 }

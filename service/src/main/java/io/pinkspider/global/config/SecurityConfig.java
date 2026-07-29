@@ -191,6 +191,21 @@ public class SecurityConfig {
                                         .permitAll() // QA-117: 비로그인 공지사항 목록
                                         .requestMatchers(HttpMethod.GET, "/api/v1/notices/{id}")
                                         .permitAll() // QA-117: 비로그인 공지사항 상세
+                                        // LUT-297: 비로그인 랭킹 목록 (개인 랭킹 /my*, /nearby 는 인증 유지)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/rankings")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/rankings/missions",
+                                                "/api/v1/rankings/streaks",
+                                                "/api/v1/rankings/achievements",
+                                                "/api/v1/rankings/realtime")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/rankings/level",
+                                                "/api/v1/rankings/level/**")
+                                        .permitAll()
 
                                         // 관리자 전용 API
                                         .requestMatchers("/api/v1/users/experience/levels")

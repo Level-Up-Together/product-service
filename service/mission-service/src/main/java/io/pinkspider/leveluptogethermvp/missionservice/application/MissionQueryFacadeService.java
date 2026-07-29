@@ -79,6 +79,24 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         return result;
     }
 
+    /**
+     * LUT-297: 진행중 미션이 있는 전체 유저 조회 (실시간 랭킹용). 배치 조회와 동일한 병합 규칙(일반/고정 통합,
+     * 최근 시작 우선)을 유저별로 적용한다.
+     */
+    @Override
+    public Map<String, InProgressMissionDto> findAllInProgressMissions() {
+        Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
+        for (MissionExecution e : missionExecutionRepository.findAllInProgress()) {
+            mergeLatest(result, e.getParticipant().getUserId(),
+                toDto(e.getParticipant().getMission(), e.getStartedAt()));
+        }
+        for (DailyMissionInstance i : dailyMissionInstanceRepository.findAllInProgress()) {
+            mergeLatest(result, i.getParticipant().getUserId(),
+                toDto(i.getParticipant().getMission(), i.getStartedAt()));
+        }
+        return result;
+    }
+
     private void mergeLatest(Map<String, InProgressMissionDto> result, String userId,
                               InProgressMissionDto candidate) {
         InProgressMissionDto existing = result.get(userId);

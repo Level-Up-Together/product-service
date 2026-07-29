@@ -131,6 +131,15 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findInProgressByUserIdIn(@Param("userIds") java.util.Collection<String> userIds);
 
     /**
+     * LUT-297: 전체 사용자의 진행 중인 인스턴스 조회 (실시간 랭킹용)
+     */
+    @Query("SELECT dmi FROM DailyMissionInstance dmi " +
+           "JOIN FETCH dmi.participant p " +
+           "JOIN FETCH p.mission " +
+           "WHERE dmi.status = 'IN_PROGRESS'")
+    List<DailyMissionInstance> findAllInProgress();
+
+    /**
      * 미션의 IN_PROGRESS 인스턴스 존재 여부 (전체 참여자 대상, 삭제 차단 검사용)
      */
     @Query("SELECT COUNT(dmi) > 0 FROM DailyMissionInstance dmi " +

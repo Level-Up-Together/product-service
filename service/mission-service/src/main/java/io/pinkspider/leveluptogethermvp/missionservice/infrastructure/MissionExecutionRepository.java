@@ -144,6 +144,15 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     List<MissionExecution> findInProgressByUserIdIn(@Param("userIds") java.util.Collection<String> userIds);
 
     /**
+     * LUT-297: 전체 사용자의 진행 중인 미션 조회 (실시간 랭킹용)
+     */
+    @Query("SELECT me FROM MissionExecution me " +
+           "JOIN FETCH me.participant p " +
+           "JOIN FETCH p.mission " +
+           "WHERE me.status = 'IN_PROGRESS'")
+    List<MissionExecution> findAllInProgress();
+
+    /**
      * 미션의 IN_PROGRESS execution 존재 여부 (전체 참여자 대상, 삭제 차단 검사용)
      */
     @Query("SELECT COUNT(me) > 0 FROM MissionExecution me " +
