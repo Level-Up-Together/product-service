@@ -36,4 +36,6 @@
 | **USER_SUSPENDED (PR2)** | `POST /api/internal/users/{userId}/suspend-from-report`               | 30일 정지, 누적 3회면 영구강퇴                                |
 | **GUILD_BANNED (PR1c)**  | `POST /api/internal/guilds/{guildId}/ban-from-report`                 | 길드 차단 처리                                           |
 
-처리 결과는 `notification-service`의 Redis Streams (`AppPushMessageProducer`)를 통해 사용자에게 푸시 + in-app 알림 발송.
+신고 처리 결과 알림은 MVP 내부에서 `NotificationService`로 발송 (`REPORT_WARNING_RECEIVED` / `REPORT_SUSPENDED` / `REPORT_PERMANENTLY_BANNED` — in-app 저장 + 실시간 + 푸시).
+
+1:1 문의 답변(`INQUIRY_REPLIED`)은 admin-service가 Redis Stream(`stream:app-push`)에 직접 발행 → MVP `AppPushMessageConsumer`가 소비 시점에 in-app 저장 + 유저 locale 재현지화 (QA-94).

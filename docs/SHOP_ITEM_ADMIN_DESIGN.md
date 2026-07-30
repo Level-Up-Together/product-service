@@ -136,7 +136,15 @@ adminservice/gamification/shopitem/
 4. **admin-frontend**: `shopItemsApi` → `/item` 페이지 (목록 + 모달)
 5. dev 검증 → prod SQL 적용 → 배포
 
-## 8. 테스트 체크리스트
+## 8. 후속 변경 이력 (설계 이후)
+
+| 티켓 | 변경 |
+|---|---|
+| LUT-271 | 아이템 타입 `ETC`("기타") 추가(5종), `description` + 다국어(en/ar/ja) 필드 추가, 타입별 사이즈 가이드 조정 — 0.1.5 V001(gamification_db) 선행 적용 필요 |
+| LUT-294 | 아이템 설명 최대 **2000자**로 상향 (전 로케일 컬럼) |
+| LUT-296 | 유저 인벤토리 API 신설 — `GET /api/v1/user-items`(보유 목록 + 타입별 장착 여부), `POST /api/v1/user-items/{shopItemId}/equip`(타입당 1개 장착). `shop/api/UserItemController` |
+
+## 9. 테스트 체크리스트
 
 - [ ] 생성: 타입/희귀도별 생성, 이미지 업로드 → CDN URL 저장
 - [ ] 목록: 페이징/필터(타입·희귀도·활성화)/정렬(생성일)

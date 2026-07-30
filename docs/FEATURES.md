@@ -6,7 +6,7 @@
 
 고정 미션(`isPinned=true`)은 `DailyMissionInstance` 엔티티를 사용:
 
-- 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 5 0 * * *`)
+- 매일 자동 생성 (스케줄러: `DailyMissionInstanceScheduler`, cron: `0 0 0 * * *` KST)
 - 미션 정보 스냅샷 저장 (미션 변경 시 과거 기록 보존)
 - 다중 실행 지원 (시퀀스 번호로 일일 복수 완료 추적)
 
@@ -26,7 +26,7 @@ API 라우팅 — Strategy Pattern (`MissionExecutionStrategy` 인터페이스):
 미션의 수행 방식을 결정하는 `MissionExecutionMode` enum:
 
 ```java
-TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 2시간 자동완료
+TIMED   // 시간 측정 (기본값) — 분당 1 EXP, 4시간 초과 시 자동종료
 SIMPLE  // 수행 여부 — 즉시 완료, 고정 +5 EXP
 ```
 
@@ -103,11 +103,11 @@ FeedSearchType { ALL, FRIENDS, GUILD, MINE }
 
 ## Mission Auto-Complete (미션 자동 종료)
 
-`MissionAutoCompleteScheduler` (5분 간격 실행):
+`MissionAutoCompleteScheduler` (5분 간격 실행, 설정: `MissionExecutionProperties`):
 
 - 목표 시간 도달 미션: 자동 완료 처리 (목표 시간 기준 EXP 지급)
-- 2시간 초과 미션 (목표 시간 없는 경우): 자동 완료 (기본 EXP만 지급, `isAutoCompleted=true`)
-- 자동 종료 10분 전: `MissionAutoEndWarningEvent` 발행 → 경고 알림 발송
+- 4시간(`maxExecutionMinutes=240`) 초과 미션 (목표 시간 없는 경우): 자동 완료 (`baseExp=120` — 정상 완료의 절반, 어뷰징 방지 패널티성. `isAutoCompleted=true`, QA-171)
+- 경고 알림: 시작 후 180·230분(`warningMinutesAfterStart`) 시점에 `MissionAutoEndWarningEvent` 발행 → FIRST/FINAL 2단계 푸시 (dedup)
 
 ## Guild Mission Auto-Enrollment (길드 미션 자동 참가)
 
