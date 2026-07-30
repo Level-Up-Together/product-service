@@ -61,7 +61,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
 | `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상 설정 (Redis 캐시)         |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
-| `notificationservice` | notification_db | 푸시, 알림 설정/조회                               |
+| `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌               |
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
 | `noticeservice`       | -               | 공지/안내                                      |
@@ -206,8 +206,8 @@ All REST endpoints return `ApiResult<T>`:
 
 ### 메시지 번역 (MessageSource)
 
-`app/src/main/resources/i18n/` 하위에 `errors_{ko,en,ja}.properties`, `notifications_{ko,en,ja}.properties`,
-`messages_{ko,en,ja}.properties`. `MessageConfig`가 `ReloadableResourceBundleMessageSource` Bean 등록 (UTF-8,
+`app/src/main/resources/i18n/` 하위에 `errors_{ko,en,ja,ar}.properties`, `notifications_{ko,en,ja,ar}.properties`,
+`messages_{ko,en,ja,ar}.properties`. `MessageConfig`가 `ReloadableResourceBundleMessageSource` Bean 등록 (UTF-8,
 `useCodeAsDefaultMessage=true`). `LocaleInterceptor`가 `Accept-Language` 헤더를 `LocaleContextHolder`로 설정.
 
 ### 콘텐츠 번역 (Google Translation API)
@@ -236,6 +236,20 @@ public void handleEvent(YourEvent event) { ...}
 ```
 
 **주요 이벤트 흐름 매핑은 [`docs/EVENT_FLOWS.md`](docs/EVENT_FLOWS.md) 참조** (서비스별 발행/수신 30+ 매핑, 자동 피드 생성 축소 규칙 포함).
+
+## 알림/푸시 파이프라인 (Kafka 미사용)
+
+도메인 이벤트 → `NotificationEventListener`(AFTER_COMMIT + `@Async`) → `NotificationService`:
+① 카테고리 off면 전부 스킵 → ② DB 저장 (유저 preferredLocale로 **발송 시점 현지화**) → ③ Redis Pub/Sub
+`notification:realtime` → WebSocket `/user/queue/notifications` 실시간 릴레이 → ④ `pushEnabled` && 방해금지 아님이면
+Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`(FCM).
+
+- `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
+- 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL은 항상 발송
+- GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
+- Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
+- 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
 
 ## Redis Caching
 

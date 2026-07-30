@@ -11,7 +11,7 @@
 | **Build**            | Gradle 8.14.3                                  |
 | **Database**         | PostgreSQL (Production), H2 (Test)             |
 | **Cache**            | Redis (Lettuce)                                |
-| **Messaging**        | Apache Kafka                                   |
+| **Messaging**        | Redis Streams + Pub/Sub (푸시 발행 / 실시간 릴레이)  |
 | **API**              | REST + GraphQL (Netflix DGS)                   |
 | **Documentation**    | Spring REST Docs + OpenAPI 3.0                 |
 | **Query**            | QueryDSL (타입 안전 쿼리)                            |
@@ -51,7 +51,7 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 - **Facade Pattern**: 서비스 간 통신은 Facade 인터페이스 (`UserQueryFacade`, `GuildQueryFacade`, `GamificationQueryFacade`, `MissionQueryFacade`)를 통해 수행
 - **Event-Driven**: Spring Events를 활용한 서비스 간 느슨한 결합 + 프로필 스냅샷 동기화
 - **Redis Caching**: 자주 조회되는 데이터의 캐싱으로 성능 최적화
-- **Redis Streams**: `AppPushMessageProducer/Consumer`로 인앱 알림 비동기 발행
+- **Redis Streams / Pub-Sub**: `stream:app-push`로 FCM 푸시 비동기 발행(`AppPushMessageProducer/Consumer`), `notification:realtime` Pub/Sub으로 WebSocket 실시간 알림 릴레이
 - **Saga Pattern**: 분산 트랜잭션 관리 (MSA 전환 대비)
 - **Distributed Lock (ShedLock)**: 멀티 EC2 인스턴스 환경에서 `@Scheduled` 동시 실행 방지 (Redis SETNX)
 - **Image Moderation**: ONNX 기반 NSFW 이미지 자동 검증 (AOP)
@@ -111,8 +111,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        REDIS[("Redis<br/>캐시")]
-        KAFKA["Kafka<br/>메시징"]
+        REDIS[("Redis<br/>캐시/스트림")]
         MONGO[("MongoDB<br/>로그")]
     end
 
@@ -146,7 +145,7 @@ graph TB
 
     class USER,MISSION,GUILD,CHAT,META,FEED,NOTIF,GAMIF,BFF,NOTICE,SUPPORT service
     class USER_DB,MISSION_DB,GUILD_DB,CHAT_DB,META_DB,FEED_DB,NOTIF_DB,GAMIF_DB,SAGA_DB db
-    class REDIS,KAFKA,MONGO external
+    class REDIS,MONGO external
     class APP,WEB,ADMIN client
 ```
 
@@ -377,7 +376,7 @@ erDiagram
 
 - JDK 21 (또는 JDK 25 with toolchain)
 - Gradle 8.14+
-- PostgreSQL / Redis / Kafka (또는 test 프로필 사용)
+- PostgreSQL / Redis (또는 test 프로필 사용)
 
 ### 빌드 및 실행
 
@@ -511,10 +510,14 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 
 ### 알림 (Notification Service)
 
-- 인앱 알림 관리 (Redis Streams 기반 비동기 발행 — `AppPushMessageProducer`)
-- 푸시 알림 (FCM) — 유저 preferredLocale 기반 다국어 발송
-- 알림 설정 (타입별 on/off)
-- 알림 읽음 처리
+- 이벤트 기반 알림 생성 — Spring Event → `NotificationEventListener` → DB 저장·실시간·푸시 일괄 처리 (Kafka 미사용)
+- 푸시 알림 (FCM) — Redis Stream(`stream:app-push`) 비동기 발송, 유저 preferredLocale 기반 다국어 (발송 시점 현지화)
+- 실시간 알림 — Redis Pub/Sub → WebSocket `/user/queue/notifications` (멀티 인스턴스 릴레이, 웹 미읽음 뱃지 즉시 갱신)
+- 알림 설정 — 전체 푸시 on/off, 카테고리별(친구/길드/소셜/시스템) on/off, 방해금지 시간(유저 타임존 기준, 푸시만 억제)
+- 미션 리마인더 푸시 — 미션별 요일·시각(30분 단위) 설정, 유저 타임존 기준 발송 (LUT-282/295)
+- DM 열람 중 푸시 억제 — presence(Redis TTL 60초) 기반, 보고 있는 대화방의 알림 미생성 (LUT-263)
+- 앱 아이콘 뱃지 동기화 — 읽음 처리 시 badge-only silent push + 웹→앱 badgeSync 브릿지 (LUT-291)
+- 디바이스 토큰 관리 (1유저 1활성 디바이스), 알림 조회/읽음/삭제
 
 ### 고객 지원 / 신고 (Support Service)
 
@@ -566,6 +569,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 |-------------------------------------|------------------------------------|------------------------------------------|
 | `DailyMissionInstanceScheduler`     | `0 0 0 * * *` (KST)                | 고정 미션 일일 인스턴스 자동 생성 + 자정 자동완료              |
 | `MissionAutoCompleteScheduler`      | 5분 간격 (fixedRate)                  | 만료(4시간 초과) 미션 자동 종료 + 종료 전 경고 알림(180·230분) 발송 |
+| `MissionReminderScheduler`          | 매시 0,30분 (UTC)                     | 미션 리마인더 푸시 — 설정 요일·시각(30분 단위), 유저 타임존 매칭      |
 | `TokenMaintenanceScheduler`         | `0 0 2 * * *` (KST), `0 30 2` (KST) | 만료된 OAuth 세션 정리 + 고아 user_sessions 참조 정리   |
 | `DailyMvpHistoryScheduler`          | `0 0 0 * * *` (KST/AST/UTC)         | 타임존별 일간 MVP 히스토리 기록                       |
 | `SeasonRewardScheduler`             | `0 0 3 * * *` (KST)                | 종료된 시즌의 순위 보상 자동 부여                       |
@@ -616,7 +620,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 
 | 프로필     | 설명                                 |
 |---------|------------------------------------|
-| `test`  | H2 인메모리 DB, 테스트용 Kafka (포트: 18080) |
+| `test`  | H2 인메모리 DB (포트: 18080)              |
 | `local` | Config Server 연동                   |
 | `dev`   | 개발 서버 환경                           |
 | `prod`  | 운영 서버 환경                           |
