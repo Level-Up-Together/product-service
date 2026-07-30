@@ -108,6 +108,10 @@ public class PublicProfileResponse {
         private String nameEn;
         private String nameAr;
         private String nameJa;
+        private String description;
+        private String descriptionEn;
+        private String descriptionAr;
+        private String descriptionJa;
         private String itemType;
         private String rarity;
         private String imageUrl;

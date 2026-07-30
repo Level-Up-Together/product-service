@@ -118,7 +118,8 @@ class UserItemServiceTest {
 
             when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
                 .thenReturn(Optional.of(target));
-            when(userItemRepository.findEquippedByUserIdAndItemType(USER_ID, ShopItemType.EFFECT))
+            when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
+                    USER_ID, List.of(ShopItemType.EFFECT)))
                 .thenReturn(List.of(equipped));
 
             UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
@@ -126,6 +127,46 @@ class UserItemServiceTest {
             assertThat(result.isEquipped()).isTrue();
             assertThat(target.getIsEquipped()).isTrue();
             assertThat(equipped.getIsEquipped()).isFalse(); // 같은 타입 기존 장착 해제
+        }
+
+        @Test
+        @DisplayName("BASIC 장착 시 FULL 기존 장착도 해제한다 (LUT-308: 몸 영역 상호 배타)")
+        void equipItem_basicUnequipsFull() {
+            ShopItem basicWings = createShopItem(3L, "메딕의 날개", ShopItemType.BASIC);
+            ShopItem fullWings = createShopItem(4L, "심연의 날개", ShopItemType.FULL);
+            UserItem target = createUserItem(11L, basicWings, false);
+            UserItem equippedFull = createUserItem(12L, fullWings, true);
+
+            when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
+                .thenReturn(Optional.of(target));
+            when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
+                    USER_ID, List.of(ShopItemType.BASIC, ShopItemType.FULL)))
+                .thenReturn(List.of(equippedFull));
+
+            UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
+
+            assertThat(result.isEquipped()).isTrue();
+            assertThat(target.getIsEquipped()).isTrue();
+            assertThat(equippedFull.getIsEquipped()).isFalse(); // FULL 장착 해제
+        }
+
+        @Test
+        @DisplayName("HEAD 장착은 BASIC/FULL 충돌 그룹과 무관하게 자기 타입만 조회한다")
+        void equipItem_headOnlyConflictsWithHead() {
+            ShopItem ring = createShopItem(6L, "천사의 링", ShopItemType.HEAD);
+            UserItem target = createUserItem(13L, ring, false);
+
+            when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 6L))
+                .thenReturn(Optional.of(target));
+            when(userItemRepository.findEquippedByUserIdAndItemTypeIn(
+                    USER_ID, List.of(ShopItemType.HEAD)))
+                .thenReturn(List.of());
+
+            UserItemResponse result = userItemService.equipItem(USER_ID, 6L);
+
+            assertThat(result.isEquipped()).isTrue();
+            verify(userItemRepository)
+                .findEquippedByUserIdAndItemTypeIn(USER_ID, List.of(ShopItemType.HEAD));
         }
 
         @Test
@@ -140,7 +181,7 @@ class UserItemServiceTest {
             UserItemResponse result = userItemService.equipItem(USER_ID, 3L);
 
             assertThat(result.isEquipped()).isTrue();
-            verify(userItemRepository, never()).findEquippedByUserIdAndItemType(any(), any());
+            verify(userItemRepository, never()).findEquippedByUserIdAndItemTypeIn(any(), any());
         }
 
         @Test

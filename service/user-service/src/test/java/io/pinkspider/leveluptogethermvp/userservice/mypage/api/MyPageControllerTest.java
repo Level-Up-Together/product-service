@@ -615,7 +615,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional(),
-                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 (타입당 최대 1개, 없으면 빈 배열)").optional()
+                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 — 타입당 최대 1개, BASIC·FULL 상호 배타(LUT-308), 각 원소에 다국어 이름·설명 포함, 없으면 빈 배열").optional()
                         )
                         .build()
                 )
@@ -699,7 +699,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional(),
-                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 (타입당 최대 1개, 없으면 빈 배열)").optional()
+                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 — 타입당 최대 1개, BASIC·FULL 상호 배타(LUT-308), 각 원소에 다국어 이름·설명 포함, 없으면 빈 배열").optional()
                         )
                         .build()
                 )
@@ -771,7 +771,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)"),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional(),
-                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 (타입당 최대 1개, 없으면 빈 배열)").optional()
+                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 — 타입당 최대 1개, BASIC·FULL 상호 배타(LUT-308), 각 원소에 다국어 이름·설명 포함, 없으면 빈 배열").optional()
                         )
                         .build()
                 )
@@ -843,7 +843,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
                             fieldWithPath("value.in_progress_mission").type(JsonFieldType.OBJECT).description("LUT-257: 현재 실시간 진행중인 미션 (없으면 null)").optional(),
-                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 (타입당 최대 1개, 없으면 빈 배열)").optional()
+                            fieldWithPath("value.equipped_items").type(JsonFieldType.ARRAY).description("LUT-296: 장착중 아이템 목록 — 타입당 최대 1개, BASIC·FULL 상호 배타(LUT-308), 각 원소에 다국어 이름·설명 포함, 없으면 빈 배열").optional()
                         )
                         .build()
                 )

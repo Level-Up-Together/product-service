@@ -44,7 +44,7 @@ public class UserItemService {
     }
 
     /**
-     * 아이템 장착 — 같은 타입 기존 장착을 해제하고 장착한다 (타입당 1개).
+     * 아이템 장착 — 충돌 타입(같은 타입 + BASIC↔FULL, LUT-308)의 기존 장착을 해제하고 장착한다.
      * 이미 장착중이면 그대로 반환 (프론트는 버튼 disabled 처리).
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -56,9 +56,10 @@ public class UserItemService {
             return UserItemResponse.from(userItem);
         }
 
-        // 같은 타입의 기존 장착 아이템 해제
+        // 충돌 타입의 기존 장착 아이템 해제 (LUT-308: BASIC/FULL 상호 배타)
         userItemRepository
-            .findEquippedByUserIdAndItemType(userId, userItem.getShopItem().getItemType())
+            .findEquippedByUserIdAndItemTypeIn(
+                userId, userItem.getShopItem().getItemType().equipConflictTypes())
             .forEach(UserItem::unequip);
 
         userItem.equip();

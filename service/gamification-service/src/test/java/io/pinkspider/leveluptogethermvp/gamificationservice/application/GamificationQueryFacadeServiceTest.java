@@ -1144,6 +1144,8 @@ class GamificationQueryFacadeServiceTest {
                     .builder()
                     .name("메딕의 날개")
                     .nameEn("Medic Wings")
+                    .description("치유의 기운이 감도는 날개")
+                    .descriptionEn("Wings imbued with healing energy")
                     .itemType(io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain
                         .enums.ShopItemType.EFFECT)
                     .rarity(TitleRarity.RARE)
@@ -1172,6 +1174,8 @@ class GamificationQueryFacadeServiceTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).shopItemId()).isEqualTo(3L);
             assertThat(result.get(0).name()).isEqualTo("메딕의 날개");
+            assertThat(result.get(0).description()).isEqualTo("치유의 기운이 감도는 날개");
+            assertThat(result.get(0).descriptionEn()).isEqualTo("Wings imbued with healing energy");
             assertThat(result.get(0).itemType()).isEqualTo("EFFECT");
             assertThat(result.get(0).imagePosition()).isEqualTo("BACK");
             assertThat(result.get(0).isEquipped()).isTrue();
