@@ -155,6 +155,50 @@ class UserItemServiceTest {
     }
 
     @Nested
+    @DisplayName("unequipItem")
+    class UnequipItemTest {
+
+        @Test
+        @DisplayName("장착중인 아이템을 해제한다 (LUT-299)")
+        void unequipItem_success() {
+            ShopItem wings = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
+            UserItem target = createUserItem(11L, wings, true);
+
+            when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
+                .thenReturn(Optional.of(target));
+
+            UserItemResponse result = userItemService.unequipItem(USER_ID, 3L);
+
+            assertThat(result.isEquipped()).isFalse();
+            assertThat(target.getIsEquipped()).isFalse();
+        }
+
+        @Test
+        @DisplayName("이미 미장착 상태면 그대로 반환한다 (멱등)")
+        void unequipItem_notEquipped_noop() {
+            ShopItem wings = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
+            UserItem target = createUserItem(11L, wings, false);
+
+            when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 3L))
+                .thenReturn(Optional.of(target));
+
+            UserItemResponse result = userItemService.unequipItem(USER_ID, 3L);
+
+            assertThat(result.isEquipped()).isFalse();
+        }
+
+        @Test
+        @DisplayName("보유하지 않은 아이템 장착해제 시 예외")
+        void unequipItem_notOwned_throws() {
+            when(userItemRepository.findByUserIdAndShopItemId(USER_ID, 99L))
+                .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userItemService.unequipItem(USER_ID, 99L))
+                .isInstanceOf(CustomException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("grantItem")
     class GrantItemTest {
 

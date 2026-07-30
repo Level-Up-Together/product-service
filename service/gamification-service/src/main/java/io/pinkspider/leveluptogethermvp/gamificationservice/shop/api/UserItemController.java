@@ -37,4 +37,13 @@ public class UserItemController {
         UserItemResponse response = userItemService.equipItem(userId, shopItemId);
         return ResponseEntity.ok(ApiResult.<UserItemResponse>builder().value(response).build());
     }
+
+    // 아이템 장착해제 (LUT-299, 미장착 상태면 멱등 no-op)
+    @PostMapping("/{shopItemId}/unequip")
+    public ResponseEntity<ApiResult<UserItemResponse>> unequipItem(
+        @CurrentUser String userId,
+        @PathVariable Long shopItemId) {
+        UserItemResponse response = userItemService.unequipItem(userId, shopItemId);
+        return ResponseEntity.ok(ApiResult.<UserItemResponse>builder().value(response).build());
+    }
 }

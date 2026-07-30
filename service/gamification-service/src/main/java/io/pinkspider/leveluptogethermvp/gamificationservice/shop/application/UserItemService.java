@@ -68,6 +68,23 @@ public class UserItemService {
     }
 
     /**
+     * 아이템 장착해제 (LUT-299) — 미보유면 예외, 이미 미장착이면 그대로 반환 (멱등).
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public UserItemResponse unequipItem(String userId, Long shopItemId) {
+        UserItem userItem = userItemRepository.findByUserIdAndShopItemId(userId, shopItemId)
+            .orElseThrow(() -> new CustomException("120601", "error.useritem.not_owned"));
+
+        if (Boolean.FALSE.equals(userItem.getIsEquipped())) {
+            return UserItemResponse.from(userItem);
+        }
+
+        userItem.unequip();
+        log.info("아이템 장착해제: userId={}, shopItemId={}", userId, shopItemId);
+        return UserItemResponse.from(userItem);
+    }
+
+    /**
      * 아이템 지급 (멱등 — 이미 보유 시 no-op). 동시 지급 race는
      * uk_user_item 제약 + DataIntegrityViolationException 흡수로 방어한다.
      */

@@ -112,3 +112,24 @@ Accept: application/json
 GET {{baseUrl}}/api/v1/mypage/preferred-locale
 Authorization: Bearer {{accessToken}}
 Accept: application/json
+
+### ----------------------------------------------------------
+### 아이템 인벤토리 — 내 보유 아이템 목록 (LUT-296, 기본 아이템 미보유 시 지급 후 반환)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/user-items
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 아이템 장착 (LUT-296, 같은 타입 기존 장착은 해제 — 타입당 1개)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/user-items/2/equip
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
+### 아이템 장착해제 (LUT-299, 미장착 상태면 멱등 no-op)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/user-items/2/unequip
+Authorization: Bearer {{accessToken}}
+Accept: application/json

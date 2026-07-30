@@ -183,4 +183,39 @@ class UserItemControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("POST /api/v1/user-items/{shopItemId}/unequip : 아이템 장착해제 (LUT-299)")
+    void unequipItemTest() throws Exception {
+        // given
+        when(userItemService.unequipItem(anyString(), anyLong()))
+            .thenReturn(createMockUserItem(2L, 3L, "메딕의 날개", ShopItemType.EFFECT, false));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.post("/api/v1/user-items/{shopItemId}/unequip", 3L)
+                .with(user(MOCK_USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("아이템 인벤토리-03. 아이템 장착해제",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("UserItem")
+                        .description("아이템 장착해제 — 이미 미장착 상태면 그대로 반환 (멱등, JWT 토큰 인증 필요, LUT-299)")
+                        .pathParameters(
+                            parameterWithName("shopItemId").type(SimpleType.NUMBER).description("장착해제할 상점 아이템 ID")
+                        )
+                        .responseFields(withEnvelope(
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("장착해제된 아이템"),
+                            userItemFields("value.")))
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
 }
