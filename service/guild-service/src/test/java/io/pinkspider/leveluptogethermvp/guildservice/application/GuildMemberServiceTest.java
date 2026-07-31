@@ -28,6 +28,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.JoinRequestStatus;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildJoinRequestRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
+import io.pinkspider.global.event.GuildJoinApprovedEvent;
+import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberRemovedEvent;
@@ -334,6 +336,7 @@ class GuildMemberServiceTest {
             assertThat(response.getUserId()).isEqualTo(testUserId);
             assertThat(response.getRole()).isEqualTo(GuildMemberRole.MEMBER);
             verify(guildMemberRepository).save(any(GuildMember.class));
+            verify(eventPublisher).publishEvent(any(GuildJoinApprovedEvent.class));
         }
 
         @Test
@@ -358,6 +361,9 @@ class GuildMemberServiceTest {
 
             assertThat(joinRequest.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
             verify(guildMemberRepository, never()).save(any(GuildMember.class));
+            // 예외로 트랜잭션이 롤백되므로 승인/거절 알림 이벤트를 발행하지 않는다
+            verify(eventPublisher, never()).publishEvent(any(GuildJoinApprovedEvent.class));
+            verify(eventPublisher, never()).publishEvent(any(GuildJoinRejectedEvent.class));
         }
 
         @Test
@@ -476,6 +482,7 @@ class GuildMemberServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(joinRequest.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+            verify(eventPublisher).publishEvent(any(GuildJoinRejectedEvent.class));
         }
 
         @Test

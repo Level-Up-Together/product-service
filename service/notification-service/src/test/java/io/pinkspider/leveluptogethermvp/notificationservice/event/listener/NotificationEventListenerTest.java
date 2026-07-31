@@ -23,6 +23,8 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildJoinApprovedEvent;
+import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
@@ -369,6 +371,44 @@ class NotificationEventListenerTest {
             eventListener.handleGuildJoinRequested(event);
             verify(notificationService, never()).sendNotification(
                 anyString(), eq(NotificationType.GUILD_JOIN_REQUEST), anyLong(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("길드 가입 승인/거절 이벤트 처리 (LUT-300)")
+    class HandleGuildJoinDecidedTest {
+
+        @Test
+        @DisplayName("가입 승인 이벤트 처리 시 신청자에게 승인 알림을 생성한다")
+        void handleGuildJoinApproved_notifiesRequester() {
+            GuildJoinApprovedEvent event =
+                new GuildJoinApprovedEvent(TARGET_USER_ID, 100L, "테스트 길드");
+            eventListener.handleGuildJoinApproved(event);
+            verify(notificationService).sendNotification(
+                eq(TARGET_USER_ID), eq(NotificationType.GUILD_JOIN_APPROVED),
+                eq(100L), isNull(), eq("테스트 길드"));
+        }
+
+        @Test
+        @DisplayName("가입 거절 이벤트 처리 시 신청자에게 거절 알림을 생성한다")
+        void handleGuildJoinRejected_notifiesRequester() {
+            GuildJoinRejectedEvent event =
+                new GuildJoinRejectedEvent(TARGET_USER_ID, 100L, "테스트 길드");
+            eventListener.handleGuildJoinRejected(event);
+            verify(notificationService).sendNotification(
+                eq(TARGET_USER_ID), eq(NotificationType.GUILD_JOIN_REJECTED),
+                eq(100L), isNull(), eq("테스트 길드"));
+        }
+
+        @Test
+        @DisplayName("알림 생성 중 예외가 발생해도 전파하지 않는다")
+        void handleGuildJoinApproved_exceptionNotPropagated() {
+            doThrow(new RuntimeException("알림 생성 실패"))
+                .when(notificationService)
+                .sendNotification(anyString(), any(NotificationType.class), anyLong(), any(), any());
+            GuildJoinApprovedEvent event =
+                new GuildJoinApprovedEvent(TARGET_USER_ID, 100L, "테스트 길드");
+            eventListener.handleGuildJoinApproved(event);
         }
     }
 

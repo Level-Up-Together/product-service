@@ -51,6 +51,8 @@
 | MissionService               | `GuildMissionArrivedEvent`         | `NotificationEventListener`          | 길드 미션 도착 알림 (길드원 전원)                    |
 | GuildPostService             | `GuildBulletinCreatedEvent`        | `NotificationEventListener`          | 길드 공지 알림 (길드원 전원)                       |
 | GuildMemberService           | `GuildJoinRequestedEvent`          | `NotificationEventListener`          | 길드 가입 신청 알림 (임원 전원)                     |
+| GuildMemberService           | `GuildJoinApprovedEvent`           | `NotificationEventListener`          | 길드 가입 승인 알림 (신청자) (LUT-300)             |
+| GuildMemberService           | `GuildJoinRejectedEvent`           | `NotificationEventListener`          | 길드 가입 거절 알림 (신청자) (LUT-300)             |
 | UserExperienceService        | `GuildCreationEligibleEvent`       | `NotificationEventListener`          | 길드 창설 가능 알림                             |
 | FeedCommandService           | `FeedCommentEvent`                 | `NotificationEventListener`          | 피드 댓글 알림 (본인 댓글 제외)                     |
 | FeedCommandService           | `FeedCommentReplyEvent`            | `NotificationEventListener`          | 대댓글 알림 — 부모 작성자+스레드 참여자 (QA-73)         |

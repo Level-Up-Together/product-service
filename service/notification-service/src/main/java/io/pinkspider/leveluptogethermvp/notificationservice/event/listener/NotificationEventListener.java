@@ -16,6 +16,8 @@ import io.pinkspider.global.event.GuildChatMessageEvent;
 import io.pinkspider.global.event.GuildCreationEligibleEvent;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
 import io.pinkspider.global.event.GuildInvitationEvent;
+import io.pinkspider.global.event.GuildJoinApprovedEvent;
+import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
@@ -197,6 +199,24 @@ public class NotificationEventListener {
                 officerId, NotificationType.GUILD_JOIN_REQUEST,
                 event.guildId(), null,
                 event.requesterNickname()));
+    }
+
+    /** 길드 가입 승인 알림 (LUT-300). 신청자에게 발송, actionUrl은 가입된 길드 홈. */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildJoinApproved(GuildJoinApprovedEvent event) {
+        safeHandle("길드 가입 승인", () -> notificationService.sendNotification(
+            event.requesterId(), NotificationType.GUILD_JOIN_APPROVED,
+            event.guildId(), null, event.guildName()));
+    }
+
+    /** 길드 가입 거절 알림 (LUT-300). 신청자에게 발송, actionUrl은 길드 목록. */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleGuildJoinRejected(GuildJoinRejectedEvent event) {
+        safeHandle("길드 가입 거절", () -> notificationService.sendNotification(
+            event.requesterId(), NotificationType.GUILD_JOIN_REJECTED,
+            event.guildId(), null, event.guildName()));
     }
 
     // ==================== 소셜 (댓글) ====================

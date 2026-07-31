@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.guildservice.application;
 
+import io.pinkspider.global.event.GuildJoinApprovedEvent;
+import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberKickedChatNotifyEvent;
@@ -238,6 +240,10 @@ public class GuildMemberService {
         String memberNickname = userQueryFacadeService.getUserNickname(request.getRequesterId());
         eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
 
+        // 신청자에게 승인 알림 발송 (LUT-300)
+        eventPublisher.publishEvent(
+            new GuildJoinApprovedEvent(request.getRequesterId(), guild.getId(), guild.getName()));
+
         return GuildMemberResponse.from(savedMember);
     }
 
@@ -255,6 +261,10 @@ public class GuildMemberService {
 
         request.reject(operatorId, reason);
         log.info("길드 가입 거절: guildId={}, requesterId={}", guild.getId(), request.getRequesterId());
+
+        // 신청자에게 거절 알림 발송 (LUT-300)
+        eventPublisher.publishEvent(
+            new GuildJoinRejectedEvent(request.getRequesterId(), guild.getId(), guild.getName()));
 
         return GuildJoinRequestResponse.from(request);
     }
