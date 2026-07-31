@@ -103,8 +103,10 @@ public class NotificationService {
 
     /**
      * 푸시 알림 전송 (Redis Stream 통해 비동기 처리)
+     *
+     * @return 스트림 적재 성공 여부 — is_pushed/pushed_at 마킹 기준 (LUT-301)
      */
-    private void sendPushNotification(String userId, String title, String body,
+    private boolean sendPushNotification(String userId, String title, String body,
                                       String notificationType, String referenceType,
                                       Long referenceId, String actionUrl) {
         try {
@@ -124,8 +126,10 @@ public class NotificationService {
 
             appPushMessageProducer.sendMessage(pushMessage);
             log.debug("푸시 알림 전송: userId={}, title={}", userId, title);
+            return true;
         } catch (Exception e) {
             log.warn("푸시 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
+            return false;
         }
     }
 
@@ -282,7 +286,13 @@ public class NotificationService {
         realtimePublisher.publish(userId, response);
 
         if (pref.getPushEnabled() && !isInQuietHours(userId, pref)) {
-            sendPushNotification(userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+            // LUT-301: 스트림 적재 성공 시점을 푸시 발송으로 마킹 — 저장만 되고 푸시가 안 나간
+            // 알림(카테고리 off/방해금지/적재 실패)과의 구분용. FCM 실제 전달 여부는 다루지 않는다.
+            boolean pushed = sendPushNotification(
+                userId, title, message, type.name(), referenceType, referenceId, actionUrl);
+            if (pushed) {
+                saved.markAsPushed();
+            }
         } else if (pref.getPushEnabled()) {
             log.debug("Quiet Hours 활성화 - 푸시 알림 스킵: userId={}, type={}", userId, type);
         }

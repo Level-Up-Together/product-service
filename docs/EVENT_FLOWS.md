@@ -30,6 +30,7 @@
 | GamificationService          | `TitleEquippedEvent`               | `FeedProjectionEventListener`        | 칭호 변경 피드 업데이트                           |
 | UserExperienceService        | `UserLevelUpEvent`                 | `FeedProjectionEventListener`        | 레벨업 피드 생성                               |
 | UserExperienceService        | `UserLevelUpEvent`                 | `UserLevelUpProfileSyncListener`     | 유저 프로필 레벨 동기화                           |
+| UserExperienceService        | `UserLevelUpEvent`                 | `NotificationEventListener`          | 레벨업 알림 (LUT-301)                        |
 | AttendanceService            | `AttendanceStreakEvent`            | `FeedProjectionEventListener`        | 연속 출석 피드 생성                             |
 | MissionService               | `MissionStateChangedEvent`         | `MissionStateHistoryEventListener`   | 미션 상태 이력 저장                             |
 | GuildMemberService           | `GuildMemberJoinedChatNotifyEvent` | `ChatEventListener`                  | 채팅방 입장 알림                               |

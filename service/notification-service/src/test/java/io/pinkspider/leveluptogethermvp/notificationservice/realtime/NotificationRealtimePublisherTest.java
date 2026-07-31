@@ -37,7 +37,7 @@ class NotificationRealtimePublisherTest {
     private NotificationResponse createResponse() {
         return NotificationResponse.builder()
             .id(1L)
-            .notificationType(NotificationType.SYSTEM)
+            .notificationType(NotificationType.CONTENT_REPORTED)
             .title("테스트 알림")
             .message("테스트 메시지")
             .isRead(false)

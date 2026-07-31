@@ -25,6 +25,7 @@ import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
+import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.global.enums.NotificationType;
@@ -91,6 +92,20 @@ public class NotificationEventListener {
         safeHandle("업적 달성", () -> notificationService.sendNotification(
             event.userId(), NotificationType.ACHIEVEMENT_COMPLETED,
             event.achievementId(), null, event.achievementName()));
+    }
+
+    // ==================== 레벨 ====================
+
+    /**
+     * 레벨업 알림 (LUT-301). referenceId=도달 레벨 — 동일 레벨 재발행에 대한 dedup 키.
+     * 여러 레벨을 한 번에 오르면 최종 레벨 하나로 발행된다 (UserExperienceService).
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleUserLevelUp(UserLevelUpEvent event) {
+        safeHandle("레벨업", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.LEVEL_UP,
+            (long) event.newLevel(), null, event.newLevel()));
     }
 
     // ==================== 친구 ====================

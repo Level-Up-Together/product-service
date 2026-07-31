@@ -30,6 +30,7 @@ import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
+import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.global.enums.NotificationType;
@@ -409,6 +410,31 @@ class NotificationEventListenerTest {
             GuildJoinApprovedEvent event =
                 new GuildJoinApprovedEvent(TARGET_USER_ID, 100L, "테스트 길드");
             eventListener.handleGuildJoinApproved(event);
+        }
+    }
+
+    @Nested
+    @DisplayName("레벨업 이벤트 처리 (LUT-301)")
+    class HandleUserLevelUpTest {
+
+        @Test
+        @DisplayName("레벨업 이벤트 처리 시 도달 레벨을 referenceId·메시지 인자로 알림을 생성한다")
+        void handleUserLevelUp_notifiesUser() {
+            UserLevelUpEvent event = new UserLevelUpEvent(TARGET_USER_ID, 7, 3500L);
+            eventListener.handleUserLevelUp(event);
+            verify(notificationService).sendNotification(
+                eq(TARGET_USER_ID), eq(NotificationType.LEVEL_UP),
+                eq(7L), isNull(), eq(7));
+        }
+
+        @Test
+        @DisplayName("알림 생성 중 예외가 발생해도 전파하지 않는다")
+        void handleUserLevelUp_exceptionNotPropagated() {
+            doThrow(new RuntimeException("알림 생성 실패"))
+                .when(notificationService)
+                .sendNotification(anyString(), any(NotificationType.class), anyLong(), any(), any());
+            UserLevelUpEvent event = new UserLevelUpEvent(TARGET_USER_ID, 7, 3500L);
+            eventListener.handleUserLevelUp(event);
         }
     }
 
