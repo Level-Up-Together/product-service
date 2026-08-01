@@ -2,7 +2,6 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.enums.MissionStatus;
 import io.pinkspider.global.exception.CustomException;
-import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.saga.SagaResult;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.MissionExecutionStrategyResolver;
@@ -41,7 +40,6 @@ public class MissionExecutionService {
     private final MissionCompletionSaga missionCompletionSaga;
     private final MissionExecutionStrategyResolver strategyResolver;
     private final MissionExecutionQueryService executionQueryService;
-    private final UserQueryFacade userQueryFacadeService;
     private final io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService feedQueryService;
 
     /**
@@ -125,31 +123,16 @@ public class MissionExecutionService {
         // SIMPLE 일일 한도는 차단하지 않음 (Strategy/Saga에서 EXP 0 처리 + 응답 플래그)
         validateMissionStarted(missionId);
 
-        // LUT-280: feedVisibility 미지정 시 유저의 공개범위 기본 설정 사용
+        // LUT-318: feedVisibility가 null이면 PRIVATE — 완료만으로는 피드를 생성하지 않는다.
+        // 피드는 유저가 미션 상세 등록(기록 페이지)에서 공개범위를 직접 선택해 공유할 때만 생성.
+        // (마이페이지 공개범위 기본 설정은 미션 생성/상세 등록 폼의 프리필 값일 뿐, 자동 공유 의사가 아님)
         FeedVisibility resolvedVisibility = feedVisibility != null
             ? feedVisibility
-            : resolvePreferredFeedVisibility(userId);
+            : FeedVisibility.PRIVATE;
 
         // 미션 완료 처리 (Saga)
         return strategyResolver.resolve(missionId, userId)
             .completeExecution(missionId, userId, executionDate, note, resolvedVisibility);
-    }
-
-    /**
-     * LUT-280: 유저의 공개범위 기본 설정(preferred_feed_visibility) 조회.
-     * 설정 메뉴가 단일 소스이므로 완료 시 last-used 덮어쓰기는 하지 않는다.
-     * 조회 실패 시 프라이버시 안전한 PRIVATE으로 폴백.
-     */
-    private FeedVisibility resolvePreferredFeedVisibility(String userId) {
-        try {
-            String preferred = userQueryFacadeService.getPreferredFeedVisibility(userId);
-            if (preferred != null && !preferred.isBlank()) {
-                return FeedVisibility.valueOf(preferred);
-            }
-        } catch (Exception e) {
-            log.warn("선호 공개범위 조회 실패 (PRIVATE 폴백): userId={}, error={}", userId, e.getMessage());
-        }
-        return FeedVisibility.PRIVATE;
     }
 
     // === 후처리 메서드 (instanceId 지원) ===

@@ -69,7 +69,8 @@ public class MissionExecutionController {
     /**
      * 미션의 특정 날짜 실행 완료 처리
      *
-     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE). 미지정 시 유저의 공개범위 기본 설정(preferred_feed_visibility) 사용 (LUT-280).
+     * @param feedVisibility 피드 공개범위 (PUBLIC, FRIENDS, GUILD, PRIVATE). 미지정 시 PRIVATE — 피드를 생성하지 않는다 (LUT-318).
+     *     피드는 미션 상세 등록(기록 공유)에서 유저가 공개범위를 직접 선택할 때만 생성된다.
      */
     @PatchMapping("/{missionId}/executions/{executionDate}/complete")
     @PerUserRateLimit(name = "missionCompletion", limit = 10, windowSeconds = 60)
