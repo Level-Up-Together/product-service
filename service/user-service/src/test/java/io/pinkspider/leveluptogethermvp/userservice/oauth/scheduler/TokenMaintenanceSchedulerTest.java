@@ -5,7 +5,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -29,12 +27,6 @@ class TokenMaintenanceSchedulerTest {
     private MultiDeviceTokenService tokenService;
 
     @Mock
-    private JwtUtil jwtUtil;
-
-    @Mock
-    private HashOperations<String, Object, Object> hashOperations;
-
-    @Mock
     private SetOperations<String, String> setOperations;
 
     @InjectMocks
@@ -44,66 +36,32 @@ class TokenMaintenanceSchedulerTest {
     @DisplayName("cleanupExpiredSessions 테스트")
     class CleanupExpiredSessionsTest {
 
+        // LUT-323 회귀 방지: 만료 판정을 스케줄러가 자체 구현(JWT 파싱 검증)하면
+        // QA-231 해시 저장 세션을 전부 오삭제한다 — 반드시 서비스 로직에 위임해야 한다.
         @Test
-        @DisplayName("만료된 세션을 정리한다")
-        void cleansUpExpiredSessions() {
+        @DisplayName("만료 세션 정리를 MultiDeviceTokenService에 위임한다")
+        void delegatesCleanupToTokenService() {
             // given
-            when(redisTemplate.keys("session:*")).thenReturn(Set.of("session:abc"));
-            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
-            when(hashOperations.get("session:abc", "refreshToken")).thenReturn("expired-token");
-            when(jwtUtil.validateToken("expired-token")).thenReturn(false);
-            when(hashOperations.get("session:abc", "userId")).thenReturn("user-1");
+            when(tokenService.cleanupExpiredSessions()).thenReturn(3);
 
             // when
             scheduler.cleanupExpiredSessions();
 
             // then
-            verify(redisTemplate).delete("session:abc");
+            verify(tokenService).cleanupExpiredSessions();
         }
 
         @Test
-        @DisplayName("유효한 세션은 삭제하지 않는다")
-        void doesNotDeleteValidSessions() {
+        @DisplayName("정리 중 예외가 발생해도 스케줄러는 전파하지 않는다")
+        void swallowsExceptionFromCleanup() {
             // given
-            when(redisTemplate.keys("session:*")).thenReturn(Set.of("session:valid"));
-            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
-            when(hashOperations.get("session:valid", "refreshToken")).thenReturn("valid-token");
-            when(jwtUtil.validateToken("valid-token")).thenReturn(true);
+            when(tokenService.cleanupExpiredSessions()).thenThrow(new RuntimeException("redis down"));
 
-            // when
+            // when - no exception
             scheduler.cleanupExpiredSessions();
 
             // then
-            verify(redisTemplate, never()).delete("session:valid");
-        }
-
-        @Test
-        @DisplayName("세션 키가 없으면 아무것도 하지 않는다")
-        void noOpWhenNoSessions() {
-            // given
-            when(redisTemplate.keys("session:*")).thenReturn(null);
-
-            // when
-            scheduler.cleanupExpiredSessions();
-
-            // then
-            verify(redisTemplate, never()).delete(anyString());
-        }
-
-        @Test
-        @DisplayName("refreshToken이 null이면 세션을 삭제한다")
-        void deletesSessionWithNullRefreshToken() {
-            // given
-            when(redisTemplate.keys("session:*")).thenReturn(Set.of("session:null-token"));
-            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
-            when(hashOperations.get("session:null-token", "refreshToken")).thenReturn(null);
-            when(hashOperations.get("session:null-token", "userId")).thenReturn(null);
-
-            // when
-            scheduler.cleanupExpiredSessions();
-
-            // then
-            verify(redisTemplate).delete("session:null-token");
+            verify(tokenService).cleanupExpiredSessions();
         }
     }
 
