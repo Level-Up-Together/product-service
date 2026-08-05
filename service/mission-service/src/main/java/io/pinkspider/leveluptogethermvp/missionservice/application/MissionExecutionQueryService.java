@@ -4,6 +4,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.strategy.Miss
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse.CalendarMission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstanceImage;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExecution;
@@ -20,7 +23,11 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRep
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.application.FeedQueryService;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -29,6 +36,7 @@ import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +62,9 @@ public class MissionExecutionQueryService {
     private final GamificationQueryFacade gamificationQueryFacade;
     private final MissionRepository missionRepository;
     private final MissionCategoryService missionCategoryService;
+    // LUT-320: 타 유저 주간 캘린더의 공개범위 마스킹 판정용 (친구/길드 관계)
+    private final UserQueryFacade userQueryFacade;
+    private final GuildQueryFacade guildQueryFacade;
 
     public List<MissionExecutionResponse> getExecutionsByParticipant(Long participantId) {
         return toResponsesWithImages(executionRepository.findByParticipantId(participantId));
@@ -437,6 +448,172 @@ public class MissionExecutionQueryService {
             .dailyMissions(dailyMissions)
             .completedDates(completedDates)
             .build();
+    }
+
+    /**
+     * LUT-320: 타 유저 프로필 주간 캘린더 조회. 비로그인(viewerUserId=null) 접근 허용.
+     *
+     * <p>date 가 속한 주(사용자 타임존 기준 월요일 시작)의 완료 미션을 날짜별로 그룹핑한다.
+     * 날짜 버킷팅은 월별 캘린더(LUT-240)와 동일하게 완료 시각 기준. 미션 공개범위에 따라
+     * 비노출 미션은 식별 정보(미션명/카테고리/ID)를 null 마스킹하고 is_visible=false 로 내린다
+     * (LUT-257 프로필 진행중 미션과 동일 규칙, 판정 실패 시 비노출 폴백).
+     */
+    public WeeklyCalendarResponse getWeeklyCalendarData(String targetUserId, String viewerUserId,
+                                                         LocalDate date, String timezone) {
+        ZoneId userZone;
+        try {
+            userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        } catch (Exception e) {
+            userZone = ZoneId.of("Asia/Seoul");
+        }
+        LocalDate baseDate = date != null ? date : LocalDate.now(userZone);
+        LocalDate weekStart = baseDate.with(DayOfWeek.MONDAY);
+        LocalDateTime startUtc = weekStart.atStartOfDay(userZone)
+            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime endUtc = weekStart.plusWeeks(1).atStartOfDay(userZone)
+            .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+
+        List<MissionExecution> completedExecutions = executionRepository
+            .findCompletedByUserIdAndCompletedAtBetween(targetUserId, startUtc, endUtc);
+        List<DailyMissionInstance> completedInstances = dailyMissionInstanceRepository
+            .findCompletedByUserIdAndCompletedAtBetween(targetUserId, startUtc, endUtc);
+
+        // 관계 판정은 실제로 해당 공개범위 미션이 있을 때만 수행 (비로그인은 항상 스킵)
+        boolean isOwner = viewerUserId != null && viewerUserId.equals(targetUserId);
+        Set<MissionVisibility> visibilities = new HashSet<>();
+        completedExecutions.forEach(e -> visibilities.add(visibilityOf(e.getParticipant())));
+        completedInstances.forEach(i -> visibilities.add(visibilityOf(i.getParticipant())));
+
+        boolean needFriend = !isOwner && viewerUserId != null
+            && (visibilities.contains(MissionVisibility.FRIENDS_ONLY)
+                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
+        boolean needGuild = !isOwner && viewerUserId != null
+            && (visibilities.contains(MissionVisibility.GUILD_ONLY)
+                || visibilities.contains(MissionVisibility.FRIENDS_AND_GUILD));
+        boolean isFriend = needFriend && safeAreFriends(viewerUserId, targetUserId);
+        boolean sharesGuild = needGuild && safeSharesGuild(viewerUserId, targetUserId);
+
+        Map<String, List<CalendarMission>> dailyMissions = new HashMap<>();
+        for (MissionExecution execution : completedExecutions) {
+            String dateKey = toUserZoneDateKey(execution.getCompletedAt(), userZone,
+                execution.getExecutionDate());
+            MissionVisibility visibility = visibilityOf(execution.getParticipant());
+            boolean visible = isMissionVisibleToViewer(visibility, isOwner, viewerUserId,
+                isFriend, sharesGuild);
+            Mission mission = execution.getParticipant().getMission();
+
+            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
+                CalendarMission.builder()
+                    .missionId(visible ? mission.getId() : null)
+                    .missionTitle(visible ? mission.getTitle() : null)
+                    .categoryName(visible ? mission.getCategoryName() : null)
+                    .expEarned(execution.getExpEarned())
+                    .durationMinutes(toDurationMinutes(execution.getStartedAt(), execution.getCompletedAt()))
+                    .startedAt(execution.getStartedAt())
+                    .completedAt(execution.getCompletedAt())
+                    .visibility(visibility.name())
+                    .isVisible(visible)
+                    .build());
+        }
+        for (DailyMissionInstance instance : completedInstances) {
+            String dateKey = toUserZoneDateKey(instance.getCompletedAt(), userZone,
+                instance.getInstanceDate());
+            MissionVisibility visibility = visibilityOf(instance.getParticipant());
+            boolean visible = isMissionVisibleToViewer(visibility, isOwner, viewerUserId,
+                isFriend, sharesGuild);
+
+            dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
+                CalendarMission.builder()
+                    .missionId(visible ? instance.getParticipant().getMission().getId() : null)
+                    .missionTitle(visible ? instance.getMissionTitle() : null)
+                    .categoryName(visible ? instance.getCategoryName() : null)
+                    .expEarned(instance.getExpEarned())
+                    .durationMinutes(toDurationMinutes(instance.getStartedAt(), instance.getCompletedAt()))
+                    .startedAt(instance.getStartedAt())
+                    .completedAt(instance.getCompletedAt())
+                    .visibility(visibility.name())
+                    .isVisible(visible)
+                    .build());
+        }
+
+        dailyMissions.values().forEach(list ->
+            list.sort(java.util.Comparator.comparing(
+                CalendarMission::getCompletedAt,
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
+            ))
+        );
+        List<String> completedDates = new ArrayList<>(dailyMissions.keySet());
+        completedDates.sort(String::compareTo);
+
+        return WeeklyCalendarResponse.builder()
+            .startDate(weekStart.toString())
+            .endDate(weekStart.plusDays(6).toString())
+            .dailyMissions(dailyMissions)
+            .completedDates(completedDates)
+            .build();
+    }
+
+    /** 공개범위 조회 — 값이 없으면(레거시) 안전하게 PRIVATE 취급 */
+    private static MissionVisibility visibilityOf(MissionParticipant participant) {
+        MissionVisibility visibility = participant.getMission().getVisibility();
+        return visibility != null ? visibility : MissionVisibility.PRIVATE;
+    }
+
+    private static Integer toDurationMinutes(LocalDateTime startedAt, LocalDateTime completedAt) {
+        if (startedAt == null || completedAt == null) {
+            return null;
+        }
+        return (int) java.time.Duration.between(startedAt, completedAt).toMinutes();
+    }
+
+    /**
+     * LUT-257 프로필 진행중 미션과 동일한 공개범위 판정 규칙.
+     * PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=같은 길드, FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만.
+     */
+    private static boolean isMissionVisibleToViewer(MissionVisibility visibility, boolean isOwner,
+                                                     String viewerUserId, boolean isFriend,
+                                                     boolean sharesGuild) {
+        if (isOwner || visibility == MissionVisibility.PUBLIC) {
+            return true;
+        }
+        if (viewerUserId == null) {
+            return false;
+        }
+        boolean friendAllowed = visibility == MissionVisibility.FRIENDS_ONLY
+            || visibility == MissionVisibility.FRIENDS_AND_GUILD;
+        if (friendAllowed && isFriend) {
+            return true;
+        }
+        boolean guildAllowed = visibility == MissionVisibility.GUILD_ONLY
+            || visibility == MissionVisibility.FRIENDS_AND_GUILD;
+        return guildAllowed && sharesGuild;
+    }
+
+    /** 관계 조회 실패 시 비노출 폴백 (마스킹은 fail-closed) */
+    private boolean safeAreFriends(String viewerUserId, String targetUserId) {
+        try {
+            return userQueryFacade.areFriends(viewerUserId, targetUserId);
+        } catch (Exception e) {
+            log.warn("주간 캘린더 친구 관계 판정 실패 - 비노출 처리: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /** viewer 와 target 이 같은 길드에 하나라도 소속돼 있는지 (실패 시 비노출 폴백) */
+    private boolean safeSharesGuild(String viewerUserId, String targetUserId) {
+        try {
+            Set<Long> targetGuildIds = guildQueryFacade.getUserGuildMemberships(targetUserId)
+                .stream().map(GuildMembershipInfo::guildId).collect(Collectors.toSet());
+            if (targetGuildIds.isEmpty()) {
+                return false;
+            }
+            return guildQueryFacade.getUserGuildMemberships(viewerUserId).stream()
+                .map(GuildMembershipInfo::guildId)
+                .anyMatch(targetGuildIds::contains);
+        } catch (Exception e) {
+            log.warn("주간 캘린더 길드 관계 판정 실패 - 비노출 처리: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**

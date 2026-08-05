@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.application.MissionExecut
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse.DailyMission;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -525,6 +526,93 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.daily_exp").type(JsonFieldType.OBJECT).description("날짜별 총 획득 경험치 (빈 객체)"),
                             fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (빈 객체)"),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (빈 배열)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/missions/executions/weekly/{userId} : 타 유저 주간 캘린더 조회 (LUT-320)")
+    void getWeeklyCalendarDataTest() throws Exception {
+        // given — PUBLIC 미션은 노출, PRIVATE 미션은 마스킹된 응답
+        WeeklyCalendarResponse response = WeeklyCalendarResponse.builder()
+            .startDate("2026-08-03")
+            .endDate("2026-08-09")
+            .dailyMissions(Map.of(
+                "2026-08-05", List.of(
+                    WeeklyCalendarResponse.CalendarMission.builder()
+                        .missionId(1L)
+                        .missionTitle("30일 운동 챌린지")
+                        .categoryName("운동")
+                        .expEarned(50)
+                        .durationMinutes(60)
+                        .startedAt(LocalDateTime.of(2026, 8, 5, 9, 0))
+                        .completedAt(LocalDateTime.of(2026, 8, 5, 10, 0))
+                        .visibility("PUBLIC")
+                        .isVisible(true)
+                        .build(),
+                    WeeklyCalendarResponse.CalendarMission.builder()
+                        .expEarned(30)
+                        .durationMinutes(45)
+                        .startedAt(LocalDateTime.of(2026, 8, 5, 13, 0))
+                        .completedAt(LocalDateTime.of(2026, 8, 5, 13, 45))
+                        .visibility("PRIVATE")
+                        .isVisible(false)
+                        .build()
+                )
+            ))
+            .completedDates(List.of("2026-08-05"))
+            .build();
+
+        when(executionQueryService.getWeeklyCalendarData(anyString(), any(), any(), any()))
+            .thenReturn(response);
+
+        // when — 비로그인 접근 가능 (인증 없이 호출)
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/missions/executions/weekly/{userId}", "target-user-1")
+                .param("date", "2026-08-05")
+                .header("X-Timezone", "Asia/Seoul")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("미션실행-20. 타 유저 주간 캘린더 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Mission Execution")
+                        .description("타 유저 프로필 주간 캘린더 조회 — date 가 속한 주(X-Timezone 기준 월요일 시작)의 "
+                            + "완료 미션을 날짜별로 반환. 비로그인 접근 가능. 미션 공개범위에 따라 비노출 미션은 "
+                            + "미션명/카테고리/ID 가 null 마스킹되고 is_visible=false 로 내려간다 (LUT-320)")
+                        .pathParameters(
+                            parameterWithName("userId").description("조회 대상 유저 ID")
+                        )
+                        .queryParameters(
+                            parameterWithName("date").type(SimpleType.STRING)
+                                .description("기준 날짜 (yyyy-MM-dd, 생략 시 오늘)").optional()
+                        )
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("주간 캘린더 데이터"),
+                            fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("주 시작일 (월요일, yyyy-MM-dd)"),
+                            fieldWithPath("value.end_date").type(JsonFieldType.STRING).description("주 마지막일 (일요일, yyyy-MM-dd)"),
+                            fieldWithPath("value.daily_missions").type(JsonFieldType.OBJECT).description("날짜별 완료된 미션 목록 (key: yyyy-MM-dd)"),
+                            fieldWithPath("value.daily_missions.*[]").type(JsonFieldType.ARRAY).description("해당 날짜 완료 미션 목록"),
+                            fieldWithPath("value.daily_missions.*[].mission_id").type(JsonFieldType.NUMBER).description("미션 ID (비노출 시 null)").optional(),
+                            fieldWithPath("value.daily_missions.*[].mission_title").type(JsonFieldType.STRING).description("미션 제목 (비노출 시 null — 프론트가 공개범위별 마스킹 문구로 치환)").optional(),
+                            fieldWithPath("value.daily_missions.*[].category_name").type(JsonFieldType.STRING).description("카테고리명 (비노출 시 null)").optional(),
+                            fieldWithPath("value.daily_missions.*[].exp_earned").type(JsonFieldType.NUMBER).description("획득 경험치").optional(),
+                            fieldWithPath("value.daily_missions.*[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
+                            fieldWithPath("value.daily_missions.*[].started_at").type(JsonFieldType.STRING).description("시작 시간 (마스킹과 무관하게 유지 — 시간표 블록 배치용)").optional(),
+                            fieldWithPath("value.daily_missions.*[].completed_at").type(JsonFieldType.STRING).description("완료 시간").optional(),
+                            fieldWithPath("value.daily_missions.*[].visibility").type(JsonFieldType.STRING).description("미션 공개범위 (PUBLIC/FRIENDS_ONLY/GUILD_ONLY/FRIENDS_AND_GUILD/PRIVATE)"),
+                            fieldWithPath("value.daily_missions.*[].is_visible").type(JsonFieldType.BOOLEAN).description("조회자 노출 여부 — false 면 미션 식별 정보가 null 마스킹됨"),
+                            fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (요일 헤더 하이라이트용)")
                         )
                         .build()
                 )

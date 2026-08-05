@@ -78,6 +78,12 @@ class MissionExecutionQueryServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
 
+    @Mock
+    private io.pinkspider.global.facade.UserQueryFacade userQueryFacade;
+
+    @Mock
+    private io.pinkspider.global.facade.GuildQueryFacade guildQueryFacade;
+
     @InjectMocks
     private MissionExecutionQueryService executionService;
 
@@ -469,6 +475,248 @@ class MissionExecutionQueryServiceTest {
             // then: 미션 경험치 합으로 fallback, dailyExp 는 비어 있음
             assertThat(response.getTotalExp()).isEqualTo(50);
             assertThat(response.getDailyExp()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("주간 캘린더 조회 테스트 (LUT-320)")
+    class GetWeeklyCalendarDataTest {
+
+        private static final String VIEWER_ID = "viewer-456";
+
+        private MissionExecution createExecutionWithVisibility(Long id, LocalDate date,
+                MissionVisibility visibility) {
+            Mission mission = Mission.builder()
+                .title("미션-" + visibility.name())
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(visibility)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(50)
+                .categoryName("일상")
+                .build();
+            setId(mission, id + 100);
+
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(mission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(participant, id + 100);
+
+            MissionExecution execution = MissionExecution.builder()
+                .participant(participant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .expEarned(50)
+                .build();
+            setId(execution, id);
+            TestReflectionUtils.setField(execution, "startedAt", date.atTime(9, 0));
+            TestReflectionUtils.setField(execution, "completedAt", date.atTime(10, 0));
+            return execution;
+        }
+
+        private void mockRepositories(List<MissionExecution> executions,
+                List<DailyMissionInstance> instances) {
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(executions);
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(instances);
+        }
+
+        @Test
+        @DisplayName("본인 조회 시 비공개 미션도 모두 노출된다")
+        void getWeeklyCalendarData_owner() {
+            LocalDate date = LocalDate.of(2026, 8, 5); // 수요일
+            mockRepositories(List.of(
+                createExecutionWithVisibility(1L, date, MissionVisibility.PRIVATE)), List.of());
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, testUserId, date, "Asia/Seoul");
+
+            assertThat(response.getStartDate()).isEqualTo("2026-08-03"); // 월요일
+            assertThat(response.getEndDate()).isEqualTo("2026-08-09"); // 일요일
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions).hasSize(1);
+            assertThat(missions.get(0).getIsVisible()).isTrue();
+            assertThat(missions.get(0).getMissionTitle()).isEqualTo("미션-PRIVATE");
+            // 본인 조회는 관계 판정 자체를 하지 않는다
+            verify(userQueryFacade, never()).areFriends(any(), any());
+            verify(guildQueryFacade, never()).getUserGuildMemberships(any());
+        }
+
+        @Test
+        @DisplayName("비로그인 조회 시 PUBLIC 만 노출되고 나머지는 마스킹된다")
+        void getWeeklyCalendarData_anonymous() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockRepositories(List.of(
+                createExecutionWithVisibility(1L, date, MissionVisibility.PUBLIC),
+                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_ONLY),
+                createExecutionWithVisibility(3L, date, MissionVisibility.PRIVATE)), List.of());
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, null, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions).hasSize(3);
+            var visible = missions.stream().filter(m -> Boolean.TRUE.equals(m.getIsVisible())).toList();
+            assertThat(visible).hasSize(1);
+            assertThat(visible.get(0).getMissionTitle()).isEqualTo("미션-PUBLIC");
+
+            var masked = missions.stream().filter(m -> Boolean.FALSE.equals(m.getIsVisible())).toList();
+            assertThat(masked).hasSize(2);
+            for (var m : masked) {
+                assertThat(m.getMissionTitle()).isNull();
+                assertThat(m.getMissionId()).isNull();
+                assertThat(m.getCategoryName()).isNull();
+                // 시간표 블록 배치용 시간 필드는 유지
+                assertThat(m.getStartedAt()).isNotNull();
+                assertThat(m.getCompletedAt()).isNotNull();
+            }
+            // 비로그인은 관계 판정 스킵
+            verify(userQueryFacade, never()).areFriends(any(), any());
+            verify(guildQueryFacade, never()).getUserGuildMemberships(any());
+        }
+
+        @Test
+        @DisplayName("친구 조회 시 FRIENDS_ONLY·FRIENDS_AND_GUILD 는 노출되고 GUILD_ONLY 는 마스킹된다")
+        void getWeeklyCalendarData_friend() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockRepositories(List.of(
+                createExecutionWithVisibility(1L, date, MissionVisibility.FRIENDS_ONLY),
+                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_AND_GUILD),
+                createExecutionWithVisibility(3L, date, MissionVisibility.GUILD_ONLY)), List.of());
+
+            when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(true);
+            when(guildQueryFacade.getUserGuildMemberships(any())).thenReturn(List.of());
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions.stream()
+                .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
+                .allMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(missions.stream()
+                .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
+                .allMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(missions.stream()
+                .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
+                .noneMatch(m -> m.getIsVisible())).isTrue();
+        }
+
+        @Test
+        @DisplayName("같은 길드원 조회 시 GUILD_ONLY·FRIENDS_AND_GUILD 는 노출되고 FRIENDS_ONLY 는 마스킹된다")
+        void getWeeklyCalendarData_guildMate() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockRepositories(List.of(
+                createExecutionWithVisibility(1L, date, MissionVisibility.GUILD_ONLY),
+                createExecutionWithVisibility(2L, date, MissionVisibility.FRIENDS_AND_GUILD),
+                createExecutionWithVisibility(3L, date, MissionVisibility.FRIENDS_ONLY)), List.of());
+
+            when(userQueryFacade.areFriends(VIEWER_ID, testUserId)).thenReturn(false);
+            io.pinkspider.global.facade.dto.GuildMembershipInfo sharedGuild =
+                new io.pinkspider.global.facade.dto.GuildMembershipInfo(
+                    10L, "같은길드", null, 1, false, false);
+            when(guildQueryFacade.getUserGuildMemberships(testUserId))
+                .thenReturn(List.of(sharedGuild));
+            when(guildQueryFacade.getUserGuildMemberships(VIEWER_ID))
+                .thenReturn(List.of(sharedGuild));
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions.stream()
+                .filter(m -> "GUILD_ONLY".equals(m.getVisibility()))
+                .allMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(missions.stream()
+                .filter(m -> "FRIENDS_AND_GUILD".equals(m.getVisibility()))
+                .allMatch(m -> m.getIsVisible())).isTrue();
+            assertThat(missions.stream()
+                .filter(m -> "FRIENDS_ONLY".equals(m.getVisibility()))
+                .noneMatch(m -> m.getIsVisible())).isTrue();
+        }
+
+        @Test
+        @DisplayName("고정 미션(DailyMissionInstance)도 포함되고 동일 규칙으로 마스킹된다")
+        void getWeeklyCalendarData_includesPinnedInstances() {
+            LocalDate date = LocalDate.of(2026, 8, 4);
+
+            Mission privateMission = Mission.builder()
+                .title("고정 비공개 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PRIVATE)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(30)
+                .build();
+            setId(privateMission, 200L);
+            MissionParticipant participant = MissionParticipant.builder()
+                .mission(privateMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(participant, 200L);
+
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(date)
+                .missionTitle("고정 비공개 미션")
+                .categoryName("업무")
+                .build();
+            setId(instance, 1L);
+            TestReflectionUtils.setField(instance, "expEarned", 30);
+            TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
+            TestReflectionUtils.setField(instance, "completedAt", date.atTime(14, 30));
+
+            mockRepositories(List.of(), List.of(instance));
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, null, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-04");
+            assertThat(missions).hasSize(1);
+            assertThat(missions.get(0).getIsVisible()).isFalse();
+            assertThat(missions.get(0).getMissionTitle()).isNull();
+            assertThat(missions.get(0).getVisibility()).isEqualTo("PRIVATE");
+            assertThat(missions.get(0).getDurationMinutes()).isEqualTo(90);
+        }
+
+        @Test
+        @DisplayName("관계 판정 실패 시 비노출로 폴백한다")
+        void getWeeklyCalendarData_failClosed() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockRepositories(List.of(
+                createExecutionWithVisibility(1L, date, MissionVisibility.FRIENDS_ONLY)), List.of());
+
+            when(userQueryFacade.areFriends(VIEWER_ID, testUserId))
+                .thenThrow(new RuntimeException("user-service 조회 실패"));
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, VIEWER_ID, date, "Asia/Seoul");
+
+            var missions = response.getDailyMissions().get("2026-08-05");
+            assertThat(missions.get(0).getIsVisible()).isFalse();
+            assertThat(missions.get(0).getMissionTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("완료 미션이 없으면 빈 맵을 반환한다")
+        void getWeeklyCalendarData_empty() {
+            LocalDate date = LocalDate.of(2026, 8, 5);
+            mockRepositories(List.of(), List.of());
+
+            var response = executionService.getWeeklyCalendarData(
+                testUserId, null, date, "Asia/Seoul");
+
+            assertThat(response.getDailyMissions()).isEmpty();
+            assertThat(response.getCompletedDates()).isEmpty();
+            assertThat(response.getStartDate()).isEqualTo("2026-08-03");
         }
     }
 
