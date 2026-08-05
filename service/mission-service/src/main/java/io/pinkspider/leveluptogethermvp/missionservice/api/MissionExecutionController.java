@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.ExecutionTimeUpdateRequest;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionExecutionResponse;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MonthlyCalendarResponse;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.WeeklyCalendarResponse;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -192,6 +193,22 @@ public class MissionExecutionController {
 
         MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month, timezone);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
+    }
+
+    /**
+     * LUT-320: 타 유저 프로필 주간 캘린더 조회 — 비로그인 접근 허용 (공개범위별 마스킹).
+     * date 가 속한 주(X-Timezone 기준 월요일 시작)의 완료 미션을 날짜별로 반환한다.
+     */
+    @GetMapping("/executions/weekly/{userId}")
+    public ResponseEntity<ApiResult<WeeklyCalendarResponse>> getWeeklyCalendarData(
+        @PathVariable("userId") String targetUserId,
+        @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+        @CurrentUser(required = false) String viewerUserId,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+
+        WeeklyCalendarResponse response =
+            executionQueryService.getWeeklyCalendarData(targetUserId, viewerUserId, date, timezone);
+        return ResponseEntity.ok(ApiResult.<WeeklyCalendarResponse>builder().value(response).build());
     }
 
     /**

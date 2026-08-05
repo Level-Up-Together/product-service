@@ -457,6 +457,75 @@ public class RankingService {
             pageable, locale, viewerUserId);
     }
 
+    /** LUT-316: 주간 내 랭킹 — 주간 목록(getWeeklyLevelRanking)과 동일 기준의 내 순위 */
+    public LevelRankingResponse getMyWeeklyLevelRanking(String userId, String locale,
+                                                         String timezone) {
+        ZoneId zone = resolveZone(timezone);
+        LocalDate weekStart = LocalDate.now(zone).with(DayOfWeek.MONDAY);
+        return getMyPeriodLevelRanking(userId, toUtc(weekStart, zone),
+            toUtc(weekStart.plusWeeks(1), zone), locale);
+    }
+
+    /** LUT-316: 월간 내 랭킹 — 월간 목록(getMonthlyLevelRanking)과 동일 기준의 내 순위 */
+    public LevelRankingResponse getMyMonthlyLevelRanking(String userId, String locale,
+                                                          String timezone) {
+        ZoneId zone = resolveZone(timezone);
+        LocalDate monthStart = LocalDate.now(zone).withDayOfMonth(1);
+        return getMyPeriodLevelRanking(userId, toUtc(monthStart, zone),
+            toUtc(monthStart.plusMonths(1), zone), locale);
+    }
+
+    /**
+     * LUT-316: 기간 획득 경험치 기준 내 랭킹. 목록(getPeriodLevelRanking)과 동일 모수(활성 유저)와
+     * 공동순위 규칙(COUNT(나보다 위)+1)을 적용하고, 기간 내 기록이 없으면 카테고리 내 랭킹(QA-206)과
+     * 동일하게 최하위(전체 활성 + 1)로 표기한다.
+     */
+    private LevelRankingResponse getMyPeriodLevelRanking(String userId, LocalDateTime startUtc,
+                                                          LocalDateTime endUtc, String locale) {
+        UserProfileInfo profile = userQueryFacadeService.getUserProfile(userId);
+        TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+        UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
+
+        List<Object[]> allRows =
+            experienceHistoryRepository.findUserExpRankingByPeriod(startUtc, endUtc);
+        Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(
+            allRows.stream().map(row -> (String) row[0]).collect(Collectors.toList())));
+        List<Object[]> active = allRows.stream()
+            .filter(row -> activeUserIds.contains((String) row[0]))
+            .collect(Collectors.toList());
+        long totalUsers = active.size();
+
+        Long myPeriodExp = active.stream()
+            .filter(row -> userId.equals((String) row[0]))
+            .map(RankingService::categoryExpOf)
+            .findFirst()
+            .orElse(null);
+
+        long rank = myPeriodExp == null
+            ? totalUsers + 1
+            : active.stream().filter(row -> categoryExpOf(row) > myPeriodExp).count() + 1;
+
+        return LevelRankingResponse.builder()
+            .rank(rank)
+            .userId(userId)
+            .nickname(profile != null ? profile.nickname() : null)
+            .profileImageUrl(profile != null ? profile.picture() : null)
+            .equippedTitle(titleInfo.name())
+            .equippedTitleRarity(titleInfo.rarity())
+            .equippedTitleColorCode(titleInfo.colorCode())
+            .leftTitle(titleInfo.leftTitle())
+            .leftTitleRarity(titleInfo.leftRarity())
+            .rightTitle(titleInfo.rightTitle())
+            .rightTitleRarity(titleInfo.rightRarity())
+            .currentLevel(userExp != null ? userExp.getCurrentLevel() : 1)
+            .currentExp(userExp != null ? userExp.getCurrentExp() : 0)
+            .totalExp(userExp != null ? userExp.getTotalExp() : 0)
+            .periodExp(myPeriodExp != null ? myPeriodExp : 0L)
+            .totalUsers(totalUsers)
+            .percentile(myPeriodExp == null ? 100.0 : calculatePercentile(rank, totalUsers))
+            .build();
+    }
+
     /**
      * LUT-297: 기간 획득 경험치 랭킹 공통 로직. QA-206 공동순위 규칙(활성 유저만, 동점 동일 순위)을 준용하며
      * period_exp 에 정렬 기준(기간 획득 경험치), total_exp 에 우측 표기용 누적 총 경험치를 담는다.

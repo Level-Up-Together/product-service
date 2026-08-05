@@ -888,4 +888,116 @@ class RankingControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/my/level/weekly : 주간 내 랭킹 조회 (LUT-316)")
+    void getMyWeeklyLevelRankingTest() throws Exception {
+        // given
+        LevelRankingResponse response = createMockMyPeriodRanking(15L, 800L);
+
+        when(rankingService.getMyWeeklyLevelRanking(anyString(), any(), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/rankings/my/level/weekly")
+                .with(user(MOCK_USER_ID))
+                .header("X-Timezone", "Asia/Seoul")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("랭킹-13. 주간 내 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Ranking")
+                        .description("이번주(X-Timezone 기준 월요일 시작) 획득 경험치 기준 내 랭킹. "
+                            + "주간 목록과 동일 기준의 공동순위이며, 이번주 기록이 없으면 최하위(전체+1)로 내려간다. "
+                            + "JWT 토큰 인증 필요 (LUT-316)")
+                        .responseFields(myPeriodRankingResponseFields("이번주"))
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/my/level/monthly : 월간 내 랭킹 조회 (LUT-316)")
+    void getMyMonthlyLevelRankingTest() throws Exception {
+        // given
+        LevelRankingResponse response = createMockMyPeriodRanking(7L, 3200L);
+
+        when(rankingService.getMyMonthlyLevelRanking(anyString(), any(), any()))
+            .thenReturn(response);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/rankings/my/level/monthly")
+                .with(user(MOCK_USER_ID))
+                .header("X-Timezone", "Asia/Seoul")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("랭킹-14. 월간 내 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Ranking")
+                        .description("이번달(X-Timezone 기준 1일 시작) 획득 경험치 기준 내 랭킹. "
+                            + "월간 목록과 동일 기준의 공동순위이며, 이번달 기록이 없으면 최하위(전체+1)로 내려간다. "
+                            + "JWT 토큰 인증 필요 (LUT-316)")
+                        .responseFields(myPeriodRankingResponseFields("이번달"))
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+    }
+
+    private LevelRankingResponse createMockMyPeriodRanking(long rank, long periodExp) {
+        return LevelRankingResponse.builder()
+            .rank(rank)
+            .userId(MOCK_USER_ID)
+            .nickname("테스트유저")
+            .currentLevel(30)
+            .currentExp(500)
+            .totalExp(30500)
+            .periodExp(periodExp)
+            .totalUsers(100L)
+            .percentile(15.0)
+            .build();
+    }
+
+    private FieldDescriptor[] myPeriodRankingResponseFields(String periodLabel) {
+        return new FieldDescriptor[] {
+            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+            fieldWithPath("value").type(JsonFieldType.OBJECT).description("내 " + periodLabel + " 랭킹 정보"),
+            fieldWithPath("value.rank").type(JsonFieldType.NUMBER).description("순위 (기록 없으면 전체+1)"),
+            fieldWithPath("value.user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+            fieldWithPath("value.nickname").type(JsonFieldType.STRING).description("닉네임").optional(),
+            fieldWithPath("value.profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
+            fieldWithPath("value.equipped_title").type(JsonFieldType.STRING).description("장착 칭호").optional(),
+            fieldWithPath("value.equipped_title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
+            fieldWithPath("value.equipped_title_color_code").type(JsonFieldType.STRING).description("칭호 색상 코드").optional(),
+            fieldWithPath("value.left_title").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
+            fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
+            fieldWithPath("value.right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
+            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+            fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
+            fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
+            fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
+            fieldWithPath("value.period_exp").type(JsonFieldType.NUMBER)
+                .description(periodLabel + " 획득 경험치 (기록 없으면 0)"),
+            fieldWithPath("value.total_users").type(JsonFieldType.NUMBER)
+                .description("전체 사용자 수 (" + periodLabel + " 경험치 기록이 있는 활성 유저 수)"),
+            fieldWithPath("value.percentile").type(JsonFieldType.NUMBER).description("상위 몇 % (예: 5.0 = 상위 5%)"),
+            fieldWithPath("value.in_progress_mission").description("현재 실시간 진행중인 미션 (목록 API 전용 — 내 랭킹 단건에서는 항상 null)").optional()
+        };
+    }
 }

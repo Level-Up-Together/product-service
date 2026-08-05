@@ -603,6 +603,138 @@ class RankingServiceTest {
     }
 
     @Nested
+    @DisplayName("getMyWeeklyLevelRanking / getMyMonthlyLevelRanking 테스트 (LUT-316)")
+    class GetMyPeriodLevelRankingTest {
+
+        @Test
+        @DisplayName("주간 내 랭킹을 목록과 동일한 공동순위로 계산한다")
+        void getMyWeeklyLevelRanking_success() {
+            List<Object[]> rows = List.of(
+                new Object[] {"top", 1000L},
+                new Object[] {TEST_USER_ID, 500L},
+                new Object[] {"low", 100L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("top", TEST_USER_ID, "low"));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+
+            LevelRankingResponse result =
+                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+
+            assertThat(result.getRank()).isEqualTo(2L); // top 1명이 위 → 공동순위 2위
+            assertThat(result.getPeriodExp()).isEqualTo(500L);
+            assertThat(result.getTotalExp()).isEqualTo(3500); // 누적 총 경험치는 별도 표기
+            assertThat(result.getTotalUsers()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("동점 유저가 있으면 같은 순위로 계산한다")
+        void getMyWeeklyLevelRanking_tied() {
+            List<Object[]> rows = List.of(
+                new Object[] {"top", 1000L},
+                new Object[] {"same", 500L},
+                new Object[] {TEST_USER_ID, 500L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("top", "same", TEST_USER_ID));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+
+            LevelRankingResponse result =
+                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+
+            assertThat(result.getRank()).isEqualTo(2L); // 500 동점 → 공동 2위
+        }
+
+        @Test
+        @DisplayName("탈퇴 유저는 순위 모수에서 제외된다")
+        void getMyWeeklyLevelRanking_excludesInactive() {
+            List<Object[]> rows = List.of(
+                new Object[] {"withdrawn", 2000L},
+                new Object[] {"top", 1000L},
+                new Object[] {TEST_USER_ID, 500L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("top", TEST_USER_ID)); // withdrawn 은 비활성
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+
+            LevelRankingResponse result =
+                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+
+            assertThat(result.getRank()).isEqualTo(2L); // 탈퇴 유저 제외 → top 만 위
+            assertThat(result.getTotalUsers()).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("이번주 기록이 없으면 최하위로 반환한다")
+        void getMyWeeklyLevelRanking_noRecord() {
+            List<Object[]> rows = Collections.singletonList(new Object[] {"other", 100L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of("other"));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 1, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+
+            LevelRankingResponse result =
+                rankingService.getMyWeeklyLevelRanking(TEST_USER_ID, null, "Asia/Seoul");
+
+            assertThat(result.getRank()).isEqualTo(2L); // 활성 1명 + 1 = 최하위 2
+            assertThat(result.getPeriodExp()).isEqualTo(0L);
+            assertThat(result.getPercentile()).isEqualTo(100.0);
+        }
+
+        @Test
+        @DisplayName("월간 내 랭킹도 동일 규칙으로 계산되고, 잘못된 타임존은 기본값으로 폴백한다")
+        void getMyMonthlyLevelRanking_success() {
+            List<Object[]> rows = List.of(
+                new Object[] {"top", 3000L},
+                new Object[] {TEST_USER_ID, 1500L});
+
+            when(experienceHistoryRepository.findUserExpRankingByPeriod(any(), any()))
+                .thenReturn(rows);
+            when(userQueryFacadeService.getActiveUserIds(anyList()))
+                .thenReturn(List.of("top", TEST_USER_ID));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID))
+                .thenReturn(new UserProfileInfo(TEST_USER_ID, "나", null, 3, null, null, null));
+            when(userTitleRepository.findEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
+            when(userExperienceRepository.findByUserId(TEST_USER_ID))
+                .thenReturn(Optional.of(createTestUserExperience(1L, TEST_USER_ID, 3, 3500)));
+
+            LevelRankingResponse result =
+                rankingService.getMyMonthlyLevelRanking(TEST_USER_ID, null, "invalid/zone");
+
+            assertThat(result.getRank()).isEqualTo(2L);
+            assertThat(result.getPeriodExp()).isEqualTo(1500L);
+            assertThat(result.getTotalUsers()).isEqualTo(2L);
+        }
+    }
+
+    @Nested
     @DisplayName("칭호 조합 테스트")
     class EquippedTitleTest {
 

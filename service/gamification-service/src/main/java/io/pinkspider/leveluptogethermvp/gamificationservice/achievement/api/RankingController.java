@@ -148,6 +148,28 @@ public class RankingController {
         return ResponseEntity.ok(ApiResult.<Page<LevelRankingResponse>>builder().value(responses).build());
     }
 
+    // LUT-316: 주간 내 랭킹 (이번주 획득 경험치 기준, X-Timezone 기준)
+    @GetMapping("/my/level/weekly")
+    public ResponseEntity<ApiResult<LevelRankingResponse>> getMyWeeklyLevelRanking(
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        LevelRankingResponse response =
+            rankingService.getMyWeeklyLevelRanking(userId, acceptLanguage, timezone);
+        return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
+    }
+
+    // LUT-316: 월간 내 랭킹 (이번달 획득 경험치 기준, X-Timezone 기준)
+    @GetMapping("/my/level/monthly")
+    public ResponseEntity<ApiResult<LevelRankingResponse>> getMyMonthlyLevelRanking(
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage,
+        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        LevelRankingResponse response =
+            rankingService.getMyMonthlyLevelRanking(userId, acceptLanguage, timezone);
+        return ResponseEntity.ok(ApiResult.<LevelRankingResponse>builder().value(response).build());
+    }
+
     // 카테고리별 레벨 랭킹 (카테고리별 경험치 획득 기준)
     @GetMapping("/level/category/{category}")
     public ResponseEntity<ApiResult<Page<LevelRankingResponse>>> getLevelRankingByCategory(

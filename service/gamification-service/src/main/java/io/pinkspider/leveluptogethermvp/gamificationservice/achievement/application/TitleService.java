@@ -382,11 +382,15 @@ public class TitleService {
 
         TitlePosition position = userTitle.getTitle().getPositionType();
 
-        // 같은 포지션의 기존 장착 해제
+        // 같은 포지션의 기존 장착 해제 (clearAutomatically=true로 영속성 컨텍스트 클리어됨)
         userTitleRepository.unequipByUserIdAndPosition(userId, position);
 
-        // 새 칭호 장착
+        // LUT-322: 벌크 해제가 영속성 컨텍스트를 비워 위 엔티티가 준영속 상태가 되므로
+        // 재조회 후 장착해야 변경이 저장된다 (changeTitles와 동일 패턴 — 누락 시 장착 유실)
+        userTitle = userTitleRepository.findByUserIdAndTitleId(userId, titleId)
+            .orElseThrow(() -> new IllegalArgumentException("보유하지 않은 칭호입니다."));
         userTitle.equip(position);
+        userTitleRepository.save(userTitle);
         log.info("칭호 장착: userId={}, title={}, position={}", userId, userTitle.getTitle().getName(), position);
 
         // 피드의 칭호도 업데이트 (이벤트 기반)

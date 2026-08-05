@@ -185,6 +185,10 @@ public class SecurityConfig {
                                                 HttpMethod.GET, "/api/v1/mypage/profile/{userId}")
                                         .permitAll()
                                         .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/missions/executions/weekly/{userId}")
+                                        .permitAll() // LUT-320: 비로그인 프로필 주간 캘린더 (공개범위 마스킹)
+                                        .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mypage/nickname/check")
                                         .permitAll() // QA-108: 신규 가입 닉네임 중복 체크
                                         .requestMatchers(HttpMethod.GET, "/api/v1/notices")
