@@ -1,6 +1,5 @@
 package io.pinkspider.leveluptogethermvp.userservice.oauth.scheduler;
 
-import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.application.MultiDeviceTokenService;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -19,38 +18,17 @@ public class TokenMaintenanceScheduler {
 
     private final StringRedisTemplate redisTemplate;
     private final MultiDeviceTokenService tokenService;
-    private final JwtUtil jwtUtil;
 
     // 매일 새벽 2시(KST)에 만료된 세션 정리
+    // 만료 판정은 MultiDeviceTokenService 에 위임 — QA-231 해시 저장 세션은 refreshExpiresAt
+    // 메타데이터로 판정해야 하며, 스케줄러가 자체 구현(JWT 파싱 검증)을 중복 보유하다가
+    // 해시 세션 전체를 매일 오삭제한 사고(LUT-323)의 재발을 막는다.
     @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
     @SchedulerLock(name = "TokenMaintenanceScheduler_cleanupExpiredSessions", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
     public void cleanupExpiredSessions() {
         try {
-            Set<String> sessionKeys = redisTemplate.keys("session:*");
-            int cleanedCount = 0;
-
-            if (sessionKeys != null) {
-                for (String sessionKey : sessionKeys) {
-                    String refreshToken = (String) redisTemplate.opsForHash()
-                        .get(sessionKey, "refreshToken");
-
-                    if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
-                        // 만료된 세션 삭제
-                        redisTemplate.delete(sessionKey);
-
-                        // user_sessions에서도 제거
-                        String userId = (String) redisTemplate.opsForHash().get(sessionKey, "userId");
-                        if (userId != null) {
-                            redisTemplate.opsForSet().remove("userSessions:" + userId, sessionKey);
-                        }
-
-                        cleanedCount++;
-                    }
-                }
-            }
-
+            int cleanedCount = tokenService.cleanupExpiredSessions();
             log.info("Cleaned up {} expired sessions", cleanedCount);
-
         } catch (Exception e) {
             log.error("Failed to cleanup expired sessions", e);
         }
