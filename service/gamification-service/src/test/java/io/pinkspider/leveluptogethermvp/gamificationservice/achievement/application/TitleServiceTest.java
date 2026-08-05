@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -309,6 +310,10 @@ class TitleServiceTest {
             assertThat(result).isNotNull();
             assertThat(userTitle.getIsEquipped()).isTrue();
             verify(userTitleRepository).unequipByUserIdAndPosition(TEST_USER_ID, TitlePosition.LEFT);
+            // LUT-322: 벌크 해제(clearAutomatically)가 영속성 컨텍스트를 비우므로
+            // 재조회 후 명시적 save까지 해야 장착이 유실되지 않는다 (가입 기본 칭호 미장착 회귀 방지)
+            verify(userTitleRepository, times(2)).findByUserIdAndTitleId(TEST_USER_ID, titleId);
+            verify(userTitleRepository).save(userTitle);
         }
 
         @Test
