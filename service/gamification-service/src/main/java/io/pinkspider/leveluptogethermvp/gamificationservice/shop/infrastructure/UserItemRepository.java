@@ -20,6 +20,10 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
     Optional<UserItem> findByUserIdAndShopItemId(String userId, Long shopItemId);
 
+    /** LUT-327: 상점 보유 여부 표기용 — 보유중인 shop_item ID 목록 */
+    @Query("SELECT ui.shopItem.id FROM UserItem ui WHERE ui.userId = :userId")
+    List<Long> findShopItemIdsByUserId(@Param("userId") String userId);
+
     boolean existsByUserIdAndShopItemId(String userId, Long shopItemId);
 
     @Query("SELECT ui FROM UserItem ui JOIN FETCH ui.shopItem "
