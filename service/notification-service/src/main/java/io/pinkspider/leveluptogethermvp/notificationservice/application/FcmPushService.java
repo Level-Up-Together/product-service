@@ -237,12 +237,14 @@ public class FcmPushService {
                             .build())
                     .build());
         } else {
+            // LUT-329: click_action 은 Intent action 문자열이라 웹 경로를 넣으면 매칭되는
+            // 액티비티가 없어 탭해도 앱이 열리지 않는다 (FCM SDK 는 런처 폴백 없음).
+            // 미설정 시 런처 인텐트로 앱이 열리고, 앱은 data.action_url 로 네비게이션한다.
             builder.setAndroidConfig(AndroidConfig.builder()
                     // QA-224: doze 모드에서 전달이 수 시간 지연되지 않도록 high priority 명시
                     .setPriority(AndroidConfig.Priority.HIGH)
                     .setNotification(AndroidNotification.builder()
                             .setSound("default")
-                            .setClickAction(request.clickAction())
                             .build())
                     .build());
         }
