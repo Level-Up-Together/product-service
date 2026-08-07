@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.DiamondHistory;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.DiamondType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopPurchaseHistoryRow;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -26,4 +27,35 @@ public interface DiamondHistoryRepository extends JpaRepository<DiamondHistory, 
         @Param("userId") String userId,
         @Param("type") DiamondType type,
         @Param("sourceIds") Set<Long> sourceIds);
+
+    /** LUT-328: 어드민 아이템 구매이력 — 아이템명 검색 (keyword null 이면 전체) */
+    @Query(value = "SELECT new io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto."
+        + "ShopPurchaseHistoryRow(dh.id, dh.userId, dh.amount, dh.createdAt, si.id, si.name, si.rarity) "
+        + "FROM DiamondHistory dh JOIN ShopItem si ON si.id = dh.sourceId "
+        + "WHERE dh.type = :type "
+        + "AND (:keyword IS NULL OR si.name LIKE %:keyword% OR si.nameEn LIKE %:keyword%) "
+        + "ORDER BY dh.id DESC",
+        countQuery = "SELECT COUNT(dh) FROM DiamondHistory dh JOIN ShopItem si ON si.id = dh.sourceId "
+            + "WHERE dh.type = :type "
+            + "AND (:keyword IS NULL OR si.name LIKE %:keyword% OR si.nameEn LIKE %:keyword%)")
+    Page<ShopPurchaseHistoryRow> searchShopPurchases(
+        @Param("type") DiamondType type,
+        @Param("keyword") String keyword,
+        Pageable pageable);
+
+    /** LUT-328: 어드민 아이템 구매이력 — 아이템명 OR 구매자(닉네임 매칭 userId) 검색 */
+    @Query(value = "SELECT new io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto."
+        + "ShopPurchaseHistoryRow(dh.id, dh.userId, dh.amount, dh.createdAt, si.id, si.name, si.rarity) "
+        + "FROM DiamondHistory dh JOIN ShopItem si ON si.id = dh.sourceId "
+        + "WHERE dh.type = :type "
+        + "AND (si.name LIKE %:keyword% OR si.nameEn LIKE %:keyword% OR dh.userId IN :userIds) "
+        + "ORDER BY dh.id DESC",
+        countQuery = "SELECT COUNT(dh) FROM DiamondHistory dh JOIN ShopItem si ON si.id = dh.sourceId "
+            + "WHERE dh.type = :type "
+            + "AND (si.name LIKE %:keyword% OR si.nameEn LIKE %:keyword% OR dh.userId IN :userIds)")
+    Page<ShopPurchaseHistoryRow> searchShopPurchasesWithUsers(
+        @Param("type") DiamondType type,
+        @Param("keyword") String keyword,
+        @Param("userIds") List<String> userIds,
+        Pageable pageable);
 }

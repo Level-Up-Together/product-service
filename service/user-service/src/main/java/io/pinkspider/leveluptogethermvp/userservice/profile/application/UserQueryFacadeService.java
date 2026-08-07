@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,6 +86,18 @@ public class UserQueryFacadeService implements UserQueryFacade {
         return userRepository.findById(userId)
             .map(Users::getNickname)
             .orElse(null);
+    }
+
+    /** LUT-328: 닉네임 검색 결과 상한 — 어드민 검색 IN 절 폭주 방지 */
+    private static final int NICKNAME_SEARCH_LIMIT = 200;
+
+    @Override
+    public List<String> findUserIdsByNicknameContaining(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        return userRepository.findIdsByNicknameContaining(
+            keyword.trim(), PageRequest.of(0, NICKNAME_SEARCH_LIMIT));
     }
 
     // ========== 피드 공개범위 선호 ==========

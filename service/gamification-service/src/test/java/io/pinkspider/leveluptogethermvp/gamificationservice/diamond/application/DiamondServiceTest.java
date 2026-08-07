@@ -254,6 +254,30 @@ class DiamondServiceTest {
             assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 3, 9L, "프로필 테두리"))
                 .isInstanceOf(IllegalStateException.class);
         }
+
+        @Test
+        @DisplayName("가격 0원도 잔액 변동 없이 SHOP 이력을 기록한다 (LUT-328)")
+        void recordsZeroAmountSpend() {
+            UserDiamond diamond = diamond(10, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 0, 9L, "무료 아이템");
+
+            assertThat(balanceAfter).isEqualTo(10);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isZero();
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(10);
+            assertThat(captor.getValue().getDescription()).isEqualTo("무료 아이템 구매");
+        }
+
+        @Test
+        @DisplayName("음수 차감량은 예외가 발생한다")
+        void failsOnNegativeAmount() {
+            assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, -1, 9L, "프로필 테두리"))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Nested

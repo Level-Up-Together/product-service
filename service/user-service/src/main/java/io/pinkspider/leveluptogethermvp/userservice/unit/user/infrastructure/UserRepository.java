@@ -63,6 +63,12 @@ public interface UserRepository extends JpaRepository<Users, String> {
            "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<Users> searchByNickname(@Param("keyword") String keyword, Pageable pageable);
 
+    /** LUT-328: 닉네임 부분일치 사용자 ID 검색 (어드민 구매이력 닉네임 검색용) */
+    @Query("SELECT u.id FROM Users u WHERE u.nicknameSet = true " +
+           "AND u.status = 'ACTIVE' " +
+           "AND LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<String> findIdsByNicknameContaining(@Param("keyword") String keyword, Pageable pageable);
+
     /**
      * 주어진 사용자 ID 목록 중 활성(ACTIVE) 상태인 사용자 ID만 반환
      */

@@ -60,15 +60,12 @@ public class ShopService {
         }
 
         int balance;
-        if (shopItem.getPrice() > 0) {
-            try {
-                balance = diamondService.spendDiamonds(
-                    userId, shopItem.getPrice(), shopItem.getId(), shopItem.getName());
-            } catch (IllegalStateException e) {
-                throw new CustomException("120605", "error.shop.insufficient_diamond");
-            }
-        } else {
-            balance = diamondService.getBalance(userId);
+        try {
+            // LUT-328: 가격 0원 구매도 어드민 구매이력(diamond_history SHOP)에 남도록 항상 기록
+            balance = diamondService.spendDiamonds(
+                userId, shopItem.getPrice(), shopItem.getId(), shopItem.getName());
+        } catch (IllegalStateException e) {
+            throw new CustomException("120605", "error.shop.insufficient_diamond");
         }
 
         try {

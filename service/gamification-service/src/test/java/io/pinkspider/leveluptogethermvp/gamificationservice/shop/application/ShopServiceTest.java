@@ -122,19 +122,19 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("가격 0원 아이템은 다이아 차감 없이 지급한다")
-        void purchaseItem_freeItem_skipsSpend() {
+        @DisplayName("가격 0원 아이템도 구매이력이 남도록 0원 차감을 기록한다 (LUT-328)")
+        void purchaseItem_freeItem_recordsZeroSpend() {
             ShopItem item = createShopItem(2L, "레벨업 사용 설명서", TitleRarity.COMMON, 0);
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 2L)).thenReturn(false);
-            when(diamondService.getBalance(USER_ID)).thenReturn(345);
+            when(diamondService.spendDiamonds(USER_ID, 0, 2L, "레벨업 사용 설명서")).thenReturn(345);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 2L);
 
             assertThat(response.balance()).isEqualTo(345);
-            verify(diamondService, never()).spendDiamonds(anyString(), anyInt(), anyLong(), anyString());
+            verify(diamondService).spendDiamonds(USER_ID, 0, 2L, "레벨업 사용 설명서");
         }
 
         @Test

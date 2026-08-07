@@ -136,12 +136,15 @@ public class DiamondService {
     }
 
     /**
-     * 다이아 차감 (상점 구매용 — QA-220 시점에는 상점 미구현, API 만 준비).
+     * 다이아 차감 (상점 구매용 — LUT-327 상점에서 사용).
+     *
+     * <p>LUT-328: 가격 0원 구매도 어드민 구매이력에 남도록 amount 0 을 허용한다
+     * (잔액 변동 없이 SHOP 이력만 기록).
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public int spendDiamonds(String userId, int amount, Long itemId, String itemName) {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("차감량은 1 이상이어야 합니다: " + amount);
+        if (amount < 0) {
+            throw new IllegalArgumentException("차감량은 0 이상이어야 합니다: " + amount);
         }
         UserDiamond diamond = getOrCreate(userId);
         int balanceAfter = diamond.apply(-amount);
