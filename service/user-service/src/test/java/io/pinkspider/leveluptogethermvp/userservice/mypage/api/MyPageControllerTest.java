@@ -568,6 +568,7 @@ class MyPageControllerTest {
             .daysSinceJoined(365L)
             .clearedMissionsCount(50)
             .acquiredTitlesCount(10)
+            .friendsCount(12)
             .guilds(List.of(guild1))
             .isOwner(true)  // 본인이므로 true
             .friendshipStatus(null)  // 본인 조회시 친구 상태 불필요
@@ -604,6 +605,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID").optional(),
                             fieldWithPath("value.guilds[].name").type(JsonFieldType.STRING).description("길드 이름").optional(),
@@ -652,6 +654,7 @@ class MyPageControllerTest {
             .daysSinceJoined(500L)
             .clearedMissionsCount(100)
             .acquiredTitlesCount(20)
+            .friendsCount(25)
             .guilds(List.of(guild1))
             .isOwner(false)  // 타인이므로 false
             .friendshipStatus("NONE")  // 친구 관계 없음
@@ -688,6 +691,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID").optional(),
                             fieldWithPath("value.guilds[].name").type(JsonFieldType.STRING).description("길드 이름").optional(),
@@ -729,6 +733,7 @@ class MyPageControllerTest {
             .daysSinceJoined(300L)
             .clearedMissionsCount(75)
             .acquiredTitlesCount(15)
+            .friendsCount(4)
             .guilds(List.of())
             .isOwner(false)
             .friendshipStatus("PENDING_RECEIVED")  // 상대방이 나에게 친구 요청을 보냄
@@ -765,6 +770,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (PENDING_RECEIVED)"),
@@ -801,6 +807,7 @@ class MyPageControllerTest {
             .daysSinceJoined(730L)
             .clearedMissionsCount(200)
             .acquiredTitlesCount(30)
+            .friendsCount(31)
             .guilds(List.of())
             .isOwner(false)
             .friendshipStatus("ACCEPTED")  // 이미 친구
@@ -837,6 +844,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
                             fieldWithPath("value.acquired_titles_count").type(JsonFieldType.NUMBER).description("획득한 칭호 수"),
+                            fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (ACCEPTED)"),

@@ -125,6 +125,9 @@ public class MyPageService {
         // 보유 칭호 수
         long titlesCount = gamificationQueryFacadeService.countUserTitles(targetUserId);
 
+        // LUT-340: 친구 수 (프로필 통계 노출용, 탈퇴 유저 제외)
+        int friendsCount = friendshipRepository.countFriends(targetUserId);
+
         // 소속 길드 목록 조회
         List<GuildMembershipInfo> guildMemberships = guildQueryFacadeService.getUserGuildMemberships(targetUserId);
         List<Long> guildIds = guildMemberships.stream().map(GuildMembershipInfo::guildId).toList();
@@ -206,6 +209,7 @@ public class MyPageService {
             .daysSinceJoined(daysSinceJoined)
             .clearedMissionsCount(stats.totalMissionCompletions())
             .acquiredTitlesCount((int) titlesCount)
+            .friendsCount(friendsCount)
             .guilds(guilds)
             .isOwner(isOwner)
             .friendshipStatus(friendshipStatusStr)

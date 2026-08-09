@@ -225,6 +225,61 @@ class MyPageServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-340: 친구 수가 프로필 응답에 포함된다")
+        void getPublicProfile_includesFriendsCount() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(7);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getFriendsCount()).isEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("LUT-340: 친구 수는 조회자가 아닌 프로필 주인 기준으로 집계된다")
+        void getPublicProfile_friendsCountOfTargetUser() {
+            // given
+            String viewerId = "viewer-user-id";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(3);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId);
+
+            // then
+            assertThat(result.getFriendsCount()).isEqualTo(3);
+            verify(friendshipRepository).countFriends(TEST_USER_ID);
+            verify(friendshipRepository, never()).countFriends(viewerId);
+        }
+
+        @Test
+        @DisplayName("LUT-340: 친구가 없으면 친구 수는 0이다")
+        void getPublicProfile_noFriends_returnsZero() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.countFriends(TEST_USER_ID)).thenReturn(0);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getFriendsCount()).isZero();
+        }
+
+        @Test
         @DisplayName("본인 프로필 조회 시 isOwner가 true이다")
         void getPublicProfile_isOwner() {
             // given

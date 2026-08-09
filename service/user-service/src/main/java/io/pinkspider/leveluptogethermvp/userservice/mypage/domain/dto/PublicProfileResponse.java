@@ -37,6 +37,9 @@ public class PublicProfileResponse {
     private Integer clearedMissionsCount;
     private Integer acquiredTitlesCount;
 
+    // LUT-340: 친구 수 (탈퇴 유저 제외 — 친구 목록 개수와 동일)
+    private Integer friendsCount;
+
     // 소속 길드 목록
     private java.util.List<GuildInfo> guilds;
 

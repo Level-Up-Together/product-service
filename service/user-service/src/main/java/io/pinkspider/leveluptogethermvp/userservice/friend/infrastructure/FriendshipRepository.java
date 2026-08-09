@@ -14,6 +14,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
+    /**
+     * LUT-340: 상대방이 탈퇴(WITHDRAWN)한 관계를 친구 목록/친구 수에서 제외하기 위한 조인 절.
+     * 탈퇴는 soft delete(users.status)라 friendship row가 남으므로, 상대 유저 상태로 걸러야 한다.
+     * SUSPENDED/PERMANENTLY_BANNED는 계정이 유지되는 상태이므로 친구로 계속 집계한다.
+     */
+    String ACTIVE_FRIEND_JOIN =
+        "JOIN Users u ON u.id = CASE WHEN f.userId = :userId THEN f.friendId ELSE f.userId END "
+            + "AND u.status <> 'WITHDRAWN' ";
+
     // 두 사용자 간의 친구 관계 조회
     @Query("SELECT f FROM Friendship f WHERE " +
            "(f.userId = :userId AND f.friendId = :friendId) OR " +
@@ -25,15 +34,19 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     // 특정 사용자가 보낸 친구 요청
     Optional<Friendship> findByUserIdAndFriendId(String userId, String friendId);
 
-    // 친구 목록 조회 (수락된 관계)
-    @Query("SELECT f FROM Friendship f WHERE " +
-           "(f.userId = :userId OR f.friendId = :userId) " +
+    // 친구 목록 조회 (수락된 관계) — LUT-340: 탈퇴 유저 제외
+    @Query(value = "SELECT f FROM Friendship f " + ACTIVE_FRIEND_JOIN +
+           "WHERE (f.userId = :userId OR f.friendId = :userId) " +
            "AND f.status = 'ACCEPTED' " +
-           "ORDER BY f.acceptedAt DESC")
+           "ORDER BY f.acceptedAt DESC",
+           countQuery = "SELECT COUNT(f) FROM Friendship f " + ACTIVE_FRIEND_JOIN +
+           "WHERE (f.userId = :userId OR f.friendId = :userId) " +
+           "AND f.status = 'ACCEPTED'")
     Page<Friendship> findFriends(@Param("userId") String userId, Pageable pageable);
 
-    @Query("SELECT f FROM Friendship f WHERE " +
-           "(f.userId = :userId OR f.friendId = :userId) " +
+    // LUT-340: 탈퇴 유저 제외
+    @Query("SELECT f FROM Friendship f " + ACTIVE_FRIEND_JOIN +
+           "WHERE (f.userId = :userId OR f.friendId = :userId) " +
            "AND f.status = 'ACCEPTED'")
     List<Friendship> findAllFriends(@Param("userId") String userId);
 
@@ -47,9 +60,9 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
            "ORDER BY f.requestedAt DESC")
     List<Friendship> findPendingRequestsSent(@Param("userId") String userId);
 
-    // 친구 수 조회
-    @Query("SELECT COUNT(f) FROM Friendship f WHERE " +
-           "(f.userId = :userId OR f.friendId = :userId) " +
+    // 친구 수 조회 — LUT-340: 탈퇴 유저 제외 (친구 목록 개수와 일치시킨다)
+    @Query("SELECT COUNT(f) FROM Friendship f " + ACTIVE_FRIEND_JOIN +
+           "WHERE (f.userId = :userId OR f.friendId = :userId) " +
            "AND f.status = 'ACCEPTED'")
     int countFriends(@Param("userId") String userId);
 
