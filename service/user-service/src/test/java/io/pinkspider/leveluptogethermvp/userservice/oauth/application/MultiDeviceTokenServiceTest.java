@@ -62,14 +62,18 @@ class MultiDeviceTokenServiceTest {
     private static final String DEVICE_ID = "device-456";
     private static final String ACCESS_TOKEN = "access-token";
     private static final String REFRESH_TOKEN = "refresh-token";
-    private static final String SESSION_KEY =
-        "session:" + TEST_USER_ID + ":" + DEVICE_TYPE + ":" + DEVICE_ID;
+    // LUT-336: 세션 키에서 deviceType 제거 (session:{userId}:{deviceId})
+    private static final String SESSION_KEY = "session:" + TEST_USER_ID + ":" + DEVICE_ID;
 
     @BeforeEach
     void setUp() {
         multiDeviceTokenService = new MultiDeviceTokenService(
             redisTemplate, jwtUtil, slidingExpirationService, objectMapper
         );
+        // LUT-336: resolveSessionKey 가 신 키 존재를 먼저 확인한다 — 구 키 이관 경로를 타지 않도록 고정
+        org.mockito.Mockito.lenient().when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        org.mockito.Mockito.lenient().when(setOperations.members(anyString())).thenReturn(Set.of());
     }
 
     /** putAll 로 저장된 모든 필드를 하나의 맵으로 합쳐 반환 */
@@ -177,6 +181,7 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt")).thenReturn(null);
             when(hashOperations.get(SESSION_KEY, "previousRefreshToken")).thenReturn(null);
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime")).thenReturn(null);
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
             when(jwtUtil.getRemainingTime("new-refresh-token")).thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
@@ -209,6 +214,9 @@ class MultiDeviceTokenServiceTest {
             when(hashOperations.get(SESSION_KEY, "previousRefreshJti")).thenReturn("prev-jti");
             when(hashOperations.get(SESSION_KEY, "previousRefreshExpiresAt"))
                 .thenReturn(String.valueOf(System.currentTimeMillis() + 1000L));
+            // LUT-336: grace window(2분) 밖이어야 블랙리스트 대상이 된다
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
+                .thenReturn(String.valueOf(System.currentTimeMillis() - Duration.ofMinutes(5).toMillis()));
             when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
             when(jwtUtil.getRemainingTime("new-refresh-token")).thenReturn(Duration.ofDays(90).toMillis());
             when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
@@ -220,6 +228,98 @@ class MultiDeviceTokenServiceTest {
 
             // then
             verify(valueOperations).set(eq("blacklist:prev-jti"), eq("revoked"), any(Duration.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-336: 세션 키 정합성 테스트")
+    class SessionKeyCompatibilityTest {
+
+        private static final String LEGACY_KEY =
+            "session:" + TEST_USER_ID + ":ios:" + DEVICE_ID;
+        private static final String USER_SESSIONS_KEY = "userSessions:" + TEST_USER_ID;
+
+        @Test
+        @DisplayName("구 형식(deviceType 포함) 키가 있으면 신 키로 이관한다")
+        void migratesLegacyKey() {
+            // given — 신 키는 없고 구 키만 남아 있는 배포 직후 상태
+            when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false);
+            when(redisTemplate.hasKey(LEGACY_KEY)).thenReturn(true);
+            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(LEGACY_KEY));
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "loginTime")).thenReturn("1700000000000");
+
+            // when
+            multiDeviceTokenService.getLoginTime(TEST_USER_ID, "ios", DEVICE_ID);
+
+            // then — RENAME 으로 TTL 을 보존하며 이관하고, 세션 목록도 신 키로 교체한다
+            verify(redisTemplate).rename(LEGACY_KEY, SESSION_KEY);
+            verify(setOperations).remove(USER_SESSIONS_KEY, LEGACY_KEY);
+            verify(setOperations).add(USER_SESSIONS_KEY, SESSION_KEY);
+        }
+
+        @Test
+        @DisplayName("앱(ios)이 만든 세션을 웹(web)으로 조회해도 같은 키를 본다")
+        void appAndWebShareOneSession() {
+            // given — 앱이 만든 구 키 하나만 존재 (prod LUT-336 재현)
+            when(redisTemplate.hasKey(SESSION_KEY)).thenReturn(false, true);
+            when(redisTemplate.hasKey(LEGACY_KEY)).thenReturn(true);
+            when(setOperations.members(USER_SESSIONS_KEY)).thenReturn(Set.of(LEGACY_KEY));
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+
+            // when — deviceType 만 다르게 두 번 조회 (앱 → 웹)
+            RefreshTokenMatch asApp = multiDeviceTokenService.checkRefreshToken(
+                TEST_USER_ID, "ios", DEVICE_ID, REFRESH_TOKEN);
+            RefreshTokenMatch asWeb = multiDeviceTokenService.checkRefreshToken(
+                TEST_USER_ID, "web", DEVICE_ID, REFRESH_TOKEN);
+
+            // then — 예전에는 웹이 NO_SESSION 을 받아 강제 로그아웃됐다
+            assertThat(asApp).isEqualTo(RefreshTokenMatch.MATCH);
+            assertThat(asWeb).isEqualTo(RefreshTokenMatch.MATCH);
+        }
+
+        @Test
+        @DisplayName("grace window 안의 previous 는 rotation 이 다시 일어나도 폐기하지 않는다")
+        void keepsPreviousWithinGrace() {
+            // given — 1초 전 rotation 된 previous 가 남아 있는 상태에서 또 rotation
+            when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+            when(hashOperations.get(SESSION_KEY, "refreshToken"))
+                .thenReturn(MultiDeviceTokenService.hashToken(REFRESH_TOKEN));
+            when(hashOperations.get(SESSION_KEY, "refreshJti")).thenReturn("current-jti");
+            when(hashOperations.get(SESSION_KEY, "refreshExpiresAt")).thenReturn("1893456000000");
+            when(hashOperations.get(SESSION_KEY, "previousRefreshTime"))
+                .thenReturn(String.valueOf(System.currentTimeMillis() - 1000L));
+            when(jwtUtil.getJtiFromToken("new-refresh-token")).thenReturn("new-refresh-jti");
+            when(jwtUtil.getRemainingTime("new-refresh-token"))
+                .thenReturn(Duration.ofDays(90).toMillis());
+            when(jwtUtil.getJtiFromToken("new-access-token")).thenReturn("new-access-jti");
+            when(jwtUtil.getRemainingTime("new-access-token"))
+                .thenReturn(Duration.ofHours(24).toMillis());
+
+            // when
+            multiDeviceTokenService.updateTokens(
+                TEST_USER_ID, DEVICE_TYPE, DEVICE_ID, "new-access-token", "new-refresh-token");
+
+            // then — 다른 클라이언트가 아직 쥐고 있을 수 있으므로 blacklist 하지 않는다.
+            // (예전에는 grace 가 시간이 아니라 rotation 횟수로 닫혀 2초 만에 폐기됐다)
+            verify(redisTemplate, never()).opsForValue();
+        }
+
+        @Test
+        @DisplayName("rotation 락은 SETNX 로 잡고 해제 시 삭제한다")
+        void rotationLock() {
+            String lockKey = "lock:" + SESSION_KEY;
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.setIfAbsent(eq(lockKey), eq("1"), any(Duration.class)))
+                .thenReturn(true, false);
+
+            assertThat(multiDeviceTokenService.tryLockSession(TEST_USER_ID, DEVICE_ID)).isTrue();
+            assertThat(multiDeviceTokenService.tryLockSession(TEST_USER_ID, DEVICE_ID)).isFalse();
+
+            multiDeviceTokenService.unlockSession(TEST_USER_ID, DEVICE_ID);
+            verify(redisTemplate).delete(lockKey);
         }
     }
 

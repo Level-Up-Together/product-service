@@ -43,6 +43,9 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     // QA-231: refresh 토큰은 평문 대신 해시로 저장한다. prefix 로 레거시 평문과 구분.
     private static final String HASH_PREFIX = "sha256:";
 
+    // LUT-336: 같은 세션의 동시 rotation 을 직렬화하는 락의 수명 (재발급 1회보다 넉넉하게)
+    private static final Duration ROTATION_LOCK_TTL = Duration.ofSeconds(5);
+
     /** 저장된 refresh 토큰과 제시된 토큰의 비교 결과 */
     public enum RefreshTokenMatch {
         MATCH,
@@ -53,7 +56,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     public void saveTokensToRedis(String userId, String deviceType,
                                   String deviceId, String accessToken, String refreshToken) {
 
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         // 세션 데이터 저장 — 토큰 원문 대신 해시 + 블랙리스트/만료 판정용 메타데이터(jti, exp)
         Map<String, String> sessionData = new HashMap<>();
@@ -65,7 +68,10 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         putTokenMetadata(sessionData, "refresh", refreshToken);
         putTokenMetadata(sessionData, "access", accessToken);
 
+        // 재로그인은 세션을 새로 시작한다 — 이전 rotation 의 previous* 잔재가 남아 있으면
+        // 폐기된 토큰이 grace 경로로 되살아날 수 있으므로 먼저 비운다 (LUT-336)
         Duration sessionTtl = sessionTtl(refreshToken);
+        redisTemplate.delete(sessionKey);
         redisTemplate.opsForHash().putAll(sessionKey, sessionData);
         redisTemplate.expire(sessionKey, sessionTtl);
 
@@ -78,7 +84,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     // 기존 토큰들을 업데이트 (Access Token은 항상, Refresh Token은 선택적)
     public void updateTokens(String userId, String deviceType, String deviceId,
                              String newAccessToken, String newRefreshToken) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         updateAccessTokenMetadata(sessionKey, newAccessToken);
 
@@ -108,7 +114,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
      */
     public void updateTokensForGraceRetry(String userId, String deviceType, String deviceId,
                                           String newAccessToken, String newRefreshToken) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         updateAccessTokenMetadata(sessionKey, newAccessToken);
         putCurrentRefresh(sessionKey, newRefreshToken);
@@ -123,7 +129,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
     /** 제시된 refresh 토큰이 세션의 현재 토큰과 일치하는지 (해시/레거시 평문 모두 지원) */
     public RefreshTokenMatch checkRefreshToken(String userId, String deviceType, String deviceId,
                                                String presentedToken) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         String stored = (String) redisTemplate.opsForHash().get(sessionKey, "refreshToken");
         if (stored == null) {
             return RefreshTokenMatch.NO_SESSION;
@@ -142,7 +148,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         if (presentedToken == null) {
             return false;
         }
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         String previous = (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshToken");
         String previousTimeRaw =
             (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime");
@@ -159,7 +165,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
     /** 세션 최초 로그인 시각 (절대 상한 판정용). 세션이 없거나 값이 손상됐으면 null. */
     public Long getLoginTime(String userId, String deviceType, String deviceId) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         Object loginTime = redisTemplate.opsForHash().get(sessionKey, "loginTime");
         if (loginTime == null) {
             return null;
@@ -228,13 +234,13 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
     // 특정 디바이스 로그아웃
     public void logout(String userId, String deviceType, String deviceId) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
 
         try {
             // 토큰들을 블랙리스트에 추가 (해시 세션은 jti 메타데이터로, 레거시는 원문으로)
             blacklistFromSession(sessionKey, "access", "accessToken");
             blacklistFromSession(sessionKey, "refresh", "refreshToken");
-            blacklistStoredPrevious(sessionKey);
+            blacklistStoredPrevious(sessionKey, true);
 
             // 세션 삭제
             redisTemplate.delete(sessionKey);
@@ -258,7 +264,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
                 for (String sessionKey : sessions) {
                     blacklistFromSession(sessionKey, "access", "accessToken");
                     blacklistFromSession(sessionKey, "refresh", "refreshToken");
-                    blacklistStoredPrevious(sessionKey);
+                    blacklistStoredPrevious(sessionKey, true);
 
                     redisTemplate.delete(sessionKey);
                 }
@@ -278,7 +284,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
      * QA-231: 토큰 원문은 포함하지 않는다 — 만료/갱신 판정값만 반환.
      */
     public Map<String, Object> getSessionInfo(String userId, String deviceType, String deviceId) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         Map<Object, Object> sessionData = redisTemplate.opsForHash().entries(sessionKey);
 
         Map<String, Object> result = new HashMap<>();
@@ -351,7 +357,7 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
 
     // TODO 세션이 존재하는지 확인
     public boolean sessionExists(String userId, String deviceType, String deviceId) {
-        String sessionKey = buildSessionKey(userId, deviceType, deviceId);
+        String sessionKey = resolveSessionKey(userId, deviceType, deviceId);
         return redisTemplate.hasKey(sessionKey);
     }
 
@@ -523,8 +529,22 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         redisTemplate.opsForHash().putAll(sessionKey, fields);
     }
 
-    /** previous refresh 토큰 블랙리스트 — jti 메타데이터 우선, 레거시 평문이면 원문으로 */
+    /**
+     * previous refresh 토큰 블랙리스트 — jti 메타데이터 우선, 레거시 평문이면 원문으로.
+     *
+     * <p>LUT-336: rotation 경로에서는 grace window 안의 previous 를 살려둔다. 예전에는 rotation 이
+     * 일어날 때마다 무조건 previous 를 폐기해서, grace 가 "2분"이 아니라 "다음 rotation 까지"로
+     * 동작했다. 재발급이 2초 간격으로 두 번 들어오면 방금 발급한 세대가 즉시 무효가 되고, 그 토큰을
+     * 들고 있던 클라이언트는 다음 갱신에서 재로그인당했다. 로그아웃은 세션을 끝내는 것이므로 force 로 폐기한다.
+     */
     private void blacklistStoredPrevious(String sessionKey) {
+        blacklistStoredPrevious(sessionKey, false);
+    }
+
+    private void blacklistStoredPrevious(String sessionKey, boolean force) {
+        if (!force && isPreviousWithinGrace(sessionKey)) {
+            return;
+        }
         String previousJti =
             (String) redisTemplate.opsForHash().get(sessionKey, "previousRefreshJti");
         Long previousExp = parseLongOrNull(
@@ -538,6 +558,14 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         if (previousRaw != null && !previousRaw.startsWith(HASH_PREFIX)) {
             blacklistToken(previousRaw);
         }
+    }
+
+    /** previous refresh 가 아직 grace window 안인지 (LUT-336) */
+    private boolean isPreviousWithinGrace(String sessionKey) {
+        Long previousTime =
+            parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "previousRefreshTime"));
+        return previousTime != null
+            && System.currentTimeMillis() - previousTime <= ROTATION_GRACE_MILLIS;
     }
 
     /** 세션 필드({prefix}Jti/{prefix}ExpiresAt 또는 레거시 원문)를 이용해 블랙리스트 */
@@ -635,7 +663,124 @@ public class MultiDeviceTokenService implements TokenBlacklistChecker {
         return value == null ? null : value.toString();
     }
 
-    private String buildSessionKey(String userId, String deviceType, String deviceId) {
-        return String.format("session:%s:%s:%s", userId, deviceType, deviceId);
+    /**
+     * 세션 키 — deviceId 만으로 구성한다 (LUT-336).
+     *
+     * <p>예전 키는 {@code session:{userId}:{deviceType}:{deviceId}} 였는데, deviceId 는 토큰 클레임에서
+     * 나오는 권위 있는 값인 반면 deviceType 은 클라이언트가 요청 본문에 써 보내는 값이다. 그래서 같은 기기가
+     * 앱(ios)과 웹뷰(web)로 각각 재발급을 요청하면 서로 다른 키를 보게 되어, 한쪽은 존재하지 않는 세션을
+     * 조회하고 강제 로그아웃됐다. deviceId 는 이미 기기별 UUID 라 deviceType 은 식별에 기여하지 않는다.
+     * deviceType 은 세션 필드로만 남겨 세션 목록 표시에 쓴다.
+     */
+    private String buildSessionKey(String userId, String deviceId) {
+        return String.format("session:%s:%s", userId, deviceId);
+    }
+
+    /**
+     * 세션 키를 얻는다. 구 형식 키가 남아 있으면 신 형식으로 이관한 뒤 반환한다 (LUT-336).
+     *
+     * <p>배포 시점에 살아 있는 세션(refresh 90일)을 끊지 않기 위한 dual-read 다. 이관은 RENAME 이라
+     * TTL 이 보존된다. 같은 deviceId 에 구 키가 여러 개(=deviceType 별로 쪼개진 흔적)면 가장 최근에 활동한
+     * 것만 남기고 나머지는 정리한다 — 어차피 같은 물리 기기다.
+     */
+    private String resolveSessionKey(String userId, String deviceType, String deviceId) {
+        String canonical = buildSessionKey(userId, deviceId);
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(canonical))) {
+            return canonical;
+        }
+
+        List<String> legacyKeys = findLegacySessionKeys(userId, deviceId);
+        if (legacyKeys.isEmpty()) {
+            return canonical;
+        }
+
+        String preferred = String.format("session:%s:%s:%s", userId, deviceType, deviceId);
+        String chosen = legacyKeys.contains(preferred)
+            ? preferred
+            : legacyKeys.stream()
+                .max(java.util.Comparator.comparingLong(this::lastActivityMillis))
+                .orElse(legacyKeys.get(0));
+
+        String userSessionsKey = "userSessions:" + userId;
+        try {
+            redisTemplate.rename(chosen, canonical);
+            redisTemplate.opsForSet().remove(userSessionsKey, chosen);
+            redisTemplate.opsForSet().add(userSessionsKey, canonical);
+            log.info("[session] legacy key migrated: {} -> {}", chosen, canonical);
+        } catch (Exception e) {
+            log.warn("[session] legacy key migration failed ({}): {}", chosen, e.getMessage());
+            return chosen;
+        }
+
+        // 같은 기기의 잔여 구 키 정리 (deviceType 분열로 생긴 중복)
+        legacyKeys.stream()
+            .filter(key -> !key.equals(chosen))
+            .forEach(duplicate -> {
+                redisTemplate.delete(duplicate);
+                redisTemplate.opsForSet().remove(userSessionsKey, duplicate);
+                log.info("[session] duplicate legacy key removed: {}", duplicate);
+            });
+
+        return canonical;
+    }
+
+    /** 같은 deviceId 를 가리키는 구 형식(deviceType 포함) 세션 키 목록 */
+    private List<String> findLegacySessionKeys(String userId, String deviceId) {
+        Set<String> members = redisTemplate.opsForSet().members("userSessions:" + userId);
+        if (members == null || members.isEmpty()) {
+            return List.of();
+        }
+        String prefix = "session:" + userId + ":";
+        String suffix = ":" + deviceId;
+        String canonical = buildSessionKey(userId, deviceId);
+        return members.stream()
+            .filter(key -> key.startsWith(prefix) && key.endsWith(suffix))
+            .filter(key -> !key.equals(canonical))
+            .filter(key -> Boolean.TRUE.equals(redisTemplate.hasKey(key)))
+            .toList();
+    }
+
+    /** 세션의 마지막 활동 시각 (lastRefreshTime 우선, 없으면 loginTime). 판정 불가 시 0 */
+    private long lastActivityMillis(String sessionKey) {
+        Long lastRefresh =
+            parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "lastRefreshTime"));
+        if (lastRefresh != null) {
+            return lastRefresh;
+        }
+        Long loginTime = parseLongOrNull(redisTemplate.opsForHash().get(sessionKey, "loginTime"));
+        return loginTime != null ? loginTime : 0L;
+    }
+
+    // ===== LUT-336: 세션 단위 rotation 락 =====
+
+    /**
+     * 같은 세션에 동시에 들어온 재발급을 직렬화한다.
+     *
+     * <p>락 없이 두 요청이 같은 토큰으로 동시에 rotation 하면, 두 번째가 첫 번째로 방금 발급한 세대를
+     * previous 로 밀어내며 블랙리스트해 버린다. 그러면 클라이언트가 쥔 토큰이 하루 뒤 만료 갱신 시점에
+     * 이미 무효가 되어 재로그인으로 이어진다.
+     *
+     * @return 락을 잡았으면 true. 실패해도 호출부는 진행한다 (fail-open) — 락은 최적화지 정합성 게이트가 아니다.
+     */
+    public boolean tryLockSession(String userId, String deviceId) {
+        try {
+            return Boolean.TRUE.equals(redisTemplate.opsForValue()
+                .setIfAbsent(rotationLockKey(userId, deviceId), "1", ROTATION_LOCK_TTL));
+        } catch (Exception e) {
+            log.warn("[session] rotation lock acquire failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public void unlockSession(String userId, String deviceId) {
+        try {
+            redisTemplate.delete(rotationLockKey(userId, deviceId));
+        } catch (Exception e) {
+            log.warn("[session] rotation lock release failed: {}", e.getMessage());
+        }
+    }
+
+    private String rotationLockKey(String userId, String deviceId) {
+        return "lock:" + buildSessionKey(userId, deviceId);
     }
 }

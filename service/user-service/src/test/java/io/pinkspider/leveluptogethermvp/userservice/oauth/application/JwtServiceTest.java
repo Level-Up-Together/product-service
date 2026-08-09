@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.userservice.core.exception.custom.JwtException;
 import io.pinkspider.global.security.JwtUtil;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.ReissueJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.RefreshTokenRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.response.SessionsResponseDto;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +45,10 @@ class JwtServiceTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    // LUT-336: 순수 함수라 목 대신 실제 구현을 주입해 정규화 동작까지 함께 검증한다
+    @Spy
+    private DeviceTypeResolver deviceTypeResolver = new DeviceTypeResolver();
 
     @InjectMocks
     private JwtService jwtService;

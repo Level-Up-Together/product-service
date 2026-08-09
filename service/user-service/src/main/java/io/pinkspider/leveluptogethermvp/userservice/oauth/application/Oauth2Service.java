@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.Kakao
 import io.pinkspider.global.security.OAuth2Properties;
 import io.pinkspider.global.security.JwtUtil;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.apple.AppleUserInfo;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.google.GoogleUserInfo;
@@ -67,6 +68,7 @@ public class Oauth2Service {
     private final JwtUtil jwtUtil;
     private final MultiDeviceTokenService tokenService;
     private final DeviceIdentifier deviceIdentifier;
+    private final DeviceTypeResolver deviceTypeResolver;
     private final OAuth2Properties oAuth2Properties;
     private final GeoIpService geoIpService;
     private final NotificationService notificationService;
@@ -191,8 +193,7 @@ public class Oauth2Service {
             Users users = existingUserOpt.get();
             updateLoginInfo(httpRequest, users);
 
-            CreateJwtResponseDto jwt = issueJwt(httpRequest, users,
-                deviceType == null ? "mobile" : deviceType, deviceId);
+            CreateJwtResponseDto jwt = issueJwt(httpRequest, users, deviceType, deviceId);
             log.info("Mobile login - 기존 사용자: userId={}, provider={}", users.getId(), provider);
             return SocialLoginResponseDto.existingUser(jwt);
         } catch (CustomException e) {
@@ -231,8 +232,7 @@ public class Oauth2Service {
         Users users = existingUserOpt.get();
         updateLoginInfo(httpRequest, users);
 
-        CreateJwtResponseDto jwt = issueJwt(httpRequest, users,
-            deviceType == null ? "web" : deviceType, deviceId);
+        CreateJwtResponseDto jwt = issueJwt(httpRequest, users, deviceType, deviceId);
         log.info("Web callback - 기존 사용자: userId={}", users.getId());
         return SocialLoginResponseDto.existingUser(jwt);
     }
@@ -415,9 +415,7 @@ public class Oauth2Service {
         signupTokenService.delete(session);
 
         // JWT 발급
-        return issueJwt(httpRequest, savedUser,
-            request.getDeviceType() == null ? "mobile" : request.getDeviceType(),
-            request.getDeviceId());
+        return issueJwt(httpRequest, savedUser, request.getDeviceType(), request.getDeviceId());
     }
 
     /**
@@ -425,8 +423,11 @@ public class Oauth2Service {
      */
     private CreateJwtResponseDto issueJwt(HttpServletRequest httpRequest, Users users,
                                           String deviceType, String deviceId) {
+        // LUT-336: deviceType 정규화를 여기 한 곳으로 모은다. 예전에는 모바일 로그인이 값이 없으면
+        // "mobile" 로 고정돼, 같은 기기가 이후 ios 로 재발급하면서 값이 어긋났다.
+        String resolvedDeviceType = deviceTypeResolver.resolve(httpRequest, deviceType);
         if (deviceId == null || deviceId.trim().isEmpty()) {
-            deviceId = deviceIdentifier.generateDeviceId(httpRequest, deviceType);
+            deviceId = deviceIdentifier.generateDeviceId(httpRequest, resolvedDeviceType);
         }
 
         String userId = users.getId();
@@ -435,7 +436,7 @@ public class Oauth2Service {
         String accessToken = jwtUtil.generateAccessToken(userId, userEmail, deviceId);
         String refreshToken = jwtUtil.generateRefreshToken(userId, userEmail, deviceId);
 
-        tokenService.saveTokensToRedis(userId, deviceType, deviceId, accessToken, refreshToken);
+        tokenService.saveTokensToRedis(userId, resolvedDeviceType, deviceId, accessToken, refreshToken);
 
         return CreateJwtResponseDto.builder()
             .accessToken(accessToken)

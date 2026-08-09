@@ -23,6 +23,7 @@ import io.pinkspider.leveluptogethermvp.userservice.core.feignclient.kakao.Kakao
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService;
 import io.pinkspider.leveluptogethermvp.userservice.geoip.GeoIpService.GeoIpResult;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceIdentifier;
+import io.pinkspider.leveluptogethermvp.userservice.oauth.components.DeviceTypeResolver;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.CreateJwtResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.OAuth2LoginUriResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.jwt.SocialLoginResponseDto;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -105,6 +107,10 @@ class Oauth2ServiceTest {
 
     @Mock
     private org.springframework.context.MessageSource messageSource;
+
+    // LUT-336: 순수 함수라 목 대신 실제 구현 주입 (deviceType 정규화 동작까지 함께 검증)
+    @Spy
+    private DeviceTypeResolver deviceTypeResolver = new DeviceTypeResolver();
 
     @InjectMocks
     private Oauth2Service oauth2Service;
@@ -428,6 +434,8 @@ class Oauth2ServiceTest {
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+                when(httpRequest.getHeader("User-Agent"))
+                    .thenReturn("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
                 when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
@@ -445,8 +453,9 @@ class Oauth2ServiceTest {
                 assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
                 assertThat(result.getDeviceId()).isEqualTo(TEST_DEVICE_ID);
                 assertThat(result.isNicknameSet()).isTrue();
+                // LUT-336: 레거시 "mobile" 은 플랫폼 미지정이므로 UA 로 ios 로 정규화된다
                 verify(tokenService).saveTokensToRedis(
-                    eq(TEST_USER_ID), eq("mobile"), eq(TEST_DEVICE_ID),
+                    eq(TEST_USER_ID), eq("ios"), eq(TEST_DEVICE_ID),
                     eq(TEST_ACCESS_TOKEN), eq(TEST_REFRESH_TOKEN));
             }
         }
@@ -478,7 +487,8 @@ class Oauth2ServiceTest {
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
-                when(deviceIdentifier.generateDeviceId(httpRequest, "mobile")).thenReturn(generatedDeviceId);
+                when(httpRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+                when(deviceIdentifier.generateDeviceId(httpRequest, "ios")).thenReturn(generatedDeviceId);
                 when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, generatedDeviceId))
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, generatedDeviceId))
@@ -495,10 +505,12 @@ class Oauth2ServiceTest {
         }
 
         @Test
-        @DisplayName("deviceType이 null이면 mobile로 기본 설정된다")
-        void createJwtFromMobileToken_nullDeviceType_defaultsMobile() {
+        @DisplayName("LUT-336: deviceType이 null이면 User-Agent 로 실제 플랫폼(ios)을 판정한다")
+        void createJwtFromMobileToken_nullDeviceType_derivesPlatform() {
             try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
                 // given
+                when(httpRequest.getHeader("User-Agent"))
+                    .thenReturn("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
                 Users existingUser = Users.builder()
                     .id(TEST_USER_ID)
                     .email(TEST_EMAIL)
@@ -519,7 +531,7 @@ class Oauth2ServiceTest {
                     .thenReturn(Optional.of(existingUser));
                 when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
                 when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
-                when(deviceIdentifier.generateDeviceId(httpRequest, "mobile")).thenReturn(TEST_DEVICE_ID);
+                when(deviceIdentifier.generateDeviceId(httpRequest, "ios")).thenReturn(TEST_DEVICE_ID);
                 when(jwtUtil.generateAccessToken(anyString(), anyString(), anyString()))
                     .thenReturn(TEST_ACCESS_TOKEN);
                 when(jwtUtil.generateRefreshToken(anyString(), anyString(), anyString()))
@@ -531,9 +543,9 @@ class Oauth2ServiceTest {
 
                 // then
                 assertThat(result).isNotNull();
-                // deviceType이 null이면 "mobile"이 사용됨
+                // 예전에는 "mobile" 고정이라 이후 ios 재발급과 값이 어긋났다
                 verify(tokenService).saveTokensToRedis(
-                    anyString(), eq("mobile"), anyString(), anyString(), anyString());
+                    anyString(), eq("ios"), anyString(), anyString(), anyString());
             }
         }
 

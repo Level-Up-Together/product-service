@@ -11,7 +11,8 @@ public class DeviceIdentifier {
     public String generateDeviceId(HttpServletRequest request, String deviceType) {
         return switch (deviceType.toLowerCase()) {
             case "web" -> generateWebDeviceId(request);
-            case "android", "ios" -> {
+            // LUT-336: ipad 추가 — 정규화된 네이티브 타입은 X-Device-ID 헤더를 우선 사용한다
+            case "android", "ios", "ipad" -> {
                 String deviceId = request.getHeader("X-Device-ID");
                 yield deviceId != null ? deviceId : "unknown_" + UUID.randomUUID();
             }
