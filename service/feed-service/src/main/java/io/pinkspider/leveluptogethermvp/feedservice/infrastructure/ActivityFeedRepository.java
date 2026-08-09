@@ -61,6 +61,25 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
            "AND f.visibility != 'PRIVATE' ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findPublicFeedsByUserId(@Param("userId") String userId, Pageable pageable);
 
+    /**
+     * LUT-334: 특정 유저의 피드 중 조회자가 볼 수 있는 것만 조회 (프로필 &gt; 피드 탭).
+     * {@link #findAccessibleFeeds} 의 공개범위 판정을 그대로 쓰되 작성자를 targetUserId 로 한정한다.
+     * 본인 프로필에서는 PRIVATE 도 보인다 (PRIVATE = 작성자 본인만 열람).
+     * 비로그인은 viewerId=null, friendIds/guildIds=빈 리스트 → PUBLIC 만 반환됨.
+     */
+    @Query("SELECT f FROM ActivityFeed f WHERE f.userId = :targetUserId AND ("
+        + "f.visibility = 'PUBLIC' "
+        + "OR (:viewerId IS NOT NULL AND f.userId = :viewerId) "
+        + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
+        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')) "
+        + "ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findAccessibleFeedsByUserId(
+        @Param("targetUserId") String targetUserId,
+        @Param("viewerId") String viewerId,
+        @Param("friendIds") List<String> friendIds,
+        @Param("guildIds") List<Long> guildIds,
+        Pageable pageable);
+
     // 친구 피드 조회 (공개 + 친구공개) — 타임라인용
     @Query("SELECT f FROM ActivityFeed f WHERE f.userId IN :friendIds " +
            "AND f.visibility IN ('PUBLIC', 'FRIENDS') ORDER BY f.createdAt DESC")

@@ -391,57 +391,21 @@ public class FeedQueryService {
 
     /**
      * 특정 사용자의 피드 조회 (다국어 지원)
+     *
+     * <p>LUT-334: 공개범위 판정을 DB 쿼리로 내렸다. 조회자가 볼 수 없는 피드는 애초에 조회되지 않으므로
+     * 페이지 content 에 null 이 섞이지 않고 total_elements 도 정확하다 (프로필 피드 탭의 무한 스크롤 전제).
+     * 비로그인(currentUserId=null)은 PUBLIC 만 조회된다.
      */
     public Page<ActivityFeedResponse> getUserFeeds(String targetUserId, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<ActivityFeed> feeds = activityFeedRepository.findByUserId(targetUserId, pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
+        List<String> friendIds = resolveFriendIds(currentUserId);
+        List<Long> guildIds = resolveGuildIds(currentUserId);
 
-        // 관계에 따라 visibility 필터링
-        boolean isSelf = currentUserId.equals(targetUserId);
-        boolean isFriend = !isSelf && userQueryFacadeService.areFriends(currentUserId, targetUserId);
-
-        // 같은 길드 소속 여부 (GUILD 공개범위 피드 열람용)
-        Set<Long> myGuildIds = guildQueryFacadeService.getUserGuildMemberships(currentUserId)
-            .stream().map(GuildMembershipInfo::guildId).collect(java.util.stream.Collectors.toSet());
-
-        // 신고 상태 일괄 조회
-        List<String> feedIds = feeds.getContent().stream().map(f -> String.valueOf(f.getId())).toList();
-        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.FEED, feedIds);
-
-        // 번역 일괄 처리 (피드별 개별 Google 호출 방지)
-        Map<Long, TranslationInfo> translationMap = translateFeedsBatch(feeds.getContent(), targetLocale);
-
-        Page<ActivityFeedResponse> result = feeds
-            .map(feed -> {
-                TranslationInfo translation = translationFor(translationMap, feed);
-                ActivityFeedResponse response;
-                // 본인 피드이면 모두 표시
-                if (isSelf) {
-                    response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), true, translation);
-                    response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
-                    return response;
-                }
-                // visibility별 접근 제어
-                boolean canView = switch (feed.getVisibility()) {
-                    case PUBLIC -> true;
-                    case FRIENDS -> isFriend;
-                    case GUILD -> feed.getGuildId() != null && myGuildIds.contains(feed.getGuildId());
-                    case PRIVATE -> false;
-                };
-                if (canView) {
-                    response = ActivityFeedResponse.from(feed, likedFeedIds.contains(feed.getId()), false, translation);
-                    response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(feed.getId()), false));
-                    return response;
-                }
-                return null;
-            });
-        // QA-139: 다중 이미지 응답 보강 (null 제외)
-        enrichWithImageUrls(result.getContent().stream().filter(java.util.Objects::nonNull).toList());
-        localizeUserTitles(result.getContent().stream().filter(java.util.Objects::nonNull).toList(), acceptLanguage);
-        return result;
+        Page<ActivityFeed> feeds = activityFeedRepository.findAccessibleFeedsByUserId(
+            targetUserId, currentUserId, friendIds, guildIds, pageable);
+        return enrichFeeds(feeds, currentUserId, targetLocale);
     }
 
     /**

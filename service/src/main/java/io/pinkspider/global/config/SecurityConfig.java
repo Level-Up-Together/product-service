@@ -159,6 +159,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/feeds/category/**")
                                         .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/feeds/user/{targetUserId}")
+                                        .permitAll() // LUT-334: 비로그인 프로필 피드 탭 (PUBLIC 만 조회)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")

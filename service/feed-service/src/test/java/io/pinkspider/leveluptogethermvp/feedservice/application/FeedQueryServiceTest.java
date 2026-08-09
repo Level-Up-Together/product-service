@@ -258,11 +258,12 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                eq(OTHER_USER_ID), eq(TEST_USER_ID), anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(guildQueryFacadeService.getUserGuildMemberships(anyString())).thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -561,11 +562,12 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "ja";
 
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                eq(OTHER_USER_ID), eq(TEST_USER_ID), anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(guildQueryFacadeService.getUserGuildMemberships(anyString())).thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -816,100 +818,82 @@ class FeedQueryServiceTest {
         }
     }
 
+    /**
+     * LUT-334: 공개범위 판정이 DB 쿼리(findAccessibleFeedsByUserId)로 내려갔으므로, 서비스 단위 테스트는
+     * "쿼리에 올바른 조회자 컨텍스트(viewerId/친구/길드)를 넘기는가"와 "결과에 null 이 섞이지 않는가"를 검증한다.
+     * 공개범위 판정식 자체는 홈 피드(findAccessibleFeeds)와 동일한 JPQL 을 공유한다.
+     */
     @Nested
     @DisplayName("사용자 피드 가시성 테스트")
     class UserFeedVisibilityTest {
 
         @Test
-        @DisplayName("본인 피드는 모든 가시성 설정을 볼 수 있다")
-        void getUserFeeds_selfAllVisible() {
+        @DisplayName("LUT-334: 조회자의 친구·길드 ID를 쿼리에 전달한다")
+        void getUserFeeds_passesViewerContextToQuery() {
             // given
-            ActivityFeed privateFeed = ActivityFeed.builder()
-                .userId(TEST_USER_ID)
-                .userNickname("테스트유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("비공개 피드")
-                .visibility(FeedVisibility.PRIVATE)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(privateFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(privateFeed));
-
-            when(activityFeedRepository.findByUserId(eq(TEST_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
+            ActivityFeed publicFeed = createTestFeed(1L, OTHER_USER_ID);
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                anyString(), anyString(), anyList(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(publicFeed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(List.of("friend-1"));
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(List.of(new GuildMembershipInfo(7L, "길드", null, 1, false, false)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(TEST_USER_ID, TEST_USER_ID, 0, 10);
+            feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
 
             // then
+            verify(activityFeedRepository).findAccessibleFeedsByUserId(
+                eq(OTHER_USER_ID), eq(TEST_USER_ID),
+                eq(List.of("friend-1")), eq(List.of(7L)), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("LUT-334: 비로그인은 친구·길드 조회 없이 빈 리스트로 조회한다")
+        void getUserFeeds_anonymous_usesEmptyRelationLists() {
+            // given
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                anyString(), eq(null), anyList(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(createTestFeed(1L, OTHER_USER_ID))));
+            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
+
+            // when
+            Page<ActivityFeedResponse> result =
+                feedQueryService.getUserFeeds(OTHER_USER_ID, null, 0, 10);
+
+            // then — 비로그인은 관계 조회 자체를 하지 않는다 (facade 호출 없음)
+            verify(userQueryFacadeService, never()).getFriendIds(anyString());
+            verify(guildQueryFacadeService, never()).getUserGuildMemberships(anyString());
+            verify(activityFeedRepository).findAccessibleFeedsByUserId(
+                eq(OTHER_USER_ID), eq(null), eq(List.of()), eq(List.of()), any(Pageable.class));
             assertThat(result.getContent()).hasSize(1);
         }
 
         @Test
-        @DisplayName("친구는 FRIENDS 가시성 피드를 볼 수 있다")
-        void getUserFeeds_friendCanSeeFriendsVisibility() {
-            // given
-            ActivityFeed friendsFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("친구공개 피드")
-                .visibility(FeedVisibility.FRIENDS)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(friendsFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(friendsFeed));
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
+        @DisplayName("LUT-334: 볼 수 없는 피드는 쿼리에서 제외되므로 content 에 null 이 없다")
+        void getUserFeeds_noNullEntriesInContent() {
+            // given — 쿼리가 이미 걸러낸 결과만 돌려준다
+            ActivityFeed visibleFeed = createTestFeed(1L, OTHER_USER_ID);
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                anyString(), anyString(), anyList(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(visibleFeed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(true);
-            when(guildQueryFacadeService.getUserGuildMemberships(anyString())).thenReturn(Collections.emptyList());
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
+                .thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
+            Page<ActivityFeedResponse> result =
+                feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
 
             // then
-            assertThat(result.getContent()).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("비친구는 PUBLIC 가시성 피드만 볼 수 있다")
-        void getUserFeeds_nonFriendSeesPublicOnly() {
-            // given
-            ActivityFeed friendsFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("친구공개 피드")
-                .visibility(FeedVisibility.FRIENDS)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(friendsFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(friendsFeed));
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
-            when(guildQueryFacadeService.getUserGuildMemberships(anyString())).thenReturn(Collections.emptyList());
-            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(OTHER_USER_ID, TEST_USER_ID, 0, 10);
-
-            // then
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0)).isNull(); // FRIENDS 가시성이므로 null
+            assertThat(result.getContent()).hasSize(1).doesNotContainNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
         }
     }
 
@@ -1014,11 +998,12 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByUserId(
+                eq(OTHER_USER_ID), eq(TEST_USER_ID), anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
+            when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(Collections.emptyList());
             when(guildQueryFacadeService.getUserGuildMemberships(anyString())).thenReturn(Collections.emptyList());
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
@@ -1940,160 +1925,6 @@ class FeedQueryServiceTest {
             assertThat(result.getContent()).hasSize(1);
             // currentUserId=null → isMyFeed 평가 시 null!=null이면 false
             assertThat(result.getContent().get(0).isMyFeed()).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("getUserFeeds lambda 분기 테스트 (lambda$getUserFeeds$10)")
-    class GetUserFeedsLambdaTest {
-
-        @Test
-        @DisplayName("GUILD 공개범위 피드에서 같은 길드 소속이면 열람 가능하다")
-        void getUserFeeds_guildFeed_sameGuild_canView() {
-            // given
-            Long guildId = 100L;
-            ActivityFeed guildFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("길드공개 피드")
-                .visibility(FeedVisibility.GUILD)
-                .guildId(guildId)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(guildFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
-
-            GuildMembershipInfo membership = new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false);
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
-            // 현재 유저가 같은 길드 소속
-            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(membership));
-            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
-                OTHER_USER_ID, TEST_USER_ID, 0, 10);
-
-            // then
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0)).isNotNull();
-        }
-
-        @Test
-        @DisplayName("GUILD 공개범위 피드에서 다른 길드 소속이면 null을 반환한다")
-        void getUserFeeds_guildFeed_differentGuild_returnsNull() {
-            // given
-            Long feedGuildId = 100L;
-            Long myGuildId = 200L;
-            ActivityFeed guildFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("길드공개 피드")
-                .visibility(FeedVisibility.GUILD)
-                .guildId(feedGuildId)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(guildFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
-
-            GuildMembershipInfo myMembership = new GuildMembershipInfo(myGuildId, "내길드", null, 1, false, false);
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
-            // 현재 유저는 다른 길드 소속
-            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(List.of(myMembership));
-            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
-                OTHER_USER_ID, TEST_USER_ID, 0, 10);
-
-            // then — GUILD 공개이지만 같은 길드 아니므로 null
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0)).isNull();
-        }
-
-        @Test
-        @DisplayName("PRIVATE 공개범위 피드는 항상 null을 반환한다")
-        void getUserFeeds_privateFeed_alwaysNull() {
-            // given
-            ActivityFeed privateFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("비공개 피드")
-                .visibility(FeedVisibility.PRIVATE)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(privateFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(privateFeed));
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                .thenReturn(Collections.emptyList());
-            // 친구이더라도 PRIVATE은 열람 불가
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(true);
-            when(guildQueryFacadeService.getUserGuildMemberships(anyString()))
-                .thenReturn(Collections.emptyList());
-            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
-                OTHER_USER_ID, TEST_USER_ID, 0, 10);
-
-            // then
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0)).isNull();
-        }
-
-        @Test
-        @DisplayName("GUILD 공개범위이고 feed.guildId가 null인 피드는 null을 반환한다")
-        void getUserFeeds_guildFeed_guildIdNull_returnsNull() {
-            // given — guildId가 null인 GUILD 공개 피드
-            ActivityFeed guildFeed = ActivityFeed.builder()
-                .userId(OTHER_USER_ID)
-                .userNickname("다른유저")
-                .activityType(ActivityType.MISSION_COMPLETED)
-                .title("길드공개 피드 (guildId 없음)")
-                .visibility(FeedVisibility.GUILD)
-                .guildId(null)
-                .likeCount(0)
-                .commentCount(0)
-                .build();
-            setId(guildFeed, 1L);
-            Page<ActivityFeed> feedPage = new PageImpl<>(List.of(guildFeed));
-
-            when(activityFeedRepository.findByUserId(eq(OTHER_USER_ID), any(Pageable.class)))
-                .thenReturn(feedPage);
-            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
-                .thenReturn(Collections.emptyList());
-            when(userQueryFacadeService.areFriends(TEST_USER_ID, OTHER_USER_ID)).thenReturn(false);
-            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
-                .thenReturn(Collections.emptyList());
-            when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
-
-            // when
-            Page<ActivityFeedResponse> result = feedQueryService.getUserFeeds(
-                OTHER_USER_ID, TEST_USER_ID, 0, 10);
-
-            // then — guildId null이면 myGuildIds.contains(null) = false → null 반환
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0)).isNull();
         }
     }
 

@@ -80,12 +80,15 @@ public class ActivityFeedController {
     }
 
     /**
-     * 특정 사용자의 피드 조회
+     * 특정 사용자의 피드 조회 (프로필 &gt; 피드 탭)
+     *
+     * <p>LUT-334: 비로그인도 열람 가능 — 주간 캘린더(LUT-320)와 동일한 browse-first 정책.
+     * 조회자 기준 공개범위가 적용되어 비로그인은 PUBLIC 만 조회된다.
      */
     @GetMapping("/user/{targetUserId}")
     public ResponseEntity<ApiResult<Page<ActivityFeedResponse>>> getUserFeeds(
         @PathVariable String targetUserId,
-        @CurrentUser String currentUserId,
+        @CurrentUser(required = false) String currentUserId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
