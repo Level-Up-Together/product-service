@@ -17,6 +17,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionExec
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
@@ -180,11 +181,7 @@ class MissionReminderSchedulerTest {
     @Test
     @DisplayName("당일(유저 로컬) 이미 완료한 일반 미션은 발행하지 않는다")
     void sendReminders_completedToday_skips() {
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(reminderMission)
-            .userId(USER_ID)
-            .build();
-        setId(participant, 11L);
+        MissionParticipant participant = activeParticipant();
         MissionExecution completed = MissionExecution.builder()
             .participant(participant)
             .executionDate(LocalDate.of(2026, 7, 27))
@@ -205,11 +202,7 @@ class MissionReminderSchedulerTest {
     @DisplayName("당일 완료한 고정 미션은 발행하지 않는다")
     void sendReminders_pinnedCompletedToday_skips() {
         reminderMission.setIsPinned(true);
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(reminderMission)
-            .userId(USER_ID)
-            .build();
-        setId(participant, 11L);
+        MissionParticipant participant = activeParticipant();
 
         when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
             .thenReturn(Optional.of(participant));
@@ -219,6 +212,62 @@ class MissionReminderSchedulerTest {
         scheduler.sendReminders();
 
         verify(eventPublisher, never()).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    @Test
+    @DisplayName("LUT-335: 지난주에 완료한 미션은 이후 설정 요일이 와도 발행하지 않는다")
+    void sendReminders_participantAlreadyCompleted_skipsForever() {
+        MissionParticipant participant = participantWithStatus(ParticipantStatus.COMPLETED);
+
+        when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
+            .thenReturn(Optional.of(participant));
+        // 일반 미션 완료 시 미래의 PENDING execution 이 삭제되므로 당일 execution 은 존재하지 않는다
+        when(executionRepository.findByParticipantIdAndExecutionDate(11L, LocalDate.of(2026, 7, 27)))
+            .thenReturn(Optional.empty());
+
+        scheduler.sendReminders();
+
+        verify(eventPublisher, never()).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    @Test
+    @DisplayName("LUT-335: 철회·실패한 미션은 발행하지 않는다")
+    void sendReminders_participantWithdrawnOrFailed_skips() {
+        for (ParticipantStatus status : List.of(ParticipantStatus.WITHDRAWN, ParticipantStatus.FAILED)) {
+            when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
+                .thenReturn(Optional.of(participantWithStatus(status)));
+
+            scheduler.sendReminders();
+        }
+
+        verify(eventPublisher, never()).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    @Test
+    @DisplayName("LUT-335: 진행 중이고 당일 수행 기록이 없으면 정상 발행한다")
+    void sendReminders_activeParticipantNotDoneToday_publishes() {
+        when(participantRepository.findByMissionIdAndUserId(1L, USER_ID))
+            .thenReturn(Optional.of(activeParticipant()));
+        when(executionRepository.findByParticipantIdAndExecutionDate(11L, LocalDate.of(2026, 7, 27)))
+            .thenReturn(Optional.empty());
+
+        scheduler.sendReminders();
+
+        verify(eventPublisher).publishEvent(any(MissionReminderEvent.class));
+    }
+
+    private MissionParticipant activeParticipant() {
+        return participantWithStatus(ParticipantStatus.IN_PROGRESS);
+    }
+
+    private MissionParticipant participantWithStatus(ParticipantStatus status) {
+        MissionParticipant participant = MissionParticipant.builder()
+            .mission(reminderMission)
+            .userId(USER_ID)
+            .status(status)
+            .build();
+        setId(participant, 11L);
+        return participant;
     }
 
     @Test

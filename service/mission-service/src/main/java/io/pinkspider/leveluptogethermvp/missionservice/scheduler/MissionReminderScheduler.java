@@ -5,6 +5,7 @@ import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
@@ -12,7 +13,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRep
 import java.time.Clock;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -35,7 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
  * (예: Asia/Seoul 0분 설정은 UTC 정각 실행에서, Asia/Kolkata(+5:30) 0분 설정은
  * UTC 30분 실행에서 로컬 정각이 된다).
  *
- * <p>당일(유저 로컬 날짜) 이미 완료한 미션은 리마인더를 보내지 않는다.
+ * <p>당일(유저 로컬 날짜) 이미 완료한 미션은 리마인더를 보내지 않는다. 참가가 종료된
+ * (완료/실패/철회) 미션은 "나의 미션" 목록에서 사라지므로 이후 영구적으로 발송하지 않는다 (LUT-335).
  */
 @Component
 @RequiredArgsConstructor
@@ -50,6 +54,10 @@ public class MissionReminderScheduler {
     private final ApplicationEventPublisher eventPublisher;
 
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
+
+    /** "나의 미션" 목록에 노출되는 참가 상태 — 이 상태에서만 리마인더를 발송한다 (LUT-335). */
+    private static final Set<ParticipantStatus> ACTIVE_PARTICIPANT_STATUSES = EnumSet.of(
+        ParticipantStatus.PENDING, ParticipantStatus.ACCEPTED, ParticipantStatus.IN_PROGRESS);
 
     // 테스트에서 고정 시각 주입용 (package-private setter)
     private Clock clock = Clock.systemUTC();
@@ -101,8 +109,7 @@ public class MissionReminderScheduler {
         if (!mission.getReminderDaysOfWeekList().contains(userNow.getDayOfWeek())) {
             return false;
         }
-        // 오늘(유저 로컬 날짜) 이미 완료했으면 리마인더 불필요
-        if (isCompletedToday(mission, userId, userNow)) {
+        if (isReminderUnnecessary(mission, userId, userNow)) {
             return false;
         }
 
@@ -111,12 +118,22 @@ public class MissionReminderScheduler {
         return true;
     }
 
-    private boolean isCompletedToday(Mission mission, String userId, ZonedDateTime userNow) {
+    /**
+     * 리마인더를 건너뛸 상태인지 판정한다.
+     *
+     * <p>참가가 이미 종료(완료/실패/철회)됐으면 "나의 미션" 목록에 없는 미션이므로 영구 제외한다.
+     * 일반 미션은 완료 시 미래의 PENDING execution 이 삭제되어 당일 완료 검사만으로는 걸러지지 않는다
+     * (LUT-335). 진행 중인 미션은 당일(유저 로컬 날짜) 수행 여부로만 판정한다.
+     */
+    private boolean isReminderUnnecessary(Mission mission, String userId, ZonedDateTime userNow) {
         MissionParticipant participant = participantRepository
             .findByMissionIdAndUserId(mission.getId(), userId)
             .orElse(null);
         if (participant == null) {
             return false;
+        }
+        if (!ACTIVE_PARTICIPANT_STATUSES.contains(participant.getStatus())) {
+            return true;
         }
 
         if (Boolean.TRUE.equals(mission.getIsPinned())) {

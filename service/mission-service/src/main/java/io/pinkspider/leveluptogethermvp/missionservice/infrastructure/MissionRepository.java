@@ -216,13 +216,22 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     /**
      * LUT-282: 푸시 리마인더가 설정된 활성 개인 미션 조회 (리마인더 스케줄러 전용).
      * 완료/취소/삭제 미션 제외 — DRAFT 포함 (개인 미션은 생성 직후 DRAFT 상태로 목록에 노출됨).
+     *
+     * <p>LUT-335: 개인 미션의 종료 여부는 Mission.status 가 아니라 생성자의 참가 상태에 기록된다
+     * (완료 시 MissionParticipant 만 COMPLETED 로 전이, Mission 은 DRAFT 유지). Mission.status 만
+     * 보면 이미 완료해 "나의 미션" 목록에서 사라진 미션에도 리마인더가 계속 발송되므로,
+     * {@link #countActivePersonalByCreatorId} 와 동일하게 참가 상태로 활성 여부를 판정한다.
      */
     @Query("SELECT m FROM Mission m " +
+           "JOIN MissionParticipant mp ON mp.mission = m AND mp.userId = m.creatorId " +
            "WHERE m.reminderHour IS NOT NULL " +
            "AND m.reminderDaysOfWeek IS NOT NULL " +
            "AND m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.PERSONAL " +
            "AND m.isDeleted = false " +
            "AND m.status NOT IN (io.pinkspider.global.enums.MissionStatus.COMPLETED, " +
-           "                     io.pinkspider.global.enums.MissionStatus.CANCELLED)")
+           "                     io.pinkspider.global.enums.MissionStatus.CANCELLED) " +
+           "AND mp.status IN (io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.PENDING, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.ACCEPTED, " +
+           "                  io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS)")
     List<Mission> findActiveReminderMissions();
 }
