@@ -15,6 +15,7 @@ import io.pinkspider.global.facade.dto.UserExperienceDto;
 import io.pinkspider.global.facade.dto.UserStatsDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.moderation.annotation.ModerateImage;
+import io.pinkspider.global.policy.LevelRarityPolicy;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.application.UserLevelConfigCacheService;
 import io.pinkspider.leveluptogethermvp.metaservice.userlevelconfig.domain.entity.UserLevelConfig;
 import io.pinkspider.leveluptogethermvp.userservice.core.application.UserExistsCacheService;
@@ -205,6 +206,7 @@ public class MyPageService {
             .leftTitle(leftTitle)
             .rightTitle(rightTitle)
             .level(level)
+            .rarity(LevelRarityPolicy.fromLevel(level).name())
             .startDate(startDate)
             .daysSinceJoined(daysSinceJoined)
             .clearedMissionsCount(stats.totalMissionCompletions())
@@ -656,6 +658,8 @@ public class MyPageService {
             ? (double) expForPercentage / nextLevelRequiredExp * 100
             : 0;
 
+        int currentLevel = userExp.currentLevel() != null ? userExp.currentLevel() : 1;
+
         return ExperienceInfo.builder()
             .currentLevel(userExp.currentLevel())
             .currentExp(userExp.currentExp())
@@ -663,6 +667,7 @@ public class MyPageService {
             .nextLevelRequiredExp(nextLevelRequiredExp)
             .expPercentage(Math.min(100, expPercentage))
             .expForPercentage(expForPercentage)
+            .rarity(LevelRarityPolicy.fromLevel(currentLevel).name())
             .build();
     }
 

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.experience.application.UserExperienceService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemPurchaseResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
@@ -44,10 +45,19 @@ class ShopServiceTest {
     @Mock
     private DiamondService diamondService;
 
+    @Mock
+    private UserExperienceService userExperienceService;
+
     @InjectMocks
     private ShopService shopService;
 
     private static final String USER_ID = "test-user-123";
+
+    /** LUT-348: 레벨 1 = COMMON 등급 (자기 등급보다 높은 아이템은 할증) */
+    private static final int LEVEL_COMMON = 1;
+
+    /** LUT-348: 레벨 106 = RARE 등급 */
+    private static final int LEVEL_RARE = 106;
 
     private ShopItem createShopItem(Long id, String name, TitleRarity rarity, int price) {
         ShopItem item = ShopItem.builder()
@@ -76,6 +86,7 @@ class ShopServiceTest {
             when(shopItemRepository.findByIsActiveTrue())
                 .thenReturn(List.of(mythic, commonExpensive, commonCheapLateId, commonCheap));
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
 
             List<ShopItemResponse> result = shopService.getShopItems(USER_ID);
 
@@ -90,12 +101,55 @@ class ShopServiceTest {
             ShopItem notOwned = createShopItem(2L, "붕대 날개", TitleRarity.COMMON, 200);
             when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(owned, notOwned));
             when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of(1L));
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
 
             List<ShopItemResponse> result = shopService.getShopItems(USER_ID);
 
             assertThat(result).hasSize(2);
             assertThat(result.get(0).isOwned()).isTrue();
             assertThat(result.get(1).isOwned()).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-348: 유저 레벨 기준 할증가와 정가를 함께 내려준다")
+        void getShopItems_includesEffectiveAndListPrice() {
+            ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
+            when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
+
+            ShopItemResponse result = shopService.getShopItems(USER_ID).get(0);
+
+            // RARE 유저 → MYTHIC 은 gap 3 (×3.3), 정가는 COMMON 기준 gap 5 (×8)
+            assertThat(result.price()).isEqualTo(500);
+            assertThat(result.effectivePrice()).isEqualTo(1650);
+            assertThat(result.listPrice()).isEqualTo(4000);
+        }
+
+        @Test
+        @DisplayName("LUT-348: 자기 등급 이하 아이템은 할증 없이 기본가 그대로다")
+        void getShopItems_noSurchargeForOwnOrLowerRarity() {
+            ShopItem rare = createShopItem(1L, "메딕의 날개", TitleRarity.RARE, 300);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(rare));
+            when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
+
+            ShopItemResponse result = shopService.getShopItems(USER_ID).get(0);
+
+            assertThat(result.effectivePrice()).isEqualTo(300);
+            // 정가는 COMMON 기준 ×2.2 라 자기 등급 유저에게는 최대 할인으로 보인다
+            assertThat(result.listPrice()).isEqualTo(660);
+        }
+
+        @Test
+        @DisplayName("LUT-348: 레벨 게이팅을 걷어내 locked 는 항상 false 다")
+        void getShopItems_neverLocked() {
+            ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
+            when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
+
+            assertThat(shopService.getShopItems(USER_ID).get(0).locked()).isFalse();
         }
     }
 
@@ -109,6 +163,7 @@ class ShopServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -122,11 +177,32 @@ class ShopServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-348: 상위 등급 아이템은 기본가가 아닌 할증가를 차감한다")
+        void purchaseItem_chargesSurchargedPrice() {
+            // COMMON 유저(Lv.1)가 RARE 아이템 구매 → gap 2 (×2.2), 300 → 660
+            ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
+            when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
+            when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
+            when(diamondService.spendDiamonds(USER_ID, 660, 3L, "메딕의 날개")).thenReturn(40);
+            when(userItemRepository.saveAndFlush(any(UserItem.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            ShopItemPurchaseResponse response = shopService.purchaseItem(USER_ID, 3L);
+
+            // 기본가 300 이 아니라 할증가 660 이 차감되어야 한다 (서버 검증의 핵심)
+            verify(diamondService).spendDiamonds(USER_ID, 660, 3L, "메딕의 날개");
+            verify(diamondService, never()).spendDiamonds(USER_ID, 300, 3L, "메딕의 날개");
+            assertThat(response.price()).isEqualTo(660);
+        }
+
+        @Test
         @DisplayName("가격 0원 아이템도 구매이력이 남도록 0원 차감을 기록한다 (LUT-328)")
         void purchaseItem_freeItem_recordsZeroSpend() {
             ShopItem item = createShopItem(2L, "레벨업 사용 설명서", TitleRarity.COMMON, 0);
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 2L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
             when(diamondService.spendDiamonds(USER_ID, 0, 2L, "레벨업 사용 설명서")).thenReturn(345);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -178,6 +254,7 @@ class ShopServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개"))
                 .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
 
@@ -193,6 +270,7 @@ class ShopServiceTest {
             ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
             when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
             when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_user_item"));

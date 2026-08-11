@@ -31,6 +31,9 @@ public class PublicProfileResponse {
     // 레벨 정보
     private Integer level;
 
+    // LUT-348: 레벨에서 환산한 희귀도 등급 (상점 할증 기준)
+    private String rarity;
+
     // 통계 정보
     private LocalDate startDate;
     private Long daysSinceJoined;

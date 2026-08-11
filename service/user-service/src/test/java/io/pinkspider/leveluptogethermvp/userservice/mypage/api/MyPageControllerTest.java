@@ -120,6 +120,7 @@ class MyPageControllerTest {
             .nextLevelRequiredExp(300)
             .expPercentage(83.33)
             .expForPercentage(250)
+            .rarity("UNCOMMON")
             .build();
 
         UserInfo userInfo = UserInfo.builder()
@@ -194,6 +195,7 @@ class MyPageControllerTest {
                             // Experience Info
                             fieldWithPath("value.experience").type(JsonFieldType.OBJECT).description("경험치 정보"),
                             fieldWithPath("value.experience.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
+                            fieldWithPath("value.experience.rarity").type(JsonFieldType.STRING).description("레벨 환산 희귀도 등급 (COMMON~MYTHIC, LUT-348)"),
                             fieldWithPath("value.experience.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.experience.total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
                             fieldWithPath("value.experience.next_level_required_exp").type(JsonFieldType.NUMBER).description("다음 레벨 필요 경험치"),
@@ -564,6 +566,7 @@ class MyPageControllerTest {
             .profileImageUrl("https://example.com/profile.jpg")
             .bio("안녕하세요! 반갑습니다.")
             .level(5)
+            .rarity("UNCOMMON")
             .startDate(LocalDate.of(2024, 1, 1))
             .daysSinceJoined(365L)
             .clearedMissionsCount(50)
@@ -601,6 +604,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.rarity").type(JsonFieldType.STRING).description("레벨 환산 희귀도 등급 (COMMON~MYTHIC, LUT-348)"),
                             fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
@@ -650,6 +654,7 @@ class MyPageControllerTest {
             .profileImageUrl("https://example.com/other-profile.jpg")
             .bio("다른 사람의 자기소개")
             .level(10)
+            .rarity("RARE")
             .startDate(LocalDate.of(2023, 6, 1))
             .daysSinceJoined(500L)
             .clearedMissionsCount(100)
@@ -687,6 +692,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.rarity").type(JsonFieldType.STRING).description("레벨 환산 희귀도 등급 (COMMON~MYTHIC, LUT-348)"),
                             fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
@@ -729,6 +735,7 @@ class MyPageControllerTest {
             .profileImageUrl("https://example.com/requester-profile.jpg")
             .bio("팔로우 신청을 보낸 사용자")
             .level(8)
+            .rarity("UNCOMMON")
             .startDate(LocalDate.of(2024, 3, 1))
             .daysSinceJoined(300L)
             .clearedMissionsCount(75)
@@ -766,6 +773,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.rarity").type(JsonFieldType.STRING).description("레벨 환산 희귀도 등급 (COMMON~MYTHIC, LUT-348)"),
                             fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),
@@ -803,6 +811,7 @@ class MyPageControllerTest {
             .profileImageUrl("https://example.com/friend-profile.jpg")
             .bio("이미 친구인 사용자")
             .level(12)
+            .rarity("RARE")
             .startDate(LocalDate.of(2023, 1, 1))
             .daysSinceJoined(730L)
             .clearedMissionsCount(200)
@@ -840,6 +849,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.left_title").type(JsonFieldType.OBJECT).description("좌측 장착 칭호").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.OBJECT).description("우측 장착 칭호").optional(),
                             fieldWithPath("value.level").type(JsonFieldType.NUMBER).description("레벨"),
+                            fieldWithPath("value.rarity").type(JsonFieldType.STRING).description("레벨 환산 희귀도 등급 (COMMON~MYTHIC, LUT-348)"),
                             fieldWithPath("value.start_date").type(JsonFieldType.STRING).description("가입일"),
                             fieldWithPath("value.days_since_joined").type(JsonFieldType.NUMBER).description("가입 후 일수"),
                             fieldWithPath("value.cleared_missions_count").type(JsonFieldType.NUMBER).description("완료한 미션 수"),

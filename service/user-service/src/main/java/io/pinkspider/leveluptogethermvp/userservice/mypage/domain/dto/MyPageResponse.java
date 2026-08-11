@@ -75,6 +75,9 @@ public class MyPageResponse {
         private Integer nextLevelRequiredExp;
         private Double expPercentage;
         private Integer expForPercentage;
+
+        // LUT-348: 레벨에서 환산한 희귀도 등급 (상점 할증 기준)
+        private String rarity;
     }
 
     @Getter
