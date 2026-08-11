@@ -37,17 +37,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class ShopService {
 
+    /** LUT-350: 비로그인 열람 시 적용할 레벨 — 가입 직후와 같은 최저 레벨(COMMON) */
+    private static final int ANONYMOUS_USER_LEVEL = 1;
+
     private final ShopItemRepository shopItemRepository;
     private final UserItemRepository userItemRepository;
     private final DiamondService diamondService;
     private final UserExperienceService userExperienceService;
 
-    /** 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/유저별 할증가 포함 */
+    /**
+     * 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/유저별 할증가 포함.
+     *
+     * <p>LUT-350: 비로그인(userId == null)도 열람할 수 있다. 보유 아이템은 없는 것으로,
+     * 레벨은 가입 직후와 같은 1(COMMON)로 계산한다 — 화면에 보이는 값이 곧 가입하면 낼 값이라
+     * 로그인 후 가격이 오르지 않는다.
+     */
     public List<ShopItemResponse> getShopItems(String userId) {
-        Set<Long> ownedItemIds =
-            Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
+        Set<Long> ownedItemIds = userId == null
+            ? Set.of()
+            : Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
         // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (정렬은 기본가 기준 유지)
-        int userLevel = userExperienceService.getUserLevel(userId);
+        int userLevel = userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
         return shopItemRepository.findByIsActiveTrue().stream()
             .sorted(Comparator.comparingInt((ShopItem item) -> item.getRarity().ordinal())
                 .thenComparing(ShopItem::getPrice)

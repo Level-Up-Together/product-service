@@ -142,6 +142,31 @@ class ShopServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-350: 비로그인은 레벨 1(COMMON) 기준가로 조회되고 레벨/보유 조회를 하지 않는다")
+        void getShopItems_anonymous_usesLevelOne() {
+            ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
+
+            ShopItemResponse result = shopService.getShopItems(null).get(0);
+
+            // COMMON 기준 gap 5 (×8) — 가입 직후와 같은 값이라 로그인해도 가격이 오르지 않는다
+            assertThat(result.effectivePrice()).isEqualTo(4000);
+            assertThat(result.listPrice()).isEqualTo(4000);
+            assertThat(result.isOwned()).isFalse();
+            verify(userExperienceService, never()).getUserLevel(any());
+            verify(userItemRepository, never()).findShopItemIdsByUserId(any());
+        }
+
+        @Test
+        @DisplayName("LUT-350: 비로그인도 잠기지 않는다")
+        void getShopItems_anonymous_neverLocked() {
+            ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(List.of(mythic));
+
+            assertThat(shopService.getShopItems(null).get(0).locked()).isFalse();
+        }
+
+        @Test
         @DisplayName("LUT-348: 레벨 게이팅을 걷어내 locked 는 항상 false 다")
         void getShopItems_neverLocked() {
             ShopItem mythic = createShopItem(1L, "대천사의 날개", TitleRarity.MYTHIC, 500);

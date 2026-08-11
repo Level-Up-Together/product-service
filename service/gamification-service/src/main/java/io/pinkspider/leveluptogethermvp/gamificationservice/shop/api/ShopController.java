@@ -23,9 +23,10 @@ public class ShopController {
     private final ShopService shopService;
 
     // 판매중 아이템 목록 (희귀도→가격→ID 오름차순, 보유 여부 포함)
+    // LUT-350: 상점은 하단 네비 탭이라 비로그인 열람을 허용한다. 구매(아래)는 로그인 필수.
     @GetMapping
     public ResponseEntity<ApiResult<List<ShopItemResponse>>> getShopItems(
-        @CurrentUser String userId) {
+        @CurrentUser(required = false) String userId) {
         List<ShopItemResponse> responses = shopService.getShopItems(userId);
         return ResponseEntity.ok(ApiResult.<List<ShopItemResponse>>builder().value(responses).build());
     }
