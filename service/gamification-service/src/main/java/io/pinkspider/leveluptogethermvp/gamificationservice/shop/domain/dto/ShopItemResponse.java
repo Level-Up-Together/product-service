@@ -18,8 +18,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.Sh
  * @param price 기본가 — 아이템 정찰가 (어드민이 설정한 값, 유저와 무관)
  * @param effectivePrice 이 유저의 실제 결제가 = 기본가 × 등급차 배수
  * @param listPrice 정가 — 최저등급(COMMON) 기준가이자 최대 할증가. 취소선 anchor
- * @param locked 구매 잠금 여부. LUT-348 에서 레벨 게이팅을 걷어내 현재는 항상 false 이며, 게이팅을
- *     되살릴 경우 백엔드만 고치면 되도록 계약을 남겨둔다
+ * @param locked LUT-349: 구매 잠금 여부. 내 등급 이하는 다 열리고, 내 등급 위는 각 등급에서 가격이
+ *     가장 낮은 N개만 열린다. 프론트는 표시만 하고 결제는 서버가 재판정한다
  */
 @JsonNaming(SnakeCaseStrategy.class)
 public record ShopItemResponse(
@@ -42,7 +42,11 @@ public record ShopItemResponse(
         Boolean locked,
         Boolean isOwned) {
 
-    public static ShopItemResponse from(ShopItem item, boolean isOwned, int userLevel) {
+    /**
+     * @param rankInRarity 같은 희귀도 섹션 내 가격 오름차순 순번 (0부터) — LUT-349 해금 판정 기준
+     */
+    public static ShopItemResponse from(
+            ShopItem item, boolean isOwned, int userLevel, int rankInRarity) {
         return new ShopItemResponse(
             item.getId(),
             item.getName(),
@@ -60,7 +64,7 @@ public record ShopItemResponse(
             item.getPrice(),
             LevelRarityPolicy.effectivePrice(item.getPrice(), userLevel, item.getRarity()),
             LevelRarityPolicy.listPrice(item.getPrice(), item.getRarity()),
-            false,
+            LevelRarityPolicy.isLocked(userLevel, item.getRarity(), rankInRarity),
             isOwned);
     }
 }

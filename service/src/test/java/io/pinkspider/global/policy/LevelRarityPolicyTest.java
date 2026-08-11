@@ -143,6 +143,55 @@ class LevelRarityPolicyTest {
     }
 
     @Nested
+    @DisplayName("isLocked (LUT-349)")
+    class IsLockedTest {
+
+        private static final int LEVEL_RARE = 106;
+
+        @Test
+        @DisplayName("내 등급 이하의 아이템은 순번과 무관하게 전부 해금된다")
+        void ownOrLowerRarityNeverLocked() {
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.RARE, 99)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.COMMON, 99)).isFalse();
+        }
+
+        @Test
+        @DisplayName("내 등급 위는 가격이 가장 낮은 3개만 해금된다")
+        void higherRarityUnlocksCheapestThree() {
+            // 가격 오름차순 A(0) B(1) C(2) D(3) E(4) F(5)
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.EPIC, 0)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.EPIC, 1)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.EPIC, 2)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.EPIC, 3)).isTrue();
+            assertThat(LevelRarityPolicy.isLocked(LEVEL_RARE, TitleRarity.EPIC, 5)).isTrue();
+        }
+
+        @Test
+        @DisplayName("등급 차이가 아무리 커도 최저가 3개는 열린다")
+        void cheapestThreeOpenRegardlessOfGap() {
+            // COMMON 유저(Lv.1)가 MYTHIC(gap 5)을 봐도 앞 3개는 구매 가능
+            assertThat(LevelRarityPolicy.isLocked(1, TitleRarity.MYTHIC, 2)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(1, TitleRarity.MYTHIC, 3)).isTrue();
+        }
+
+        @Test
+        @DisplayName("해금 개수 기본값은 3이며 직접 지정할 수 있다 (추후 Admin 설정값)")
+        void unlockCountIsConfigurable() {
+            assertThat(LevelRarityPolicy.DEFAULT_UNLOCK_COUNT).isEqualTo(3);
+            assertThat(LevelRarityPolicy.isLocked(1, TitleRarity.MYTHIC, 4, 5)).isFalse();
+            assertThat(LevelRarityPolicy.isLocked(1, TitleRarity.MYTHIC, 5, 5)).isTrue();
+            // 0으로 두면 상위 등급이 통째로 잠긴다
+            assertThat(LevelRarityPolicy.isLocked(1, TitleRarity.MYTHIC, 0, 0)).isTrue();
+        }
+
+        @Test
+        @DisplayName("등급이 null이면 잠그지 않는다")
+        void nullRarityNeverLocked() {
+            assertThat(LevelRarityPolicy.isLocked(1, null, 99)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("listPrice")
     class ListPriceTest {
 

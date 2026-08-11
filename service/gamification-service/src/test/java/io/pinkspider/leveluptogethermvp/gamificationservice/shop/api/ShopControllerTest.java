@@ -177,7 +177,8 @@ class ShopControllerTest {
                     ResourceSnippetParameters.builder()
                         .tag("Shop")
                         .description("아이템 구매 — 다이아 차감 후 인벤토리에 지급. "
-                            + "실패: 120603 판매하지 않는 아이템, 120604 이미 보유, 120605 다이아 부족 "
+                            + "실패: 120603 판매하지 않는 아이템, 120604 이미 보유, 120605 다이아 부족, "
+                            + "120606 레벨 미달로 잠긴 아이템 "
                             + "(JWT 토큰 인증 필요, LUT-327)")
                         .pathParameters(
                             parameterWithName("shopItemId").type(SimpleType.NUMBER).description("구매할 상점 아이템 ID")

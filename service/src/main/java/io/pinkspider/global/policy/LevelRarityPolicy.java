@@ -30,6 +30,14 @@ public final class LevelRarityPolicy {
     /** 가격 반올림 단위 (10단위 올림) */
     private static final int PRICE_UNIT = 10;
 
+    /**
+     * LUT-349: 자기 등급보다 높은 등급에서 해금해줄 아이템 개수 — 가격이 가장 낮은 N개.
+     *
+     * <p>현재는 상수지만 추후 Admin 설정값(default 3)으로 대체할 수 있도록 {@link #isLocked(int, TitleRarity, int, int)}
+     * 오버로드를 열어둔다.
+     */
+    public static final int DEFAULT_UNLOCK_COUNT = 3;
+
     private LevelRarityPolicy() {
         // Utility class
     }
@@ -74,6 +82,33 @@ public final class LevelRarityPolicy {
      */
     public static int listPrice(Integer basePrice, TitleRarity itemRarity) {
         return applySurcharge(basePrice, itemRarity == null ? 0 : itemRarity.ordinal());
+    }
+
+    /**
+     * LUT-349: 상점 아이템 구매 잠금 여부.
+     *
+     * <p>내 등급 이하는 다 열리고, 내 등급 위는 각 등급에서 가격이 가장 낮은 N개만 열린다. 정렬 기준이 곧 해금 기준이므로 rankInRarity 는 반드시
+     * <b>같은 희귀도 안에서 가격 오름차순</b> 순번이어야 한다.
+     *
+     * <p>가격 정렬을 기본가로 하든 할증가로 하든 결과는 같다 — 같은 등급 섹션 안에서는 gap 이 동일해 배수가 같고, 10단위 올림도 단조 증가라 순서가 뒤집히지
+     * 않는다.
+     *
+     * @param rankInRarity 같은 희귀도 섹션 내 가격 오름차순 순번 (0부터)
+     */
+    public static boolean isLocked(int userLevel, TitleRarity itemRarity, int rankInRarity) {
+        return isLocked(userLevel, itemRarity, rankInRarity, DEFAULT_UNLOCK_COUNT);
+    }
+
+    /** 해금 개수를 직접 지정하는 버전 (추후 Admin 설정값 연동용) */
+    public static boolean isLocked(
+            int userLevel, TitleRarity itemRarity, int rankInRarity, int unlockCount) {
+        if (itemRarity == null) {
+            return false; // 알 수 없는 등급은 잠그지 않는다
+        }
+        if (gap(userLevel, itemRarity) == 0) {
+            return false; // 내 등급 이하는 전부 해금
+        }
+        return rankInRarity >= unlockCount;
     }
 
     /**

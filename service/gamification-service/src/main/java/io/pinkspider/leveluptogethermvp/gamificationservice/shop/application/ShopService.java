@@ -10,9 +10,12 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.S
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
+import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,17 @@ public class ShopService {
     /** LUT-350: 비로그인 열람 시 적용할 레벨 — 가입 직후와 같은 최저 레벨(COMMON) */
     private static final int ANONYMOUS_USER_LEVEL = 1;
 
+    /**
+     * 상점 노출 순서 — 희귀도(일반→신화) → 가격 → ID 오름차순.
+     *
+     * <p>LUT-349: 이 정렬이 곧 해금 기준이다. 희귀도 섹션 안의 앞 N개가 "가격이 가장 낮은 N개"가
+     * 되므로, 목록 조회와 구매 재판정이 반드시 같은 정렬을 써야 한다.
+     */
+    private static final Comparator<ShopItem> SHOP_ORDER =
+        Comparator.comparingInt((ShopItem item) -> item.getRarity().ordinal())
+            .thenComparing(ShopItem::getPrice)
+            .thenComparing(ShopItem::getId);
+
     private final ShopItemRepository shopItemRepository;
     private final UserItemRepository userItemRepository;
     private final DiamondService diamondService;
@@ -58,13 +72,29 @@ public class ShopService {
             : Set.copyOf(userItemRepository.findShopItemIdsByUserId(userId));
         // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (정렬은 기본가 기준 유지)
         int userLevel = userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
+
+        // LUT-349: 정렬 기준이 곧 해금 기준 — 정렬된 순서에서 희귀도별 순번을 매겨 잠금을 판정한다
+        Map<TitleRarity, Integer> rankCursor = new EnumMap<>(TitleRarity.class);
         return shopItemRepository.findByIsActiveTrue().stream()
-            .sorted(Comparator.comparingInt((ShopItem item) -> item.getRarity().ordinal())
-                .thenComparing(ShopItem::getPrice)
-                .thenComparing(ShopItem::getId))
-            .map(item ->
-                ShopItemResponse.from(item, ownedItemIds.contains(item.getId()), userLevel))
+            .sorted(SHOP_ORDER)
+            .map(item -> {
+                int rank = rankCursor.merge(item.getRarity(), 1, Integer::sum) - 1;
+                return ShopItemResponse.from(
+                    item, ownedItemIds.contains(item.getId()), userLevel, rank);
+            })
             .collect(Collectors.toList());
+    }
+
+    /**
+     * LUT-349: 같은 희귀도 안에서 이 아이템이 가격 오름차순 몇 번째인지 (0부터).
+     *
+     * <p>목록 조회와 같은 정렬({@link #SHOP_ORDER})을 써야 해금 집합이 일치한다.
+     */
+    private int rankInRarity(ShopItem target) {
+        return (int) shopItemRepository.findByIsActiveTrue().stream()
+            .filter(item -> item.getRarity() == target.getRarity())
+            .filter(item -> SHOP_ORDER.compare(item, target) < 0)
+            .count();
     }
 
     /** 아이템 구매 — 다이아 차감 + 인벤토리 지급 */
@@ -80,6 +110,14 @@ public class ShopService {
 
         // LUT-348: 결제가는 유저 레벨로 서버에서 다시 계산한다 (프론트 표시가를 신뢰하지 않는다)
         int userLevel = userExperienceService.getUserLevel(userId);
+
+        // LUT-349: 잠긴 아이템 구매 차단 — 프론트 locked 플래그는 표시용이라 신뢰하지 않고
+        // 등급·정렬·N 으로 여기서 다시 판정한다
+        if (LevelRarityPolicy.isLocked(
+            userLevel, shopItem.getRarity(), rankInRarity(shopItem))) {
+            throw new CustomException("120606", "error.shop.item_locked");
+        }
+
         int effectivePrice = LevelRarityPolicy.effectivePrice(
             shopItem.getPrice(), userLevel, shopItem.getRarity());
 
