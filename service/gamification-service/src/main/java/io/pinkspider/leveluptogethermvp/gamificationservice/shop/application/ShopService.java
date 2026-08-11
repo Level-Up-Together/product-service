@@ -8,12 +8,13 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.Shop
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ShopItemResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopTabGroup;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
 import io.pinkspider.global.enums.TitleRarity;
 import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,12 +74,12 @@ public class ShopService {
         // 아이템마다 조회하지 않도록 레벨은 한 번만 읽는다 (정렬은 기본가 기준 유지)
         int userLevel = userId == null ? ANONYMOUS_USER_LEVEL : userExperienceService.getUserLevel(userId);
 
-        // LUT-349: 정렬 기준이 곧 해금 기준 — 정렬된 순서에서 희귀도별 순번을 매겨 잠금을 판정한다
-        Map<TitleRarity, Integer> rankCursor = new EnumMap<>(TitleRarity.class);
+        // LUT-349: 정렬 기준이 곧 해금 기준 — 정렬된 순서에서 섹션별 순번을 매겨 잠금을 판정한다
+        Map<SectionKey, Integer> rankCursor = new HashMap<>();
         return shopItemRepository.findByIsActiveTrue().stream()
             .sorted(SHOP_ORDER)
             .map(item -> {
-                int rank = rankCursor.merge(item.getRarity(), 1, Integer::sum) - 1;
+                int rank = rankCursor.merge(SectionKey.of(item), 1, Integer::sum) - 1;
                 return ShopItemResponse.from(
                     item, ownedItemIds.contains(item.getId()), userLevel, rank);
             })
@@ -86,13 +87,27 @@ public class ShopService {
     }
 
     /**
-     * LUT-349: 같은 희귀도 안에서 이 아이템이 가격 오름차순 몇 번째인지 (0부터).
+     * LUT-349: 해금 판정 단위 — 화면에 그려지는 섹션 하나(탭 × 희귀도).
      *
-     * <p>목록 조회와 같은 정렬({@link #SHOP_ORDER})을 써야 해금 집합이 일치한다.
+     * <p>희귀도만으로 세면 안 된다. 날개 탭 EPIC 과 기타 탭 EPIC 이 해금 슬롯 3개를 나눠 갖게 되어,
+     * 가격 분포에 따라 한쪽 탭에서는 EPIC 이 통째로 잠겨 보인다.
      */
-    private int rankInRarity(ShopItem target) {
+    private record SectionKey(ShopTabGroup tabGroup, TitleRarity rarity) {
+
+        static SectionKey of(ShopItem item) {
+            return new SectionKey(ShopTabGroup.from(item.getItemType()), item.getRarity());
+        }
+    }
+
+    /**
+     * LUT-349: 같은 섹션(탭 × 희귀도) 안에서 이 아이템이 가격 오름차순 몇 번째인지 (0부터).
+     *
+     * <p>목록 조회와 같은 정렬({@link #SHOP_ORDER})·같은 섹션 기준을 써야 해금 집합이 일치한다.
+     */
+    private int rankInSection(ShopItem target) {
+        SectionKey targetSection = SectionKey.of(target);
         return (int) shopItemRepository.findByIsActiveTrue().stream()
-            .filter(item -> item.getRarity() == target.getRarity())
+            .filter(item -> SectionKey.of(item).equals(targetSection))
             .filter(item -> SHOP_ORDER.compare(item, target) < 0)
             .count();
     }
@@ -114,7 +129,7 @@ public class ShopService {
         // LUT-349: 잠긴 아이템 구매 차단 — 프론트 locked 플래그는 표시용이라 신뢰하지 않고
         // 등급·정렬·N 으로 여기서 다시 판정한다
         if (LevelRarityPolicy.isLocked(
-            userLevel, shopItem.getRarity(), rankInRarity(shopItem))) {
+            userLevel, shopItem.getRarity(), rankInSection(shopItem))) {
             throw new CustomException("120606", "error.shop.item_locked");
         }
 

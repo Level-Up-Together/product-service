@@ -23,7 +23,9 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.Sh
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,9 +62,15 @@ class ShopServiceTest {
     private static final int LEVEL_RARE = 106;
 
     private ShopItem createShopItem(Long id, String name, TitleRarity rarity, int price) {
+        return createTypedShopItem(id, name, rarity, price, ShopItemType.BASIC);
+    }
+
+    /** LUT-349: 해금 슬롯이 탭(날개=BASIC·FULL / 기타=그 외)마다 따로라 타입 지정이 필요하다 */
+    private ShopItem createTypedShopItem(
+        Long id, String name, TitleRarity rarity, int price, ShopItemType itemType) {
         ShopItem item = ShopItem.builder()
             .name(name)
-            .itemType(ShopItemType.BASIC)
+            .itemType(itemType)
             .rarity(rarity)
             .imageUrl("/uploads/shop-items/" + id + ".png")
             .price(price)
@@ -204,6 +212,39 @@ class ShopServiceTest {
 
             assertThat(shopService.getShopItems(USER_ID)).extracting(ShopItemResponse::locked)
                 .containsOnly(false);
+        }
+
+        @Test
+        @DisplayName("LUT-349: 해금 슬롯은 탭(날개/기타)마다 따로 주어진다")
+        void getShopItems_unlockSlotsArePerTab() {
+            // 같은 EPIC 이라도 날개 탭 4개 / 기타 탭 4개는 각각 앞 3개씩 열려야 한다.
+            // 희귀도만으로 세면 가격 낮은 날개 3개가 슬롯을 다 가져가 기타 탭 EPIC 이 전멸한다.
+            List<ShopItem> items = List.of(
+                createTypedShopItem(1L, "날개1", TitleRarity.EPIC, 100, ShopItemType.BASIC),
+                createTypedShopItem(2L, "날개2", TitleRarity.EPIC, 200, ShopItemType.FULL),
+                createTypedShopItem(3L, "날개3", TitleRarity.EPIC, 300, ShopItemType.BASIC),
+                createTypedShopItem(4L, "날개4", TitleRarity.EPIC, 400, ShopItemType.FULL),
+                createTypedShopItem(5L, "기타1", TitleRarity.EPIC, 500, ShopItemType.HEAD),
+                createTypedShopItem(6L, "기타2", TitleRarity.EPIC, 600, ShopItemType.EFFECT),
+                createTypedShopItem(7L, "기타3", TitleRarity.EPIC, 700, ShopItemType.ETC),
+                createTypedShopItem(8L, "기타4", TitleRarity.EPIC, 800, ShopItemType.HEAD));
+            when(shopItemRepository.findByIsActiveTrue()).thenReturn(items);
+            when(userItemRepository.findShopItemIdsByUserId(USER_ID)).thenReturn(List.of());
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_COMMON);
+
+            Map<String, Boolean> lockedByName = shopService.getShopItems(USER_ID).stream()
+                .collect(Collectors.toMap(ShopItemResponse::name, ShopItemResponse::locked));
+
+            // 날개 탭: 100·200·300 해금, 400 잠금
+            assertThat(lockedByName).containsEntry("날개1", false)
+                .containsEntry("날개2", false)
+                .containsEntry("날개3", false)
+                .containsEntry("날개4", true);
+            // 기타 탭: 가격이 더 비싸도 자기 탭 안에서 앞 3개는 열린다
+            assertThat(lockedByName).containsEntry("기타1", false)
+                .containsEntry("기타2", false)
+                .containsEntry("기타3", false)
+                .containsEntry("기타4", true);
         }
 
         @Test
