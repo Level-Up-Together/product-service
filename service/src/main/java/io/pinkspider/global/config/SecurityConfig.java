@@ -213,6 +213,10 @@ public class SecurityConfig {
                                                 "/api/v1/rankings/level",
                                                 "/api/v1/rankings/level/**")
                                         .permitAll()
+                                        // LUT-350: 비로그인 상점 열람 (레벨 1 = COMMON 기준가).
+                                        // 구매는 POST 라 여기 걸리지 않고 인증이 유지된다.
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
+                                        .permitAll()
 
                                         // 관리자 전용 API
                                         .requestMatchers("/api/v1/users/experience/levels")
