@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (3,300+ tests across 5 modules)
+# Run ALL tests (3,600+ tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -62,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상 설정 (Redis 캐시)         |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
-| `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌               |
+| `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
 | `noticeservice`       | -               | 공지/안내                                      |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
@@ -143,13 +143,13 @@ All REST endpoints return `ApiResult<T>`:
 
 ## Testing
 
-| Module            | Tests  | Content                                              |
-|-------------------|--------|------------------------------------------------------|
-| `platform:kernel` | 39     | util tests                                           |
-| `platform:infra`  | 168    | resolver, validation, profanity, crypto, translation |
-| `platform:saga`   | 29     | saga framework tests                                 |
-| `service`         | 3,200+ | all service unit + controller tests                  |
-| `app`             | 13     | `@SpringBootTest` (full context)                     |
+| Module            | Tests  | Content                                                       |
+|-------------------|--------|---------------------------------------------------------------|
+| `platform:kernel` | 43     | util tests + `NotificationTypeTest`                            |
+| `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
+| `platform:saga`   | 29     | saga framework tests                                          |
+| `service`         | 3,585  | all service unit + controller tests                           |
+| `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
 `TestApplication`). `kernel`의 `TestReflectionUtils`는 `java-test-fixtures` plugin으로 공유.
@@ -163,6 +163,17 @@ All REST endpoints return `ApiResult<T>`:
 `@Transactional(transactionManager = "...")`.
 
 **Test fixtures**: `service/{name}/src/test/resources/fixture/{servicename}/` JSON 파일 →`MockUtil.readJsonFileToClass()`.
+
+**공개 엔드포인트 회귀 가드** (`SecurityConfigPublicEndpointTest`, LUT-350): 비로그인 허용 경로가 실제로 `SecurityConfig`에서
+`permitAll`인지 검증한다.
+
+기존 컨트롤러 테스트는 **구조적으로 경로 인가를 검증할 수 없다** — ① `ControllerTestConfig`의 테스트 필터체인이
+`anyRequest().permitAll()`로 시큐리티를 통째로 끄고, ② `SecurityConfig` 자체가 `@Profile("!test")`라 `@ActiveProfiles("test")`
+슬라이스에는 아예 올라오지 않는다.
+
+그래서 이 테스트는 `@ActiveProfiles("security-guard")`(= `test`가 아님)로 **실제 `SecurityConfig`만** 올리고 컨트롤러는 하나도
+등록하지 않는다. 차단되면 `AuthEntryPointJwt`가 401, 허용되면 핸들러가 없어 404가 나므로 단언은 "401인가 아닌가"로 충분하다.
+**비로그인 허용 API를 추가할 때 이 테스트의 경로 목록에 함께 등록할 것.**
 
 ## 코드 컨벤션
 
@@ -297,6 +308,45 @@ public void run() { ...}
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
 멱등성 고려 필수.
 
+## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350)
+
+다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
+
+| 엔드포인트                                                             | 인증            | 용도                                    |
+|-------------------------------------------------------------------|---------------|---------------------------------------|
+| `GET /api/v1/shop-items`                                          | **비로그인 허용** (GET만) | 판매중 아이템 — 희귀도→가격→ID 순, 유저별 할증가·잠금 포함 |
+| `POST /api/v1/shop-items/{id}/purchase`                           | 필요            | 구매 (다이아 차감 + 인벤토리 지급, 단일 트랜잭션)        |
+| `GET /api/v1/user-items`                                          | 필요            | 인벤토리 조회                               |
+| `POST /api/v1/user-items/{id}/equip`, `.../unequip`               | 필요            | 장착 / 해제                               |
+| `GET /api/v1/diamonds/me`                                         | 필요            | 보유 다이아 잔액                             |
+| `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
+
+**가격 할증 (`io.pinkspider.global.policy.LevelRarityPolicy`)** — 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸다.
+
+```
+gap             = max(0, 아이템등급 − fromLevel(내레벨))     // 레벨 구간: <3 COMMON, <10 UNCOMMON, <200 RARE, <500 EPIC, <900 LEGENDARY, 그 이상 MYTHIC
+effective_price = gap == 0 ? base : ceil(base × 배수[gap] / 10) × 10   // 실제 결제가
+list_price      = COMMON 유저 기준가 = 최대 할증가                        // 프론트 취소선 anchor
+배수[0..5]      = 1, 1.5, 2.2, 3.3, 5, 8  (정수 ×10 배열로 보관)
+```
+
+- **배수를 double로 두지 말 것** — `1000 × 2.2 == 2200.0000000000005`라 10단위 올림이 2210을 만든다. 프론트(`shop-access.ts`)와
+  비트 단위로 일치시키려면 정수 연산이어야 한다.
+- 프론트는 백엔드가 내려준 `effective_price`/`list_price`/`locked`를 **표시만** 한다. 결제 금액은 `ShopService.purchaseItem`이
+  유저 레벨로 재계산하므로, 프론트가 같은 공식을 재구현하면 표시가와 결제가가 갈라진다.
+
+**잠금 (LUT-349)** — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**(`DEFAULT_UNLOCK_COUNT`)만 해금.
+섹션 = **탭(`ShopTabGroup`: `WINGS`=BASIC·FULL / `ETC`=나머지) × 희귀도**. 희귀도만으로 세면 한쪽 탭의 해금 슬롯을 다른 탭
+아이템이 가져가 특정 탭의 상위 등급이 통째로 잠겨 보인다. 목록 조회와 구매 재판정은 **같은 정렬(`SHOP_ORDER`)·같은 섹션 기준**을 써야 한다.
+
+**장착 배타 (LUT-308)** — `ShopItemType.equipConflictTypes()`. BASIC(날개)과 FULL(전신)은 몸 영역을 공유해 상호 배타, 나머지는 타입 단위.
+
+**동시성** — 다이아 차감은 `UserDiamond` 낙관적 락(`@Version`), 지급은 `uk_user_item` 유니크 제약이 방어. `ShopService`는
+`UserItemService.grantItem`(중복 insert 흡수)과 달리 **중복을 실패로 처리**해 이중 차감을 막는다.
+
+**비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
+로그인해도 가격이 오르지 않는다.
+
 ## HTTP API 테스트
 
 `http/` 폴더에 IntelliJ HTTP Client 형식 테스트 파일 (도메인별 분리). 환경 설정: `http/http-client.env.json` (`dev` / `local` / `test`).
@@ -324,6 +374,10 @@ public void run() { ...}
 - **QueryDSL 빌드 오류** (`Attempt to recreate a file for type Q*`): `./gradlew clean compileJava`
 - **데이터 미저장/미조회**: `@Transactional`의 트랜잭션 매니저 확인
 - **Integration test 실패**: SSH 터널/외부 서비스 의존, `@ActiveProfiles("test")` 확인
+- **비로그인 API가 401** (LUT-350): 비로그인 허용은 **필터(`SecurityConfig`의 `permitAll`) + resolver(`@CurrentUser(required = false)`)
+  두 짝**이 맞아야 완성된다. `@CurrentUser`는 argument resolver라 **필터체인을 통과한 뒤에야** 동작하므로, `required = false`만
+  달면 요청이 필터에서 401로 끊긴다. `permitAll`은 메서드까지 명시할 것(`HttpMethod.GET` — 구매 같은 POST는 인증 유지).
+  컨트롤러 슬라이스 테스트는 이 누락을 통과시키므로 `SecurityConfigPublicEndpointTest`에 경로를 등록해 검증할 것
 - **Race condition** (중복 키): `saveAndFlush + DataIntegrityViolationException` 패턴 (예시: [
   `docs/FEATURES.md`](docs/FEATURES.md))
 
@@ -342,6 +396,12 @@ public void run() { ...}
 `docs/FEATURES.md`](docs/FEATURES.md)
 
 JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경별 설정값: [`docs/JWT_TOKEN_LIFECYCLE.md`](docs/JWT_TOKEN_LIFECYCLE.md)
+
+**세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
+`deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이
+갈라졌다. 지금은 `DeviceTypeResolver` 한 곳에서 정규화한다 — **클라이언트가 보낸 값 우선**, 없을 때만 User-Agent 추정, 최종 폴백 `web`.
+UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`를 주는데 서버가 `ipad`로 판정하면 같은 기기 값이 호출마다 달라지기 때문이다.
+알려진 값은 `web` / `ios` / `ipad` / `android` 4개이며, 레거시 `"mobile"`은 미지정으로 취급한다.
 
 ## Internal API (Admin Backend ↔ MVP)
 

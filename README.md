@@ -58,7 +58,8 @@ level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitH
 - **Image Storage**: prod에서 S3 + CloudFront CDN, dev에서 로컬 파일시스템 (`@Profile` 분기)
 - **i18n**: MessageSource 기반 다국어 지원 (en/ko/ar/ja), Accept-Language 헤더 기반 locale 결정
 - **Content Translation**: Google Translation API 연동, 3-tier 캐시 (Redis → DB → API)
-- **Browse-First**: 비로그인 상태에서 홈/피드/길드 GET 열람 허용 (작성/수정은 인증 필요)
+- **Browse-First**: 비로그인 상태에서 홈/피드/길드/상점/프로필 GET 열람 허용 (작성/수정/구매는 인증 필요).
+  공개 경로는 `SecurityConfigPublicEndpointTest`가 회귀 가드 (LUT-350)
 
 ### 시스템 아키텍처
 
@@ -83,7 +84,7 @@ graph TB
             META["metaservice<br/>공통코드, 레벨설정<br/>캘린더"]
             FEED["feedservice<br/>활동 피드<br/>좋아요, 댓글"]
             NOTIF["notificationservice<br/>알림, 푸시<br/>알림 설정"]
-            GAMIF["gamificationservice<br/>칭호, 업적, 경험치<br/>출석, 이벤트, 시즌"]
+            GAMIF["gamificationservice<br/>칭호, 업적, 경험치<br/>출석, 이벤트, 시즌<br/>상점, 인벤토리, 다이아"]
             BFF["bffservice<br/>데이터 집계<br/>통합 검색"]
             NOTICE["noticeservice<br/>공지/안내"]
             SUPPORT["supportservice<br/>1:1 문의, 신고"]
@@ -353,6 +354,10 @@ erDiagram
         event
         season
         season_rank_reward
+        shop_item
+        user_item FK
+        user_diamond
+        diamond_history
     }
 
     saga_db {
@@ -384,15 +389,15 @@ erDiagram
 # 빌드
 ./gradlew clean build
 
-# 전체 테스트 실행 (3,300+ tests)
+# 전체 테스트 실행 (3,600+ tests)
 ./gradlew test
 
 # 모듈별 테스트 실행
-./gradlew :level-up-together-platform:kernel:test   # 39 tests
-./gradlew :level-up-together-platform:infra:test    # 168 tests
+./gradlew :level-up-together-platform:kernel:test   # 43 tests
+./gradlew :level-up-together-platform:infra:test    # 2 tests (나머지는 service 모듈로 이동)
 ./gradlew :level-up-together-platform:saga:test     # 29 tests
-./gradlew :service:test                             # 3,200+ tests
-./gradlew :app:test                                 # 13 tests
+./gradlew :service:test                             # 3,585 tests
+./gradlew :app:test                                 # 15 tests
 
 # 단일 테스트 클래스 실행 (모듈 지정)
 ./gradlew :service:test --tests "*.Oauth2ControllerTest"
@@ -454,6 +459,9 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 친구 관리 (친구 요청/수락/거절, 전체 유저 닉네임 검색)
 - 퀘스트 (일일/주간)
 - 마이페이지 (프로필, 통계, 선호 피드 공개범위 설정, 선호 언어 설정)
+- **공개 프로필** — 친구 수 노출(LUT-340), 주간 캘린더(LUT-320)·피드 탭(LUT-334) 비로그인 열람 허용
+- **디바이스 세션** (LUT-336) — 세션 키는 `deviceId` 기준. `deviceType`(`web`/`ios`/`ipad`/`android`)은 `DeviceTypeResolver`가
+  단일 규칙으로 정규화 (클라이언트 값 우선 → User-Agent 추정 → `web` 폴백)
 
 ### 게이미피케이션 (Gamification Service)
 
@@ -465,6 +473,28 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 출석 체크 (연속 출석 보너스)
 - 이벤트 관리 (기간별 이벤트)
 - 시즌 관리 (시즌별 랭킹, 보상)
+- **랭킹**: 시즌 전체 랭킹 + 주간/월간 내 랭킹 조회(LUT-316)
+- **다이아**: 획득/사용 원장(`DiamondType` — `LEVEL_UP` / `MISSION_BOOK` / `SHOP`), 잔액 조회
+
+### 상점 / 인벤토리 (Shop — Gamification Service)
+
+프로필 꾸미기 아이템을 다이아로 구매·장착하는 기능입니다.
+
+- **아이템 조회** `GET /api/v1/shop-items` — **비로그인 열람 허용**(LUT-350). 희귀도 → 가격 → ID 오름차순
+- **구매** `POST /api/v1/shop-items/{id}/purchase` — 다이아 차감 + 인벤토리 지급이 한 트랜잭션 (지급 실패 시 차감 롤백)
+- **인벤토리** `GET /api/v1/user-items`, `POST /api/v1/user-items/{id}/equip|unequip`
+- **아이템 타입**: BASIC(날개) / FULL(전신) / HEAD(머리) / EFFECT(이펙트) / ETC(기타)
+  - 장착 배타(LUT-308): BASIC ↔ FULL은 몸 영역을 공유하므로 상호 배타, 나머지는 타입 단위
+- **등급 차이 기반 가격 할증** (LUT-348, `LevelRarityPolicy`)
+  - 레벨 → 등급: `<3` COMMON / `<10` UNCOMMON / `<200` RARE / `<500` EPIC / `<900` LEGENDARY / 그 이상 MYTHIC
+  - `gap = max(0, 아이템등급 − 내등급)`, 배수 `[1, 1.5, 2.2, 3.3, 5, 8]`, 10단위 올림
+  - `effective_price`(내 결제가) / `list_price`(COMMON 기준 정가 = 취소선 anchor)를 함께 응답
+  - 레벨업하면 ① 다이아가 늘고 ② 같은 아이템이 싸지는 이중 보상 구조
+  - 결제 금액은 서버가 유저 레벨로 **재계산**하여 검증 (프론트 표시값 불신)
+- **상위 등급 부분 해금** (LUT-349) — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**만 해금.
+  섹션 단위는 **탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC=나머지) × 희귀도**
+- **동시 구매 방어** — 다이아 낙관적 락(`@Version`) + `uk_user_item` 유니크 제약 (중복 구매는 실패 처리해 이중 차감 방지)
+- **어드민 연동** — `/api/internal/shop-items`(아이템 관리), `/api/internal/shop-purchases`(구매이력, LUT-328)
 
 ### 미션 (Mission Service)
 
@@ -504,8 +534,11 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 피드 좋아요/댓글
 - **피드 공개범위**: 미션 실행 완료 시 선택 (전체/친구/비공개), 유저 선호 공개범위 기억
 - **피드 필터**: 전체(ALL)/친구(FRIENDS)/길드(GUILD)/내 글(MINE) 탭별 조회
-- 미션 완료 시 자동 피드 생성 + note/image 변경 시 자동 동기화
+- **미션 완료만으로는 피드가 생성되지 않음 (LUT-318)** — 완료 후 미션 상세 등록(기록 공유)에서 공개범위를 직접 선택할 때만 생성.
+  `completeExecution()`의 `feedVisibility`는 "완료와 동시에 공유" 케이스용 선택 파라미터이며, 미지정 시 PRIVATE(피드 미생성)로 취급.
+  생성된 피드는 note/image 변경 시 자동 동기화
 - **자동 피드 생성 축소 (QA-35)**: 칭호 획득/업적 달성/길드 가입/친구 추가 피드 비활성화, 레벨업/길드 레벨업은 10단위 마일스톤(Lv 10, 20, 30…)에서만 생성
+- **프로필 피드 탭 (LUT-334)**: 타 유저 프로필의 피드 그리드는 비로그인 열람 허용 (비로그인은 PUBLIC만 조회)
 - 피드 검색 기능
 
 ### 알림 (Notification Service)
@@ -655,6 +688,8 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | meta          | `/api/internal/{user,guild}-level-configs`, `/attendance-reward-configs`, `/mission-categories`, `/profanity-words` |
 | gamification  | `/api/internal/{achievements,achievement-categories,titles,title-grants,events,seasons,check-logic-types,experience-history,mvp-history}` |
 | gamification  | `/api/internal/seasons/{id}/rank-rewards`                       |
+| gamification  | `/api/internal/shop-items` (아이템 관리 + 이미지 업로드), `/api/internal/shop-purchases` (구매이력, LUT-328) |
+| gamification  | `/api/internal/diamonds/user/{userId}/history` (다이아 원장 조회)     |
 
 ## 관련 프로젝트
 
