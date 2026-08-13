@@ -1256,4 +1256,67 @@ class Oauth2ServiceTest {
             }
         }
     }
+
+    @Nested
+    @DisplayName("completeSignup 필수 약관 서버 검증 테스트 (LUT-366)")
+    class CompleteSignupRequiredTermsTest {
+
+        private io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request.CompleteSignupRequestDto
+            buildRequest(List<long[]> versionIdAndAgreed) {
+            var request =
+                new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                    .CompleteSignupRequestDto();
+            request.setNickname(TEST_NICKNAME);
+            request.setAgreedTerms(versionIdAndAgreed.stream().map(pair -> {
+                var term = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.request
+                    .CompleteSignupRequestDto.TermAgreement();
+                term.setTermVersionId(pair[0]);
+                term.setAgreed(pair[1] == 1);
+                return term;
+            }).toList());
+            request.setDeviceType("web");
+            return request;
+        }
+
+        @Test
+        @DisplayName("필수 약관 미동의면 유저를 생성하지 않고 가입을 차단한다")
+        void requiredTermsNotAgreed_blocksBeforeUserCreation() {
+            // given
+            var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC");
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session);
+            org.mockito.Mockito.doThrow(new CustomException("TERMS_001", "error.terms.required_not_agreed"))
+                .when(userTermsService).validateRequiredTermsAgreed(org.mockito.ArgumentMatchers.anySet());
+
+            // when & then
+            assertThatThrownBy(() -> oauth2Service.completeSignup(
+                    "signup-token", buildRequest(List.of()), httpRequest))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.required_not_agreed");
+
+            verify(userRepository, never()).save(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("is_agreed=true 인 약관 버전 ID만 검증에 전달된다")
+        void onlyAgreedVersionIds_arePassedToValidation() {
+            // given: v10 동의, v20 미동의(false) — 검증에는 10만 전달돼야 한다
+            var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC");
+            when(signupTokenService.findByToken("signup-token")).thenReturn(session);
+            org.mockito.Mockito.doThrow(new CustomException("TERMS_001", "error.terms.required_not_agreed"))
+                .when(userTermsService).validateRequiredTermsAgreed(org.mockito.ArgumentMatchers.anySet());
+
+            // when
+            assertThatThrownBy(() -> oauth2Service.completeSignup(
+                    "signup-token", buildRequest(List.of(new long[]{10, 1}, new long[]{20, 0})), httpRequest))
+                .isInstanceOf(CustomException.class);
+
+            // then
+            @SuppressWarnings("unchecked")
+            var captor = org.mockito.ArgumentCaptor.forClass((Class<java.util.Set<Long>>) (Class<?>) java.util.Set.class);
+            verify(userTermsService).validateRequiredTermsAgreed(captor.capture());
+            assertThat(captor.getValue()).containsExactly(10L);
+        }
+    }
 }

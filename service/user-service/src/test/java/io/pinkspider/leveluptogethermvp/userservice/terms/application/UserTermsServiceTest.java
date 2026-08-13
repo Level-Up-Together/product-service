@@ -366,4 +366,81 @@ class UserTermsServiceTest {
             verify(userTermAgreementsService).save(existingAgreement);
         }
     }
+
+    @Nested
+    @DisplayName("LUT-366: validateRequiredTermsAgreed 테스트")
+    class ValidateRequiredTermsAgreedTest {
+
+        private RecentTermsResponseDto createTermWithVersion(
+                String termId, String title, boolean isRequired, String versionId) {
+            return RecentTermsResponseDto.builder()
+                .termId(termId)
+                .termTitle(title)
+                .isRequired(isRequired)
+                .versionId(versionId)
+                .version("1.0")
+                .build();
+        }
+
+        @Test
+        @DisplayName("필수 약관 전부 동의하면 통과한다 (선택 약관 미동의 무관)")
+        void allRequiredAgreed_passes() {
+            // given: 필수 2건(v10, v20) + 선택 1건(v30)
+            when(termsService.getRecentAllTerms()).thenReturn(List.of(
+                createTermWithVersion("1", "서비스 이용약관", true, "10"),
+                createTermWithVersion("4", "만 15세 이상입니다", true, "20"),
+                createTermWithVersion("3", "마케팅 정보 수신 동의", false, "30")));
+
+            // when & then: 선택(v30)은 빠져도 예외 없음
+            userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L, 20L));
+        }
+
+        @Test
+        @DisplayName("필수 약관이 하나라도 빠지면 가입을 차단한다")
+        void missingRequired_throwsException() {
+            // given: 만 15세(v20) 미동의
+            when(termsService.getRecentAllTerms()).thenReturn(List.of(
+                createTermWithVersion("1", "서비스 이용약관", true, "10"),
+                createTermWithVersion("4", "만 15세 이상입니다", true, "20")));
+
+            // when & then
+            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L)))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.required_not_agreed");
+        }
+
+        @Test
+        @DisplayName("동의 목록이 비어 있으면 필수 약관 존재 시 차단한다")
+        void emptyAgreements_throwsException() {
+            // given
+            when(termsService.getRecentAllTerms()).thenReturn(List.of(
+                createTermWithVersion("1", "서비스 이용약관", true, "10")));
+
+            // when & then
+            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of()))
+                .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName("최신 게시 버전이 아닌 옛 버전 동의는 필수 충족으로 치지 않는다")
+        void staleVersionAgreement_throwsException() {
+            // given: 최신 게시 버전은 v11인데 옛 버전 v10으로 동의
+            when(termsService.getRecentAllTerms()).thenReturn(List.of(
+                createTermWithVersion("1", "서비스 이용약관", true, "11")));
+
+            // when & then
+            assertThatThrownBy(() -> userTermsService.validateRequiredTermsAgreed(java.util.Set.of(10L)))
+                .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName("게시된 약관이 없으면 항상 통과한다")
+        void noPublishedTerms_passes() {
+            // given
+            when(termsService.getRecentAllTerms()).thenReturn(Collections.emptyList());
+
+            // when & then: 예외 없음
+            userTermsService.validateRequiredTermsAgreed(java.util.Set.of());
+        }
+    }
 }

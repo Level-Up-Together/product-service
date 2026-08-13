@@ -353,6 +353,16 @@ public class Oauth2Service {
                                                 HttpServletRequest httpRequest) {
         SignupSessionData session = signupTokenService.findByToken(signupToken);
 
+        // LUT-366: 필수 약관(만 15세 확인 포함) 전부 동의했는지 서버측 검증 —
+        // 화면 게이트만 믿으면 우회 요청으로 미동의 가입이 성립하므로 유저 생성 전에 차단한다
+        java.util.Set<Long> agreedVersionIds = request.getAgreedTerms() == null
+            ? java.util.Set.of()
+            : request.getAgreedTerms().stream()
+                .filter(CompleteSignupRequestDto.TermAgreement::isAgreed)
+                .map(CompleteSignupRequestDto.TermAgreement::getTermVersionId)
+                .collect(java.util.stream.Collectors.toSet());
+        userTermsService.validateRequiredTermsAgreed(agreedVersionIds);
+
         // 닉네임 중복 체크 (signup 진행 중 다른 사용자가 같은 닉네임을 선점할 수 있음)
         if (userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException("NICKNAME_001", "error.nickname.already_in_use");

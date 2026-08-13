@@ -75,4 +75,23 @@ public class UserTermsService {
             throw new CustomException("400", "error.terms.version.not_published");
         }
     }
+
+    /**
+     * LUT-366: 필수 약관 전부에 최신 게시 버전 기준으로 동의했는지 검증 (가입 성립 조건).
+     * 만 15세 확인처럼 법적 효력이 필요한 필수 동의가 화면 게이트 우회로 빠지지 않게 서버에서 강제한다.
+     *
+     * @param agreedVersionIds is_agreed=true 로 동의한 약관 버전 ID 집합
+     */
+    public void validateRequiredTermsAgreed(java.util.Set<Long> agreedVersionIds) {
+        List<String> missingTitles = getRecentAllTerms().stream()
+            .filter(t -> Boolean.TRUE.equals(t.getIsRequired()))
+            .filter(t -> !agreedVersionIds.contains(Long.valueOf(t.getVersionId())))
+            .map(RecentTermsResponseDto::getTermTitle)
+            .toList();
+
+        if (!missingTitles.isEmpty()) {
+            log.warn("필수 약관 미동의 가입 시도 차단: missing={}", missingTitles);
+            throw new CustomException("TERMS_001", "error.terms.required_not_agreed");
+        }
+    }
 }
