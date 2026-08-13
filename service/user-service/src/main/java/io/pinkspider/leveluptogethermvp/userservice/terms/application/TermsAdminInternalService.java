@@ -15,6 +15,7 @@ import io.pinkspider.leveluptogethermvp.userservice.terms.infrastructure.TermsRe
 import io.pinkspider.leveluptogethermvp.userservice.terms.infrastructure.UserTermAgreementsRepository;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Term;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.TermVersion;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.TermVersionStatus;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -121,6 +122,9 @@ public class TermsAdminInternalService {
         if (!termsRepository.existsById(id)) {
             throw new CustomException("404", "error.terms.not_found");
         }
+        if (termVersionRepository.existsByTermsIdAndStatus(id, TermVersionStatus.PUBLISHED)) {
+            throw new CustomException("400", "error.terms.has_published_version");
+        }
         termsRepository.deleteById(id);
         log.info("약관 삭제: id={}", id);
     }
@@ -173,6 +177,10 @@ public class TermsAdminInternalService {
         TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
             .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
 
+        if (version.isPublished()) {
+            throw new CustomException("400", "error.terms.version.published_immutable");
+        }
+
         if (!version.getVersion().equals(request.version())
             && termVersionRepository.existsByTermsIdAndVersion(version.getTerms().getId(), request.version())) {
             throw new CustomException("400", "error.terms.version.duplicate");
@@ -188,11 +196,36 @@ public class TermsAdminInternalService {
 
     @Transactional(transactionManager = "userTransactionManager")
     public void deleteTermVersion(Long versionId) {
-        if (!termVersionRepository.existsById(versionId)) {
-            throw new CustomException("404", "error.terms.version.not_found");
+        TermVersion version = termVersionRepository.findById(versionId)
+            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+
+        if (version.isPublished()) {
+            throw new CustomException("400", "error.terms.version.published_immutable");
         }
-        termVersionRepository.deleteById(versionId);
+
+        termVersionRepository.delete(version);
         log.info("약관 버전 삭제: versionId={}", versionId);
+    }
+
+    /**
+     * 약관 버전 게시. DRAFT → PUBLISHED 단방향 전환이며 되돌릴 수 없다.
+     * 게시 시점부터 공개 약관 목록과 유저 재동의(pending) 판정에 반영된다. (LUT-364)
+     */
+    @Transactional(transactionManager = "userTransactionManager")
+    public TermVersionAdminResponse publishTermVersion(Long versionId) {
+        TermVersion version = termVersionRepository.findByIdWithTerms(versionId)
+            .orElseThrow(() -> new CustomException("404", "error.terms.version.not_found"));
+
+        if (version.isPublished()) {
+            throw new CustomException("400", "error.terms.version.already_published");
+        }
+
+        version.publish();
+
+        TermVersion saved = termVersionRepository.save(version);
+        log.info("약관 버전 게시: versionId={}, version={}, publishedAt={}",
+            versionId, saved.getVersion(), saved.getPublishedAt());
+        return TermVersionAdminResponse.from(saved);
     }
 
     // ==================== User Term Agreements ====================

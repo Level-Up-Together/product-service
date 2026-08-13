@@ -1,8 +1,11 @@
 package io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.TermVersionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,6 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import lombok.Builder;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
@@ -61,4 +66,24 @@ public class TermVersion extends LocalDateTimeBaseEntity {
     @Column(name = "created_by")
     @Comment("생성자")
     private String createdBy;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 20)
+    @Comment("상태 (DRAFT: 임시저장, PUBLISHED: 게시됨)")
+    private TermVersionStatus status = TermVersionStatus.DRAFT;
+
+    @Column(name = "published_at")
+    @Comment("게시 일시")
+    private LocalDateTime publishedAt;
+
+    public boolean isPublished() {
+        return status == TermVersionStatus.PUBLISHED;
+    }
+
+    public void publish() {
+        this.status = TermVersionStatus.PUBLISHED;
+        this.publishedAt = LocalDateTime.now();
+    }
 }

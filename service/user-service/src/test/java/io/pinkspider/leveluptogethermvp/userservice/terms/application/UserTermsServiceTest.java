@@ -2,12 +2,14 @@ package io.pinkspider.leveluptogethermvp.userservice.terms.application;
 
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto.AgreementTerms;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.RecentTermsResponseDto;
@@ -57,6 +59,16 @@ class UserTermsServiceTest {
     }
 
     private TermVersion createTestTermVersion(Long id, String version) {
+        TermVersion termVersion = TermVersion.builder()
+            .version(version)
+            .content("약관 내용")
+            .build();
+        termVersion.publish(); // 동의 대상은 게시된 버전이어야 한다 (LUT-364)
+        setId(termVersion, id);
+        return termVersion;
+    }
+
+    private TermVersion createDraftTermVersion(Long id, String version) {
         TermVersion termVersion = TermVersion.builder()
             .version(version)
             .content("약관 내용")
@@ -296,6 +308,34 @@ class UserTermsServiceTest {
             // then
             verify(userTermAgreementsService, times(2)).save(any(UserTermAgreement.class));
             assertThat(existingAgreement.getIsAgreed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("게시되지 않은 버전에 동의 시 예외를 발생시킨다")
+        void agreementTermsByUser_draftVersion_throwsException() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스트유저");
+            TermVersion draftVersion = createDraftTermVersion(1L, "1.0");
+
+            AgreementTerms agreementTerms = AgreementTerms.builder()
+                .termVersionId(1L)
+                .isAgreed(true)
+                .build();
+
+            AgreementTermsByUserRequestDto requestDto = AgreementTermsByUserRequestDto.builder()
+                .AgreementTermsList(List.of(agreementTerms))
+                .build();
+
+            when(userTermAgreementsService.findAllByUserIdAndTermVersionId(TEST_USER_ID, 1L))
+                .thenReturn(null);
+            when(userService.findByUserId(TEST_USER_ID)).thenReturn(user);
+            when(termVersionService.findById(1L)).thenReturn(draftVersion);
+
+            // when & then
+            assertThatThrownBy(() -> userTermsService.agreementTermsByUser(TEST_USER_ID, requestDto))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.version.not_published");
+            verify(userTermAgreementsService, never()).save(any(UserTermAgreement.class));
         }
 
         @Test

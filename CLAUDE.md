@@ -347,6 +347,20 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
+## 약관 관리 (userservice/terms, LUT-364)
+
+`terms`(약관) → `term_versions`(버전, content) → `user_term_agreements`(유저×버전 동의). user_db 소속,
+어드민은 admin-service가 `/api/internal/terms`로 패스스루한다.
+
+- **버전 상태 머신**: 생성 = `DRAFT`(임시저장) → `POST .../versions/{id}/publish` = `PUBLISHED`(단방향, 철회 불가).
+  DRAFT만 수정/삭제 가능, PUBLISHED는 불변(동의 이력의 증적). 게시된 버전이 있는 약관은 삭제 불가.
+- **재동의는 게시가 트리거**: 공개 목록(`/terms/list`)과 pending 판정(`/terms/pending/{userId}`)은 PUBLISHED만
+  대상이므로, 게시 순간 전 유저에게 미동의로 잡히고 웹 `PendingTermsChecker`가 동의 화면으로 보낸다.
+  별도 알림/이벤트 없음.
+- **최신 버전 판정은 `published_at DESC`로 통일** — 과거엔 `version::NUMERIC`(semver 입력 시 SQL 캐스팅
+  에러)/`created_at`/`id` 3기준이 혼재했다. 어드민 응답의 `latest_version`만 id 최대값(DRAFT 포함, 작업 중 버전 노출용).
+- 유저 동의 저장(`agreementTermsByUser`)은 미게시 버전을 거부한다 (`error.terms.version.not_published`).
+
 ## HTTP API 테스트
 
 `http/` 폴더에 IntelliJ HTTP Client 형식 테스트 파일 (도메인별 분리). 환경 설정: `http/http-client.env.json` (`dev` / `local` / `test`).

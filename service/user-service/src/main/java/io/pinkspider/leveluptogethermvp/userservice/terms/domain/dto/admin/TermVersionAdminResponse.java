@@ -13,6 +13,8 @@ public record TermVersionAdminResponse(
     String termsTitle,
     String version,
     String content,
+    String status,
+    LocalDateTime publishedAt,
     String createdBy,
     LocalDateTime createdAt,
     LocalDateTime modifiedAt
@@ -26,6 +28,8 @@ public record TermVersionAdminResponse(
             entity.getTerms().getTitle(),
             entity.getVersion(),
             entity.getContent(),
+            entity.getStatus() != null ? entity.getStatus().name() : null,
+            entity.getPublishedAt(),
             entity.getCreatedBy(),
             entity.getCreatedAt(),
             entity.getModifiedAt()
@@ -40,6 +44,8 @@ public record TermVersionAdminResponse(
             null,
             entity.getVersion(),
             null,
+            entity.getStatus() != null ? entity.getStatus().name() : null,
+            entity.getPublishedAt(),
             entity.getCreatedBy(),
             entity.getCreatedAt(),
             null

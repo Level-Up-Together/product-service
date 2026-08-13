@@ -25,6 +25,7 @@ import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Term
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.TermVersion;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.UserTermAgreement;
 import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users;
+import io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.enums.TermVersionStatus;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -77,6 +79,12 @@ class TermsAdminInternalServiceTest {
             .content("약관 내용")
             .build();
         setId(termVersion, id);
+        return termVersion;
+    }
+
+    private TermVersion createPublishedTermVersion(Long id, Term term, String version) {
+        TermVersion termVersion = createTestTermVersion(id, term, version);
+        termVersion.publish();
         return termVersion;
     }
 
@@ -406,10 +414,12 @@ class TermsAdminInternalServiceTest {
     class DeleteTermsTest {
 
         @Test
-        @DisplayName("약관을 삭제한다")
+        @DisplayName("게시된 버전이 없는 약관을 삭제한다")
         void deleteTerms_success() {
             // given
             when(termsRepository.existsById(1L)).thenReturn(true);
+            when(termVersionRepository.existsByTermsIdAndStatus(1L, TermVersionStatus.PUBLISHED))
+                .thenReturn(false);
 
             // when
             termsAdminInternalService.deleteTerms(1L);
@@ -428,6 +438,20 @@ class TermsAdminInternalServiceTest {
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTerms(999L))
                 .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName("게시된 버전이 있는 약관 삭제 시 예외를 발생시킨다")
+        void deleteTerms_hasPublishedVersion_throwsException() {
+            // given
+            when(termsRepository.existsById(1L)).thenReturn(true);
+            when(termVersionRepository.existsByTermsIdAndStatus(1L, TermVersionStatus.PUBLISHED))
+                .thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> termsAdminInternalService.deleteTerms(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.has_published_version");
         }
     }
 
@@ -545,7 +569,7 @@ class TermsAdminInternalServiceTest {
     class CreateTermVersionTest {
 
         @Test
-        @DisplayName("새 약관 버전을 생성한다")
+        @DisplayName("새 약관 버전을 임시저장 상태로 생성한다")
         void createTermVersion_success() {
             // given
             Term term = createTestTerm(1L, "TERMS_001", "이용약관");
@@ -562,7 +586,10 @@ class TermsAdminInternalServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.version()).isEqualTo("2.0");
-            verify(termVersionRepository).save(any(TermVersion.class));
+            ArgumentCaptor<TermVersion> captor = ArgumentCaptor.forClass(TermVersion.class);
+            verify(termVersionRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(TermVersionStatus.DRAFT);
+            assertThat(captor.getValue().getPublishedAt()).isNull();
         }
 
         @Test
@@ -645,6 +672,22 @@ class TermsAdminInternalServiceTest {
             assertThatThrownBy(() -> termsAdminInternalService.updateTermVersion(999L, request))
                 .isInstanceOf(CustomException.class);
         }
+
+        @Test
+        @DisplayName("게시된 버전 수정 시 예외를 발생시킨다")
+        void updateTermVersion_published_throwsException() {
+            // given
+            Term term = createTestTerm(1L, "TERMS_001", "이용약관");
+            TermVersion publishedVersion = createPublishedTermVersion(1L, term, "1.0");
+            TermVersionAdminRequest request = new TermVersionAdminRequest("1.0", "수정된 약관 내용");
+
+            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(publishedVersion));
+
+            // when & then
+            assertThatThrownBy(() -> termsAdminInternalService.updateTermVersion(1L, request))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.version.published_immutable");
+        }
     }
 
     @Nested
@@ -652,27 +695,96 @@ class TermsAdminInternalServiceTest {
     class DeleteTermVersionTest {
 
         @Test
-        @DisplayName("약관 버전을 삭제한다")
+        @DisplayName("임시저장 상태의 약관 버전을 삭제한다")
         void deleteTermVersion_success() {
             // given
-            when(termVersionRepository.existsById(1L)).thenReturn(true);
+            Term term = createTestTerm(1L, "TERMS_001", "이용약관");
+            TermVersion draftVersion = createTestTermVersion(1L, term, "1.0");
+
+            when(termVersionRepository.findById(1L)).thenReturn(Optional.of(draftVersion));
 
             // when
             termsAdminInternalService.deleteTermVersion(1L);
 
             // then
-            verify(termVersionRepository).existsById(1L);
-            verify(termVersionRepository).deleteById(1L);
+            verify(termVersionRepository).delete(draftVersion);
         }
 
         @Test
         @DisplayName("존재하지 않는 버전 삭제 시 예외를 발생시킨다")
         void deleteTermVersion_notFound_throwsException() {
             // given
-            when(termVersionRepository.existsById(999L)).thenReturn(false);
+            when(termVersionRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> termsAdminInternalService.deleteTermVersion(999L))
+                .isInstanceOf(CustomException.class);
+        }
+
+        @Test
+        @DisplayName("게시된 버전 삭제 시 예외를 발생시킨다")
+        void deleteTermVersion_published_throwsException() {
+            // given
+            Term term = createTestTerm(1L, "TERMS_001", "이용약관");
+            TermVersion publishedVersion = createPublishedTermVersion(1L, term, "1.0");
+
+            when(termVersionRepository.findById(1L)).thenReturn(Optional.of(publishedVersion));
+
+            // when & then
+            assertThatThrownBy(() -> termsAdminInternalService.deleteTermVersion(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.version.published_immutable");
+        }
+    }
+
+    @Nested
+    @DisplayName("publishTermVersion 테스트")
+    class PublishTermVersionTest {
+
+        @Test
+        @DisplayName("임시저장 상태의 버전을 게시한다")
+        void publishTermVersion_success() {
+            // given
+            Term term = createTestTerm(1L, "TERMS_001", "이용약관");
+            TermVersion draftVersion = createTestTermVersion(1L, term, "1.0");
+
+            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(draftVersion));
+            when(termVersionRepository.save(any(TermVersion.class))).thenReturn(draftVersion);
+
+            // when
+            TermVersionAdminResponse result = termsAdminInternalService.publishTermVersion(1L);
+
+            // then
+            assertThat(result.status()).isEqualTo(TermVersionStatus.PUBLISHED.name());
+            assertThat(result.publishedAt()).isNotNull();
+            assertThat(draftVersion.getStatus()).isEqualTo(TermVersionStatus.PUBLISHED);
+            assertThat(draftVersion.getPublishedAt()).isNotNull();
+            verify(termVersionRepository).save(draftVersion);
+        }
+
+        @Test
+        @DisplayName("이미 게시된 버전을 다시 게시하면 예외를 발생시킨다")
+        void publishTermVersion_alreadyPublished_throwsException() {
+            // given
+            Term term = createTestTerm(1L, "TERMS_001", "이용약관");
+            TermVersion publishedVersion = createPublishedTermVersion(1L, term, "1.0");
+
+            when(termVersionRepository.findByIdWithTerms(1L)).thenReturn(Optional.of(publishedVersion));
+
+            // when & then
+            assertThatThrownBy(() -> termsAdminInternalService.publishTermVersion(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.terms.version.already_published");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 버전 게시 시 예외를 발생시킨다")
+        void publishTermVersion_notFound_throwsException() {
+            // given
+            when(termVersionRepository.findByIdWithTerms(999L)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> termsAdminInternalService.publishTermVersion(999L))
                 .isInstanceOf(CustomException.class);
         }
     }

@@ -150,6 +150,13 @@ public class TermsAdminInternalController {
         return ApiResult.<Void>builder().build();
     }
 
+    @PostMapping("/versions/{versionId}/publish")
+    public ApiResult<TermVersionAdminResponse> publishTermVersion(@PathVariable Long versionId) {
+        return ApiResult.<TermVersionAdminResponse>builder()
+            .value(termsAdminInternalService.publishTermVersion(versionId))
+            .build();
+    }
+
     // ==================== User Term Agreements ====================
 
     @GetMapping("/agreements/user/{userId}")

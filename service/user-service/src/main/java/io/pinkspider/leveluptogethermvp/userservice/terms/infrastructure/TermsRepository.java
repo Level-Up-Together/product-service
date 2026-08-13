@@ -16,13 +16,15 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
     /**
      * 최근 약관 목록 조회 (Object[] 반환으로 TupleBackedMap 버그 방지)
      * 컬럼 순서: term_id, term_title, code, type, is_required, version_id, version, created_at, content
+     * 게시(PUBLISHED)된 버전만 대상이며, 최신 판정은 published_at 기준으로 통일한다. (LUT-364)
      */
     @Query(value = """
         WITH latest_versions AS (
             SELECT
                 tv.*,
-                ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY version::NUMERIC DESC) AS rn
+                ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.published_at DESC) AS rn
             FROM term_versions tv
+            WHERE tv.status = 'PUBLISHED'
         )
         SELECT
             t.id AS term_id,
@@ -45,8 +47,9 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
      */
     @Query(value = """
         WITH latest_term_versions AS (SELECT tv.*,
-                                             ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.created_at DESC) AS rn
-                                      FROM term_versions tv)
+                                             ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.published_at DESC) AS rn
+                                      FROM term_versions tv
+                                      WHERE tv.status = 'PUBLISHED')
         SELECT t.id    AS term_id,
                t.title AS term_title,
                t.is_required,
@@ -68,8 +71,9 @@ public interface TermsRepository extends JpaRepository<Term, Long> {
     @Query(value = """
         WITH latest_term_versions AS (
             SELECT tv.*,
-                   ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.created_at DESC) AS rn
+                   ROW_NUMBER() OVER (PARTITION BY tv.term_id ORDER BY tv.published_at DESC) AS rn
             FROM term_versions tv
+            WHERE tv.status = 'PUBLISHED'
         )
         SELECT t.id    AS term_id,
                t.title AS term_title,

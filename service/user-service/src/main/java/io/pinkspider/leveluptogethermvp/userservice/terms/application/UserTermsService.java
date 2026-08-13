@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.userservice.terms.application;
 
 
+import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.request.AgreementTermsByUserRequestDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.RecentTermsResponseDto;
 import io.pinkspider.leveluptogethermvp.userservice.terms.domain.response.TermAgreementsByUserResponseDto;
@@ -48,11 +49,13 @@ public class UserTermsService {
                     agreementTerms.getTermVersionId());
 
                 if (userTermAgreement != null) {
+                    validatePublished(userTermAgreement.getTermVersion());
                     userTermAgreement.setIsAgreed(agreementTerms.isAgreed());
                     userTermAgreementsService.save(userTermAgreement);
                 } else {
                     Users user = userService.findByUserId(userId);
                     TermVersion termVersion = termVersionService.findById(agreementTerms.getTermVersionId());
+                    validatePublished(termVersion);
 
                     UserTermAgreement entity = UserTermAgreement.builder()
                         .users(user)
@@ -64,5 +67,12 @@ public class UserTermsService {
                 }
             }
         );
+    }
+
+    // 게시 전(DRAFT) 버전은 유저에게 노출된 적이 없으므로 동의 대상이 될 수 없다 (LUT-364)
+    private void validatePublished(TermVersion termVersion) {
+        if (!termVersion.isPublished()) {
+            throw new CustomException("400", "error.terms.version.not_published");
+        }
     }
 }
