@@ -29,6 +29,7 @@ public record UserItemResponse(
         TitleRarity rarity,
         String imageUrl,
         ShopItemImagePosition imagePosition,
+        String effectCode,
         Boolean isEquipped,
         LocalDateTime acquiredAt) {
 
@@ -49,6 +50,7 @@ public record UserItemResponse(
             item.getRarity(),
             item.getImageUrl(),
             item.getImagePosition(),
+            item.getEffectCode(),
             userItem.getIsEquipped(),
             userItem.getAcquiredAt());
     }

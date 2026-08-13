@@ -239,6 +239,7 @@ public class MyPageService {
             .rarity(item.rarity() != null ? item.rarity().name() : null)
             .imageUrl(item.imageUrl())
             .imagePosition(item.imagePosition())
+            .effectCode(item.effectCode())
             .build();
     }
 

@@ -123,6 +123,8 @@ public class PublicProfileResponse {
         private String rarity;
         private String imageUrl;
         private String imagePosition;
+        /** LUT-342: EFFECT 타입 전용 이펙트 코드 — 웹 이펙트 렌더링 식별자 (그 외 타입은 null) */
+        private String effectCode;
     }
 
     @Getter

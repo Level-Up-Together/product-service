@@ -222,6 +222,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             item.getRarity(),
             item.getImageUrl(),
             item.getImagePosition() != null ? item.getImagePosition().name() : null,
+            item.getEffectCode(),
             userItem.getIsEquipped(),
             userItem.getAcquiredAt());
     }

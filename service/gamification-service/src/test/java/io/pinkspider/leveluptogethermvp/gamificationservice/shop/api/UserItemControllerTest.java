@@ -80,6 +80,7 @@ class UserItemControllerTest {
             TitleRarity.RARE,
             "/uploads/shop-items/" + shopItemId + ".png",
             ShopItemImagePosition.BACK,
+            type == ShopItemType.EFFECT ? "sparkle_01" : null,
             equipped,
             LocalDateTime.of(2026, 7, 1, 0, 0));
     }
@@ -101,6 +102,7 @@ class UserItemControllerTest {
             fieldWithPath(prefix + "rarity").type(JsonFieldType.STRING).description("희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)"),
             fieldWithPath(prefix + "image_url").type(JsonFieldType.STRING).description("아이템 이미지 URL").optional(),
             fieldWithPath(prefix + "image_position").type(JsonFieldType.STRING).description("이미지 포지션 (FRONT|BACK)").optional(),
+            fieldWithPath(prefix + "effect_code").type(JsonFieldType.STRING).description("LUT-342: 이펙트 코드 (EFFECT 타입 전용, 그 외 null)").optional(),
             fieldWithPath(prefix + "is_equipped").type(JsonFieldType.BOOLEAN).description("장착 여부 (타입당 최대 1개)"),
             fieldWithPath(prefix + "acquired_at").type(JsonFieldType.STRING).description("획득 일시").optional()
         };
