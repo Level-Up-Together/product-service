@@ -186,6 +186,22 @@ class MissionAdminServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-361: 수정 시 미완료 인스턴스의 스냅샷을 동기화한다")
+        void updateMission_syncsIncompleteInstanceSnapshots() {
+            // given
+            Mission existing = createTestMission(1L);
+            MissionAdminRequest request = createTestRequest();
+            when(missionRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(missionRepository.save(any(Mission.class))).thenReturn(existing);
+
+            // when
+            service.updateMission(1L, request);
+
+            // then
+            verify(dailyMissionInstanceRepository).syncSnapshotsFrom(existing);
+        }
+
+        @Test
         @DisplayName("존재하지 않는 미션은 예외를 발생시킨다")
         void throwsWhenNotFound() {
             when(missionRepository.findById(999L)).thenReturn(Optional.empty());

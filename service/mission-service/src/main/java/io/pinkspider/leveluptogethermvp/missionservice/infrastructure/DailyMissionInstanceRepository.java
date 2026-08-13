@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.DailyMissionInstance;
+import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.Mission;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -212,6 +213,49 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     @Query("UPDATE DailyMissionInstance dmi SET dmi.status = 'MISSED' " +
            "WHERE dmi.status = 'PENDING' AND dmi.instanceDate < :date")
     int markMissedInstances(@Param("date") LocalDate date);
+
+    /**
+     * LUT-361: 미션 수정 시 미완료(PENDING/IN_PROGRESS) 인스턴스의 스냅샷을 원본 미션과 동기화.
+     * 스냅샷은 완료 시점에 확정되는 값이므로 아직 수행하지 않은 인스턴스는 최신 미션 정의를 따라야 한다.
+     * 완료/누락(COMPLETED/MISSED) 인스턴스는 수행 당시의 기록이라 건드리지 않는다.
+     */
+    @Modifying
+    @Query("UPDATE DailyMissionInstance dmi " +
+           "SET dmi.missionTitle = :title, " +
+           "    dmi.missionDescription = :description, " +
+           "    dmi.categoryName = :categoryName, " +
+           "    dmi.categoryId = :categoryId, " +
+           "    dmi.expPerCompletion = :expPerCompletion, " +
+           "    dmi.targetDurationMinutes = :targetDurationMinutes, " +
+           "    dmi.bonusExpOnFullCompletion = :bonusExpOnFullCompletion " +
+           "WHERE dmi.status IN ('PENDING', 'IN_PROGRESS') " +
+           "AND dmi.participant.id IN (" +
+           "    SELECT p.id FROM MissionParticipant p WHERE p.mission.id = :missionId)")
+    int syncSnapshotsForIncompleteInstances(
+        @Param("missionId") Long missionId,
+        @Param("title") String title,
+        @Param("description") String description,
+        @Param("categoryName") String categoryName,
+        @Param("categoryId") Long categoryId,
+        @Param("expPerCompletion") Integer expPerCompletion,
+        @Param("targetDurationMinutes") Integer targetDurationMinutes,
+        @Param("bonusExpOnFullCompletion") Integer bonusExpOnFullCompletion);
+
+    /**
+     * LUT-361: 미션 엔티티의 현재 값으로 미완료 인스턴스 스냅샷 동기화.
+     * getCategoryName()은 커스텀 카테고리 폴백을 포함한다.
+     */
+    default int syncSnapshotsFrom(Mission mission) {
+        return syncSnapshotsForIncompleteInstances(
+            mission.getId(),
+            mission.getTitle(),
+            mission.getDescription(),
+            mission.getCategoryName(),
+            mission.getCategoryId(),
+            mission.getExpPerCompletion(),
+            mission.getTargetDurationMinutes(),
+            mission.getBonusExpOnFullCompletion());
+    }
 
     /**
      * 특정 참여자의 특정 날짜 인스턴스 존재 여부 확인

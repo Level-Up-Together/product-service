@@ -643,6 +643,10 @@ public class MissionService {
                 request.getReminderDaysOfWeek());
         }
 
+        // LUT-361: 이미 생성된 미완료 인스턴스의 스냅샷 동기화 —
+        // 갱신하지 않으면 수정 후 첫 수행이 옛 제목·경험치로 기록된다.
+        dailyMissionInstanceRepository.syncSnapshotsFrom(mission);
+
         log.info("미션 수정 완료: id={}", missionId);
         return MissionResponse.from(mission);
     }

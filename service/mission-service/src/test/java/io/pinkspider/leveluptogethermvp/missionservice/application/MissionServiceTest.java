@@ -1739,6 +1739,41 @@ class MissionServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-361: 미션 수정 시 미완료 인스턴스의 스냅샷을 새 값으로 동기화한다")
+        void updateMission_syncsIncompleteInstanceSnapshots() {
+            // given
+            Long missionId = 1L;
+            Mission mission = Mission.builder()
+                .title("원래 제목")
+                .description("원래 설명")
+                .status(MissionStatus.DRAFT)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(TEST_USER_ID)
+                .expPerCompletion(10)
+                .targetDurationMinutes(30)
+                .bonusExpOnFullCompletion(5)
+                .build();
+            setId(mission, missionId);
+            TestReflectionUtils.setField(mission, "source", MissionSource.USER);
+
+            io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest request =
+                io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionUpdateRequest.builder()
+                    .title("수정된 제목")
+                    .build();
+
+            when(missionRepository.findByIdAndIsDeletedFalse(missionId)).thenReturn(Optional.of(mission));
+            when(dailyMissionInstanceRepository.syncSnapshotsFrom(any(Mission.class))).thenCallRealMethod();
+
+            // when
+            missionService.updateMission(missionId, TEST_USER_ID, request);
+
+            // then: 새 제목을 포함한 스냅샷 전체가 미완료(PENDING/IN_PROGRESS) 인스턴스에 반영된다
+            verify(dailyMissionInstanceRepository).syncSnapshotsForIncompleteInstances(
+                missionId, "수정된 제목", "원래 설명", null, null, 10, 30, 5);
+        }
+
+        @Test
         @DisplayName("LUT-282: 리마인더 시각·요일을 설정한다 (진행중 상태에서도 가능)")
         void updateMission_setReminder_success() {
             // given

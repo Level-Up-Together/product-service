@@ -172,6 +172,11 @@ public class MissionAdminService {
         mission.setGuildBonusExpOnFullCompletion(request.guildBonusExpOnFullCompletion());
 
         Mission saved = missionRepository.save(mission);
+
+        // LUT-361: 이미 생성된 미완료 인스턴스의 스냅샷 동기화 —
+        // 갱신하지 않으면 수정 후 첫 수행이 옛 제목·경험치로 기록된다.
+        dailyMissionInstanceRepository.syncSnapshotsFrom(saved);
+
         log.info("미션 수정 (Admin): {} (ID: {})", request.title(), id);
         return MissionAdminResponse.from(saved);
     }
