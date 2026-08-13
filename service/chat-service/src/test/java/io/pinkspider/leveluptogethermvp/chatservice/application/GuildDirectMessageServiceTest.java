@@ -140,6 +140,29 @@ class GuildDirectMessageServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-367: 차단 관계면 DM 전송이 차단된다 (수신·발신 공통)")
+        void sendMessage_blocked_throws() {
+            // given
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("안녕하세요!")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.isBlockedBetween(USER_ID_1, USER_ID_2)).thenReturn(true);
+
+            // when & then
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                    () -> dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request))
+                .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
+                .hasMessageContaining("error.dm.blocked_user");
+            verify(messageRepository, org.mockito.Mockito.never()).save(any(GuildDirectMessage.class));
+        }
+
+        @Test
         @DisplayName("DM 전송 시 알림 이벤트를 발행한다 (LUT-224)")
         void sendMessage_publishesDirectMessageEvent() {
             // given

@@ -166,8 +166,10 @@ public class MyPageService {
                         friendshipStatusStr = "NONE";
                         log.debug("Friendship was rejected: currentUserId={}, targetUserId={}", currentUserId, targetUserId);
                     } else if (status == FriendshipStatus.BLOCKED) {
-                        // 차단된 경우
-                        friendshipStatusStr = "BLOCKED";
+                        // LUT-367: 차단 주체 구분 — 내가 차단한 경우만 BLOCKED 노출.
+                        // 피차단자에게는 차단 사실을 드러내지 않는다 (NONE — 친구요청은 서버가 차단)
+                        friendshipStatusStr = friendship.getUserId().equals(currentUserId)
+                            ? "BLOCKED" : "NONE";
                     }
                 }
             } catch (Exception e) {

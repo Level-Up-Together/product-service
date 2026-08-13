@@ -79,7 +79,9 @@ public class BffSearchService {
         // 병렬로 모든 검색 수행
         CompletableFuture<List<FeedSearchItem>> feedsFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Page<ActivityFeed> feedPage = activityFeedRepository.searchByKeyword(trimmedKeyword, pageRequest);
+                // LUT-367: 통합검색은 viewer 컨텍스트가 없어 차단 필터를 적용하지 않는다 (센티널)
+                Page<ActivityFeed> feedPage = activityFeedRepository.searchByKeyword(
+                    trimmedKeyword, List.of("__none__"), pageRequest);
                 return feedPage.getContent().stream()
                     .map(this::toFeedSearchItem)
                     .collect(Collectors.toList());

@@ -137,4 +137,13 @@ public class UserQueryFacadeService implements UserQueryFacade {
         return friendService.areFriends(userId1, userId2);
     }
 
+    // ========== 차단 관계 (LUT-367) ==========
+
+    public List<String> getBlockedUserIds(String userId) {
+        return friendService.getBlockedUserIds(userId);
+    }
+
+    public boolean isBlockedBetween(String userId1, String userId2) {
+        return friendService.isBlockedBetween(userId1, userId2);
+    }
 }

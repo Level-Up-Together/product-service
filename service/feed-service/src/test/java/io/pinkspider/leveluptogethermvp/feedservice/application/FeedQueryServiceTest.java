@@ -126,7 +126,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -149,7 +149,7 @@ class FeedQueryServiceTest {
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(membership));
             when(activityFeedRepository.findAccessibleFeeds(
-                eq(TEST_USER_ID), eq(friendIds), eq(List.of(100L)), any(Pageable.class)))
+                eq(TEST_USER_ID), eq(friendIds), eq(List.of(100L)), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(feed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -160,7 +160,7 @@ class FeedQueryServiceTest {
             // then
             assertThat(result.getContent()).hasSize(1);
             verify(activityFeedRepository).findAccessibleFeeds(
-                eq(TEST_USER_ID), eq(friendIds), eq(List.of(100L)), any(Pageable.class));
+                eq(TEST_USER_ID), eq(friendIds), eq(List.of(100L)), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -169,7 +169,7 @@ class FeedQueryServiceTest {
             // given
             ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
             when(activityFeedRepository.findAccessibleFeeds(
-                eq(null), eq(List.of()), eq(List.of()), any(Pageable.class)))
+                eq(null), eq(List.of()), eq(List.of()), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(feed)));
 
             // when
@@ -188,7 +188,7 @@ class FeedQueryServiceTest {
             when(userQueryFacadeService.getFriendIds(TEST_USER_ID)).thenReturn(null);
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(null);
             when(activityFeedRepository.findAccessibleFeeds(
-                eq(TEST_USER_ID), eq(List.of()), eq(List.of()), any(Pageable.class)))
+                eq(TEST_USER_ID), eq(List.of()), eq(List.of()), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
             // when
@@ -289,7 +289,7 @@ class FeedQueryServiceTest {
 
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false)));
-            when(activityFeedRepository.findGuildFeeds(eq(guildId), any(Pageable.class)))
+            when(activityFeedRepository.findGuildFeeds(eq(guildId), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -358,7 +358,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
 
             // when
             Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
@@ -385,7 +385,7 @@ class FeedQueryServiceTest {
             setId(reply, 11L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class)))
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(parent)));
             when(feedCommentRepository.findRepliesByParentIds(List.of(10L)))
                 .thenReturn(List.of(reply));
@@ -422,7 +422,7 @@ class FeedQueryServiceTest {
             setId(myComment, 10L);
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class)))
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(myComment)));
             when(feedCommentRepository.findRepliesByParentIds(anyList())).thenReturn(List.of());
             when(feedCommentLikeRepository.countByCommentIds(anyList())).thenReturn(List.of());
@@ -455,7 +455,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.searchByKeyword(eq(keyword), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(eq(keyword), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -480,7 +480,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findByCategoryTypes(anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findByCategoryTypes(anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -503,7 +503,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository, never()).findByCategoryTypes(anyList(), any(Pageable.class));
+            verify(activityFeedRepository, never()).findByCategoryTypes(anyList(), anyList(), any(Pageable.class));
         }
     }
 
@@ -519,7 +519,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "en-US,en;q=0.9";
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -589,7 +589,7 @@ class FeedQueryServiceTest {
 
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false)));
-            when(activityFeedRepository.findGuildFeeds(eq(guildId), any(Pageable.class)))
+            when(activityFeedRepository.findGuildFeeds(eq(guildId), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -611,7 +611,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "zh";
 
-            when(activityFeedRepository.findByCategoryTypes(anyList(), any(Pageable.class)))
+            when(activityFeedRepository.findByCategoryTypes(anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -633,7 +633,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "en";
 
-            when(activityFeedRepository.searchByKeyword(eq(keyword), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(eq(keyword), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -656,7 +656,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
             String acceptLanguage = "fr";
 
-            when(activityFeedRepository.searchByKeywordAndCategory(eq(keyword), anyList(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeywordAndCategory(eq(keyword), anyList(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -706,7 +706,7 @@ class FeedQueryServiceTest {
             String acceptLanguage = "es";
 
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 5, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -732,7 +732,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -757,7 +757,7 @@ class FeedQueryServiceTest {
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(featuredFeed));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(normalFeed)));
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -781,7 +781,7 @@ class FeedQueryServiceTest {
                 .thenReturn(List.of(1L));
             when(activityFeedRepository.findByIdIn(List.of(1L)))
                 .thenReturn(List.of(feed));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(feed))); // 동일한 피드
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -804,7 +804,7 @@ class FeedQueryServiceTest {
             String acceptLanguage = "en";
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -947,7 +947,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1029,7 +1029,7 @@ class FeedQueryServiceTest {
 
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(new GuildMembershipInfo(guildId, "테스트길드", null, 1, false, false)));
-            when(activityFeedRepository.findGuildFeeds(eq(guildId), any(Pageable.class)))
+            when(activityFeedRepository.findGuildFeeds(eq(guildId), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1055,7 +1055,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.searchByKeyword(eq(keyword), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(eq(keyword), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1079,7 +1079,7 @@ class FeedQueryServiceTest {
             // given
             Page<ActivityFeed> emptyPage = new PageImpl<>(Collections.emptyList());
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(emptyPage);
             when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED), anyList()))
                 .thenReturn(Collections.emptyMap());
@@ -1127,7 +1127,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
 
             Map<String, Boolean> underReviewMap = new HashMap<>();
             underReviewMap.put("1", true);
@@ -1154,7 +1154,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -1173,7 +1173,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList())).thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
@@ -1208,7 +1208,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1239,7 +1239,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1276,7 +1276,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1308,7 +1308,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenThrow(new RuntimeException("사용자 조회 실패"));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1341,7 +1341,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             // 현재 프로필은 레벨 20으로 성장한 상태
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID,
@@ -1367,7 +1367,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, OTHER_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1384,7 +1384,7 @@ class FeedQueryServiceTest {
         void getPublicFeeds_emptyFeeds_noLikeQuery() {
             // given
             Page<ActivityFeed> emptyPage = new PageImpl<>(Collections.emptyList());
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(emptyPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(emptyPage);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1410,7 +1410,7 @@ class FeedQueryServiceTest {
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(List.of(99L));
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1443,7 +1443,7 @@ class FeedQueryServiceTest {
 
             when(adminInternalFeignClient.getFeaturedFeedIds(categoryId)).thenReturn(featuredIds);
             when(activityFeedRepository.findByIdIn(featuredIds)).thenReturn(featuredFeeds);
-            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeedsByCategoryId(eq(categoryId), any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(normalPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1471,7 +1471,7 @@ class FeedQueryServiceTest {
             // then
             assertThat(result.getContent()).isEmpty();
             org.mockito.Mockito.verify(activityFeedRepository, org.mockito.Mockito.never())
-                .searchByKeywordAndCategory(any(), anyList(), any());
+                .searchByKeywordAndCategory(any(), anyList(), anyList(), any());
         }
     }
 
@@ -1604,7 +1604,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1615,7 +1615,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), any(Pageable.class));
+            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -1624,7 +1624,7 @@ class FeedQueryServiceTest {
             // given
             Page<ActivityFeed> feedPage = new PageImpl<>(Collections.emptyList());
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1633,7 +1633,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), any(Pageable.class));
+            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -1643,7 +1643,7 @@ class FeedQueryServiceTest {
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1654,7 +1654,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), any(Pageable.class));
+            verify(activityFeedRepository).findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -1724,7 +1724,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), any(Pageable.class));
+            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -1738,7 +1738,7 @@ class FeedQueryServiceTest {
 
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(membership));
-            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class)))
+            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -1750,7 +1750,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class));
+            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -1914,7 +1914,7 @@ class FeedQueryServiceTest {
             // given — getFilteredFeeds(null, null) → null/null 분기로 getPublicFeeds() 호출
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(createTestFeed(1L, TEST_USER_ID)));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class))).thenReturn(feedPage);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class))).thenReturn(feedPage);
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
 
             // when
@@ -1951,7 +1951,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(comment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -1985,7 +1985,7 @@ class FeedQueryServiceTest {
 
             Page<FeedComment> commentPage = new PageImpl<>(List.of(deletedComment));
             when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
-            when(feedCommentRepository.findRootCommentsByFeedId(eq(feedId), any(Pageable.class))).thenReturn(commentPage);
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class))).thenReturn(commentPage);
             when(userQueryFacadeService.getUserProfiles(anyList()))
                 .thenReturn(Map.of(TEST_USER_ID, new UserProfileInfo(TEST_USER_ID, "테스트유저", null, 3, null, null, null)));
             when(reportService.isUnderReviewBatch(any(), anyList())).thenReturn(Collections.emptyMap());
@@ -2065,7 +2065,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).isEmpty();
-            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), any(Pageable.class));
+            verify(activityFeedRepository, never()).findGuildOnlyFeedsByGuildIds(anyList(), anyList(), any(Pageable.class));
         }
 
         @Test
@@ -2079,7 +2079,7 @@ class FeedQueryServiceTest {
 
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(List.of(membership));
-            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class)))
+            when(activityFeedRepository.findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2091,7 +2091,7 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), any(Pageable.class));
+            verify(activityFeedRepository).findGuildOnlyFeedsByGuildIds(eq(List.of(guildId)), anyList(), any(Pageable.class));
         }
     }
 
@@ -2110,7 +2110,7 @@ class FeedQueryServiceTest {
             // 현재 유저는 해당 길드의 멤버가 아님
             when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID))
                 .thenReturn(Collections.emptyList());
-            when(activityFeedRepository.findPublicFeedsByGuildId(eq(guildId), any(Pageable.class)))
+            when(activityFeedRepository.findPublicFeedsByGuildId(eq(guildId), anyList(), any(Pageable.class)))
                 .thenReturn(publicFeedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2121,8 +2121,8 @@ class FeedQueryServiceTest {
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(activityFeedRepository).findPublicFeedsByGuildId(eq(guildId), any(Pageable.class));
-            verify(activityFeedRepository, never()).findGuildFeeds(eq(guildId), any(Pageable.class));
+            verify(activityFeedRepository).findPublicFeedsByGuildId(eq(guildId), anyList(), any(Pageable.class));
+            verify(activityFeedRepository, never()).findGuildFeeds(eq(guildId), anyList(), any(Pageable.class));
         }
     }
 
@@ -2150,7 +2150,7 @@ class FeedQueryServiceTest {
             feed.setUserTitle("용감한 전사"); // 작성 시점 한국어 스냅샷
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2176,7 +2176,7 @@ class FeedQueryServiceTest {
             feed.setUserTitle("용감한 전사");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2198,7 +2198,7 @@ class FeedQueryServiceTest {
             feed.setUserTitle("용감한 전사");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());
@@ -2225,7 +2225,7 @@ class FeedQueryServiceTest {
             feed.setUserRightTitle("전사");
             Page<ActivityFeed> feedPage = new PageImpl<>(List.of(feed));
 
-            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), any(Pageable.class)))
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
                 .thenReturn(Collections.emptyList());

@@ -468,7 +468,7 @@ class FriendControllerTest {
             "fixture/friend/friendResponseList.json",
             new TypeReference<List<FriendResponse>>() {});
 
-        when(friendService.getBlockedUsers(anyString()))
+        when(friendService.getBlockedUsers(anyString(), any()))
             .thenReturn(responses);
 
         // when

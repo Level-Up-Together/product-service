@@ -51,6 +51,7 @@ public class GuildDirectMessageService {
 
         validateGuildExists(guildId);
         validateBothAreMember(guildId, senderId, recipientId);
+        validateNotBlocked(senderId, recipientId);
 
         String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
@@ -222,6 +223,7 @@ public class GuildDirectMessageService {
     public DirectConversationResponse getOrCreateConversation(Long guildId, String userId, String otherUserId) {
         validateGuildExists(guildId);
         validateBothAreMember(guildId, userId, otherUserId);
+        validateNotBlocked(userId, otherUserId);
 
         GuildDirectConversation conversation = conversationRepository
             .findConversationIncludingInactive(guildId, userId, otherUserId)
@@ -292,6 +294,16 @@ public class GuildDirectMessageService {
     private void validateGuildExists(Long guildId) {
         if (!guildQueryFacadeService.guildExists(guildId)) {
             throw new IllegalArgumentException("길드를 찾을 수 없습니다: " + guildId);
+        }
+    }
+
+    /**
+     * LUT-367: 차단 관계 DM 차단 — 어느 한쪽이라도 상대를 차단했으면 수신·발신 모두 막는다.
+     * 피차단자에게 차단 사실이 드러나지 않도록 방향 구분 없는 동일 메시지를 쓴다.
+     */
+    private void validateNotBlocked(String userId1, String userId2) {
+        if (userQueryFacadeService.isBlockedBetween(userId1, userId2)) {
+            throw new io.pinkspider.global.exception.CustomException("400", "error.dm.blocked_user");
         }
     }
 

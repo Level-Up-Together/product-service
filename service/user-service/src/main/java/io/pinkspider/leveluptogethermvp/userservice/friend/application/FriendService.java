@@ -169,6 +169,9 @@ public class FriendService {
     // 사용자 차단
     @Transactional
     public void blockUser(String userId, String targetId) {
+        if (userId.equals(targetId)) {
+            throw new IllegalArgumentException("자기 자신을 차단할 수 없습니다.");
+        }
         Optional<Friendship> existing = friendshipRepository.findByUserIdAndFriendId(userId, targetId);
 
         if (existing.isPresent()) {
@@ -187,6 +190,18 @@ public class FriendService {
             friendship.block();
             friendshipRepository.save(friendship);
         }
+
+        // LUT-367: 반대 방향 행 정리 — 친구 관계는 한 행(요청자→수신자)이라 상대가 만든
+        // ACCEPTED/PENDING 행이 남으면 차단 후에도 친구로 집계되거나 미처리 요청이
+        // 수락되는 엣지가 생긴다. 상대도 나를 차단한 행(BLOCKED)만 유지한다.
+        friendshipRepository.findByUserIdAndFriendId(targetId, userId)
+            .filter(reverse -> !reverse.isBlocked())
+            .ifPresent(reverse -> {
+                if (reverse.isAccepted()) {
+                    eventPublisher.publishEvent(new FriendRemovedEvent(userId, targetId));
+                }
+                friendshipRepository.delete(reverse);
+            });
 
         // 양쪽 사용자의 친구 캐시 무효화 (기존 친구 관계가 차단으로 변경될 수 있음)
         friendCacheService.evictBothFriendCaches(userId, targetId);
@@ -386,9 +401,47 @@ public class FriendService {
 
     // 차단 목록 조회
     public List<FriendResponse> getBlockedUsers(String userId) {
-        return friendshipRepository.findBlockedUsers(userId).stream()
-            .map(f -> FriendResponse.simpleFrom(f, userId))
+        return getBlockedUsers(userId, null);
+    }
+
+    /** LUT-367: 차단 목록 — 차단 해제 UI용으로 닉네임/사진/레벨/칭호를 포함해 내린다 */
+    public List<FriendResponse> getBlockedUsers(String userId, String locale) {
+        List<Friendship> blocked = friendshipRepository.findBlockedUsers(userId);
+
+        List<String> targetIds = blocked.stream()
+            .map(Friendship::getFriendId)
             .toList();
+
+        Map<String, Users> userMap = getUserMap(targetIds);
+        Map<String, Integer> levelMap = getLevelMap(targetIds);
+        Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(targetIds, locale);
+
+        return blocked.stream().map(friendship -> {
+            String targetId = friendship.getFriendId();
+            Users target = userMap.get(targetId);
+            EquippedTitlePair titlePair = titlePairMap.getOrDefault(targetId, EquippedTitlePair.EMPTY);
+            return FriendResponse.from(
+                friendship,
+                userId,
+                target != null ? target.getNickname() : null,
+                target != null ? target.getPicture() : null,
+                levelMap.getOrDefault(targetId, 1),
+                titlePair.left(),
+                titlePair.leftRarity(),
+                titlePair.right(),
+                titlePair.rightRarity()
+            );
+        }).toList();
+    }
+
+    /** LUT-367: 차단한 유저 ID 목록 (파사드 — 피드/댓글 필터링용) */
+    public List<String> getBlockedUserIds(String userId) {
+        return friendshipRepository.findBlockedUserIds(userId);
+    }
+
+    /** LUT-367: 양방향 차단 여부 (파사드 — DM/알림 차단용) */
+    public boolean isBlockedBetween(String userId1, String userId2) {
+        return friendshipRepository.isBlockedBetween(userId1, userId2);
     }
 
     // 친구 수 조회

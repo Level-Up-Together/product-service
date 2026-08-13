@@ -365,6 +365,21 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
+## 유저 차단 (LUT-367)
+
+차단은 `friendship.status = BLOCKED` 행(방향 있음: userId=차단자)으로 표현. API는 `/api/v1/friends/block/{targetId}`
+(POST/DELETE) + `/blocked`(목록, 닉네임·레벨·칭호 포함). 차단 시 반대방향 친구/요청 행은 정리된다(잔존 시 차단 후에도
+친구로 집계되는 엣지). 파사드: `UserQueryFacade.getBlockedUserIds`(단방향, 피드·댓글 필터) / `isBlockedBetween`(양방향, DM·알림).
+
+- **피드/댓글**: viewer 기준 차단 유저 콘텐츠를 쿼리 레벨에서 제외 (`excludedUserIds` NOT IN — 빈 리스트 오동작
+  방지용 `__none__` 센티널). 친구 기반 피드는 차단=친구해제라 필터 불필요.
+- **DM**: 전송/방 생성 시 양방향 차단 검사 (`error.dm.blocked_user` — 방향 무관 동일 메시지로 차단 사실 비노출).
+- **친구요청**: 기존 양방향 BLOCKED 검사로 원천 차단.
+- **알림**: 상호작용성(댓글·대댓글·댓글좋아요·길드초대)만 리스너에서 양방향 차단 스킵 (DM·친구요청은 원천 차단).
+- **프로필**: 내가 차단한 경우만 `friendship_status=BLOCKED`(피차단자에겐 NONE — 차단 사실 비노출),
+  웹은 주간캘린더/피드 탭 숨김 + '차단한 유저입니다'. 유저 피드 API도 서버에서 빈 목록.
+- **웹**: 프로필 ⋯ 바텀시트 차단하기/해제(extraActions), 설정 > 차단 목록(유저별 해제).
+
 ## 약관 관리 (userservice/terms, LUT-364)
 
 `terms`(약관) → `term_versions`(버전, content) → `user_term_agreements`(유저×버전 동의). user_db 소속,

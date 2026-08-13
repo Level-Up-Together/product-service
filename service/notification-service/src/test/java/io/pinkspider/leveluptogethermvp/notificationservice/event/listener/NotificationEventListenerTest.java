@@ -55,6 +55,9 @@ class NotificationEventListenerTest {
     @Mock
     private GuildQueryFacade guildQueryFacadeService;
 
+    @Mock
+    private io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
+
     @InjectMocks
     private NotificationEventListener eventListener;
 
@@ -461,6 +464,35 @@ class NotificationEventListenerTest {
             eventListener.handleFeedComment(event);
             verify(notificationService, never()).sendNotification(
                 anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 관계면 댓글 알림을 보내지 않는다")
+        void shouldSkipWhenBlocked() {
+            org.mockito.Mockito.when(
+                    userQueryFacadeService.isBlockedBetween("owner-456", "commenter-123"))
+                .thenReturn(true);
+            FeedCommentEvent event = new FeedCommentEvent("commenter-123", "owner-456", "댓글러닉네임", 1L);
+
+            eventListener.handleFeedComment(event);
+
+            verify(notificationService, never()).sendNotification(
+                anyString(), any(NotificationType.class), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("LUT-367: 차단 조회가 실패해도 알림은 정상 전송된다")
+        void shouldNotifyWhenBlockCheckFails() {
+            org.mockito.Mockito.when(
+                    userQueryFacadeService.isBlockedBetween(anyString(), anyString()))
+                .thenThrow(new RuntimeException("facade error"));
+            FeedCommentEvent event = new FeedCommentEvent("commenter-123", "owner-456", "댓글러닉네임", 1L);
+
+            eventListener.handleFeedComment(event);
+
+            verify(notificationService).sendNotification(
+                eq("owner-456"), eq(NotificationType.COMMENT_ON_MY_FEED),
+                eq(1L), isNull(), eq("댓글러닉네임"));
         }
     }
 

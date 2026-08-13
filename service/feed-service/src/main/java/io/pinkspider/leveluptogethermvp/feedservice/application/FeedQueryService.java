@@ -95,7 +95,7 @@ public class FeedQueryService {
         List<String> friendIds = resolveFriendIds(currentUserId);
         List<Long> guildIds = resolveGuildIds(currentUserId);
         Page<ActivityFeed> feeds = activityFeedRepository.findAccessibleFeeds(
-            currentUserId, friendIds, guildIds, pageable);
+            currentUserId, friendIds, guildIds, resolveExcludedUserIds(currentUserId), pageable);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
@@ -171,7 +171,8 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findGuildOnlyFeedsByGuildIds(guildIds, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findGuildOnlyFeedsByGuildIds(
+            guildIds, resolveExcludedUserIds(userId), pageable);
         return enrichFeeds(feeds, userId, targetLocale);
     }
 
@@ -184,6 +185,18 @@ public class FeedQueryService {
 
         Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsByUserId(userId, pageable);
         return enrichFeeds(feeds, userId, targetLocale);
+    }
+
+    /**
+     * LUT-367: 차단한 유저 콘텐츠 제외 목록.
+     * JPQL NOT IN 은 빈 리스트에서 오동작하므로 항상 매치되지 않는 센티널을 넣는다.
+     */
+    private List<String> resolveExcludedUserIds(String userId) {
+        if (userId == null) {
+            return List.of("__none__");
+        }
+        List<String> blocked = userQueryFacadeService.getBlockedUserIds(userId);
+        return (blocked == null || blocked.isEmpty()) ? List.of("__none__") : blocked;
     }
 
     /**
@@ -278,7 +291,8 @@ public class FeedQueryService {
         List<String> friendIds = resolveFriendIds(currentUserId);
         List<Long> guildIds = resolveGuildIds(currentUserId);
         Page<ActivityFeed> categoryFeeds = activityFeedRepository.findAccessibleFeedsByCategoryId(
-            categoryId, currentUserId, friendIds, guildIds, pageable);
+            categoryId, currentUserId, friendIds, guildIds,
+            resolveExcludedUserIds(currentUserId), pageable);
 
         // 3. Featured 피드와 합치기 (첫 페이지에만 Featured 추가)
         List<ActivityFeed> combinedFeeds = new ArrayList<>();
@@ -400,6 +414,12 @@ public class FeedQueryService {
         Pageable pageable = PageRequest.of(page, size);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
+        // LUT-367: 차단한 유저의 피드 탭은 빈 목록 — 프론트 탭 숨김의 서버측 방어
+        if (currentUserId != null
+            && resolveExcludedUserIds(currentUserId).contains(targetUserId)) {
+            return Page.empty(pageable);
+        }
+
         List<String> friendIds = resolveFriendIds(currentUserId);
         List<Long> guildIds = resolveGuildIds(currentUserId);
 
@@ -426,11 +446,13 @@ public class FeedQueryService {
             .stream().map(GuildMembershipInfo::guildId).toList();
         if (!myGuildIds.contains(guildId)) {
             // 비멤버는 PUBLIC 피드만 조회
-            Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsByGuildId(guildId, pageable);
+            Page<ActivityFeed> feeds = activityFeedRepository.findPublicFeedsByGuildId(
+                guildId, resolveExcludedUserIds(currentUserId), pageable);
             return enrichFeeds(feeds, currentUserId, SupportedLocale.extractLanguageCode(acceptLanguage));
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeeds(guildId, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findGuildFeeds(
+            guildId, resolveExcludedUserIds(currentUserId), pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
@@ -473,7 +495,8 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.findByCategoryTypes(types, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.findByCategoryTypes(
+            types, resolveExcludedUserIds(currentUserId), pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
         // 신고 상태 일괄 조회
@@ -507,7 +530,8 @@ public class FeedQueryService {
      */
     public Page<ActivityFeedResponse> searchFeeds(String keyword, String currentUserId, int page, int size, String acceptLanguage) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeyword(keyword, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeyword(
+            keyword, resolveExcludedUserIds(currentUserId), pageable);
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
@@ -550,7 +574,8 @@ public class FeedQueryService {
             return Page.empty(pageable);
         }
 
-        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeywordAndCategory(keyword, types, pageable);
+        Page<ActivityFeed> feeds = activityFeedRepository.searchByKeywordAndCategory(
+            keyword, types, resolveExcludedUserIds(currentUserId), pageable);
         Set<Long> likedFeedIds = getLikedFeedIds(currentUserId, feeds.getContent());
 
         // 신고 상태 일괄 조회
@@ -621,7 +646,10 @@ public class FeedQueryService {
         feedAccessChecker.assertAccessible(feed, currentUserId);
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<FeedComment> rootPage = feedCommentRepository.findRootCommentsByFeedId(feedId, pageable);
+        // LUT-367: 차단한 유저 댓글은 루트 페이징 단계에서 제외한다
+        List<String> excludedUserIds = resolveExcludedUserIds(currentUserId);
+        Page<FeedComment> rootPage = feedCommentRepository.findRootCommentsByFeedIdExcluding(
+            feedId, excludedUserIds, pageable);
         List<FeedComment> roots = rootPage.getContent();
         if (roots.isEmpty()) {
             return rootPage.map(c -> FeedCommentResponse.from(c, null, currentUserId));
@@ -629,9 +657,11 @@ public class FeedQueryService {
 
         String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
 
-        // 1) 대댓글 일괄 조회 (N+1 방지)
+        // 1) 대댓글 일괄 조회 (N+1 방지) — LUT-367: 차단 유저 대댓글도 제외
         List<Long> rootIds = roots.stream().map(FeedComment::getId).toList();
-        List<FeedComment> replies = feedCommentRepository.findRepliesByParentIds(rootIds);
+        List<FeedComment> replies = feedCommentRepository.findRepliesByParentIds(rootIds).stream()
+            .filter(r -> !excludedUserIds.contains(r.getUserId()))
+            .toList();
 
         // 2) 신고 상태 / 좋아요 수 / 좋아요 여부 일괄 조회 (부모 + 대댓글 합산)
         List<Long> allCommentIds = new ArrayList<>(rootIds);

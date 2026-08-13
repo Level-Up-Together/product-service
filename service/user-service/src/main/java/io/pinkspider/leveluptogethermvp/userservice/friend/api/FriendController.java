@@ -136,11 +136,12 @@ public class FriendController {
         return ResponseEntity.ok(ApiResult.getBase());
     }
 
-    // 차단 목록 조회
+    // 차단 목록 조회 (LUT-367: 닉네임/사진/레벨/칭호 포함 — 차단 해제 UI용)
     @GetMapping("/blocked")
     public ResponseEntity<ApiResult<List<FriendResponse>>> getBlockedUsers(
-        @CurrentUser String userId) {
-        List<FriendResponse> responses = friendService.getBlockedUsers(userId);
+        @CurrentUser String userId,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+        List<FriendResponse> responses = friendService.getBlockedUsers(userId, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<List<FriendResponse>>builder().value(responses).build());
     }
 

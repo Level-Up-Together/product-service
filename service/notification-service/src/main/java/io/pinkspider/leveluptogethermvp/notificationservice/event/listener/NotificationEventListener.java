@@ -49,8 +49,24 @@ public class NotificationEventListener {
 
     private final NotificationService notificationService;
     private final GuildQueryFacade guildQueryFacadeService;
+    private final io.pinkspider.global.facade.UserQueryFacade userQueryFacadeService;
 
     // ==================== 헬퍼 메서드 ====================
+
+        /**
+     * LUT-367: 차단 관계 상호작용 알림 스킵 — 어느 한쪽이라도 상대를 차단했으면 보내지 않는다.
+     * 차단 조회 실패가 알림 전체를 막지 않도록 예외는 미차단으로 처리한다.
+     */
+    private boolean isBlockedInteraction(String recipientId, String actorId) {
+        if (recipientId == null || actorId == null) {
+            return false;
+        }
+        try {
+            return userQueryFacadeService.isBlockedBetween(recipientId, actorId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     private void safeHandle(String eventName, Runnable action) {
         try {
@@ -200,6 +216,7 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildInvitation(GuildInvitationEvent event) {
+        if (isBlockedInteraction(event.inviteeId(), event.userId())) return;
         safeHandle("길드 초대", () -> notificationService.sendNotification(
             event.inviteeId(), NotificationType.GUILD_INVITE,
             event.invitationId(), null,
@@ -240,6 +257,7 @@ public class NotificationEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedComment(FeedCommentEvent event) {
         if (event.userId().equals(event.feedOwnerId())) return;
+        if (isBlockedInteraction(event.feedOwnerId(), event.userId())) return;
         safeHandle("피드 댓글", () -> notificationService.sendNotification(
             event.feedOwnerId(), NotificationType.COMMENT_ON_MY_FEED,
             event.feedId(), null, event.commenterNickname()));
@@ -255,7 +273,8 @@ public class NotificationEventListener {
     public void handleFeedCommentReply(FeedCommentReplyEvent event) {
         // 부모 작성자 알림
         if (event.parentCommentAuthorId() != null
-            && !event.parentCommentAuthorId().equals(event.userId())) {
+            && !event.parentCommentAuthorId().equals(event.userId())
+            && !isBlockedInteraction(event.parentCommentAuthorId(), event.userId())) {
             safeHandle("피드 대댓글(부모작성자)", () -> notificationService.sendNotification(
                 event.parentCommentAuthorId(), NotificationType.COMMENT_REPLY,
                 event.feedId(), null, event.replierNickname()));
@@ -263,9 +282,12 @@ public class NotificationEventListener {
         // 같은 부모에 대댓글 단 다른 유저들 (replier/부모작성자 제외, 중복 제거)
         if (event.threadParticipants() != null && !event.threadParticipants().isEmpty()) {
             safeHandleMultiple("피드 대댓글(스레드참여자)", event.threadParticipants(), event.userId(),
-                participantId -> notificationService.sendNotification(
-                    participantId, NotificationType.COMMENT_REPLY,
-                    event.feedId(), null, event.replierNickname()));
+                participantId -> {
+                    if (isBlockedInteraction(participantId, event.userId())) return;
+                    notificationService.sendNotification(
+                        participantId, NotificationType.COMMENT_REPLY,
+                        event.feedId(), null, event.replierNickname());
+                });
         }
     }
 
@@ -276,6 +298,7 @@ public class NotificationEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedCommentLiked(FeedCommentLikedEvent event) {
         if (event.userId().equals(event.commentAuthorId())) return;
+        if (isBlockedInteraction(event.commentAuthorId(), event.userId())) return;
         safeHandle("피드 댓글 좋아요", () -> notificationService.sendNotification(
             event.commentAuthorId(), NotificationType.COMMENT_LIKED,
             event.feedId(), null, event.likerNickname()));

@@ -31,16 +31,18 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
      * - 같은 길드원이 작성한 GUILD 공개 피드
      * 비로그인은 userId=null, friendIds/guildIds=빈 리스트 → PUBLIC만 반환됨
      */
-    @Query("SELECT f FROM ActivityFeed f WHERE "
+    @Query("SELECT f FROM ActivityFeed f WHERE ("
         + "f.visibility = 'PUBLIC' "
         + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
         + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
-        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD') "
+        + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')) "
+        + "AND f.userId NOT IN :excludedUserIds "
         + "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findAccessibleFeeds(
         @Param("userId") String userId,
         @Param("friendIds") List<String> friendIds,
         @Param("guildIds") List<Long> guildIds,
+        @Param("excludedUserIds") List<String> excludedUserIds,
         Pageable pageable);
 
     // 전체 공개 피드 조회 (시간 범위 필터)
@@ -92,13 +94,21 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // 길드 피드 조회 (멤버용: PUBLIC + GUILD)
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
-           "AND f.visibility IN ('PUBLIC', 'GUILD') ORDER BY f.createdAt DESC")
-    Page<ActivityFeed> findGuildFeeds(@Param("guildId") Long guildId, Pageable pageable);
+           "AND f.visibility IN ('PUBLIC', 'GUILD') " +
+           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findGuildFeeds(
+        @Param("guildId") Long guildId,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
 
     // 길드 피드 조회 (비멤버용: PUBLIC만)
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId = :guildId " +
-           "AND f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
-    Page<ActivityFeed> findPublicFeedsByGuildId(@Param("guildId") Long guildId, Pageable pageable);
+           "AND f.visibility = 'PUBLIC' " +
+           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
+    Page<ActivityFeed> findPublicFeedsByGuildId(
+        @Param("guildId") Long guildId,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
 
     // 내 타임라인 피드 조회 (내 피드 + 친구 피드)
     @Query("SELECT f FROM ActivityFeed f WHERE " +
@@ -118,9 +128,12 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // 길드공개 피드만 조회 — GUILD 필터 탭용
     @Query("SELECT f FROM ActivityFeed f WHERE f.guildId IN :guildIds " +
-           "AND f.visibility = 'GUILD' ORDER BY f.createdAt DESC")
+           "AND f.visibility = 'GUILD' " +
+           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findGuildOnlyFeedsByGuildIds(
-        @Param("guildIds") List<Long> guildIds, Pageable pageable);
+        @Param("guildIds") List<Long> guildIds,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
 
     // 특정 타입 피드 조회
     Page<ActivityFeed> findByActivityTypeAndVisibilityOrderByCreatedAtDesc(
@@ -128,25 +141,33 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
 
     // 카테고리별 피드 조회
     @Query("SELECT f FROM ActivityFeed f WHERE f.activityType IN :types " +
-           "AND f.visibility = 'PUBLIC' ORDER BY f.createdAt DESC")
+           "AND f.visibility = 'PUBLIC' " +
+           "AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findByCategoryTypes(
-        @Param("types") List<ActivityType> types, Pageable pageable);
+        @Param("types") List<ActivityType> types,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
 
     // 검색 기능 - 제목(미션명) 기준 검색 (전체 카테고리)
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
            "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "AND f.userId NOT IN :excludedUserIds " +
            "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> searchByKeyword(
-        @Param("keyword") String keyword, Pageable pageable);
+        @Param("keyword") String keyword,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
 
     // 검색 기능 - 제목(미션명) 기준 검색 (카테고리 내 검색)
     @Query("SELECT f FROM ActivityFeed f WHERE f.visibility = 'PUBLIC' " +
            "AND f.activityType IN :types " +
            "AND LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "AND f.userId NOT IN :excludedUserIds " +
            "ORDER BY f.createdAt DESC")
     Page<ActivityFeed> searchByKeywordAndCategory(
         @Param("keyword") String keyword,
         @Param("types") List<ActivityType> types,
+        @Param("excludedUserIds") List<String> excludedUserIds,
         Pageable pageable);
 
     // 카테고리별 공개 피드 조회 (미션 카테고리 기준)
@@ -164,12 +185,13 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
         + "OR (:userId IS NOT NULL AND f.userId = :userId AND f.visibility <> 'PRIVATE') "
         + "OR (f.userId IN :friendIds AND f.visibility = 'FRIENDS') "
         + "OR (f.guildId IN :guildIds AND f.visibility = 'GUILD')"
-        + ") ORDER BY f.createdAt DESC")
+        + ") AND f.userId NOT IN :excludedUserIds ORDER BY f.createdAt DESC")
     Page<ActivityFeed> findAccessibleFeedsByCategoryId(
         @Param("categoryId") Long categoryId,
         @Param("userId") String userId,
         @Param("friendIds") List<String> friendIds,
         @Param("guildIds") List<Long> guildIds,
+        @Param("excludedUserIds") List<String> excludedUserIds,
         Pageable pageable);
 
     // 카테고리별 공개 피드 조회 (시간 범위 필터)

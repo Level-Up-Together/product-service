@@ -33,6 +33,15 @@ public interface FeedCommentRepository extends JpaRepository<FeedComment, Long> 
            "ORDER BY c.createdAt ASC")
     Page<FeedComment> findRootCommentsByFeedId(@Param("feedId") Long feedId, Pageable pageable);
 
+    /** LUT-367: 차단 유저 댓글 제외 버전 — 루트 페이징이 정확하도록 쿼리에서 거른다 */
+    @Query("SELECT c FROM FeedComment c WHERE c.feed.id = :feedId AND c.parent IS NULL " +
+           "AND c.userId NOT IN :excludedUserIds " +
+           "ORDER BY c.createdAt ASC")
+    Page<FeedComment> findRootCommentsByFeedIdExcluding(
+        @Param("feedId") Long feedId,
+        @Param("excludedUserIds") List<String> excludedUserIds,
+        Pageable pageable);
+
     /**
      * 여러 부모 댓글의 대댓글을 한 번에 조회 (N+1 방지).
      */

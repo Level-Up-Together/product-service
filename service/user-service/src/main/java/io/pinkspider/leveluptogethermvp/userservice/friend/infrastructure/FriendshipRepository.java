@@ -70,10 +70,21 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     @Query("SELECT f FROM Friendship f WHERE f.userId = :userId AND f.status = 'BLOCKED'")
     List<Friendship> findBlockedUsers(@Param("userId") String userId);
 
+    // LUT-367: 차단한 유저 ID 목록 (피드/댓글 콘텐츠 필터링용 — 파사드 경유)
+    @Query("SELECT f.friendId FROM Friendship f WHERE f.userId = :userId AND f.status = 'BLOCKED'")
+    List<String> findBlockedUserIds(@Param("userId") String userId);
+
     // 차단 여부 확인
     @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f " +
            "WHERE f.userId = :userId AND f.friendId = :targetId AND f.status = 'BLOCKED'")
     boolean isBlocked(@Param("userId") String userId, @Param("targetId") String targetId);
+
+    // LUT-367: 양방향 차단 여부 — 어느 한쪽이라도 차단했는지 (DM/알림 차단 판정)
+    @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f " +
+           "WHERE ((f.userId = :userId1 AND f.friendId = :userId2) OR " +
+           "(f.userId = :userId2 AND f.friendId = :userId1)) " +
+           "AND f.status = 'BLOCKED'")
+    boolean isBlockedBetween(@Param("userId1") String userId1, @Param("userId2") String userId2);
 
     // 친구 여부 확인
     @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f " +

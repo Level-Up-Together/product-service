@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.bffservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -121,7 +122,7 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(missionPage);
@@ -188,7 +189,7 @@ class BffSearchServiceTest {
             Page<Users> emptyUserPage = new PageImpl<>(Collections.emptyList());
             Page<Guild> emptyGuildPage = new PageImpl<>(Collections.emptyList());
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(emptyFeedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(emptyMissionPage);
@@ -220,7 +221,7 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenThrow(new RuntimeException("피드 검색 실패"));
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(missionPage);
@@ -252,7 +253,7 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenThrow(new RuntimeException("미션 검색 실패"));
@@ -284,7 +285,7 @@ class BffSearchServiceTest {
             Page<Mission> missionPage = new PageImpl<>(List.of(testMission));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(missionPage);
@@ -316,7 +317,7 @@ class BffSearchServiceTest {
             Page<Mission> missionPage = new PageImpl<>(List.of(testMission));
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(missionPage);
@@ -349,7 +350,7 @@ class BffSearchServiceTest {
             Page<Users> userPage = new PageImpl<>(List.of(testUser));
             Page<Guild> guildPage = new PageImpl<>(List.of(testGuild));
 
-            when(activityFeedRepository.searchByKeyword(anyString(), any(Pageable.class)))
+            when(activityFeedRepository.searchByKeyword(anyString(), anyList(), any(Pageable.class)))
                 .thenReturn(feedPage);
             when(missionRepository.searchByKeyword(anyString(), any(Pageable.class)))
                 .thenReturn(missionPage);

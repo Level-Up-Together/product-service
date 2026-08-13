@@ -355,6 +355,50 @@ class FriendServiceTest {
             // then
             verify(friendshipRepository).save(any(Friendship.class));
         }
+
+        @Test
+        @DisplayName("LUT-367: 상대가 만든 ACCEPTED 행이 있으면 삭제해 친구 집계에서 제외한다")
+        void blockUser_reverseAcceptedRow_deleted() {
+            // given: 친구 관계 행이 상대(요청자) 방향으로 존재
+            Friendship reverse = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.ACCEPTED);
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(reverse));
+
+            // when
+            friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
+
+            // then: 내 방향 BLOCKED 생성 + 반대 방향 행 삭제 + 친구 해제 이벤트
+            verify(friendshipRepository).save(any(Friendship.class));
+            verify(friendshipRepository).delete(reverse);
+            verify(eventPublisher).publishEvent(any(FriendRemovedEvent.class));
+        }
+
+        @Test
+        @DisplayName("LUT-367: 상대도 나를 차단한 행(BLOCKED)은 유지한다")
+        void blockUser_reverseBlockedRow_kept() {
+            // given
+            Friendship reverse = createTestFriendship(2L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(reverse));
+
+            // when
+            friendService.blockUser(TEST_USER_ID, FRIEND_USER_ID);
+
+            // then
+            verify(friendshipRepository, never()).delete(reverse);
+        }
+
+        @Test
+        @DisplayName("LUT-367: 자기 자신은 차단할 수 없다")
+        void blockUser_self_throws() {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                    () -> friendService.blockUser(TEST_USER_ID, TEST_USER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Nested
