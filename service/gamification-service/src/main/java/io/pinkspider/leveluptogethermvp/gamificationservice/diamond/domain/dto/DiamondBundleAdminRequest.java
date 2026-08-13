@@ -50,6 +50,10 @@ public class DiamondBundleAdminRequest {
     @Positive(message = "다이아 개수는 1 이상이어야 합니다.")
     private Integer diamondCount;
 
+    /** LUT-354: 스토어 IAP 상품 ID — 미설정 시 해당 묶음은 결제 불가 */
+    @Size(max = 100, message = "스토어 상품 ID는 100자 이하이어야 합니다.")
+    private String storeProductId;
+
     @Size(max = 500, message = "이미지 URL은 500자 이하이어야 합니다.")
     private String imageUrl;
 

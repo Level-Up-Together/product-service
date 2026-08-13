@@ -57,6 +57,7 @@ public class DiamondBundleAdminService {
             .descriptionAr(request.getDescriptionAr())
             .descriptionJa(request.getDescriptionJa())
             .diamondCount(request.getDiamondCount())
+            .storeProductId(request.getStoreProductId())
             .imageUrl(request.getImageUrl())
             .isActive(request.getIsActive() != null ? request.getIsActive() : true)
             .build();
@@ -90,6 +91,7 @@ public class DiamondBundleAdminService {
         bundle.setDescriptionAr(request.getDescriptionAr());
         bundle.setDescriptionJa(request.getDescriptionJa());
         bundle.setDiamondCount(request.getDiamondCount());
+        bundle.setStoreProductId(request.getStoreProductId());
         bundle.setImageUrl(request.getImageUrl());
         if (request.getIsActive() != null) {
             bundle.setIsActive(request.getIsActive());

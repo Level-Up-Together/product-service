@@ -90,4 +90,39 @@ public class UserDiamond extends LocalDateTimeBaseEntity {
         this.balance = newBalance;
         return newBalance;
     }
+
+    /** 총 보유 다이아 (블루 + 핑크) */
+    public int getTotalBalance() {
+        return this.balance + this.pinkBalance;
+    }
+
+    /**
+     * LUT-354: 합산 잔액에서 차감 — 블루(무상)를 먼저 소진하고 부족분만 핑크(유상)에서 뺀다.
+     * 무상 우선 소진은 유상 재화 환불 정산을 단순하게 만드는 국내 표준 관행이다.
+     *
+     * @return 핑크에서 소진된 양 (원장 pink_amount 기록용)
+     */
+    public int spendCombined(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("차감량은 0 이상이어야 합니다. amount=" + amount);
+        }
+        if (getTotalBalance() < amount) {
+            throw new IllegalStateException("다이아 잔액이 부족합니다. balance=" + this.balance
+                + ", pinkBalance=" + this.pinkBalance + ", amount=" + amount);
+        }
+        int fromBlue = Math.min(this.balance, amount);
+        int fromPink = amount - fromBlue;
+        this.balance -= fromBlue;
+        this.pinkBalance -= fromPink;
+        return fromPink;
+    }
+
+    /** LUT-354: 핑크다이아 지급 (IAP 구매) 후 총잔액 반환 */
+    public int addPink(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("지급량은 0 이상이어야 합니다. amount=" + amount);
+        }
+        this.pinkBalance += amount;
+        return getTotalBalance();
+    }
 }

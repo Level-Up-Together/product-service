@@ -51,13 +51,13 @@ public class DiamondService {
         }
 
         for (int level = fromLevel; level <= toLevel; level++) {
-            int balanceAfter = diamond.apply(1);
+            diamond.apply(1);
             diamondHistoryRepository.save(DiamondHistory.builder()
                 .userId(userId)
                 .type(DiamondType.LEVEL_UP)
                 .sourceId((long) level)
                 .amount(1)
-                .balanceAfter(balanceAfter)
+                .balanceAfter(diamond.getTotalBalance())
                 .description("Lv." + level + " 레벨업 보상")
                 .build());
         }
@@ -85,7 +85,7 @@ public class DiamondService {
         }
 
         int amount = toLevel - fromLevel + 1;
-        int balanceAfter = diamond.apply(amount);
+        diamond.apply(amount);
         String description = fromLevel == toLevel
             ? "Lv." + toLevel + " 레벨업 보상"
             : "Lv." + fromLevel + "~Lv." + toLevel + " 레벨업 보상";
@@ -95,7 +95,7 @@ public class DiamondService {
             .type(DiamondType.LEVEL_UP)
             .sourceId((long) toLevel)
             .amount(amount)
-            .balanceAfter(balanceAfter)
+            .balanceAfter(diamond.getTotalBalance())
             .description(description)
             .build());
         diamond.setLastRewardedLevel(toLevel);
@@ -121,13 +121,13 @@ public class DiamondService {
         }
 
         UserDiamond diamond = getOrCreate(userId);
-        int balanceAfter = diamond.apply(1);
+        diamond.apply(1);
         diamondHistoryRepository.save(DiamondHistory.builder()
             .userId(userId)
             .type(DiamondType.MISSION_BOOK)
             .sourceId(templateId)
             .amount(1)
-            .balanceAfter(balanceAfter)
+            .balanceAfter(diamond.getTotalBalance())
             .description(missionTitle + " 목표달성")
             .build());
 
@@ -141,6 +141,11 @@ public class DiamondService {
      *
      * <p>LUT-328: 가격 0원 구매도 어드민 구매이력에 남도록 amount 0 을 허용한다
      * (잔액 변동 없이 SHOP 이력만 기록).
+     *
+     * <p>LUT-354: 블루+핑크 합산에서 차감 — 블루(무상) 우선 소진, 부족분만 핑크(유상).
+     * 원장에 핑크 소진량(pink_amount)을 구분 기록한다.
+     *
+     * @return 차감 후 총잔액 (블루+핑크)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public int spendDiamonds(String userId, int amount, Long itemId, String itemName) {
@@ -148,17 +153,44 @@ public class DiamondService {
             throw new IllegalArgumentException("차감량은 0 이상이어야 합니다: " + amount);
         }
         UserDiamond diamond = getOrCreate(userId);
-        int balanceAfter = diamond.apply(-amount);
+        int pinkSpent = diamond.spendCombined(amount);
+        int balanceAfter = diamond.getTotalBalance();
         diamondHistoryRepository.save(DiamondHistory.builder()
             .userId(userId)
             .type(DiamondType.SHOP)
             .sourceId(itemId)
             .amount(-amount)
+            .pinkAmount(-pinkSpent)
             .balanceAfter(balanceAfter)
             .description(itemName + " 구매")
             .build());
 
-        log.info("다이아 차감: userId={}, amount={}, balance={}", userId, amount, balanceAfter);
+        log.info("다이아 차감: userId={}, amount={}, pinkSpent={}, balance={}",
+            userId, amount, pinkSpent, balanceAfter);
+        return balanceAfter;
+    }
+
+    /**
+     * LUT-354: 핑크다이아 지급 (IAP 묶음상품 구매 검증 완료 후 호출).
+     *
+     * @return 지급 후 총잔액 (블루+핑크)
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public int grantPinkDiamonds(String userId, int amount, Long bundleId, String bundleName) {
+        UserDiamond diamond = getOrCreate(userId);
+        int balanceAfter = diamond.addPink(amount);
+        diamondHistoryRepository.save(DiamondHistory.builder()
+            .userId(userId)
+            .type(DiamondType.PINK_PURCHASE)
+            .sourceId(bundleId)
+            .amount(amount)
+            .pinkAmount(amount)
+            .balanceAfter(balanceAfter)
+            .description(bundleName + " 구매")
+            .build());
+
+        log.info("핑크다이아 지급: userId={}, amount={}, bundleId={}, balance={}",
+            userId, amount, bundleId, balanceAfter);
         return balanceAfter;
     }
 

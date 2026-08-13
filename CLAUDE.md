@@ -308,12 +308,24 @@ public void run() { ...}
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
 멱등성 고려 필수.
 
-## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/356)
+## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356)
 
-다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
+다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP` / `PINK_PURCHASE`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
 **핑크다이아** (LUT-356): 결제 구매 재화 — `user_diamond.pink_balance`로 블루(기존 `balance`)와 분리 관리.
 `/diamonds/me` 응답의 `balance`는 블루+핑크 합계(하위호환), `blue_balance`/`pink_balance`로 세부 제공.
-묶음상품(`diamond_bundle`)은 어드민이 등록(이름·설명 다국어/개수/이미지), 결제·가격은 후속 티켓 범위.
+묶음상품(`diamond_bundle`)은 어드민이 등록(이름·설명 다국어/개수/이미지/스토어 상품ID).
+
+**IAP 결제** (LUT-354): 앱 전용(웹은 '앱에서 결제' 모달). 흐름: 웹 상점 → RN 브릿지(`requestIapPurchase`)
+→ react-native-iap 스토어 결제 → RN이 `POST /api/v1/diamond-bundles/{id}/purchase`로 영수증 전달
+→ `IapVerificationService` 검증(iOS verifyReceipt·21007 샌드박스 재시도 / Android Play Developer API·서비스계정 JWT)
+→ 멱등 지급(`diamond_bundle_purchase.store_transaction_id` 유니크) → RN `finishTransaction`(지급 성공 후에만 —
+실패 시 pending 유지, 앱 재시작 시 `restorePendingPurchases`가 멱등 재처리). 가격 표시는 스토어
+`localizedPrice`만 사용(국가/환율별 상이 — 서버 저장가 표시 금지). `iap.verification.enabled=false`(기본)면
+검증 스킵(dev용) — **prod는 config에 활성화 + Apple/Google 자격증명 필수**.
+
+**합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
+(`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
+유상 몫을 구분 기록, `balance_after`는 총잔액(블루+핑크) 의미로 통일.
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
@@ -323,6 +335,7 @@ public void run() { ...}
 | `POST /api/v1/user-items/{id}/equip`, `.../unequip`               | 필요            | 장착 / 해제                               |
 | `GET /api/v1/diamonds/me`                                         | 필요            | 보유 다이아 잔액 (블루/핑크 분리, LUT-356)      |
 | `GET /api/v1/diamond-bundles`                                     | **비로그인 허용** (GET만) | 판매중 핑크다이아 묶음상품 — 개수 오름차순 (LUT-356) |
+| `POST /api/v1/diamond-bundles/{id}/purchase`                      | 필요            | IAP 영수증 검증 + 핑크다이아 멱등 지급 (LUT-354)  |
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 

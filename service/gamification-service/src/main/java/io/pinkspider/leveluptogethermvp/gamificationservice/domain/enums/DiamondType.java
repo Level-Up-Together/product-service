@@ -12,7 +12,8 @@ public enum DiamondType {
 
     LEVEL_UP("레벨업"),
     MISSION_BOOK("미션북"),
-    SHOP("상점 사용");
+    SHOP("상점 사용"),
+    PINK_PURCHASE("핑크다이아 구매");
 
     private final String description;
 }

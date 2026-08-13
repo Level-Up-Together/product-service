@@ -349,6 +349,88 @@ class DiamondServiceTest {
     }
 
     @Nested
+    @DisplayName("spendDiamonds 합산 차감 테스트 (LUT-354: 블루 우선 소진)")
+    class SpendCombinedTest {
+
+        @Test
+        @DisplayName("블루가 충분하면 블루만 차감하고 pink_amount는 0이다")
+        void blueSufficient_spendsBlueOnly() {
+            UserDiamond d = diamond(100, 5);
+            d.setPinkBalance(50);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 80, 1L, "날개");
+
+            assertThat(balanceAfter).isEqualTo(70); // (100-80) + 50
+            assertThat(d.getBalance()).isEqualTo(20);
+            assertThat(d.getPinkBalance()).isEqualTo(50);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isEqualTo(-80);
+            assertThat(captor.getValue().getPinkAmount()).isZero();
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(70);
+        }
+
+        @Test
+        @DisplayName("블루가 부족하면 블루 전량 소진 후 부족분만 핑크에서 뺀다")
+        void blueInsufficient_spendsPinkRemainder() {
+            UserDiamond d = diamond(30, 5);
+            d.setPinkBalance(100);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.spendDiamonds(USER_ID, 80, 1L, "날개");
+
+            assertThat(balanceAfter).isEqualTo(50); // 0 + (100-50)
+            assertThat(d.getBalance()).isZero();
+            assertThat(d.getPinkBalance()).isEqualTo(50);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getAmount()).isEqualTo(-80);
+            assertThat(captor.getValue().getPinkAmount()).isEqualTo(-50); // 유상 소진분 구분 기록
+        }
+
+        @Test
+        @DisplayName("합산 잔액이 부족하면 예외가 발생하고 아무것도 차감되지 않는다")
+        void totalInsufficient_throws() {
+            UserDiamond d = diamond(30, 5);
+            d.setPinkBalance(20);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            assertThatThrownBy(() -> diamondService.spendDiamonds(USER_ID, 80, 1L, "날개"))
+                .isInstanceOf(IllegalStateException.class);
+            assertThat(d.getBalance()).isEqualTo(30);
+            assertThat(d.getPinkBalance()).isEqualTo(20);
+            verify(diamondHistoryRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("grantPinkDiamonds 테스트 (LUT-354: IAP 지급)")
+    class GrantPinkTest {
+
+        @Test
+        @DisplayName("핑크다이아를 지급하고 PINK_PURCHASE 원장을 남긴다")
+        void grantsPinkAndRecordsLedger() {
+            UserDiamond d = diamond(10, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            int balanceAfter = diamondService.grantPinkDiamonds(USER_ID, 100, 3L, "핑크다이아 100개");
+
+            assertThat(balanceAfter).isEqualTo(110);
+            assertThat(d.getPinkBalance()).isEqualTo(100);
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            assertThat(captor.getValue().getType()).isEqualTo(DiamondType.PINK_PURCHASE);
+            assertThat(captor.getValue().getAmount()).isEqualTo(100);
+            assertThat(captor.getValue().getPinkAmount()).isEqualTo(100);
+            assertThat(captor.getValue().getBalanceAfter()).isEqualTo(110);
+        }
+    }
+
+    @Nested
     @DisplayName("getBalances 테스트 (LUT-356: 블루/핑크 분리)")
     class GetBalancesTest {
 

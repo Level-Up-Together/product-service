@@ -76,6 +76,14 @@ public class DiamondBundle extends LocalDateTimeBaseEntity {
     @Comment("핑크다이아 개수")
     private Integer diamondCount;
 
+    /**
+     * LUT-354: 스토어 IAP 상품 ID (App Store Connect / Play Console 등록 ID).
+     * 가격은 스토어 콘솔에 등록하고 앱이 localizedPrice 를 받아 표시한다.
+     */
+    @Column(name = "store_product_id", length = 100)
+    @Comment("스토어 IAP 상품 ID")
+    private String storeProductId;
+
     @Column(name = "image_url", length = 500)
     @Comment("상품 이미지 URL")
     private String imageUrl;

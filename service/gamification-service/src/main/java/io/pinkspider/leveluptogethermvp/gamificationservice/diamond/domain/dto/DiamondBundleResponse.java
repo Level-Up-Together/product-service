@@ -20,7 +20,8 @@ public record DiamondBundleResponse(
     String descriptionAr,
     String descriptionJa,
     Integer diamondCount,
-    String imageUrl
+    String imageUrl,
+    String storeProductId
 ) {
     public static DiamondBundleResponse from(DiamondBundle bundle) {
         return new DiamondBundleResponse(
@@ -34,7 +35,8 @@ public record DiamondBundleResponse(
             bundle.getDescriptionAr(),
             bundle.getDescriptionJa(),
             bundle.getDiamondCount(),
-            bundle.getImageUrl()
+            bundle.getImageUrl(),
+            bundle.getStoreProductId()
         );
     }
 }
