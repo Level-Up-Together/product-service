@@ -230,6 +230,44 @@ class ShopItemAdminServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-341: EFFECT 타입이면 이펙트 코드를 트림해 저장한다")
+        void createShopItem_effectType_storesEffectCode() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("반짝이 이펙트");
+            request.setItemType(ShopItemType.EFFECT);
+            request.setEffectCode("  sparkle_01  ");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.effectCode()).isEqualTo("sparkle_01");
+        }
+
+        @Test
+        @DisplayName("LUT-341: EFFECT가 아닌 타입이면 이펙트 코드는 null로 정규화된다")
+        void createShopItem_nonEffectType_effectCodeNull() {
+            when(shopItemRepository.existsByName(anyString())).thenReturn(false);
+            when(shopItemRepository.save(any(ShopItem.class))).thenAnswer(inv -> {
+                ShopItem item = inv.getArgument(0);
+                setId(item, 1L);
+                return item;
+            });
+
+            ShopItemAdminRequest request = createRequest("일반 아이템");
+            request.setItemType(ShopItemType.BASIC);
+            request.setEffectCode("sparkle_01");
+
+            ShopItemAdminResponse response = shopItemAdminService.createShopItem(request);
+
+            assertThat(response.effectCode()).isNull();
+        }
+
+        @Test
         @DisplayName("중복 이름이면 예외")
         void createShopItem_duplicateName() {
             when(shopItemRepository.existsByName("우주 헬멧")).thenReturn(true);
@@ -274,6 +312,25 @@ class ShopItemAdminServiceTest {
             shopItemAdminService.updateShopItem(1L, request);
 
             verify(imageStorageService).delete("/uploads/shop-items/old.png");
+        }
+
+        @Test
+        @DisplayName("LUT-341: EFFECT에서 다른 타입으로 바꾸면 이펙트 코드가 제거된다")
+        void updateShopItem_typeChangedFromEffect_clearsEffectCode() {
+            ShopItem item = createItem(1L, "반짝이 이펙트");
+            item.setItemType(ShopItemType.EFFECT);
+            item.setEffectCode("sparkle_01");
+            when(shopItemRepository.findById(1L)).thenReturn(Optional.of(item));
+            when(shopItemRepository.save(any(ShopItem.class))).thenReturn(item);
+
+            ShopItemAdminRequest request = createRequest("반짝이 이펙트");
+            request.setItemType(ShopItemType.BASIC);
+            request.setEffectCode("sparkle_01"); // 클라이언트가 값을 남겨 보내도 무시돼야 한다
+
+            ShopItemAdminResponse response = shopItemAdminService.updateShopItem(1L, request);
+
+            assertThat(response.effectCode()).isNull();
+            assertThat(item.getEffectCode()).isNull();
         }
 
         @Test

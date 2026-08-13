@@ -86,6 +86,11 @@ public class ShopItem extends LocalDateTimeBaseEntity {
     @Comment("희귀도")
     private TitleRarity rarity;
 
+    /** LUT-341: EFFECT 타입 전용 — 웹에서 이펙트 렌더링을 식별하는 코드. 그 외 타입은 null */
+    @Column(name = "effect_code", length = 50)
+    @Comment("이펙트 코드 (EFFECT 타입 전용)")
+    private String effectCode;
+
     @Column(name = "image_url", length = 500)
     @Comment("아이템 이미지 URL")
     private String imageUrl;

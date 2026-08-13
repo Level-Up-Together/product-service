@@ -59,6 +59,7 @@ public class ShopItemAdminService {
             .descriptionJa(request.getDescriptionJa())
             .itemType(request.getItemType())
             .rarity(request.getRarity())
+            .effectCode(resolveEffectCode(request))
             .imageUrl(request.getImageUrl())
             .imagePosition(
                 request.getImagePosition() != null
@@ -97,6 +98,7 @@ public class ShopItemAdminService {
         item.setDescriptionJa(request.getDescriptionJa());
         item.setItemType(request.getItemType());
         item.setRarity(request.getRarity());
+        item.setEffectCode(resolveEffectCode(request));
         item.setImageUrl(request.getImageUrl());
         if (request.getImagePosition() != null) {
             item.setImagePosition(request.getImagePosition());
@@ -132,6 +134,17 @@ public class ShopItemAdminService {
      */
     public String uploadImage(MultipartFile file) {
         return imageStorageService.store(file);
+    }
+
+    /**
+     * LUT-341: 이펙트 코드는 EFFECT 타입 전용 — 타입을 바꾸면 잔존값이 남지 않게 그 외 타입은 null 정규화.
+     */
+    private static String resolveEffectCode(ShopItemAdminRequest request) {
+        if (request.getItemType() != ShopItemType.EFFECT) {
+            return null;
+        }
+        String code = request.getEffectCode();
+        return (code == null || code.isBlank()) ? null : code.trim();
     }
 
     private ShopItem findById(Long id) {
