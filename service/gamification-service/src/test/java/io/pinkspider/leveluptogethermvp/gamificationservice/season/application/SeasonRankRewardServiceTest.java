@@ -117,7 +117,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("순위별 보상을 생성한다")
         void success() {
             // given
-            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 1, 100L, 1);
+            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 1, 100L, null, 1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(anyLong(), anyInt(), anyInt(), anyLong())).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
@@ -137,7 +137,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("시즌이 없으면 예외를 던진다")
         void failWhenSeasonNotFound() {
             // given
-            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 1, 100L, 1);
+            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 1, 100L, null, 1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.empty());
 
             // when & then
@@ -150,7 +150,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("시작 순위가 종료 순위보다 크면 예외를 던진다")
         void failWhenInvalidRankRange() {
             // given
-            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(10, 1, 100L, 1);
+            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(10, 1, 100L, null, 1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
             // when & then
@@ -163,7 +163,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("순위 구간이 중복되면 예외를 던진다")
         void failWhenRankRangeOverlap() {
             // given
-            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 5, 100L, 1);
+            CreateSeasonRankRewardRequest request = new CreateSeasonRankRewardRequest(1, 5, 100L, null, 1);
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
 
@@ -182,7 +182,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("순위별 보상을 수정한다")
         void success() {
             // given
-            UpdateSeasonRankRewardRequest request = new UpdateSeasonRankRewardRequest(1, 3, 100L, 1);
+            UpdateSeasonRankRewardRequest request = new UpdateSeasonRankRewardRequest(1, 3, 100L, null, 1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
             when(titleRepository.findById(100L)).thenReturn(Optional.of(testTitle));
@@ -199,7 +199,7 @@ class SeasonRankRewardServiceTest {
         @DisplayName("보상이 없으면 예외를 던진다")
         void failWhenRewardNotFound() {
             // given
-            UpdateSeasonRankRewardRequest request = new UpdateSeasonRankRewardRequest(1, 3, 100L, 1);
+            UpdateSeasonRankRewardRequest request = new UpdateSeasonRankRewardRequest(1, 3, 100L, null, 1);
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.empty());
 
             // when & then

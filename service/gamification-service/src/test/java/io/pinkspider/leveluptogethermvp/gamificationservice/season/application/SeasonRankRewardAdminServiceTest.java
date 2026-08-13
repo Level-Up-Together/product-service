@@ -164,7 +164,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_withExistingTitle_success() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
@@ -186,7 +186,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_withExistingTitle_updatesTitle() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "새 챔피언", TitleRarity.MYTHIC, TitlePosition.LEFT, 1
+                1, 1, null, null, 100L, "새 챔피언", TitleRarity.MYTHIC, TitlePosition.LEFT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
@@ -207,7 +207,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_titleNotFound() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 0L)).thenReturn(false);
@@ -229,7 +229,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_withNewTitle_success() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 3, null, null, null, "새 칭호", TitleRarity.EPIC, TitlePosition.RIGHT, 1
+                1, 3, null, null, null, "새 칭호", TitleRarity.EPIC, TitlePosition.RIGHT, null, 1
             );
             Title savedTitle = Title.builder()
                 .name("새 칭호")
@@ -259,7 +259,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_withCategory_buildCondition() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, 1L, "운동", null, "운동 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, 1L, "운동", null, "운동 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             Title savedTitle = Title.builder()
                 .name("운동 챔피언")
@@ -293,7 +293,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_seasonNotFound() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -308,7 +308,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_invalidRankRange() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                10, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                10, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
@@ -323,7 +323,7 @@ class SeasonRankRewardAdminServiceTest {
         void createRankReward_overlappingRankRange() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
@@ -344,10 +344,10 @@ class SeasonRankRewardAdminServiceTest {
         void createBulkRankRewards_success() throws Exception {
             // given
             CreateSeasonRankRewardAdminRequest request1 = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, null, "1위 칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, null, null, null, "1위 칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             CreateSeasonRankRewardAdminRequest request2 = new CreateSeasonRankRewardAdminRequest(
-                2, 5, null, null, null, "2-5위 칭호", TitleRarity.EPIC, TitlePosition.RIGHT, 2
+                2, 5, null, null, null, "2-5위 칭호", TitleRarity.EPIC, TitlePosition.RIGHT, null, 2
             );
 
             Title savedTitle1 = Title.builder()
@@ -391,7 +391,7 @@ class SeasonRankRewardAdminServiceTest {
         void createBulkRankRewards_seasonNotFound() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 1, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 1, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -406,7 +406,7 @@ class SeasonRankRewardAdminServiceTest {
         void createBulkRankRewards_invalidRankRange() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                10, 1, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                10, 1, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
 
@@ -421,7 +421,7 @@ class SeasonRankRewardAdminServiceTest {
         void createBulkRankRewards_overlappingRankRange() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 5, null, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 0L)).thenReturn(true);
@@ -437,7 +437,7 @@ class SeasonRankRewardAdminServiceTest {
         void createBulkRankRewards_nullCategoryNameUsesDefault() {
             // given
             CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-                1, 5, 1L, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 5, 1L, null, null, "칭호", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
             when(rankRewardRepository.existsOverlappingRangeWithCategoryId(1L, 1L, 1, 5, 0L)).thenReturn(true);
@@ -458,7 +458,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_success() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "업데이트 챔피언", TitleRarity.MYTHIC, TitlePosition.RIGHT, 2
+                1, 3, null, null, 100L, "업데이트 챔피언", TitleRarity.MYTHIC, TitlePosition.RIGHT, null, 2
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
@@ -478,7 +478,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_notFound() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 3, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(rankRewardRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -493,7 +493,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_invalidRankRange() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                10, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                10, 1, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
 
@@ -508,7 +508,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_overlappingRankRange() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 5, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 5, 1L)).thenReturn(true);
@@ -524,7 +524,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_titleNotFound() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 1
+                1, 3, null, null, 999L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
@@ -541,7 +541,7 @@ class SeasonRankRewardAdminServiceTest {
         void updateRankReward_nullSortOrder() {
             // given
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 3, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null
+                1, 3, null, null, 100L, "챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, null
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 3, 1L)).thenReturn(false);
@@ -568,7 +568,7 @@ class SeasonRankRewardAdminServiceTest {
             setId(titleWithoutRarity, 150L);
 
             UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-                1, 1, null, null, 150L, "희귀도없는칭호", null, TitlePosition.RIGHT, 1
+                1, 1, null, null, 150L, "희귀도없는칭호", null, TitlePosition.RIGHT, null, 1
             );
             when(rankRewardRepository.findById(1L)).thenReturn(Optional.of(testReward));
             when(rankRewardRepository.existsOverlappingRangeWithNullCategory(1L, 1, 1, 1L)).thenReturn(false);

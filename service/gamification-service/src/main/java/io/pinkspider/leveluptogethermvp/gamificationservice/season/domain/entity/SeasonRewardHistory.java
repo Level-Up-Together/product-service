@@ -68,6 +68,15 @@ public class SeasonRewardHistory extends LocalDateTimeBaseEntity {
     @Comment("부여된 칭호 ID")
     private Long titleId;
 
+    /** LUT-339: 지급된 보상 아이템 (NULL이면 칭호만 지급) */
+    @Column(name = "item_id")
+    @Comment("보상 아이템 ID")
+    private Long itemId;
+
+    @Column(name = "item_name", length = 100)
+    @Comment("보상 아이템 이름 (비정규화)")
+    private String itemName;
+
     @Column(name = "title_name", length = 100)
     @Comment("부여된 칭호 이름")
     private String titleName;

@@ -29,6 +29,7 @@ public class SeasonRankRewardService {
     private final SeasonRepository seasonRepository;
     private final SeasonRankRewardRepository rankRewardRepository;
     private final TitleRepository titleRepository;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository shopItemRepository;
 
     /**
      * 시즌의 순위별 보상 목록 조회
@@ -68,6 +69,8 @@ public class SeasonRankRewardService {
             .titleId(request.titleId())
             .titleName(title.getName())
             .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
+            .itemId(request.itemId())
+            .itemName(resolveRewardItemName(request.itemId()))
             .sortOrder(request.sortOrder())
             .isActive(true)
             .build();
@@ -106,6 +109,8 @@ public class SeasonRankRewardService {
         reward.setTitleId(request.titleId());
         reward.setTitleName(title.getName());
         reward.setTitleRarity(title.getRarity() != null ? title.getRarity().name() : null);
+        reward.setItemId(request.itemId());
+        reward.setItemName(resolveRewardItemName(request.itemId()));
         if (request.sortOrder() != null) {
             reward.setSortOrder(request.sortOrder());
         }
@@ -125,6 +130,16 @@ public class SeasonRankRewardService {
 
         reward.setIsActive(false);
         log.info("시즌 순위 보상 삭제: rewardId={}", rewardId);
+    }
+
+    /** LUT-339: 보상 아이템 이름 스냅샷 — 존재 검증 후 이름 반환. itemId 없으면 null */
+    private String resolveRewardItemName(Long itemId) {
+        if (itemId == null) {
+            return null;
+        }
+        var item = shopItemRepository.findById(itemId)
+            .orElseThrow(() -> new CustomException("120602", "error.useritem.item_not_found"));
+        return item.getName();
     }
 
     /**

@@ -77,6 +77,15 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
     @Comment("보상 칭호 희귀도 (비정규화)")
     private String titleRarity;
 
+    /** LUT-339: 보상 아이템 — 칭호와 동시 부여 가능. NULL이면 칭호만 지급 */
+    @Column(name = "item_id")
+    @Comment("보상 아이템 ID (shop_item, NULL이면 미지급)")
+    private Long itemId;
+
+    @Column(name = "item_name", length = 100)
+    @Comment("보상 아이템 이름 (비정규화)")
+    private String itemName;
+
     @Column(name = "category_id")
     @Comment("카테고리 ID (NULL이면 전체 랭킹)")
     private Long categoryId;

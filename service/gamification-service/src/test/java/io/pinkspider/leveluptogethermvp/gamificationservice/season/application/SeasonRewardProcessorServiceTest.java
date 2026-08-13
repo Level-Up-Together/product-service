@@ -56,6 +56,9 @@ class SeasonRewardProcessorServiceTest {
     @Mock
     private TitleService titleService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
+
     @InjectMocks
     private SeasonRewardProcessorService processorService;
 
@@ -144,6 +147,44 @@ class SeasonRewardProcessorServiceTest {
             assertThat(result.successCount()).isEqualTo(3);
             verify(titleService, times(3)).grantTitle(anyString(), anyLong());
             verify(rewardHistoryRepository, times(3)).saveAndFlush(any(SeasonRewardHistory.class));
+        }
+
+        @Test
+        @DisplayName("LUT-339: 보상 아이템이 설정된 구간은 칭호와 아이템을 함께 지급한다")
+        void grantsItemAlongsideTitle() throws Exception {
+            // given: 1위 보상에만 아이템 설정
+            testReward1.setItemId(77L);
+            testReward1.setItemName("우승 날개");
+
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+            when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                .thenReturn(List.of(testReward1, testReward2));
+
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{"user1", 1000L});
+            topGainers.add(new Object[]{"user2", 900L});
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(Pageable.class)))
+                .thenReturn(topGainers);
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            processorService.processSeasonRewards(1L);
+
+            // then: 아이템은 1위(user1)에게만, 칭호는 둘 다
+            verify(titleService, times(2)).grantTitle(anyString(), anyLong());
+            verify(userItemService).grantItem("user1", 77L);
+            verify(userItemService, never()).grantItem(eq("user2"), anyLong());
+
+            // 이력에도 아이템 스냅샷이 남는다
+            org.mockito.ArgumentCaptor<SeasonRewardHistory> captor =
+                org.mockito.ArgumentCaptor.forClass(SeasonRewardHistory.class);
+            verify(rewardHistoryRepository, times(2)).saveAndFlush(captor.capture());
+            SeasonRewardHistory first = captor.getAllValues().get(0);
+            assertThat(first.getItemId()).isEqualTo(77L);
+            assertThat(first.getItemName()).isEqualTo("우승 날개");
         }
 
         @Test

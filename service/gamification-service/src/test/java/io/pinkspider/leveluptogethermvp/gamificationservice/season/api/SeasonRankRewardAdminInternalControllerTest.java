@@ -85,6 +85,8 @@ class SeasonRankRewardAdminInternalControllerTest {
             "시즌 챔피언",
             "LEGENDARY",
             "RIGHT",
+            null,
+            null,
             0,
             true
         );
@@ -131,6 +133,8 @@ class SeasonRankRewardAdminInternalControllerTest {
                             fieldWithPath("value[].title_name").type(JsonFieldType.STRING).description("칭호명"),
                             fieldWithPath("value[].title_rarity").type(JsonFieldType.STRING).description("칭호 등급").optional(),
                             fieldWithPath("value[].title_position_type").type(JsonFieldType.STRING).description("칭호 위치 타입").optional(),
+                            fieldWithPath("value[].item_id").type(JsonFieldType.NUMBER).description("LUT-339: 보상 아이템 ID (없으면 null)").optional(),
+                            fieldWithPath("value[].item_name").type(JsonFieldType.STRING).description("LUT-339: 보상 아이템 이름").optional(),
                             fieldWithPath("value[].sort_order").type(JsonFieldType.NUMBER).description("정렬 순서"),
                             fieldWithPath("value[].is_active").type(JsonFieldType.BOOLEAN).description("활성화 여부")
                         )
@@ -152,7 +156,7 @@ class SeasonRankRewardAdminInternalControllerTest {
             .thenReturn(response);
 
         CreateSeasonRankRewardAdminRequest request = new CreateSeasonRankRewardAdminRequest(
-            1, 3, null, null, null, "시즌 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 0
+            1, 3, null, null, null, "시즌 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 0
         );
 
         // when
@@ -191,8 +195,8 @@ class SeasonRankRewardAdminInternalControllerTest {
         when(rankRewardAdminService.createBulkRankRewards(anyLong(), any())).thenReturn(response);
 
         List<CreateSeasonRankRewardAdminRequest> requests = List.of(
-            new CreateSeasonRankRewardAdminRequest(1, 1, null, null, null, "골드 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 0),
-            new CreateSeasonRankRewardAdminRequest(2, 3, null, null, null, "실버 챔피언", TitleRarity.EPIC, TitlePosition.RIGHT, 1)
+            new CreateSeasonRankRewardAdminRequest(1, 1, null, null, null, "골드 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 0),
+            new CreateSeasonRankRewardAdminRequest(2, 3, null, null, null, "실버 챔피언", TitleRarity.EPIC, TitlePosition.RIGHT, null, 1)
         );
 
         // when
@@ -229,7 +233,7 @@ class SeasonRankRewardAdminInternalControllerTest {
             .thenReturn(response);
 
         UpdateSeasonRankRewardAdminRequest request = new UpdateSeasonRankRewardAdminRequest(
-            1, 3, null, null, 10L, "수정된 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, 0
+            1, 3, null, null, 10L, "수정된 챔피언", TitleRarity.LEGENDARY, TitlePosition.RIGHT, null, 0
         );
 
         // when

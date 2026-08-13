@@ -18,6 +18,8 @@ public record CreateSeasonRankRewardAdminRequest(
     @NotBlank String titleName,
     @NotNull TitleRarity titleRarity,
     @NotNull TitlePosition titlePositionType,
+    /* LUT-339: 보상 아이템 (shop_item ID, 선택) — 칭호와 동시 지급 */
+    Long itemId,
     Integer sortOrder
 ) {
     public CreateSeasonRankRewardAdminRequest {

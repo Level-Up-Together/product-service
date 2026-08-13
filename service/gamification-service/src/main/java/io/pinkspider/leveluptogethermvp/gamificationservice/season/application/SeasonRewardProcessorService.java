@@ -32,6 +32,7 @@ public class SeasonRewardProcessorService {
     private final SeasonRewardHistoryRepository rewardHistoryRepository;
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final TitleService titleService;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
 
     /**
      * 시즌 보상 처리 (메인 로직)
@@ -164,6 +165,8 @@ public class SeasonRewardProcessorService {
                 .totalExp(totalExp)
                 .titleId(reward.getTitleId())
                 .titleName(reward.getTitleName())
+                .itemId(reward.getItemId())
+                .itemName(reward.getItemName())
                 .categoryId(categoryId)
                 .categoryName(categoryName)
                 .status(SeasonRewardStatus.PENDING)
@@ -171,6 +174,10 @@ public class SeasonRewardProcessorService {
 
             try {
                 titleService.grantTitle(userId, reward.getTitleId());
+                // LUT-339: 보상 아이템 동시 지급 — grantItem 은 이미 보유 시 no-op(멱등)
+                if (reward.getItemId() != null) {
+                    userItemService.grantItem(userId, reward.getItemId());
+                }
                 history.markSuccess();
                 successCount++;
                 log.info("시즌 보상 부여 성공: seasonId={}, userId={}, rank={}, rankingType={}, titleId={}",
@@ -230,6 +237,10 @@ public class SeasonRewardProcessorService {
         for (SeasonRewardHistory history : failedRewards) {
             try {
                 titleService.grantTitle(history.getUserId(), history.getTitleId());
+                // LUT-339: 아이템 보상도 재지급 (멱등이라 이미 지급분은 무해)
+                if (history.getItemId() != null) {
+                    userItemService.grantItem(history.getUserId(), history.getItemId());
+                }
                 history.markSuccess();
                 retrySuccessCount++;
                 log.info("시즌 보상 재처리 성공: historyId={}, userId={}",

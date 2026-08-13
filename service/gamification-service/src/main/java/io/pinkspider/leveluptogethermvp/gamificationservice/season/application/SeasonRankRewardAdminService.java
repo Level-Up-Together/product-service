@@ -36,6 +36,7 @@ public class SeasonRankRewardAdminService {
     private final SeasonRankRewardRepository rankRewardRepository;
     private final SeasonRewardHistoryRepository rewardHistoryRepository;
     private final TitleRepository titleRepository;
+    private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository shopItemRepository;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
     public List<SeasonRankRewardAdminResponse> getSeasonRankRewards(Long seasonId) {
@@ -91,6 +92,8 @@ public class SeasonRankRewardAdminService {
             .titleId(title.getId())
             .titleName(title.getName())
             .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
+            .itemId(request.itemId())
+            .itemName(resolveRewardItemName(request.itemId()))
             .sortOrder(request.sortOrder())
             .isActive(true)
             .build();
@@ -136,6 +139,8 @@ public class SeasonRankRewardAdminService {
                 .titleId(title.getId())
                 .titleName(title.getName())
                 .titleRarity(title.getRarity() != null ? title.getRarity().name() : null)
+                .itemId(request.itemId())
+                .itemName(resolveRewardItemName(request.itemId()))
                 .sortOrder(request.sortOrder())
                 .isActive(true)
                 .build();
@@ -174,6 +179,8 @@ public class SeasonRankRewardAdminService {
         reward.setTitleId(request.titleId());
         reward.setTitleName(request.titleName());
         reward.setTitleRarity(title.getRarity() != null ? title.getRarity().name() : null);
+        reward.setItemId(request.itemId());
+        reward.setItemName(resolveRewardItemName(request.itemId()));
         if (request.sortOrder() != null) {
             reward.setSortOrder(request.sortOrder());
         }
@@ -233,6 +240,18 @@ public class SeasonRankRewardAdminService {
             return rankRewardRepository.existsOverlappingRangeWithNullCategory(seasonId, rankStart, rankEnd, excludeId);
         }
         return rankRewardRepository.existsOverlappingRangeWithCategoryId(seasonId, categoryId, rankStart, rankEnd, excludeId);
+    }
+
+    /**
+     * LUT-339: 보상 아이템 이름 스냅샷 — 존재·활성 검증 후 이름 반환. itemId 없으면 null.
+     */
+    private String resolveRewardItemName(Long itemId) {
+        if (itemId == null) {
+            return null;
+        }
+        var item = shopItemRepository.findById(itemId)
+            .orElseThrow(() -> new CustomException("120602", "error.useritem.item_not_found"));
+        return item.getName();
     }
 
     private String buildAcquisitionCondition(Season season, Integer rankStart, Integer rankEnd, Long categoryId, String categoryName) {
