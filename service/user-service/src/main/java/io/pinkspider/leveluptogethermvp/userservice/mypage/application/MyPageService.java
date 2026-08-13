@@ -245,7 +245,8 @@ public class MyPageService {
     /**
      * LUT-257: 진행중 미션의 공개범위 판정.
      * PUBLIC=전원, FRIENDS_ONLY=친구, GUILD_ONLY=대상과 같은 길드, FRIENDS_AND_GUILD=친구∪길드, PRIVATE=본인만.
-     * 비노출 시 카테고리/미션명을 null 로 마스킹하고 is_visible=false 로 내린다.
+     * 비노출 시 미션ID/미션명을 null 로 마스킹하고 is_visible=false 로 내린다.
+     * 카테고리는 공개범위와 무관하게 항상 내려간다 (LUT-283).
      */
     private PublicProfileResponse.InProgressMissionInfo buildInProgressMission(
             String targetUserId, String currentUserId, boolean isOwner,
@@ -257,8 +258,8 @@ public class MyPageService {
                         || isMissionVisibleToViewer(m.visibility(), currentUserId, isFriend, targetGuildIds);
                     return PublicProfileResponse.InProgressMissionInfo.builder()
                         .missionId(visible ? m.missionId() : null)
-                        .categoryId(visible ? m.categoryId() : null)
-                        .categoryName(visible ? localizeCategoryName(m.categoryId(), m.categoryName(), locale) : null)
+                        .categoryId(m.categoryId())
+                        .categoryName(localizeCategoryName(m.categoryId(), m.categoryName(), locale))
                         .title(visible ? m.title() : null)
                         .visibility(m.visibility())
                         .isVisible(visible)

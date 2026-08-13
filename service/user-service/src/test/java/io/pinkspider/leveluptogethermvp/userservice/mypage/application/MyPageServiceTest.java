@@ -563,7 +563,7 @@ class MyPageServiceTest {
         }
 
         @Test
-        @DisplayName("친구가 아니면 FRIENDS_ONLY 미션은 마스킹된다")
+        @DisplayName("친구가 아니면 FRIENDS_ONLY 미션은 마스킹되지만 카테고리는 유지된다")
         void nonFriend_friendsOnlyMission_masked() {
             // given
             String viewerId = "viewer-1";
@@ -581,9 +581,10 @@ class MyPageServiceTest {
             var mission = result.getInProgressMission();
             assertThat(mission.getIsVisible()).isFalse();
             assertThat(mission.getMissionId()).isNull();
-            assertThat(mission.getCategoryId()).isNull();
-            assertThat(mission.getCategoryName()).isNull();
             assertThat(mission.getTitle()).isNull();
+            // LUT-283: 카테고리는 마스킹되지 않고 항상 내려간다
+            assertThat(mission.getCategoryId()).isEqualTo(10L);
+            assertThat(mission.getCategoryName()).isEqualTo("운동");
             // visibility/startedAt은 마스킹되지 않고 유지된다
             assertThat(mission.getVisibility()).isEqualTo("FRIENDS_ONLY");
             assertThat(mission.getStartedAt()).isNotNull();
@@ -706,6 +707,8 @@ class MyPageServiceTest {
             // then
             assertThat(result.getInProgressMission().getIsVisible()).isFalse();
             assertThat(result.getInProgressMission().getTitle()).isNull();
+            // LUT-283: 비로그인 조회자에게도 카테고리는 내려간다
+            assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("운동");
         }
 
         @Test
@@ -749,6 +752,36 @@ class MyPageServiceTest {
 
             // then
             assertThat(result.getInProgressMission().getCategoryName()).isEqualTo("Exercise");
+        }
+
+        @Test
+        @DisplayName("LUT-283: 마스킹된 미션도 카테고리명은 현지화되어 내려간다")
+        void maskedMission_categoryNameStillLocalized() {
+            // given
+            String viewerId = "viewer-1";
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            stubPublicProfileDefaults(TEST_USER_ID);
+            when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+                .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
+
+            MissionCategoryResponse category = MissionCategoryResponse.builder()
+                .id(10L)
+                .name("운동")
+                .nameEn("Exercise")
+                .isActive(true)
+                .build();
+            when(missionCategoryService.getCategory(10L)).thenReturn(category);
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, viewerId, "en");
+
+            // then: 미션명은 마스킹, 카테고리명은 현지화되어 유지
+            var mission = result.getInProgressMission();
+            assertThat(mission.getIsVisible()).isFalse();
+            assertThat(mission.getTitle()).isNull();
+            assertThat(mission.getCategoryName()).isEqualTo("Exercise");
         }
 
         @Test

@@ -66,8 +66,9 @@ public class PublicProfileResponse {
     private java.util.List<EquippedItemInfo> equippedItems;
 
     /**
-     * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 카테고리/미션명은 null 로
+     * LUT-257: 현재 진행중인 미션 정보. 조회자에게 비노출(is_visible=false)이면 미션ID/미션명은 null 로
      * 마스킹되어 내려간다 (프론트는 "비공개 미션 진행중" 표시).
+     * 카테고리(category_id/category_name)는 공개범위와 무관하게 항상 내려간다 (LUT-283).
      */
     @Getter
     @NoArgsConstructor
