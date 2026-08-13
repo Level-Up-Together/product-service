@@ -18,13 +18,13 @@ public class DiamondController {
 
     private final DiamondService diamondService;
 
-    /** 내 현재 보유 다이아 잔액 조회 */
+    /** 내 현재 보유 다이아 잔액 조회 — LUT-356: 블루/핑크 분리, balance는 합계 */
     @GetMapping("/me")
     public ResponseEntity<ApiResult<UserDiamondBalanceResponse>> getMyDiamondBalance(
             @CurrentUser String userId) {
-        UserDiamondBalanceResponse response =
-                UserDiamondBalanceResponse.of(diamondService.getBalance(userId));
         return ResponseEntity.ok(
-                ApiResult.<UserDiamondBalanceResponse>builder().value(response).build());
+                ApiResult.<UserDiamondBalanceResponse>builder()
+                        .value(diamondService.getBalances(userId))
+                        .build());
     }
 }

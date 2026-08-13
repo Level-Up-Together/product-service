@@ -347,4 +347,35 @@ class DiamondServiceTest {
             assertThat(diamondService.getBalance(USER_ID)).isZero();
         }
     }
+
+    @Nested
+    @DisplayName("getBalances 테스트 (LUT-356: 블루/핑크 분리)")
+    class GetBalancesTest {
+
+        @Test
+        @DisplayName("블루/핑크 잔액과 합계를 반환한다")
+        void returnsSplitBalances() {
+            UserDiamond d = diamond(1000, 5);
+            d.setPinkBalance(200);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(d));
+
+            var result = diamondService.getBalances(USER_ID);
+
+            assertThat(result.getBalance()).isEqualTo(1200);
+            assertThat(result.getBlueBalance()).isEqualTo(1000);
+            assertThat(result.getPinkBalance()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("행이 없으면 전부 0을 반환한다")
+        void returnsZeroWhenAbsent() {
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+            var result = diamondService.getBalances(USER_ID);
+
+            assertThat(result.getBalance()).isZero();
+            assertThat(result.getBlueBalance()).isZero();
+            assertThat(result.getPinkBalance()).isZero();
+        }
+    }
 }

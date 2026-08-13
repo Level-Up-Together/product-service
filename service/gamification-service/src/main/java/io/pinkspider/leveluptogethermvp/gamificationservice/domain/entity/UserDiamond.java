@@ -51,9 +51,16 @@ public class UserDiamond extends LocalDateTimeBaseEntity {
 
     @NotNull
     @Column(name = "balance", nullable = false)
-    @Comment("현재 보유 다이아")
+    @Comment("현재 보유 다이아 (블루 — 게임 내 획득 재화)")
     @Builder.Default
     private Integer balance = 0;
+
+    /** LUT-356: 핑크다이아 — 결제 구매 재화. 기존 balance(블루)와 별도 잔액으로 관리한다. */
+    @NotNull
+    @Column(name = "pink_balance", nullable = false)
+    @Comment("현재 보유 핑크다이아 (결제 구매 재화)")
+    @Builder.Default
+    private Integer pinkBalance = 0;
 
     @NotNull
     @Column(name = "last_rewarded_level", nullable = false)

@@ -54,9 +54,11 @@ class DiamondControllerTest {
     private static final String MOCK_USER_ID = "test-user-123";
 
     @Test
-    @DisplayName("GET /api/v1/diamonds/me : 내 현재 보유 다이아 잔액 조회")
+    @DisplayName("GET /api/v1/diamonds/me : 내 현재 보유 다이아 잔액 조회 (LUT-356: 블루/핑크 분리)")
     void getMyDiamondBalanceTest() throws Exception {
-        when(diamondService.getBalance(anyString())).thenReturn(123);
+        when(diamondService.getBalances(anyString()))
+            .thenReturn(io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto
+                .UserDiamondBalanceResponse.of(1000, 200));
 
         ResultActions resultActions = mockMvc.perform(
             RestDocumentationRequestBuilders.get("/api/v1/diamonds/me")
@@ -74,7 +76,9 @@ class DiamondControllerTest {
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                             fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                             fieldWithPath("value").type(JsonFieldType.OBJECT).description("다이아 잔액 정보"),
-                            fieldWithPath("value.balance").type(JsonFieldType.NUMBER).description("현재 보유 다이아 갯수")
+                            fieldWithPath("value.balance").type(JsonFieldType.NUMBER).description("총 보유 다이아 (블루+핑크 합계)"),
+                            fieldWithPath("value.blue_balance").type(JsonFieldType.NUMBER).description("LUT-356: 블루 다이아 (게임 내 획득 재화)"),
+                            fieldWithPath("value.pink_balance").type(JsonFieldType.NUMBER).description("LUT-356: 핑크다이아 (결제 구매 재화)")
                         )
                         .build()
                 )
@@ -83,6 +87,8 @@ class DiamondControllerTest {
 
         resultActions
             .andExpect(MockMvcResultMatchers.status().isOk())
-            .andExpect(MockMvcResultMatchers.jsonPath("$.value.balance").value(123));
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.balance").value(1200))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.blue_balance").value(1000))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.pink_balance").value(200));
     }
 }

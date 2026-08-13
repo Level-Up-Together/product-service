@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.UserDiamondBalanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.UserDiamondHistoryAdminPageResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.UserDiamondHistoryAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.DiamondHistory;
@@ -164,6 +165,13 @@ public class DiamondService {
     /** 현재 보유 다이아 잔액 조회. 지급 이력이 없으면 0. (LUT-248: 마이페이지 표기용) */
     public int getBalance(String userId) {
         return userDiamondRepository.findByUserId(userId).map(UserDiamond::getBalance).orElse(0);
+    }
+
+    /** LUT-356: 블루/핑크 분리 잔액 조회. 응답의 balance는 합계(하위호환). */
+    public UserDiamondBalanceResponse getBalances(String userId) {
+        return userDiamondRepository.findByUserId(userId)
+            .map(d -> UserDiamondBalanceResponse.of(d.getBalance(), d.getPinkBalance()))
+            .orElseGet(() -> UserDiamondBalanceResponse.of(0, 0));
     }
 
     /** 어드민 다이아 탭용 이력 조회 (현재 잔액 포함) */

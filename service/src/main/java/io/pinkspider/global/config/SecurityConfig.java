@@ -217,6 +217,9 @@ public class SecurityConfig {
                                         // 구매는 POST 라 여기 걸리지 않고 인증이 유지된다.
                                         .requestMatchers(HttpMethod.GET, "/api/v1/shop-items")
                                         .permitAll()
+                                        // LUT-356: 비로그인 핑크다이아 묶음상품 열람 (상점 Browse-First)
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/diamond-bundles")
+                                        .permitAll()
 
                                         // 관리자 전용 API
                                         .requestMatchers("/api/v1/users/experience/levels")

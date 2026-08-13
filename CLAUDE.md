@@ -308,9 +308,12 @@ public void run() { ...}
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
 멱등성 고려 필수.
 
-## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350)
+## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/356)
 
 다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
+**핑크다이아** (LUT-356): 결제 구매 재화 — `user_diamond.pink_balance`로 블루(기존 `balance`)와 분리 관리.
+`/diamonds/me` 응답의 `balance`는 블루+핑크 합계(하위호환), `blue_balance`/`pink_balance`로 세부 제공.
+묶음상품(`diamond_bundle`)은 어드민이 등록(이름·설명 다국어/개수/이미지), 결제·가격은 후속 티켓 범위.
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
@@ -318,8 +321,10 @@ public void run() { ...}
 | `POST /api/v1/shop-items/{id}/purchase`                           | 필요            | 구매 (다이아 차감 + 인벤토리 지급, 단일 트랜잭션)        |
 | `GET /api/v1/user-items`                                          | 필요            | 인벤토리 조회                               |
 | `POST /api/v1/user-items/{id}/equip`, `.../unequip`               | 필요            | 장착 / 해제                               |
-| `GET /api/v1/diamonds/me`                                         | 필요            | 보유 다이아 잔액                             |
+| `GET /api/v1/diamonds/me`                                         | 필요            | 보유 다이아 잔액 (블루/핑크 분리, LUT-356)      |
+| `GET /api/v1/diamond-bundles`                                     | **비로그인 허용** (GET만) | 판매중 핑크다이아 묶음상품 — 개수 오름차순 (LUT-356) |
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
+| `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 
 **가격 할증 (`io.pinkspider.global.policy.LevelRarityPolicy`)** — 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸다.
 
