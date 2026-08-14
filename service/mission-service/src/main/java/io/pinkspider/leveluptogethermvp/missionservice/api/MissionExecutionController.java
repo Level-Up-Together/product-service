@@ -189,9 +189,11 @@ public class MissionExecutionController {
         @CurrentUser String userId,
         @RequestParam int year,
         @RequestParam int month,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        @RequestHeader(value = "X-Timezone", required = false) String timezone,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        MonthlyCalendarResponse response = executionQueryService.getMonthlyCalendarData(userId, year, month, timezone);
+        MonthlyCalendarResponse response =
+            executionQueryService.getMonthlyCalendarData(userId, year, month, timezone, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<MonthlyCalendarResponse>builder().value(response).build());
     }
 
@@ -204,10 +206,11 @@ public class MissionExecutionController {
         @PathVariable("userId") String targetUserId,
         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
         @CurrentUser(required = false) String viewerUserId,
-        @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        @RequestHeader(value = "X-Timezone", required = false) String timezone,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
 
-        WeeklyCalendarResponse response =
-            executionQueryService.getWeeklyCalendarData(targetUserId, viewerUserId, date, timezone);
+        WeeklyCalendarResponse response = executionQueryService.getWeeklyCalendarData(
+            targetUserId, viewerUserId, date, timezone, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<WeeklyCalendarResponse>builder().value(response).build());
     }
 

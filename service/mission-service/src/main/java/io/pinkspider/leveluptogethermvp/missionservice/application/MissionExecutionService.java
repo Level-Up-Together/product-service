@@ -187,7 +187,7 @@ public class MissionExecutionService {
         if (response.getId() != null) {
             response.setFeedVisibility(feedQueryService.getFeedVisibilityByExecutionId(response.getId()));
         }
-        executionQueryService.localizeCategoryNames(List.of(response), locale);
+        executionQueryService.localizeMissionFields(List.of(response), locale);
         return response;
     }
 

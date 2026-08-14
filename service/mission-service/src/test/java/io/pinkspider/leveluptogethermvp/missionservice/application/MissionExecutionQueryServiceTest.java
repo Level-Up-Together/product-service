@@ -1384,4 +1384,193 @@ class MissionExecutionQueryServiceTest {
             assertThat(responses).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("LUT-370: 수행/완료 응답 미션명 다국어 테스트")
+    class LocalizeMissionFieldsTest {
+
+        private Mission createBookMission(Long id, String title, String titleEn) {
+            Mission mission = Mission.builder()
+                .title(title)
+                .titleEn(titleEn)
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(50)
+                .build();
+            setId(mission, id);
+            return mission;
+        }
+
+        @Test
+        @DisplayName("미션에 locale 번역이 있으면 스냅샷 대신 번역 미션명으로 덮어쓴다")
+        void localizeMissionFields_overridesTitleWhenTranslationExists() {
+            Mission bookMission = createBookMission(10L, "독서 미션", "Reading Mission");
+            when(missionRepository.findAllById(List.of(10L))).thenReturn(List.of(bookMission));
+
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(10L)
+                .missionTitle("독서 미션")
+                .build();
+
+            executionService.localizeMissionFields(
+                new java.util.ArrayList<>(List.of(response)), "en");
+
+            assertThat(response.getMissionTitle()).isEqualTo("Reading Mission");
+        }
+
+        @Test
+        @DisplayName("번역이 없는 미션(유저 작성)은 스냅샷 미션명을 유지한다")
+        void localizeMissionFields_keepsSnapshotWhenNoTranslation() {
+            Mission userMission = createBookMission(11L, "나의 미션", null);
+            when(missionRepository.findAllById(List.of(11L))).thenReturn(List.of(userMission));
+
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(11L)
+                .missionTitle("나의 미션")
+                .build();
+
+            executionService.localizeMissionFields(
+                new java.util.ArrayList<>(List.of(response)), "en");
+
+            assertThat(response.getMissionTitle()).isEqualTo("나의 미션");
+        }
+
+        @Test
+        @DisplayName("ko locale 은 번역 덮어쓰기 없이 스냅샷을 유지한다")
+        void localizeMissionFields_koKeepsSnapshot() {
+            Mission bookMission = createBookMission(12L, "독서 미션", "Reading Mission");
+            when(missionRepository.findAllById(List.of(12L))).thenReturn(List.of(bookMission));
+
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(12L)
+                .missionTitle("독서 미션")
+                .build();
+
+            executionService.localizeMissionFields(
+                new java.util.ArrayList<>(List.of(response)), "ko");
+
+            assertThat(response.getMissionTitle()).isEqualTo("독서 미션");
+        }
+
+        @Test
+        @DisplayName("마스킹된 응답(missionTitle=null)은 번역으로 채우지 않는다")
+        void localizeMissionFields_doesNotFillMaskedTitle() {
+            Mission bookMission = createBookMission(13L, "독서 미션", "Reading Mission");
+            when(missionRepository.findAllById(List.of(13L))).thenReturn(List.of(bookMission));
+
+            MissionExecutionResponse response = MissionExecutionResponse.builder()
+                .missionId(13L)
+                .missionTitle(null)
+                .build();
+
+            executionService.localizeMissionFields(
+                new java.util.ArrayList<>(List.of(response)), "en");
+
+            assertThat(response.getMissionTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("월별 캘린더도 locale 번역 미션명을 반환한다 (일반+고정)")
+        void getMonthlyCalendarData_localizesTitles() {
+            int year = 2026;
+            int month = 8;
+            LocalDate date = LocalDate.of(year, month, 5);
+
+            Mission bookMission = createBookMission(20L, "독서 미션", "Reading Mission");
+            MissionParticipant bookParticipant = MissionParticipant.builder()
+                .mission(bookMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(bookParticipant, 20L);
+
+            MissionExecution execution = MissionExecution.builder()
+                .participant(bookParticipant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .expEarned(50)
+                .build();
+            setId(execution, 20L);
+            TestReflectionUtils.setField(execution, "startedAt", date.atTime(9, 0));
+            TestReflectionUtils.setField(execution, "completedAt", date.atTime(10, 0));
+
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(bookParticipant)
+                .instanceDate(date)
+                .missionTitle("독서 미션")
+                .categoryName("자기계발")
+                .build();
+            setId(instance, 21L);
+            TestReflectionUtils.setField(instance, "expEarned", 30);
+            TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
+            TestReflectionUtils.setField(instance, "completedAt", date.atTime(14, 0));
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(execution));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(instance));
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date, 80L));
+
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, year, month, null, "en");
+
+            List<MonthlyCalendarResponse.DailyMission> missions =
+                response.getDailyMissions().get(date.toString());
+            assertThat(missions).hasSize(2);
+            assertThat(missions).allSatisfy(m ->
+                assertThat(m.getMissionTitle()).isEqualTo("Reading Mission"));
+        }
+
+        @Test
+        @DisplayName("locale 없이 호출하면 월별 캘린더 미션명이 기존과 동일하다")
+        void getMonthlyCalendarData_withoutLocaleKeepsOriginal() {
+            int year = 2026;
+            int month = 8;
+            LocalDate date = LocalDate.of(year, month, 5);
+
+            Mission bookMission = createBookMission(22L, "독서 미션", "Reading Mission");
+            MissionParticipant bookParticipant = MissionParticipant.builder()
+                .mission(bookMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(bookParticipant, 22L);
+
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(bookParticipant)
+                .instanceDate(date)
+                .missionTitle("독서 미션")
+                .categoryName("자기계발")
+                .build();
+            setId(instance, 23L);
+            TestReflectionUtils.setField(instance, "expEarned", 30);
+            TestReflectionUtils.setField(instance, "startedAt", date.atTime(13, 0));
+            TestReflectionUtils.setField(instance, "completedAt", date.atTime(14, 0));
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(instance));
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date, 30L));
+
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            List<MonthlyCalendarResponse.DailyMission> missions =
+                response.getDailyMissions().get(date.toString());
+            assertThat(missions).hasSize(1);
+            assertThat(missions.get(0).getMissionTitle()).isEqualTo("독서 미션");
+        }
+    }
 }

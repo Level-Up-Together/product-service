@@ -85,7 +85,7 @@ public class MissionExecutionQueryService {
     public List<MissionExecutionResponse> getExecutionsForMission(
             Long missionId, String userId, String locale) {
         List<MissionExecutionResponse> responses = getExecutionsByMissionAndUser(missionId, userId);
-        localizeCategoryNames(responses, locale);
+        localizeMissionFields(responses, locale);
         return responses;
     }
 
@@ -99,7 +99,7 @@ public class MissionExecutionQueryService {
         MissionExecutionResponse response =
             strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date);
         if (response != null) {
-            localizeCategoryNames(List.of(response), locale);
+            localizeMissionFields(List.of(response), locale);
         }
         return response;
     }
@@ -119,7 +119,7 @@ public class MissionExecutionQueryService {
         List<MissionExecutionResponse> responses = toResponsesWithImages(
             executionRepository.findByParticipantIdAndExecutionDateBetween(
                 participant.getId(), startDate, endDate));
-        localizeCategoryNames(responses, locale);
+        localizeMissionFields(responses, locale);
         return responses;
     }
 
@@ -151,7 +151,7 @@ public class MissionExecutionQueryService {
             .map(this::toResponseWithImages)
             .orElse(null);
         if (response != null) {
-            localizeCategoryNames(List.of(response), locale);
+            localizeMissionFields(List.of(response), locale);
         }
         return response;
     }
@@ -196,7 +196,7 @@ public class MissionExecutionQueryService {
         // QA-152: is_shared_to_feed=true 인데 feed_db 에 매칭 피드가 없는 행은 false 로 보정.
         reconcileSharedToFeedFlag(responses);
 
-        localizeCategoryNames(responses, locale);
+        localizeMissionFields(responses, locale);
 
         log.info("getTodayExecutions: userId={}, regularCount={}, instanceCount={}",
             userId, regularExecutions.size(), instanceResponses.size());
@@ -234,7 +234,7 @@ public class MissionExecutionQueryService {
         // QA-152: 동일 안전망 — feed 가 없는 행은 is_shared_to_feed=false 로 보정.
         reconcileSharedToFeedFlag(responses);
 
-        localizeCategoryNames(responses, locale);
+        localizeMissionFields(responses, locale);
 
         log.info("getCompletedPinnedInstancesForToday: userId={}, count={}", userId, responses.size());
 
@@ -335,6 +335,12 @@ public class MissionExecutionQueryService {
      * 일반 미션(MissionExecution)과 고정 미션(DailyMissionInstance) 모두 포함
      */
     public MonthlyCalendarResponse getMonthlyCalendarData(String userId, int year, int month, String timezone) {
+        return getMonthlyCalendarData(userId, year, month, timezone, null);
+    }
+
+    /** LUT-370: locale에 맞는 미션명/카테고리명으로 월별 캘린더 조회 */
+    public MonthlyCalendarResponse getMonthlyCalendarData(
+            String userId, int year, int month, String timezone, String locale) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
@@ -388,10 +394,11 @@ public class MissionExecutionQueryService {
                     execution.getStartedAt(), execution.getCompletedAt()).toMinutes();
             }
 
+            Mission regularMission = execution.getParticipant().getMission();
             DailyMission dailyMission = DailyMission.builder()
-                .missionId(execution.getParticipant().getMission().getId())
-                .missionTitle(execution.getParticipant().getMission().getTitle())
-                .categoryName(execution.getParticipant().getMission().getCategoryName())
+                .missionId(regularMission.getId())
+                .missionTitle(localizedTitleOrFallback(regularMission, regularMission.getTitle(), locale))
+                .categoryName(regularMission.getCategoryName())
                 .expEarned(execution.getExpEarned())
                 .durationMinutes(durationMinutes)
                 .startedAt(execution.getStartedAt())
@@ -414,7 +421,8 @@ public class MissionExecutionQueryService {
 
             DailyMission dailyMission = DailyMission.builder()
                 .missionId(instance.getParticipant().getMission().getId())
-                .missionTitle(instance.getMissionTitle())
+                .missionTitle(localizedTitleOrFallback(
+                    instance.getParticipant().getMission(), instance.getMissionTitle(), locale))
                 .categoryName(instance.getCategoryName())
                 .expEarned(instance.getExpEarned())
                 .durationMinutes(durationMinutes)
@@ -460,6 +468,12 @@ public class MissionExecutionQueryService {
      */
     public WeeklyCalendarResponse getWeeklyCalendarData(String targetUserId, String viewerUserId,
                                                          LocalDate date, String timezone) {
+        return getWeeklyCalendarData(targetUserId, viewerUserId, date, timezone, null);
+    }
+
+    /** LUT-370: locale에 맞는 미션명으로 주간 캘린더 조회 */
+    public WeeklyCalendarResponse getWeeklyCalendarData(String targetUserId, String viewerUserId,
+                                                         LocalDate date, String timezone, String locale) {
         ZoneId userZone;
         try {
             userZone = ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
@@ -505,7 +519,8 @@ public class MissionExecutionQueryService {
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
                 CalendarMission.builder()
                     .missionId(visible ? mission.getId() : null)
-                    .missionTitle(visible ? mission.getTitle() : null)
+                    .missionTitle(visible
+                        ? localizedTitleOrFallback(mission, mission.getTitle(), locale) : null)
                     .categoryName(visible ? mission.getCategoryName() : null)
                     .expEarned(execution.getExpEarned())
                     .durationMinutes(toDurationMinutes(execution.getStartedAt(), execution.getCompletedAt()))
@@ -525,7 +540,10 @@ public class MissionExecutionQueryService {
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(
                 CalendarMission.builder()
                     .missionId(visible ? instance.getParticipant().getMission().getId() : null)
-                    .missionTitle(visible ? instance.getMissionTitle() : null)
+                    .missionTitle(visible
+                        ? localizedTitleOrFallback(
+                            instance.getParticipant().getMission(), instance.getMissionTitle(), locale)
+                        : null)
                     .categoryName(visible ? instance.getCategoryName() : null)
                     .expEarned(instance.getExpEarned())
                     .durationMinutes(toDurationMinutes(instance.getStartedAt(), instance.getCompletedAt()))
@@ -680,11 +698,29 @@ public class MissionExecutionQueryService {
     }
 
     /**
+     * LUT-370: locale 번역이 실제로 있을 때만 미션의 번역 제목을, 없으면 fallback(스냅샷/원문)을
+     * 반환한다. 번역이 없는 미션(유저 작성)과 ko locale 은 기존 값이 유지되어 완료 이력
+     * 스냅샷(LUT-361) 의미가 바뀌지 않는다.
+     */
+    private String localizedTitleOrFallback(Mission mission, String fallbackTitle, String locale) {
+        if (mission == null || locale == null || locale.isBlank()) {
+            return fallbackTitle;
+        }
+        String localized = mission.getLocalizedTitle(locale);
+        return localized != null && !localized.equals(mission.getTitle()) ? localized : fallbackTitle;
+    }
+
+    /**
      * LUT-255: 수행 기록 응답의 missionCategoryName을 locale에 맞는 카테고리명으로 덮어쓴다.
      * 응답에는 categoryId가 없으므로 missionId → 미션의 categoryId → meta 카테고리 순으로 배치 조회한다.
      * locale이 없으면(한국어) denormalized 스냅샷 이름을 그대로 두고, 조회 실패 시에도 fallback 유지.
+     *
+     * <p>LUT-370: missionTitle 도 함께 다국어 처리한다. 수행/완료 응답은 스냅샷(한국어 원문)만
+     * 담고 있어 미션북 미션이 목록(locale 적용)과 달리 한국어로 노출됐다. 미션에 해당 locale
+     * 번역이 실제로 있을 때만 덮어쓴다 — 번역이 없으면(유저 작성 미션, ko 등) 스냅샷을 유지해
+     * 완료 이력 보존(LUT-361) 의미를 바꾸지 않는다.
      */
-    void localizeCategoryNames(List<MissionExecutionResponse> responses, String locale) {
+    void localizeMissionFields(List<MissionExecutionResponse> responses, String locale) {
         if (locale == null || locale.isBlank() || responses.isEmpty()) {
             return;
         }
@@ -697,21 +733,35 @@ public class MissionExecutionQueryService {
             if (missionIds.isEmpty()) {
                 return;
             }
-            Map<Long, Long> categoryIdByMissionId = missionRepository.findAllById(missionIds).stream()
+            List<Mission> missions = missionRepository.findAllById(missionIds);
+
+            Map<Long, String> titleByMissionId = new HashMap<>();
+            for (Mission mission : missions) {
+                String localizedTitle = mission.getLocalizedTitle(locale);
+                if (localizedTitle != null && !localizedTitle.equals(mission.getTitle())) {
+                    titleByMissionId.put(mission.getId(), localizedTitle);
+                }
+            }
+
+            Map<Long, Long> categoryIdByMissionId = missions.stream()
                 .filter(m -> m.getCategoryId() != null)
                 .collect(Collectors.toMap(Mission::getId, Mission::getCategoryId, (a, b) -> a));
             List<Long> categoryIds = categoryIdByMissionId.values().stream().distinct().toList();
-            if (categoryIds.isEmpty()) {
-                return;
-            }
-            Map<Long, String> nameByCategoryId =
-                missionCategoryService.getCategoriesByIds(categoryIds).stream()
+            Map<Long, String> nameByCategoryId = categoryIds.isEmpty()
+                ? Map.of()
+                : missionCategoryService.getCategoriesByIds(categoryIds).stream()
                     .filter(c -> c.getId() != null && c.getLocalizedName(locale) != null)
                     .collect(Collectors.toMap(
                         MissionCategoryResponse::getId,
                         c -> c.getLocalizedName(locale),
                         (a, b) -> a));
             responses.forEach(r -> {
+                String localizedTitle = r.getMissionId() != null
+                    ? titleByMissionId.get(r.getMissionId()) : null;
+                // 마스킹된 응답(missionTitle=null)은 건드리지 않는다
+                if (localizedTitle != null && r.getMissionTitle() != null) {
+                    r.setMissionTitle(localizedTitle);
+                }
                 Long categoryId = r.getMissionId() != null
                     ? categoryIdByMissionId.get(r.getMissionId()) : null;
                 String localized = categoryId != null ? nameByCategoryId.get(categoryId) : null;
@@ -720,7 +770,7 @@ public class MissionExecutionQueryService {
                 }
             });
         } catch (Exception e) {
-            log.warn("수행 기록 카테고리 다국어 조회 실패: locale={}, error={}", locale, e.getMessage());
+            log.warn("수행 기록 다국어 조회 실패: locale={}, error={}", locale, e.getMessage());
         }
     }
 

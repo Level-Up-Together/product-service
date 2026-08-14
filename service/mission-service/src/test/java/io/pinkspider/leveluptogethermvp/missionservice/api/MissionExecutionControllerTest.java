@@ -428,7 +428,7 @@ class MissionExecutionControllerTest {
             .completedDates(List.of(yesterdayStr, todayStr))
             .build();
 
-        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any()))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any(), any()))
             .thenReturn(response);
 
         // when
@@ -494,7 +494,7 @@ class MissionExecutionControllerTest {
             .completedDates(List.of())
             .build();
 
-        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any()))
+        when(executionQueryService.getMonthlyCalendarData(anyString(), any(Integer.class), any(Integer.class), any(), any()))
             .thenReturn(response);
 
         // when
@@ -569,7 +569,7 @@ class MissionExecutionControllerTest {
             .completedDates(List.of("2026-08-05"))
             .build();
 
-        when(executionQueryService.getWeeklyCalendarData(anyString(), any(), any(), any()))
+        when(executionQueryService.getWeeklyCalendarData(anyString(), any(), any(), any(), any()))
             .thenReturn(response);
 
         // when — 비로그인 접근 가능 (인증 없이 호출)
