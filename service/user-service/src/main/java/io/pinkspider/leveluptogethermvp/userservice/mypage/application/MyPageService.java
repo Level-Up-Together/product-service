@@ -711,6 +711,8 @@ public class MyPageService {
             .name(userTitle.titleName())
             .nameEn(userTitle.titleNameEn())
             .nameAr(userTitle.titleNameAr())
+            // LUT-370: nameJa 매핑 누락으로 일본어 칭호가 항상 null → ja 만 한국어 폴백되던 원인
+            .nameJa(userTitle.titleNameJa())
             .displayName(userTitle.titleName())
             .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
             .colorCode(userTitle.titleColorCode())
@@ -724,6 +726,8 @@ public class MyPageService {
             .name(userTitle.titleName())
             .nameEn(userTitle.titleNameEn())
             .nameAr(userTitle.titleNameAr())
+            // LUT-370: nameJa 매핑 누락 — toEquippedTitleInfo 와 동일 결함
+            .nameJa(userTitle.titleNameJa())
             .displayName(userTitle.titleName())
             .rarity(userTitle.titleRarity() != null ? userTitle.titleRarity().name() : null)
             .colorCode(userTitle.titleColorCode())

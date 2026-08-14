@@ -136,6 +136,15 @@ class MyPageServiceTest {
         );
     }
 
+    /** LUT-370: 다국어 칭호명이 채워진 DTO — nameEn/nameAr/nameJa 매핑 회귀 검증용 */
+    private UserTitleDto createLocalizedUserTitleDto(Long id, TitlePosition position) {
+        return new UserTitleDto(
+            id, TEST_USER_ID, id, "용감한", "Brave", "شجاع", "勇敢な",
+            "설명", null, null, null, TitleRarity.RARE, position,
+            "#FF0000", null, true, position, null
+        );
+    }
+
     private UserStatsDto createDefaultUserStats(String userId) {
         return new UserStatsDto(
             null, userId, 0, 0, 0, 0, 0, null, 0, 0, 0L, 0, 0L, 0
@@ -1128,6 +1137,31 @@ class MyPageServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-370: 칭호 변경 응답에 다국어 칭호명(nameEn/nameAr/nameJa)이 매핑된다")
+        void changeTitles_mapsLocalizedTitleNames() {
+            // given
+            UserTitleDto leftUserTitle = createLocalizedUserTitleDto(1L, TitlePosition.LEFT);
+            UserTitleDto rightUserTitle = createLocalizedUserTitleDto(2L, TitlePosition.RIGHT);
+
+            TitleChangeRequest request = new TitleChangeRequest();
+            TestReflectionUtils.setField(request, "leftUserTitleId", 1L);
+            TestReflectionUtils.setField(request, "rightUserTitleId", 2L);
+
+            when(gamificationQueryFacadeService.changeTitles(TEST_USER_ID, 1L, 2L))
+                .thenReturn(new TitleChangeResultDto(leftUserTitle, rightUserTitle));
+
+            // when
+            TitleChangeResponse result = myPageService.changeTitles(TEST_USER_ID, request);
+
+            // then
+            assertThat(result.getLeftTitle().getNameEn()).isEqualTo("Brave");
+            assertThat(result.getLeftTitle().getNameAr()).isEqualTo("شجاع");
+            // nameJa 매핑 누락 시 일본어 유저의 칭호가 한국어로 폴백되던 결함 (LUT-370)
+            assertThat(result.getLeftTitle().getNameJa()).isEqualTo("勇敢な");
+            assertThat(result.getRightTitle().getNameJa()).isEqualTo("勇敢な");
+        }
+
+        @Test
         @DisplayName("좌측과 우측에 같은 칭호를 설정하면 예외가 발생한다")
         void changeTitles_sameTitles_throwsException() {
             // given
@@ -1573,6 +1607,32 @@ class MyPageServiceTest {
             assertThat(result.getLeftTitle().getName()).isEqualTo("용감한");
             assertThat(result.getRightTitle()).isNotNull();
             assertThat(result.getRightTitle().getName()).isEqualTo("전사");
+        }
+
+        @Test
+        @DisplayName("LUT-370: 공개 프로필 칭호에 다국어 칭호명(nameEn/nameAr/nameJa)이 매핑된다")
+        void getPublicProfile_mapsLocalizedTitleNames() {
+            // given
+            Users user = createTestUser(TEST_USER_ID, "테스터");
+            UserTitleDto leftTitle = createLocalizedUserTitleDto(1L, TitlePosition.LEFT);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(leftTitle));
+            when(gamificationQueryFacadeService.getUserLevel(TEST_USER_ID)).thenReturn(10);
+            when(gamificationQueryFacadeService.getOrCreateUserStats(TEST_USER_ID)).thenReturn(createDefaultUserStats(TEST_USER_ID));
+            when(gamificationQueryFacadeService.countUserTitles(TEST_USER_ID)).thenReturn(1L);
+            when(guildQueryFacadeService.getUserGuildMemberships(TEST_USER_ID)).thenReturn(Collections.emptyList());
+            when(guildQueryFacadeService.countActiveMembersByGuildIds(Collections.emptyList())).thenReturn(java.util.Map.of());
+
+            // when
+            PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, null);
+
+            // then
+            assertThat(result.getLeftTitle().getNameEn()).isEqualTo("Brave");
+            assertThat(result.getLeftTitle().getNameAr()).isEqualTo("شجاع");
+            // nameJa 매핑 누락 시 일본어 유저의 칭호가 한국어로 폴백되던 결함 (LUT-370)
+            assertThat(result.getLeftTitle().getNameJa()).isEqualTo("勇敢な");
         }
 
         @Test
