@@ -277,6 +277,28 @@ class NotificationEventListenerTest {
                 eq(SENDER_ID), eq(NotificationType.GUILD_CHAT),
                 anyLong(), any(), any(), any(), any(), any());
         }
+
+        @Test
+        @DisplayName("LUT-373: 차단 관계인 멤버에게는 길드 채팅 알림을 보내지 않는다")
+        void handleGuildChatMessage_blockedMember_skipsNotification() {
+            Long guildId = 100L;
+            Long messageId = 1L;
+            List<String> memberIds = Arrays.asList(SENDER_ID, MEMBER_ID_1, MEMBER_ID_2);
+            when(userQueryFacadeService.isBlockedBetween(MEMBER_ID_1, SENDER_ID)).thenReturn(true);
+            when(userQueryFacadeService.isBlockedBetween(MEMBER_ID_2, SENDER_ID)).thenReturn(false);
+
+            GuildChatMessageEvent event = new GuildChatMessageEvent(
+                SENDER_ID, "발송자닉네임", guildId, "테스트 길드", messageId, "안녕하세요", memberIds, LocalDateTime.now());
+            eventListener.handleGuildChatMessage(event);
+
+            verify(notificationService, never()).sendNotification(
+                eq(MEMBER_ID_1), eq(NotificationType.GUILD_CHAT),
+                anyLong(), any(), any(), any(), any(), any());
+            verify(notificationService).sendNotification(
+                eq(MEMBER_ID_2), eq(NotificationType.GUILD_CHAT),
+                eq(messageId), isNull(),
+                eq("테스트 길드"), eq("발송자닉네임"), eq("안녕하세요"), eq(guildId.toString()));
+        }
     }
 
     @Nested

@@ -109,22 +109,42 @@ public class GuildChatService {
         return ChatMessageResponse.from(saved);
     }
 
+    /**
+     * LUT-373: 차단한 유저의 메시지 제외 목록 (viewer 기준 단방향 — 피드와 동일 정책).
+     * JPQL NOT IN 은 빈 리스트에서 오동작하므로 항상 매치되지 않는 센티널을 넣는다.
+     * 차단 조회 실패가 채팅 조회 전체를 막지 않도록 예외는 미차단으로 처리한다.
+     */
+    private List<String> resolveExcludedSenderIds(String userId) {
+        if (userId == null) {
+            return List.of("__none__");
+        }
+        try {
+            List<String> blocked = userQueryFacadeService.getBlockedUserIds(userId);
+            return (blocked == null || blocked.isEmpty()) ? List.of("__none__") : blocked;
+        } catch (Exception e) {
+            log.warn("차단 목록 조회 실패 — 필터 없이 진행: userId={}", userId);
+            return List.of("__none__");
+        }
+    }
+
     public Page<ChatMessageResponse> getMessages(Long guildId, String userId, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable)
+        return chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(
+                guildId, resolveExcludedSenderIds(userId), pageable)
             .map(ChatMessageResponse::from);
     }
 
     public List<ChatMessageResponse> getNewMessages(Long guildId, String userId, LocalDateTime since) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findNewMessages(guildId, since).stream()
+        return chatMessageRepository.findNewMessages(guildId, since, resolveExcludedSenderIds(userId)).stream()
             .map(ChatMessageResponse::from)
             .toList();
     }
 
     public List<ChatMessageResponse> getMessagesAfterId(Long guildId, String userId, Long lastMessageId) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findMessagesAfterId(guildId, lastMessageId).stream()
+        return chatMessageRepository.findMessagesAfterId(
+                guildId, lastMessageId, resolveExcludedSenderIds(userId)).stream()
             .map(ChatMessageResponse::from)
             .toList();
     }
@@ -132,14 +152,16 @@ public class GuildChatService {
     public Page<ChatMessageResponse> getMessagesBeforeId(Long guildId, String userId,
                                                           Long beforeId, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.findMessagesBeforeId(guildId, beforeId, pageable)
+        return chatMessageRepository.findMessagesBeforeId(
+                guildId, beforeId, resolveExcludedSenderIds(userId), pageable)
             .map(ChatMessageResponse::from);
     }
 
     public Page<ChatMessageResponse> searchMessages(Long guildId, String userId,
                                                      String keyword, Pageable pageable) {
         validateMembership(guildId, userId);
-        return chatMessageRepository.searchMessages(guildId, keyword, pageable)
+        return chatMessageRepository.searchMessages(
+                guildId, keyword, resolveExcludedSenderIds(userId), pageable)
             .map(ChatMessageResponse::from);
     }
 
@@ -258,7 +280,8 @@ public class GuildChatService {
     public Page<ChatMessageResponse> getMessagesWithUnreadCount(Long guildId, String userId, Pageable pageable) {
         validateMembership(guildId, userId);
 
-        Page<GuildChatMessage> messages = chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(guildId, pageable);
+        Page<GuildChatMessage> messages = chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(
+            guildId, resolveExcludedSenderIds(userId), pageable);
         int totalParticipants = (int) participantRepository.countActiveParticipants(guildId);
 
         List<Long> messageIds = messages.getContent().stream()

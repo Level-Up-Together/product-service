@@ -245,7 +245,7 @@ class GuildChatServiceTest {
             Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable)).thenReturn(messagePage);
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), anyList(), eq(pageable))).thenReturn(messagePage);
 
             // when
             Page<ChatMessageResponse> result = guildChatService.getMessages(1L, testUserId, pageable);
@@ -262,7 +262,7 @@ class GuildChatServiceTest {
             LocalDateTime since = LocalDateTime.now().minusMinutes(5);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findNewMessages(1L, since)).thenReturn(List.of(testMessage));
+            when(chatMessageRepository.findNewMessages(eq(1L), eq(since), anyList())).thenReturn(List.of(testMessage));
 
             // when
             List<ChatMessageResponse> result = guildChatService.getNewMessages(1L, testUserId, since);
@@ -276,13 +276,50 @@ class GuildChatServiceTest {
         void getMessagesAfterId_success() {
             // given
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findMessagesAfterId(1L, 0L)).thenReturn(List.of(testMessage));
+            when(chatMessageRepository.findMessagesAfterId(eq(1L), eq(0L), anyList())).thenReturn(List.of(testMessage));
 
             // when
             List<ChatMessageResponse> result = guildChatService.getMessagesAfterId(1L, testUserId, 0L);
 
             // then
             assertThat(result).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("LUT-373: 차단한 유저 ID 목록이 조회 쿼리에 제외 조건으로 전달된다")
+        void getMessages_passesBlockedSenderIds() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
+
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(testUserId))
+                .thenReturn(List.of("blocked-user-1", "blocked-user-2"));
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(
+                eq(1L), eq(List.of("blocked-user-1", "blocked-user-2")), eq(pageable)))
+                .thenReturn(messagePage);
+
+            Page<ChatMessageResponse> result = guildChatService.getMessages(1L, testUserId, pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(chatMessageRepository).findByGuildIdOrderByCreatedAtDesc(
+                eq(1L), eq(List.of("blocked-user-1", "blocked-user-2")), eq(pageable));
+        }
+
+        @Test
+        @DisplayName("LUT-373: 차단 목록이 비어 있으면 센티널(__none__)로 조회한다")
+        void getMessages_emptyBlockedList_usesSentinel() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
+
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(testUserId)).thenReturn(List.of());
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(
+                eq(1L), eq(List.of("__none__")), eq(pageable)))
+                .thenReturn(messagePage);
+
+            Page<ChatMessageResponse> result = guildChatService.getMessages(1L, testUserId, pageable);
+
+            assertThat(result.getContent()).hasSize(1);
         }
 
         @Test
@@ -377,7 +414,7 @@ class GuildChatServiceTest {
             Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.searchMessages(1L, "테스트", pageable)).thenReturn(messagePage);
+            when(chatMessageRepository.searchMessages(eq(1L), eq("테스트"), anyList(), eq(pageable))).thenReturn(messagePage);
 
             // when
             Page<ChatMessageResponse> result = guildChatService.searchMessages(1L, testUserId, "테스트", pageable);
@@ -678,7 +715,7 @@ class GuildChatServiceTest {
             Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findMessagesBeforeId(eq(1L), eq(100L), any(Pageable.class)))
+            when(chatMessageRepository.findMessagesBeforeId(eq(1L), eq(100L), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
             // when
@@ -802,7 +839,7 @@ class GuildChatServiceTest {
             Page<GuildChatMessage> messagePage = new PageImpl<>(List.of(testMessage), pageable, 1);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable))
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), anyList(), eq(pageable)))
                 .thenReturn(messagePage);
             when(participantRepository.countActiveParticipants(1L)).thenReturn(10L);
 
@@ -829,7 +866,7 @@ class GuildChatServiceTest {
             Page<GuildChatMessage> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
 
             when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
-            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(1L, pageable))
+            when(chatMessageRepository.findByGuildIdOrderByCreatedAtDesc(eq(1L), anyList(), eq(pageable)))
                 .thenReturn(emptyPage);
             when(participantRepository.countActiveParticipants(1L)).thenReturn(10L);
 

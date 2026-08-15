@@ -181,12 +181,15 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildChatMessage(GuildChatMessageEvent event) {
-        safeHandleMultiple("길드 채팅", event.memberIds(), event.userId(), memberId ->
+        safeHandleMultiple("길드 채팅", event.memberIds(), event.userId(), memberId -> {
+            // LUT-373: 차단 관계면 단체 채팅 알림/푸시도 스킵
+            if (isBlockedInteraction(memberId, event.userId())) return;
             notificationService.sendNotification(
                 memberId, NotificationType.GUILD_CHAT,
                 event.messageId(), null,
                 event.guildName(), event.senderNickname(),
-                event.getPreviewContent(), event.guildId().toString()));
+                event.getPreviewContent(), event.guildId().toString());
+        });
     }
 
     /**
