@@ -34,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserExperienceService {
 
-    private static final int GUILD_CREATION_MIN_LEVEL = 20;
+    // LUT-375: 길드 창설 가능 레벨 20 → 5 하향 (웹 GuildHome.GUILD_CREATION_MIN_LEVEL 과 동기)
+    private static final int GUILD_CREATION_MIN_LEVEL = 5;
 
     private final UserExperienceRepository userExperienceRepository;
     private final DiamondService diamondService;
@@ -95,7 +96,7 @@ public class UserExperienceService {
 
             // 프로필 캐시 무효화 + 스냅샷 동기화는 UserLevelUpProfileSyncListener에서 처리
 
-            // 길드 창설 가능 레벨(20) 도달 시 이벤트 발행
+            // 길드 창설 가능 레벨 도달 시 이벤트 발행
             if (levelAfter >= GUILD_CREATION_MIN_LEVEL && levelBefore < GUILD_CREATION_MIN_LEVEL) {
                 eventPublisher.publishEvent(new GuildCreationEligibleEvent(userId, levelAfter));
                 log.info("길드 창설 가능 레벨 도달: userId={}, level={}", userId, levelAfter);
