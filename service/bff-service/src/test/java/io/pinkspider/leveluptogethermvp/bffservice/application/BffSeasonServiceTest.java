@@ -68,7 +68,11 @@ class BffSeasonServiceTest {
             1L, 1L, 1, 1, "1위",
             null, null, "전체 랭킹",
             101L, "골드 챔피언", "LEGENDARY",
-            1, true
+            1, true,
+            new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
+                11L, "황금 날개", "Golden Wings", "أجنحة ذهبية", "黄金の翼",
+                "시즌 한정 보상", "Season reward", "مكافأة موسمية", "シーズン報酬",
+                "LEGENDARY", "https://example.com/item.png")
         );
 
         testPlayerRanking = new SeasonMvpPlayerDto(

@@ -108,7 +108,20 @@ class BffSeasonControllerTest {
             "시즌 " + rank + "등",
             "LEGENDARY",
             rank,
-            true
+            true,
+            // LUT-374: 보상 아이템 정보
+            new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
+                10L + rank,
+                "황금 날개",
+                "Golden Wings",
+                "أجنحة ذهبية",
+                "黄金の翼",
+                "시즌 한정 보상 아이템",
+                "Season-limited reward item",
+                "عنصر مكافأة موسمي",
+                "シーズン限定報酬アイテム",
+                "LEGENDARY",
+                "https://example.com/items/golden-wings.png")
         );
     }
 
@@ -251,6 +264,19 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.rank_rewards[].title_rarity").type(JsonFieldType.STRING).description("칭호 희귀도").optional(),
                             fieldWithPath("value.rank_rewards[].sort_order").type(JsonFieldType.NUMBER).description("정렬 순서"),
                             fieldWithPath("value.rank_rewards[].is_active").type(JsonFieldType.BOOLEAN).description("활성 여부"),
+                            // LUT-374: 보상 아이템 정보 (아이템 미지정 보상은 null)
+                            fieldWithPath("value.rank_rewards[].item").type(JsonFieldType.OBJECT).description("보상 아이템 정보 (미지정 시 null)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.id").type(JsonFieldType.NUMBER).description("아이템 ID").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name").type(JsonFieldType.STRING).description("아이템명 (한국어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_en").type(JsonFieldType.STRING).description("아이템명 (영어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_ar").type(JsonFieldType.STRING).description("아이템명 (아랍어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_ja").type(JsonFieldType.STRING).description("아이템명 (일본어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description").type(JsonFieldType.STRING).description("아이템 설명 (한국어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_en").type(JsonFieldType.STRING).description("아이템 설명 (영어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_ar").type(JsonFieldType.STRING).description("아이템 설명 (아랍어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_ja").type(JsonFieldType.STRING).description("아이템 설명 (일본어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional(),
+                            fieldWithPath("value.rank_rewards[].item.image_url").type(JsonFieldType.STRING).description("아이템 이미지 URL").optional(),
                             // 플레이어 랭킹
                             fieldWithPath("value.player_rankings[]").type(JsonFieldType.ARRAY).description("플레이어 랭킹 (TOP 10)"),
                             fieldWithPath("value.player_rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
@@ -364,6 +390,19 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.rank_rewards[].title_rarity").type(JsonFieldType.STRING).description("칭호 희귀도").optional(),
                             fieldWithPath("value.rank_rewards[].sort_order").type(JsonFieldType.NUMBER).description("정렬 순서"),
                             fieldWithPath("value.rank_rewards[].is_active").type(JsonFieldType.BOOLEAN).description("활성 여부"),
+                            // LUT-374: 보상 아이템 정보 (아이템 미지정 보상은 null)
+                            fieldWithPath("value.rank_rewards[].item").type(JsonFieldType.OBJECT).description("보상 아이템 정보 (미지정 시 null)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.id").type(JsonFieldType.NUMBER).description("아이템 ID").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name").type(JsonFieldType.STRING).description("아이템명 (한국어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_en").type(JsonFieldType.STRING).description("아이템명 (영어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_ar").type(JsonFieldType.STRING).description("아이템명 (아랍어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.name_ja").type(JsonFieldType.STRING).description("아이템명 (일본어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description").type(JsonFieldType.STRING).description("아이템 설명 (한국어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_en").type(JsonFieldType.STRING).description("아이템 설명 (영어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_ar").type(JsonFieldType.STRING).description("아이템 설명 (아랍어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.description_ja").type(JsonFieldType.STRING).description("아이템 설명 (일본어)").optional(),
+                            fieldWithPath("value.rank_rewards[].item.rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional(),
+                            fieldWithPath("value.rank_rewards[].item.image_url").type(JsonFieldType.STRING).description("아이템 이미지 URL").optional(),
                             fieldWithPath("value.player_rankings[]").type(JsonFieldType.ARRAY).description("플레이어 랭킹"),
                             fieldWithPath("value.player_rankings[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.player_rankings[].nickname").type(JsonFieldType.STRING).description("닉네임"),

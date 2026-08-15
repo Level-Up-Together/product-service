@@ -36,6 +36,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.Se
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -65,6 +67,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final AttendanceService attendanceService;
     private final SeasonRankingService seasonRankingService;
     private final SeasonRankRewardRepository seasonRankRewardRepository;
+    private final ShopItemRepository shopItemRepository;
     private final DiamondService diamondService;
 
     public GamificationQueryFacadeService(
@@ -76,6 +79,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         AttendanceService attendanceService,
         @Lazy SeasonRankingService seasonRankingService,
         SeasonRankRewardRepository seasonRankRewardRepository,
+        ShopItemRepository shopItemRepository,
         DiamondService diamondService
     ) {
         this.titleService = titleService;
@@ -86,6 +90,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.attendanceService = attendanceService;
         this.seasonRankingService = seasonRankingService;
         this.seasonRankRewardRepository = seasonRankRewardRepository;
+        this.shopItemRepository = shopItemRepository;
         this.diamondService = diamondService;
     }
 
@@ -351,14 +356,42 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
 
     @Override
     public List<SeasonRankRewardDto> getSeasonRankRewards(Long seasonId) {
-        return seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId).stream()
+        var rewards = seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(seasonId);
+
+        // LUT-374: 보상 아이템 정보 배치 로드 (N+1 방지). 아이템 미지정 보상은 item=null.
+        List<Long> itemIds = rewards.stream()
+            .map(r -> r.getItemId())
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<Long, ShopItem> itemById = itemIds.isEmpty()
+            ? Map.of()
+            : shopItemRepository.findAllById(itemIds).stream()
+                .collect(Collectors.toMap(ShopItem::getId, item -> item));
+
+        return rewards.stream()
             .map(r -> new SeasonRankRewardDto(
                 r.getId(), r.getSeason().getId(), r.getRankStart(), r.getRankEnd(),
                 r.getRankRangeDisplay(), r.getCategoryId(), r.getCategoryName(),
                 r.getRankingTypeDisplay(), r.getTitleId(), r.getTitleName(),
-                r.getTitleRarity(), r.getSortOrder(), r.getIsActive()
+                r.getTitleRarity(), r.getSortOrder(), r.getIsActive(),
+                // Map.of() 불변 맵은 get(null) 에서 NPE — itemId 미지정 보상은 선분기
+                toSeasonRewardItemDto(
+                    r.getItemId() == null ? null : itemById.get(r.getItemId()))
             ))
             .toList();
+    }
+
+    private io.pinkspider.global.facade.dto.SeasonRewardItemDto toSeasonRewardItemDto(ShopItem item) {
+        if (item == null) {
+            return null;
+        }
+        return new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
+            item.getId(), item.getName(), item.getNameEn(), item.getNameAr(), item.getNameJa(),
+            item.getDescription(), item.getDescriptionEn(), item.getDescriptionAr(),
+            item.getDescriptionJa(),
+            item.getRarity() != null ? item.getRarity().name() : null,
+            item.getImageUrl());
     }
 
     @Override

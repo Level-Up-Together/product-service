@@ -95,6 +95,9 @@ class GamificationQueryFacadeServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService diamondService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository shopItemRepository;
+
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
 
@@ -111,6 +114,7 @@ class GamificationQueryFacadeServiceTest {
             attendanceService,
             seasonRankingService,
             seasonRankRewardRepository,
+            shopItemRepository,
             diamondService
         );
     }
@@ -939,7 +943,60 @@ class GamificationQueryFacadeServiceTest {
             assertThat(result.get(0).titleId()).isEqualTo(10L);
             assertThat(result.get(0).titleName()).isEqualTo("챔피언");
             assertThat(result.get(0).rankRangeDisplay()).isEqualTo("1위");
+            // LUT-374: 아이템 미지정 보상은 item=null
+            assertThat(result.get(0).item()).isNull();
             verify(seasonRankRewardRepository).findBySeasonIdOrderBySortOrder(1L);
+        }
+
+        @Test
+        @DisplayName("LUT-374: 아이템이 지정된 보상은 아이템 정보(다국어명/설명/희귀도/이미지)를 포함한다")
+        void getSeasonRankRewards_withItem_includesItemInfo() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(1)
+                .rankEnd(1)
+                .titleId(10L)
+                .titleName("챔피언")
+                .titleRarity("LEGENDARY")
+                .itemId(5L)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            var item = io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem.builder()
+                .name("황금 날개")
+                .nameEn("Golden Wings")
+                .nameAr("أجنحة ذهبية")
+                .nameJa("黄金の翼")
+                .description("시즌 한정 보상")
+                .descriptionEn("Season reward")
+                .descriptionAr("مكافأة موسمية")
+                .descriptionJa("シーズン報酬")
+                .rarity(TitleRarity.LEGENDARY)
+                .imageUrl("https://example.com/item.png")
+                .build();
+            setId(item, 5L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(shopItemRepository.findAllById(List.of(5L))).thenReturn(List.of(item));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            assertThat(result).hasSize(1);
+            var rewardItem = result.get(0).item();
+            assertThat(rewardItem).isNotNull();
+            assertThat(rewardItem.id()).isEqualTo(5L);
+            assertThat(rewardItem.name()).isEqualTo("황금 날개");
+            assertThat(rewardItem.nameEn()).isEqualTo("Golden Wings");
+            assertThat(rewardItem.nameJa()).isEqualTo("黄金の翼");
+            assertThat(rewardItem.description()).isEqualTo("시즌 한정 보상");
+            assertThat(rewardItem.rarity()).isEqualTo("LEGENDARY");
+            assertThat(rewardItem.imageUrl()).isEqualTo("https://example.com/item.png");
         }
 
         @Test
