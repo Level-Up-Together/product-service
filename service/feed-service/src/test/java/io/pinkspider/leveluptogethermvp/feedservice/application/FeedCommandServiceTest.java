@@ -39,6 +39,7 @@ import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -931,11 +932,11 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
 
             // when
-            feedCommandService.deleteFeedByExecutionId(executionId);
+            feedCommandService.deleteFeedByExecutionId(executionId, TEST_USER_ID);
 
             // then
             verify(activityFeedRepository).delete(feed);
@@ -946,11 +947,11 @@ class FeedCommandServiceTest {
         void deleteFeedByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.empty());
 
             // when
-            feedCommandService.deleteFeedByExecutionId(executionId);
+            feedCommandService.deleteFeedByExecutionId(executionId, TEST_USER_ID);
 
             // then
             verify(activityFeedRepository, never()).delete(any(ActivityFeed.class));
@@ -968,12 +969,12 @@ class FeedCommandServiceTest {
             Long executionId = 10L;
             String newImageUrl = "https://example.com/updated.jpg";
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            feedCommandService.updateFeedImageUrlByExecutionId(executionId, newImageUrl);
+            feedCommandService.updateFeedImageUrlByExecutionId(executionId, TEST_USER_ID, newImageUrl);
 
             // then
             assertThat(feed.getImageUrl()).isEqualTo(newImageUrl);
@@ -981,15 +982,38 @@ class FeedCommandServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-380: 조회는 userId 스코프 finder만 사용한다 (execution/instance ID 충돌 방어)")
+        void updateFeedImagesByExecutionId_scopedByUser() {
+            // given — MissionExecution.id 와 DailyMissionInstance.id 는 별도 시퀀스라 값이
+            // 충돌할 수 있다. executionId 단독 조회는 나중에 생성된 타인의 피드를 갱신하고
+            // 내 피드는 미갱신되는(홈 피드 이미지 미반영) 원인이었다.
+            Long executionId = 10L;
+            ActivityFeed myFeed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
+                .thenReturn(Optional.of(myFeed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(myFeed);
+
+            // when
+            feedCommandService.updateFeedImagesByExecutionId(
+                executionId, TEST_USER_ID, List.of("https://x.com/new.jpg"));
+
+            // then
+            assertThat(myFeed.getImageUrl()).isEqualTo("https://x.com/new.jpg");
+            verify(activityFeedRepository)
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID);
+            verify(activityFeedRepository, never()).findFirstByExecutionIdOrderByCreatedAtDesc(any());
+        }
+
+        @Test
         @DisplayName("executionId에 해당하는 피드가 없으면 업데이트하지 않는다")
         void updateFeedImageUrlByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.empty());
 
             // when
-            feedCommandService.updateFeedImageUrlByExecutionId(executionId, "https://x.com/img.jpg");
+            feedCommandService.updateFeedImageUrlByExecutionId(executionId, TEST_USER_ID, "https://x.com/img.jpg");
 
             // then
             verify(activityFeedRepository, never()).save(any(ActivityFeed.class));
@@ -1007,12 +1031,12 @@ class FeedCommandServiceTest {
             Long executionId = 10L;
             String newDescription = "업데이트된 노트";
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            feedCommandService.updateFeedDescriptionByExecutionId(executionId, newDescription);
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, TEST_USER_ID, newDescription);
 
             // then
             assertThat(feed.getDescription()).isEqualTo(newDescription);
@@ -1024,11 +1048,11 @@ class FeedCommandServiceTest {
         void updateFeedDescriptionByExecutionId_notFound_doesNothing() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.empty());
 
             // when
-            feedCommandService.updateFeedDescriptionByExecutionId(executionId, "노트");
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, TEST_USER_ID, "노트");
 
             // then
             verify(activityFeedRepository, never()).save(any(ActivityFeed.class));
@@ -1040,12 +1064,12 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
-            feedCommandService.updateFeedDescriptionByExecutionId(executionId, null);
+            feedCommandService.updateFeedDescriptionByExecutionId(executionId, TEST_USER_ID, null);
 
             // then
             assertThat(feed.getDescription()).isNull();
@@ -1063,13 +1087,13 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS, null, null);
+                executionId, TEST_USER_ID, "새 설명", "https://example.com/img.jpg", FeedVisibility.FRIENDS, null, null);
 
             // then
             assertThat(result).isNotNull();
@@ -1087,13 +1111,13 @@ class FeedCommandServiceTest {
             // given
             Long executionId = 10L;
             ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.of(feed));
             when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
 
             // when
             feedCommandService.updateFeedContentByExecutionId(
-                executionId, "설명", null, FeedVisibility.GUILD, 7L, "독서길드");
+                executionId, TEST_USER_ID, "설명", null, FeedVisibility.GUILD, 7L, "독서길드");
 
             // then
             assertThat(feed.getVisibility()).isEqualTo(FeedVisibility.GUILD);
@@ -1106,12 +1130,12 @@ class FeedCommandServiceTest {
         void updateFeedContentByExecutionId_notFound_returnsNull() {
             // given
             Long executionId = 999L;
-            when(activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId))
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
                 .thenReturn(Optional.empty());
 
             // when
             ActivityFeed result = feedCommandService.updateFeedContentByExecutionId(
-                executionId, "설명", null, FeedVisibility.PUBLIC, null, null);
+                executionId, TEST_USER_ID, "설명", null, FeedVisibility.PUBLIC, null, null);
 
             // then
             assertThat(result).isNull();

@@ -34,7 +34,7 @@ public class MissionFeedEventListener {
     public void handleFeedImageChanged(MissionFeedImageChangedEvent event) {
         safeHandle("MissionFeedImageChanged", () ->
             feedCommandService.updateFeedImagesByExecutionId(
-                event.executionId(), event.imageUrls()));
+                event.executionId(), event.userId(), event.imageUrls()));
     }
 
     /**
@@ -45,7 +45,7 @@ public class MissionFeedEventListener {
     public void handleFeedNoteChanged(MissionFeedNoteChangedEvent event) {
         safeHandle("MissionFeedNoteChanged", () ->
             feedCommandService.updateFeedDescriptionByExecutionId(
-                event.executionId(), event.note()));
+                event.executionId(), event.userId(), event.note()));
     }
 
     /**
@@ -55,7 +55,7 @@ public class MissionFeedEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFeedUnshared(MissionFeedUnsharedEvent event) {
         safeHandle("MissionFeedUnshared", () ->
-            feedCommandService.deleteFeedByExecutionId(event.executionId()));
+            feedCommandService.deleteFeedByExecutionId(event.executionId(), event.userId()));
     }
 
     /**

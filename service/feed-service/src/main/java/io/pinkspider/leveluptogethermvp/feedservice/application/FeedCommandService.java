@@ -575,34 +575,41 @@ public class FeedCommandService {
     }
 
     /**
-     * executionId로 피드 삭제 (feedId 역참조 제거 후 unshare용)
+     * executionId로 피드 삭제 (feedId 역참조 제거 후 unshare용).
+     * LUT-380: execution/instance ID 시퀀스 충돌 대비 — userId 로 범위를 좁혀 조회한다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public void deleteFeedByExecutionId(Long executionId) {
-        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
-            activityFeedRepository.delete(feed);
-            log.info("Feed deleted by executionId: executionId={}, feedId={}", executionId, feed.getId());
-        });
+    public void deleteFeedByExecutionId(Long executionId, String userId) {
+        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+            .ifPresent(feed -> {
+                activityFeedRepository.delete(feed);
+                log.info("Feed deleted by executionId: executionId={}, feedId={}", executionId, feed.getId());
+            });
     }
 
     /**
      * executionId로 피드 이미지 URL 업데이트 (단일 이미지 호환).
-     * @deprecated QA-53 다중 이미지로 전환. {@link #updateFeedImagesByExecutionId(Long, List)} 사용.
+     * @deprecated QA-53 다중 이미지로 전환. {@link #updateFeedImagesByExecutionId(Long, String, List)} 사용.
      */
     @Deprecated
     @Transactional(transactionManager = "feedTransactionManager")
-    public void updateFeedImageUrlByExecutionId(Long executionId, String imageUrl) {
-        updateFeedImagesByExecutionId(executionId, imageUrl != null ? List.of(imageUrl) : List.of());
+    public void updateFeedImageUrlByExecutionId(Long executionId, String userId, String imageUrl) {
+        updateFeedImagesByExecutionId(executionId, userId, imageUrl != null ? List.of(imageUrl) : List.of());
     }
 
     /**
      * executionId로 피드 다중 이미지 동기화 (QA-53).
      * - activity_feed_image 전체 교체 (간단하고 안전)
      * - activity_feed.image_url 은 첫 장(또는 null)과 동기화 (응답 호환)
+     *
+     * <p>LUT-380: 일반 미션(MissionExecution.id)과 고정 미션(DailyMissionInstance.id)은 별도
+     * 시퀀스라 execution_id 값이 충돌할 수 있다. executionId 단독 조회는 충돌 시 나중에 생성된
+     * 남의 피드를 갱신하고 정작 내 피드는 미갱신되므로(홈 피드 이미지 미반영), userId 로 좁힌다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public void updateFeedImagesByExecutionId(Long executionId, List<String> imageUrls) {
-        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
+    public void updateFeedImagesByExecutionId(Long executionId, String userId, List<String> imageUrls) {
+        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+            .ifPresent(feed -> {
             List<String> normalized = imageUrls != null ? imageUrls : List.of();
 
             // 기존 이미지 일괄 삭제 후 신규 등록 (단순/안전)
@@ -625,16 +632,18 @@ public class FeedCommandService {
     }
 
     /**
-     * executionId로 피드 description(노트) 업데이트
+     * executionId로 피드 description(노트) 업데이트.
+     * LUT-380: execution/instance ID 시퀀스 충돌 대비 — userId 로 범위를 좁혀 조회한다.
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public void updateFeedDescriptionByExecutionId(Long executionId, String description) {
-        activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).ifPresent(feed -> {
-            feed.setDescription(description);
-            activityFeedRepository.save(feed);
-            log.info("Feed description updated by executionId: executionId={}, descLength={}", executionId,
-                description != null ? description.length() : 0);
-        });
+    public void updateFeedDescriptionByExecutionId(Long executionId, String userId, String description) {
+        activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+            .ifPresent(feed -> {
+                feed.setDescription(description);
+                activityFeedRepository.save(feed);
+                log.info("Feed description updated by executionId: executionId={}, descLength={}", executionId,
+                    description != null ? description.length() : 0);
+            });
     }
 
     /**
@@ -649,9 +658,11 @@ public class FeedCommandService {
      * - 그 외 visibility: null 로 reset (의도하지 않은 길드 노출 방지)
      */
     @Transactional(transactionManager = "feedTransactionManager")
-    public ActivityFeed updateFeedContentByExecutionId(Long executionId, String description, String imageUrl,
+    public ActivityFeed updateFeedContentByExecutionId(Long executionId, String userId, String description,
+                                                        String imageUrl,
                                                         FeedVisibility visibility, Long guildId, String guildName) {
-        return activityFeedRepository.findFirstByExecutionIdOrderByCreatedAtDesc(executionId).map(feed -> {
+        return activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, userId)
+            .map(feed -> {
             feed.setDescription(description);
             feed.setImageUrl(imageUrl);
             feed.setVisibility(visibility);

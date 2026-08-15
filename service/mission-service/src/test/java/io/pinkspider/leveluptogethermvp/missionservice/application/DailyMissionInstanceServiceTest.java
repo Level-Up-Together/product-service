@@ -412,7 +412,7 @@ class DailyMissionInstanceServiceTest {
 
             when(instanceRepository.findByIdWithParticipantAndMission(INSTANCE_ID))
                 .thenReturn(Optional.of(instance));
-            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any()))
+            when(feedCommandService.updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed.builder().build());
 
             // when
@@ -420,7 +420,7 @@ class DailyMissionInstanceServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any());
+            verify(feedCommandService).updateFeedContentByExecutionId(any(), any(), any(), any(), any(), any(), any());
         }
     }
 

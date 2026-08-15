@@ -270,7 +270,7 @@ public class RegularMissionExecutionStrategy implements MissionExecutionStrategy
         try {
             // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
             var existingFeed = feedCommandService.updateFeedContentByExecutionId(
-                execution.getId(), execution.getNote(), execution.getImageUrl(), feedVisibility,
+                execution.getId(), userId, execution.getNote(), execution.getImageUrl(), feedVisibility,
                 guildId, guildName);
 
             if (existingFeed != null) {

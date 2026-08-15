@@ -245,6 +245,14 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
     Optional<ActivityFeed> findFirstByExecutionIdOrderByCreatedAtDesc(Long executionId);
 
     /**
+     * LUT-380: execution_id 는 MissionExecution.id 와 DailyMissionInstance.id 라는 서로 다른
+     * 시퀀스를 구분 없이 담고 있어 ID 충돌 시 executionId 단독 조회가 타인의(또는 다른 유형의)
+     * 피드를 집는다. 기록 동기화/삭제는 반드시 userId 로 범위를 좁힌 이 메서드를 사용할 것.
+     */
+    Optional<ActivityFeed> findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(
+        Long executionId, String userId);
+
+    /**
      * QA-152 안전망: 주어진 execution_id 목록 중 실제 ActivityFeed 가 존재하는 것만 추려서 반환.
      * mission_execution.is_shared_to_feed=true 인데 ActivityFeed 가 누락된 케이스를 응답 단에서
      * 보정하기 위해 사용. 한 번에 배치 조회하여 N+1 회피.

@@ -328,7 +328,7 @@ public class DailyMissionInstanceService {
 
         // Saga가 이미 피드를 생성한 경우 → visibility/content 업데이트
         var existingFeed = feedCommandService.updateFeedContentByExecutionId(
-            instance.getId(), instance.getNote(), instance.getImageUrl(), feedVisibility,
+            instance.getId(), userId, instance.getNote(), instance.getImageUrl(), feedVisibility,
             guildId, guildName);
 
         if (existingFeed != null) {
