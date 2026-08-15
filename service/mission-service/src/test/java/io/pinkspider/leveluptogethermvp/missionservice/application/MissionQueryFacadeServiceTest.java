@@ -126,6 +126,36 @@ class MissionQueryFacadeServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-377: locale 지정 시 번역 제목을, 번역이 없으면 원문을 반환한다")
+        void returnsLocalizedTitleWhenLocaleGiven() {
+            Mission mission = Mission.builder()
+                .title("달리기")
+                .titleEn("Running")
+                .description("설명")
+                .status(io.pinkspider.global.enums.MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.PERSONAL)
+                .creatorId(USER_ID)
+                .categoryId(10L)
+                .categoryName("운동")
+                .build();
+            setId(mission, 1L);
+            MissionExecution execution = buildExecution(mission, LocalDateTime.now());
+
+            when(missionExecutionRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.of(execution));
+            when(dailyMissionInstanceRepository.findInProgressByUserId(USER_ID)).thenReturn(Optional.empty());
+
+            Optional<InProgressMissionDto> en = facadeService.findInProgressMission(USER_ID, "en");
+            assertThat(en).isPresent();
+            assertThat(en.get().title()).isEqualTo("Running");
+
+            // 번역이 없는 언어(ja)는 원문 폴백
+            Optional<InProgressMissionDto> ja = facadeService.findInProgressMission(USER_ID, "ja");
+            assertThat(ja).isPresent();
+            assertThat(ja.get().title()).isEqualTo("달리기");
+        }
+
+        @Test
         @DisplayName("instance만 존재하면 instance 기반 DTO를 반환한다")
         void returnsInstanceDtoWhenOnlyInstanceExists() {
             Mission mission = buildMission(2L, 20L, "독서", "고정 미션", MissionVisibility.GUILD_ONLY, "100");

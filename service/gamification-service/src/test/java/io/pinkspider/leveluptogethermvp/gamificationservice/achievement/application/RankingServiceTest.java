@@ -452,7 +452,7 @@ class RankingServiceTest {
             when(userQueryFacadeService.getUserProfiles(List.of("user1", "user2"))).thenReturn(java.util.Map.of());
             when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
             // user1=PUBLIC(노출), user2=PRIVATE(마스킹)
-            when(missionQueryFacade.findInProgressMissions(List.of("user1", "user2")))
+            when(missionQueryFacade.findInProgressMissions(eq(List.of("user1", "user2")), any()))
                 .thenReturn(java.util.Map.of(
                     "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
                         java.time.LocalDateTime.now()),
@@ -488,7 +488,7 @@ class RankingServiceTest {
             when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
             when(userQueryFacadeService.getUserProfiles(List.of("user1"))).thenReturn(java.util.Map.of());
             when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
-            when(missionQueryFacade.findInProgressMissions(List.of("user1")))
+            when(missionQueryFacade.findInProgressMissions(eq(List.of("user1")), any()))
                 .thenReturn(java.util.Map.of(
                     "user1", new InProgressMissionDto(11L, 1L, "운동", "비공개 달리기", "PRIVATE", null,
                         java.time.LocalDateTime.now())));
@@ -972,7 +972,7 @@ class RankingServiceTest {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
-            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of(
+            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of(
                 "user1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
                     now.minusHours(1)),
                 "user2", new InProgressMissionDto(22L, 2L, "독서", "비밀 미션", "PRIVATE", null,
@@ -1001,7 +1001,7 @@ class RankingServiceTest {
         @Test
         @DisplayName("진행중 미션이 없으면 빈 페이지를 반환한다")
         void getRealtimeRanking_empty() {
-            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of());
+            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of());
 
             Page<LevelRankingResponse> result =
                 rankingService.getRealtimeRanking(PageRequest.of(0, 10), null, null);
@@ -1013,7 +1013,7 @@ class RankingServiceTest {
         @DisplayName("탈퇴 유저는 실시간 랭킹에서 제외된다")
         void getRealtimeRanking_excludesWithdrawn() {
             java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 7, 29, 12, 0);
-            when(missionQueryFacade.findAllInProgressMissions()).thenReturn(java.util.Map.of(
+            when(missionQueryFacade.findAllInProgressMissions(any())).thenReturn(java.util.Map.of(
                 "active1", new InProgressMissionDto(11L, 1L, "운동", "달리기", "PUBLIC", null,
                     now.minusHours(1)),
                 "withdrawn1", new InProgressMissionDto(22L, 2L, "독서", "책읽기", "PUBLIC", null,

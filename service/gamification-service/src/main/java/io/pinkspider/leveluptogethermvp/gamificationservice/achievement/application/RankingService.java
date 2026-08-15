@@ -385,7 +385,7 @@ public class RankingService {
      */
     public Page<LevelRankingResponse> getRealtimeRanking(Pageable pageable, String locale,
                                                           String viewerUserId) {
-        Map<String, InProgressMissionDto> missions = missionQueryFacade.findAllInProgressMissions();
+        Map<String, InProgressMissionDto> missions = missionQueryFacade.findAllInProgressMissions(locale);
         if (missions.isEmpty()) {
             return Page.empty(pageable);
         }
@@ -623,7 +623,7 @@ public class RankingService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
             Map<String, InProgressMissionDto> missions =
-                missionQueryFacade.findInProgressMissions(userIds);
+                missionQueryFacade.findInProgressMissions(userIds, locale);
             for (LevelRankingResponse response : responses) {
                 InProgressMissionDto m = missions.get(response.getUserId());
                 if (m == null) {

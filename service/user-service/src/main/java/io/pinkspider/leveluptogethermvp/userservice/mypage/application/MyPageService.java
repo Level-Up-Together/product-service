@@ -255,7 +255,7 @@ public class MyPageService {
             String targetUserId, String currentUserId, boolean isOwner,
             boolean isFriend, java.util.List<Long> targetGuildIds, String locale) {
         try {
-            return missionQueryFacadeService.findInProgressMission(targetUserId)
+            return missionQueryFacadeService.findInProgressMission(targetUserId, locale)
                 .map(m -> {
                     boolean visible = isOwner
                         || isMissionVisibleToViewer(m.visibility(), currentUserId, isFriend, targetGuildIds);

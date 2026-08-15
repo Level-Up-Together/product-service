@@ -493,7 +493,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID)).thenReturn(Optional.empty());
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any())).thenReturn(Optional.empty());
 
             // when
             PublicProfileResponse result = myPageService.getPublicProfile(TEST_USER_ID, TEST_USER_ID);
@@ -509,7 +509,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
 
             // when
@@ -533,7 +533,7 @@ class MyPageServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PUBLIC", null)));
 
             // when
@@ -561,7 +561,7 @@ class MyPageServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.of(friendship));
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
 
             // when
@@ -580,7 +580,7 @@ class MyPageServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
 
             // when
@@ -617,7 +617,7 @@ class MyPageServiceTest {
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L))).thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId)).thenReturn(List.of(sharedGuild));
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("GUILD_ONLY", "5")));
 
             // when
@@ -646,7 +646,7 @@ class MyPageServiceTest {
             when(guildQueryFacadeService.countActiveMembersByGuildIds(List.of(5L))).thenReturn(java.util.Map.of(5L, 3));
             when(guildQueryFacadeService.getUserGuildMemberships(viewerId)).thenReturn(List.of(viewerGuild));
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("GUILD_ONLY", "5")));
 
             // when
@@ -672,7 +672,7 @@ class MyPageServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.of(friendship));
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_AND_GUILD", null)));
 
             // when
@@ -689,7 +689,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PUBLIC", null)));
 
             // when
@@ -707,7 +707,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("FRIENDS_ONLY", null)));
 
             // when
@@ -727,7 +727,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenThrow(new RuntimeException("facade error"));
 
             // when
@@ -745,7 +745,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
 
             MissionCategoryResponse category = MissionCategoryResponse.builder()
@@ -772,7 +772,7 @@ class MyPageServiceTest {
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
             when(friendshipRepository.findFriendship(viewerId, TEST_USER_ID)).thenReturn(Optional.empty());
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
 
             MissionCategoryResponse category = MissionCategoryResponse.builder()
@@ -800,7 +800,7 @@ class MyPageServiceTest {
             Users user = createTestUser(TEST_USER_ID, "테스터");
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
             stubPublicProfileDefaults(TEST_USER_ID);
-            when(missionQueryFacadeService.findInProgressMission(TEST_USER_ID))
+            when(missionQueryFacadeService.findInProgressMission(eq(TEST_USER_ID), any()))
                 .thenReturn(Optional.of(createInProgressMissionDto("PRIVATE", null)));
             when(missionCategoryService.getCategory(10L)).thenThrow(new IllegalArgumentException("not found"));
 

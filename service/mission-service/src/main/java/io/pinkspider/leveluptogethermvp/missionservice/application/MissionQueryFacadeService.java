@@ -35,15 +35,15 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
     private final MissionTemplateRepository missionTemplateRepository;
 
     @Override
-    public Optional<InProgressMissionDto> findInProgressMission(String userId) {
+    public Optional<InProgressMissionDto> findInProgressMission(String userId, String locale) {
         Optional<MissionExecution> execution = missionExecutionRepository.findInProgressByUserId(userId);
         Optional<DailyMissionInstance> instance = dailyMissionInstanceRepository.findInProgressByUserId(userId);
 
         InProgressMissionDto fromExecution = execution
-            .map(e -> toDto(e.getParticipant().getMission(), e.getStartedAt()))
+            .map(e -> toDto(e.getParticipant().getMission(), e.getStartedAt(), locale))
             .orElse(null);
         InProgressMissionDto fromInstance = instance
-            .map(i -> toDto(i.getParticipant().getMission(), i.getStartedAt()))
+            .map(i -> toDto(i.getParticipant().getMission(), i.getStartedAt(), locale))
             .orElse(null);
 
         if (fromExecution == null) {
@@ -63,18 +63,18 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
      */
     @Override
     public Map<String, InProgressMissionDto> findInProgressMissions(
-            java.util.Collection<String> userIds) {
+            java.util.Collection<String> userIds, String locale) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
         Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
         for (MissionExecution e : missionExecutionRepository.findInProgressByUserIdIn(userIds)) {
             mergeLatest(result, e.getParticipant().getUserId(),
-                toDto(e.getParticipant().getMission(), e.getStartedAt()));
+                toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
         }
         for (DailyMissionInstance i : dailyMissionInstanceRepository.findInProgressByUserIdIn(userIds)) {
             mergeLatest(result, i.getParticipant().getUserId(),
-                toDto(i.getParticipant().getMission(), i.getStartedAt()));
+                toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
         }
         return result;
     }
@@ -84,15 +84,15 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
      * 최근 시작 우선)을 유저별로 적용한다.
      */
     @Override
-    public Map<String, InProgressMissionDto> findAllInProgressMissions() {
+    public Map<String, InProgressMissionDto> findAllInProgressMissions(String locale) {
         Map<String, InProgressMissionDto> result = new java.util.HashMap<>();
         for (MissionExecution e : missionExecutionRepository.findAllInProgress()) {
             mergeLatest(result, e.getParticipant().getUserId(),
-                toDto(e.getParticipant().getMission(), e.getStartedAt()));
+                toDto(e.getParticipant().getMission(), e.getStartedAt(), locale));
         }
         for (DailyMissionInstance i : dailyMissionInstanceRepository.findAllInProgress()) {
             mergeLatest(result, i.getParticipant().getUserId(),
-                toDto(i.getParticipant().getMission(), i.getStartedAt()));
+                toDto(i.getParticipant().getMission(), i.getStartedAt(), locale));
         }
         return result;
     }
@@ -105,12 +105,14 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         }
     }
 
-    private InProgressMissionDto toDto(Mission mission, LocalDateTime startedAt) {
+    // LUT-377: 미션북 미션의 진행중 미션명이 프로필/랭킹에서 한국어로만 노출되던 문제 —
+    // locale 번역 제목으로 내린다 (번역 없으면 원문 폴백, getLocalizedTitle 내장 동작)
+    private InProgressMissionDto toDto(Mission mission, LocalDateTime startedAt, String locale) {
         return new InProgressMissionDto(
             mission.getId(),
             mission.getCategoryId(),
             mission.getCategoryName(),
-            mission.getTitle(),
+            mission.getLocalizedTitle(locale),
             mission.getVisibility() != null ? mission.getVisibility().name() : null,
             mission.getGuildId(),
             startedAt);
