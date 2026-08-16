@@ -256,11 +256,13 @@ public interface ActivityFeedRepository extends JpaRepository<ActivityFeed, Long
      * QA-152 안전망: 주어진 execution_id 목록 중 실제 ActivityFeed 가 존재하는 것만 추려서 반환.
      * mission_execution.is_shared_to_feed=true 인데 ActivityFeed 가 누락된 케이스를 응답 단에서
      * 보정하기 위해 사용. 한 번에 배치 조회하여 N+1 회피.
+     * LUT-381: execution/instance ID 시퀀스 충돌 시 타인의 피드를 집지 않도록 userId 로 좁힌다.
      */
     @Query("SELECT DISTINCT f.executionId FROM ActivityFeed f " +
-           "WHERE f.executionId IN :executionIds")
+           "WHERE f.executionId IN :executionIds AND f.userId = :userId")
     java.util.List<Long> findExistingExecutionIdsByExecutionIdIn(
-        @Param("executionIds") java.util.Collection<Long> executionIds);
+        @Param("executionIds") java.util.Collection<Long> executionIds,
+        @Param("userId") String userId);
 
     // 사용자의 모든 피드의 프로필 스냅샷 업데이트
     // LUT-276: 레벨은 작성 당시 스냅샷을 유지한다 — 닉네임/프로필 사진만 동기화

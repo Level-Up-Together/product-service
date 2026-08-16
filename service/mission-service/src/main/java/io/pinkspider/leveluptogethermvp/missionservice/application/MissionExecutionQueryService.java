@@ -194,7 +194,7 @@ public class MissionExecutionQueryService {
         responses.addAll(instanceResponses);
 
         // QA-152: is_shared_to_feed=true 인데 feed_db 에 매칭 피드가 없는 행은 false 로 보정.
-        reconcileSharedToFeedFlag(responses);
+        reconcileSharedToFeedFlag(responses, userId);
 
         localizeMissionFields(responses, locale);
 
@@ -232,7 +232,7 @@ public class MissionExecutionQueryService {
         List<MissionExecutionResponse> responses = toResponsesFromInstancesWithImages(completedInstances);
 
         // QA-152: 동일 안전망 — feed 가 없는 행은 is_shared_to_feed=false 로 보정.
-        reconcileSharedToFeedFlag(responses);
+        reconcileSharedToFeedFlag(responses, userId);
 
         localizeMissionFields(responses, locale);
 
@@ -247,8 +247,9 @@ public class MissionExecutionQueryService {
      * <p>
      * cross-DB 트랜잭션 분리로 인해 mission_execution 측은 공유 상태인데 ActivityFeed 가 누락된
      * 케이스(QA-152 prod 사례)가 발생할 수 있어 응답 일관성을 보장한다.
+     * LUT-381: execution/instance ID 충돌 시 타인 피드를 근거로 오판하지 않도록 userId 로 좁힌다.
      */
-    private void reconcileSharedToFeedFlag(List<MissionExecutionResponse> responses) {
+    private void reconcileSharedToFeedFlag(List<MissionExecutionResponse> responses, String userId) {
         if (responses == null || responses.isEmpty()) {
             return;
         }
@@ -259,7 +260,7 @@ public class MissionExecutionQueryService {
         if (sharedIds.isEmpty()) {
             return;
         }
-        Set<Long> withFeed = feedQueryService.findExecutionIdsWithFeed(sharedIds);
+        Set<Long> withFeed = feedQueryService.findExecutionIdsWithFeed(sharedIds, userId);
         for (MissionExecutionResponse r : responses) {
             if (Boolean.TRUE.equals(r.getIsSharedToFeed())
                 && r.getId() != null

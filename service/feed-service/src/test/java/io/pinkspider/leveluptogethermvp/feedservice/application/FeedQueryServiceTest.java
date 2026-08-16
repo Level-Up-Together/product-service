@@ -2248,4 +2248,61 @@ class FeedQueryServiceTest {
             assertThat(response.getUserRightTitleRarity()).isEqualTo(TitleRarity.COMMON);
         }
     }
+
+    // LUT-381: execution_id 는 MissionExecution.id 와 DailyMissionInstance.id 라는 별도 시퀀스가
+    // 섞여 있어, executionId 단독 조회는 ID 충돌 시 타인의 피드를 근거로 오판한다.
+    @Nested
+    @DisplayName("LUT-381: executionId 조회 userId 스코프 테스트")
+    class ExecutionIdScopedReadTest {
+
+        @Test
+        @DisplayName("getFeedVisibilityByExecutionId 는 userId 로 좁혀 조회한다")
+        void getFeedVisibilityByExecutionId_scopedByUserId() {
+            ActivityFeed myFeed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(100L, TEST_USER_ID))
+                .thenReturn(Optional.of(myFeed));
+
+            String visibility = feedQueryService.getFeedVisibilityByExecutionId(100L, TEST_USER_ID);
+
+            assertThat(visibility).isEqualTo("PUBLIC");
+            verify(activityFeedRepository)
+                .findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(100L, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("같은 executionId 라도 내 피드가 없으면(타인 피드만 존재) null 을 반환한다")
+        void getFeedVisibilityByExecutionId_othersFeedOnly_returnsNull() {
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(100L, TEST_USER_ID))
+                .thenReturn(Optional.empty());
+
+            String visibility = feedQueryService.getFeedVisibilityByExecutionId(100L, TEST_USER_ID);
+
+            assertThat(visibility).isNull();
+        }
+
+        @Test
+        @DisplayName("findExecutionIdsWithFeed 는 userId 를 Repository 까지 전달한다")
+        void findExecutionIdsWithFeed_passesUserIdToRepository() {
+            when(activityFeedRepository.findExistingExecutionIdsByExecutionIdIn(List.of(1L, 2L), TEST_USER_ID))
+                .thenReturn(List.of(1L));
+
+            java.util.Set<Long> result =
+                feedQueryService.findExecutionIdsWithFeed(List.of(1L, 2L), TEST_USER_ID);
+
+            assertThat(result).containsExactly(1L);
+            verify(activityFeedRepository)
+                .findExistingExecutionIdsByExecutionIdIn(List.of(1L, 2L), TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("findExecutionIdsWithFeed 는 빈 입력이면 Repository 호출 없이 빈 Set 을 반환한다")
+        void findExecutionIdsWithFeed_emptyInput_returnsEmptySet() {
+            java.util.Set<Long> result =
+                feedQueryService.findExecutionIdsWithFeed(List.of(), TEST_USER_ID);
+
+            assertThat(result).isEmpty();
+            verify(activityFeedRepository, never())
+                .findExistingExecutionIdsByExecutionIdIn(anyList(), any());
+        }
+    }
 }

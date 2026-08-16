@@ -183,9 +183,10 @@ public class MissionExecutionService {
     public MissionExecutionResponse getExecutionByDate(
             Long missionId, String userId, LocalDate date, Long instanceId, String locale) {
         MissionExecutionResponse response = strategyResolver.resolve(missionId, userId).getExecutionByDate(missionId, userId, date, instanceId);
-        // 연결된 피드의 공개범위 조회
+        // 연결된 피드의 공개범위 조회 (LUT-381: ID 충돌 대비 userId 스코프)
         if (response.getId() != null) {
-            response.setFeedVisibility(feedQueryService.getFeedVisibilityByExecutionId(response.getId()));
+            response.setFeedVisibility(
+                feedQueryService.getFeedVisibilityByExecutionId(response.getId(), userId));
         }
         executionQueryService.localizeMissionFields(List.of(response), locale);
         return response;

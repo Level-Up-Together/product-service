@@ -125,8 +125,10 @@ class MissionExecutionQueryServiceTest {
             .thenReturn(java.util.List.of());
 
         // QA-152 안전망: 기본은 빈 Set (피드 없음). 개별 테스트에서 필요시 override.
+        // LUT-381: ID 충돌 대비 userId 스코프 시그니처
         org.mockito.Mockito.lenient()
-            .when(feedQueryService.findExecutionIdsWithFeed(org.mockito.ArgumentMatchers.anyCollection()))
+            .when(feedQueryService.findExecutionIdsWithFeed(
+                org.mockito.ArgumentMatchers.anyCollection(), org.mockito.ArgumentMatchers.anyString()))
             .thenReturn(java.util.Collections.emptySet());
     }
 
@@ -813,8 +815,9 @@ class MissionExecutionQueryServiceTest {
                     eq(testUserId), any(LocalDate.class), any(LocalDate.class),
                     any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(java.util.List.of());
-            // 피드는 execution 1 만 존재
-            when(feedQueryService.findExecutionIdsWithFeed(org.mockito.ArgumentMatchers.anyCollection()))
+            // 피드는 execution 1 만 존재 (LUT-381: 본인 userId 스코프로 조회되는지 함께 검증)
+            when(feedQueryService.findExecutionIdsWithFeed(
+                    org.mockito.ArgumentMatchers.anyCollection(), eq(testUserId)))
                 .thenReturn(java.util.Set.of(1L));
 
             // when
