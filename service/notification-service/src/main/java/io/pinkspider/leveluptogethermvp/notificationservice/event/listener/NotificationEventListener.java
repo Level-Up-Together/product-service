@@ -201,11 +201,18 @@ public class NotificationEventListener {
     @Async(EVENT_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleGuildDirectMessage(GuildDirectMessageEvent event) {
-        safeHandle("길드 DM", () -> notificationService.sendNotification(
-            event.recipientId(), NotificationType.GUILD_DM,
-            event.messageId(), null,
-            event.senderNickname(), event.getPreviewContent(),
-            event.guildId().toString(), event.userId()));
+        safeHandle("길드 DM", () -> {
+            // LUT-383: 차단 관계 DM 알림 스킵 — 전송단 shadow drop과 이중 방어
+            // (배포 어긋남·이벤트 재발행 등으로 이벤트가 새어 들어와도 여기서 걸러진다)
+            if (isBlockedInteraction(event.recipientId(), event.userId())) {
+                return;
+            }
+            notificationService.sendNotification(
+                event.recipientId(), NotificationType.GUILD_DM,
+                event.messageId(), null,
+                event.senderNickname(), event.getPreviewContent(),
+                event.guildId().toString(), event.userId());
+        });
     }
 
     @Async(EVENT_EXECUTOR)

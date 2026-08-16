@@ -23,13 +23,23 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
         "JOIN Users u ON u.id = CASE WHEN f.userId = :userId THEN f.friendId ELSE f.userId END "
             + "AND u.status <> 'WITHDRAWN' ";
 
-    // 두 사용자 간의 친구 관계 조회
+    /**
+     * LUT-383: 한 쌍에 행이 2개일 수 있다 — 상호 차단(BLOCKED 2행), 상대 차단 + 내
+     * shadow 친구요청(BLOCKED+PENDING). 단건 Optional 조회는 이때 예외가 나므로,
+     * 조회자(userId) 소유 행을 우선하는 정렬로 뽑아 첫 행을 쓴다 (내 상태가 내 화면의 진실).
+     */
     @Query("SELECT f FROM Friendship f WHERE " +
            "(f.userId = :userId AND f.friendId = :friendId) OR " +
-           "(f.userId = :friendId AND f.friendId = :userId)")
-    Optional<Friendship> findFriendship(
+           "(f.userId = :friendId AND f.friendId = :userId) " +
+           "ORDER BY CASE WHEN f.userId = :userId THEN 0 ELSE 1 END")
+    List<Friendship> findFriendshipRows(
         @Param("userId") String userId,
         @Param("friendId") String friendId);
+
+    // 두 사용자 간의 친구 관계 조회 (조회자 소유 행 우선)
+    default Optional<Friendship> findFriendship(String userId, String friendId) {
+        return findFriendshipRows(userId, friendId).stream().findFirst();
+    }
 
     // 특정 사용자가 보낸 친구 요청
     Optional<Friendship> findByUserIdAndFriendId(String userId, String friendId);
@@ -51,7 +61,10 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     List<Friendship> findAllFriends(@Param("userId") String userId);
 
     // 받은 친구 요청 (대기 중)
+    // LUT-383: 내가 차단한 상대의 shadow 요청은 받은 목록에서 숨긴다 — 차단 해제 시 자연 노출
     @Query("SELECT f FROM Friendship f WHERE f.friendId = :userId AND f.status = 'PENDING' " +
+           "AND NOT EXISTS (SELECT 1 FROM Friendship b WHERE b.userId = :userId " +
+           "AND b.friendId = f.userId AND b.status = 'BLOCKED') " +
            "ORDER BY f.requestedAt DESC")
     List<Friendship> findPendingRequestsReceived(@Param("userId") String userId);
 

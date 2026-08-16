@@ -323,6 +323,21 @@ class NotificationEventListenerTest {
         }
 
         @Test
+        @DisplayName("LUT-383: 차단 관계 DM은 알림을 생성하지 않는다 (이중 방어)")
+        void handleGuildDirectMessage_blocked_skips() {
+            GuildDirectMessageEvent event = new GuildDirectMessageEvent(
+                SENDER_ID, "발송자닉네임", 100L, 5L, 79L,
+                "차단 관계 DM", MEMBER_ID_1, LocalDateTime.now());
+            when(userQueryFacadeService.isBlockedBetween(MEMBER_ID_1, SENDER_ID)).thenReturn(true);
+
+            eventListener.handleGuildDirectMessage(event);
+
+            verify(notificationService, never()).sendNotification(
+                eq(MEMBER_ID_1), eq(NotificationType.GUILD_DM),
+                anyLong(), any(), any(), any(), any(), any());
+        }
+
+        @Test
         @DisplayName("30자 초과 DM은 미리보기로 잘려서 알림에 담긴다")
         void handleGuildDirectMessage_longContent_truncatedPreview() {
             String longContent = "가".repeat(40);

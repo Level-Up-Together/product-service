@@ -47,47 +47,51 @@ public class FriendService {
             throw new IllegalArgumentException("자기 자신에게 친구 요청을 보낼 수 없습니다.");
         }
 
-        // 이미 존재하는 관계 확인
-        Optional<Friendship> existing = friendshipRepository.findFriendship(userId, friendId);
-        if (existing.isPresent()) {
-            Friendship friendship = existing.get();
-            if (friendship.isAccepted()) {
-                throw new IllegalStateException("이미 친구입니다.");
-            }
-            if (friendship.isPending()) {
-                throw new IllegalStateException("이미 친구 요청이 진행 중입니다.");
-            }
-            if (friendship.isBlocked()) {
-                throw new IllegalStateException("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
-            }
-            // REJECTED 상태인 경우: 기존 레코드를 재사용하여 다시 요청
-            if (friendship.isRejected()) {
-                friendship.resendRequest(userId, friendId, message);
-                Friendship saved = friendshipRepository.save(friendship);
+        // LUT-383: 한 쌍에 행이 2개(상대 차단 + 내 shadow 요청 등)일 수 있어 방향별로 조회한다.
+        Optional<Friendship> mine = friendshipRepository.findByUserIdAndFriendId(userId, friendId);
+        Optional<Friendship> theirs = friendshipRepository.findByUserIdAndFriendId(friendId, userId);
 
-                // 친구 요청 이벤트 발행
-                Users requester = userRepository.findById(userId).orElse(null);
-                String requesterNickname = requester != null ? requester.getNickname() : "사용자";
-                eventPublisher.publishEvent(new FriendRequestEvent(
-                    userId, friendId, requesterNickname, saved.getId()
-                ));
-
-                log.info("친구 요청 재전송 (거절 후): {} -> {}", userId, friendId);
-                return FriendRequestResponse.simpleFrom(saved);
-            }
+        if (mine.filter(Friendship::isAccepted).isPresent()
+            || theirs.filter(Friendship::isAccepted).isPresent()) {
+            throw new IllegalStateException("이미 친구입니다.");
+        }
+        if (mine.filter(Friendship::isPending).isPresent()
+            || theirs.filter(Friendship::isPending).isPresent()) {
+            throw new IllegalStateException("이미 친구 요청이 진행 중입니다.");
+        }
+        // 내가 차단한 상대 — 차단자는 자신의 차단 사실을 아는 쪽이므로 에러를 그대로 노출한다
+        if (mine.filter(Friendship::isBlocked).isPresent()) {
+            throw new IllegalStateException("차단된 사용자에게 친구 요청을 보낼 수 없습니다.");
         }
 
-        Friendship friendship = Friendship.createRequest(userId, friendId, message);
-        Friendship saved = friendshipRepository.save(friendship);
+        // LUT-383: 조용한 차단(shadow block) — 상대가 나를 차단한 경우에도 요청을 정상 저장한다.
+        // 내 화면에는 '요청됨'이 자연스럽게 유지되고, 상대 받은 목록에서는 쿼리로 숨겨지며
+        // (findPendingRequestsReceived), 알림 이벤트만 발행하지 않는다. 차단 해제 시 자연 노출.
+        boolean shadowBlocked = theirs.filter(Friendship::isBlocked).isPresent();
 
-        // 친구 요청 이벤트 발행
-        Users requester = userRepository.findById(userId).orElse(null);
-        String requesterNickname = requester != null ? requester.getNickname() : "사용자";
-        eventPublisher.publishEvent(new FriendRequestEvent(
-            userId, friendId, requesterNickname, saved.getId()
-        ));
+        // REJECTED 상태인 경우: 기존 레코드를 재사용하여 다시 요청 (내 행 우선)
+        Optional<Friendship> rejected = mine.filter(Friendship::isRejected)
+            .or(() -> theirs.filter(Friendship::isRejected));
+        Friendship saved;
+        if (rejected.isPresent()) {
+            Friendship friendship = rejected.get();
+            friendship.resendRequest(userId, friendId, message);
+            saved = friendshipRepository.save(friendship);
+            log.info("친구 요청 재전송 (거절 후): {} -> {}", userId, friendId);
+        } else {
+            saved = friendshipRepository.save(Friendship.createRequest(userId, friendId, message));
+            log.info("친구 요청 전송: {} -> {} (shadowBlocked={})", userId, friendId, shadowBlocked);
+        }
 
-        log.info("친구 요청 전송: {} -> {}", userId, friendId);
+        if (!shadowBlocked) {
+            // 친구 요청 이벤트 발행 (알림·푸시)
+            Users requester = userRepository.findById(userId).orElse(null);
+            String requesterNickname = requester != null ? requester.getNickname() : "사용자";
+            eventPublisher.publishEvent(new FriendRequestEvent(
+                userId, friendId, requesterNickname, saved.getId()
+            ));
+        }
+
         return FriendRequestResponse.simpleFrom(saved);
     }
 

@@ -51,7 +51,7 @@ public class GuildDirectMessageService {
 
         validateGuildExists(guildId);
         validateBothAreMember(guildId, senderId, recipientId);
-        validateNotBlocked(senderId, recipientId);
+        validateSenderNotBlocking(senderId, recipientId);
 
         String senderNickname = userQueryFacadeService.getUserNickname(senderId);
 
@@ -82,14 +82,23 @@ public class GuildDirectMessageService {
 
         DirectMessageResponse response = DirectMessageResponse.from(savedMessage);
 
+        // LUT-383: 수신자가 발신자를 차단했으면 저장까지만 하고(발신자 화면은 정상 전송 유지)
+        // 수신자 방향의 실시간·알림·푸시를 전부 생략한다 (shadow block).
+        boolean hiddenFromRecipient = isHiddenFromRecipient(senderId, recipientId);
+
         // LUT-263: WS/REST 어느 경로로 보내도 수신자·발신자(다중 디바이스 에코)에게 실시간 전달.
         // Redis pub/sub 릴레이라 상대 세션이 다른 인스턴스에 있어도 전달된다.
-        dmRealtimePublisher.publishToUser(recipientId, DM_DESTINATION, response);
+        if (!hiddenFromRecipient) {
+            dmRealtimePublisher.publishToUser(recipientId, DM_DESTINATION, response);
+        }
         dmRealtimePublisher.publishToUser(senderId, DM_DESTINATION, response);
 
         // LUT-263: 수신자가 이 대화방을 보고 있으면 알림(레코드+레드닷+푸시) 생략 —
         // 실시간 채널로 이미 보고 있는 메시지에 푸시가 오면 대화를 방해한다.
-        if (dmPresenceService.isViewing(recipientId, conversation.getId())) {
+        if (hiddenFromRecipient) {
+            log.debug("DM 수신자 전달 생략(차단 관계 shadow block): conversationId={}, senderId={}",
+                conversation.getId(), senderId);
+        } else if (dmPresenceService.isViewing(recipientId, conversation.getId())) {
             log.debug("DM 알림 생략(수신자 대화방 조회 중): conversationId={}, recipientId={}",
                 conversation.getId(), recipientId);
         } else {
@@ -122,11 +131,16 @@ public class GuildDirectMessageService {
         Set<String> activeMemberIds =
             Set.copyOf(guildQueryFacadeService.getActiveMemberUserIds(guildId));
         Set<String> activeUserIds = Set.copyOf(userQueryFacadeService.getActiveUserIds(otherUserIds));
+        // LUT-383: 내가 차단한 상대와의 대화방은 목록에서 숨긴다 — 차단 중 상대(피차단자)가
+        // 보낸 새 메시지가 목록 프리뷰·뱃지로도 드러나지 않게 한다. 차단 해제 시 다시 노출된다.
+        Set<String> blockedByMe = Set.copyOf(userQueryFacadeService.getBlockedUserIds(userId));
 
         List<GuildDirectConversation> visibleConversations = conversations.stream()
             .filter(conv -> {
                 String otherUserId = conv.getOtherUserId(userId);
-                return activeMemberIds.contains(otherUserId) && activeUserIds.contains(otherUserId);
+                return activeMemberIds.contains(otherUserId)
+                    && activeUserIds.contains(otherUserId)
+                    && !blockedByMe.contains(otherUserId);
             })
             .toList();
 
@@ -206,7 +220,16 @@ public class GuildDirectMessageService {
     @Transactional(transactionManager = "chatTransactionManager")
     public void markAsRead(Long guildId, String userId, Long conversationId) {
         validateMembership(guildId, userId);
-        validateConversationAccess(conversationId, userId, guildId);
+        GuildDirectConversation conversation =
+            validateConversationAccess(conversationId, userId, guildId);
+
+        // LUT-383: 내가 차단한 상대의 방은 읽음 처리하지 않는다 — 피차단자 화면의 '안읽음'
+        // 표시가 읽음으로 바뀌면 수신 사실이 새어나가 조용한 차단이 깨진다.
+        if (userQueryFacadeService.getBlockedUserIds(userId)
+                .contains(conversation.getOtherUserId(userId))) {
+            log.debug("DM 읽음 처리 생략(차단 상대): conversationId={}, userId={}", conversationId, userId);
+            return;
+        }
 
         int updatedCount = messageRepository.markAllAsRead(conversationId, userId);
         // LUT-263: 읽음 처리는 방을 보고 있다는 신호이므로 presence도 갱신
@@ -216,14 +239,17 @@ public class GuildDirectMessageService {
 
     public int getTotalUnreadCount(Long guildId, String userId) {
         validateMembership(guildId, userId);
-        return messageRepository.countTotalUnreadMessages(guildId, userId);
+        // LUT-383: 차단한 상대가 보낸 미읽음은 뱃지에서 제외 (빈 목록 오동작 방지용 __none__ 센티널)
+        List<String> blockedByMe = userQueryFacadeService.getBlockedUserIds(userId);
+        List<String> excludedSenderIds = blockedByMe.isEmpty() ? List.of("__none__") : blockedByMe;
+        return messageRepository.countTotalUnreadMessages(guildId, userId, excludedSenderIds);
     }
 
     @Transactional(transactionManager = "chatTransactionManager")
     public DirectConversationResponse getOrCreateConversation(Long guildId, String userId, String otherUserId) {
         validateGuildExists(guildId);
         validateBothAreMember(guildId, userId, otherUserId);
-        validateNotBlocked(userId, otherUserId);
+        validateSenderNotBlocking(userId, otherUserId);
 
         GuildDirectConversation conversation = conversationRepository
             .findConversationIncludingInactive(guildId, userId, otherUserId)
@@ -298,13 +324,20 @@ public class GuildDirectMessageService {
     }
 
     /**
-     * LUT-367: 차단 관계 DM 차단 — 어느 한쪽이라도 상대를 차단했으면 수신·발신 모두 막는다.
-     * 피차단자에게 차단 사실이 드러나지 않도록 방향 구분 없는 동일 메시지를 쓴다.
+     * LUT-383: 조용한 차단(shadow block) — 발신자가 상대를 차단한 경우에만 에러를 낸다
+     * (차단자는 자신의 차단 사실을 이미 안다). 발신자가 차단당한 쪽이면 그대로 통과시키되,
+     * 전송 경로에서 수신자 노출(실시간·알림·목록·뱃지)만 조용히 걷어낸다 — 피차단자 화면에는
+     * 정상 전송으로 보이지만 차단자에게는 어디에도 도달하지 않는다.
      */
-    private void validateNotBlocked(String userId1, String userId2) {
-        if (userQueryFacadeService.isBlockedBetween(userId1, userId2)) {
+    private void validateSenderNotBlocking(String senderId, String recipientId) {
+        if (userQueryFacadeService.getBlockedUserIds(senderId).contains(recipientId)) {
             throw new io.pinkspider.global.exception.CustomException("400", "error.dm.blocked_user");
         }
+    }
+
+    /** LUT-383: 수신자가 발신자를 차단했는지 — true 면 수신자 측 노출을 전부 생략한다 */
+    private boolean isHiddenFromRecipient(String senderId, String recipientId) {
+        return userQueryFacadeService.getBlockedUserIds(recipientId).contains(senderId);
     }
 
     private void validateMembership(Long guildId, String userId) {
@@ -330,7 +363,8 @@ public class GuildDirectMessageService {
         }
     }
 
-    private void validateConversationAccess(Long conversationId, String userId, Long guildId) {
+    private GuildDirectConversation validateConversationAccess(
+            Long conversationId, String userId, Long guildId) {
         GuildDirectConversation conversation = conversationRepository.findById(conversationId)
             .orElseThrow(() -> new IllegalArgumentException("대화를 찾을 수 없습니다."));
 
@@ -341,6 +375,7 @@ public class GuildDirectMessageService {
         if (!conversation.getGuildId().equals(guildId)) {
             throw new IllegalArgumentException("해당 길드의 대화가 아닙니다.");
         }
+        return conversation;
     }
 
 }

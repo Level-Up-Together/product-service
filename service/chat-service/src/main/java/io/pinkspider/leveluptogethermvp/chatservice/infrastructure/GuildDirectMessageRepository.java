@@ -50,16 +50,20 @@ public interface GuildDirectMessageRepository extends JpaRepository<GuildDirectM
         @Param("conversationId") Long conversationId,
         @Param("userId") String userId);
 
+    // LUT-383: 차단한 상대(excludedSenderIds)의 미읽음은 뱃지에서 제외 —
+    // 빈 리스트 IN 오동작 방지를 위해 호출측이 __none__ 센티널을 넣는다
     @Query("SELECT COUNT(m) FROM GuildDirectMessage m " +
            "WHERE m.conversation.guildId = :guildId " +
            "AND (m.conversation.userId1 = :userId OR m.conversation.userId2 = :userId) " +
            "AND m.senderId != :userId " +
+           "AND m.senderId NOT IN :excludedSenderIds " +
            "AND m.isRead = false " +
            "AND m.isDeleted = false " +
            "AND m.conversation.isActive = true")
     int countTotalUnreadMessages(
         @Param("guildId") Long guildId,
-        @Param("userId") String userId);
+        @Param("userId") String userId,
+        @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     @Modifying
     @Query("UPDATE GuildDirectMessage m SET m.isRead = true, m.readAt = CURRENT_TIMESTAMP " +

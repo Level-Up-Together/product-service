@@ -93,12 +93,10 @@ class FriendServiceTest {
         @Test
         @DisplayName("친구 요청을 정상적으로 보낸다")
         void sendFriendRequest_success() {
-            // given
+            // given (LUT-383: 방향별 조회 — 미스텁 findByUserIdAndFriendId 는 Optional.empty)
             Friendship savedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
             Users requester = createTestUser(TEST_USER_ID, "테스터");
 
-            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
-                .thenReturn(Optional.empty());
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(savedFriendship);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(requester));
 
@@ -126,7 +124,7 @@ class FriendServiceTest {
             // given
             Friendship existingFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
 
-            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
                 .thenReturn(Optional.of(existingFriendship));
 
             // when & then
@@ -141,7 +139,7 @@ class FriendServiceTest {
             // given
             Friendship pendingFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
 
-            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
                 .thenReturn(Optional.of(pendingFriendship));
 
             // when & then
@@ -151,12 +149,12 @@ class FriendServiceTest {
         }
 
         @Test
-        @DisplayName("차단된 사용자에게 친구 요청을 보내면 예외가 발생한다")
+        @DisplayName("내가 차단한 사용자에게 친구 요청을 보내면 예외가 발생한다")
         void sendFriendRequest_blocked_throwsException() {
-            // given
+            // given: 내(발신자)가 상대를 차단한 행 — 차단자에게는 에러를 그대로 노출
             Friendship blockedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
 
-            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
                 .thenReturn(Optional.of(blockedFriendship));
 
             // when & then
@@ -166,13 +164,35 @@ class FriendServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-383: 상대가 나를 차단했으면 요청은 저장되지만 알림 이벤트는 발행되지 않는다 (shadow block)")
+        void sendFriendRequest_shadowBlocked_savedWithoutEvent() {
+            // given: 상대(FRIEND_USER_ID)가 나(TEST_USER_ID)를 차단한 행만 존재
+            Friendship reverseBlocked = createTestFriendship(9L, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.BLOCKED);
+            Friendship savedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.PENDING);
+
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
+                .thenReturn(Optional.empty());
+            when(friendshipRepository.findByUserIdAndFriendId(FRIEND_USER_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(reverseBlocked));
+            when(friendshipRepository.save(any(Friendship.class))).thenReturn(savedFriendship);
+
+            // when
+            FriendRequestResponse result = friendService.sendFriendRequest(TEST_USER_ID, FRIEND_USER_ID, "친구하자!");
+
+            // then: 정상 성공 응답으로 위장(요청됨 상태 유지)하되, 상대에게 가는 알림은 없다
+            assertThat(result).isNotNull();
+            verify(friendshipRepository).save(any(Friendship.class));
+            verify(eventPublisher, never()).publishEvent(any(FriendRequestEvent.class));
+        }
+
+        @Test
         @DisplayName("거절된 후 다시 친구 요청을 보낼 수 있다")
         void sendFriendRequest_afterRejected_success() {
             // given
             Friendship rejectedFriendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.REJECTED);
             Users requester = createTestUser(TEST_USER_ID, "테스터");
 
-            when(friendshipRepository.findFriendship(TEST_USER_ID, FRIEND_USER_ID))
+            when(friendshipRepository.findByUserIdAndFriendId(TEST_USER_ID, FRIEND_USER_ID))
                 .thenReturn(Optional.of(rejectedFriendship));
             when(friendshipRepository.save(any(Friendship.class))).thenReturn(rejectedFriendship);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(requester));

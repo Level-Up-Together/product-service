@@ -140,8 +140,8 @@ class GuildDirectMessageServiceTest {
         }
 
         @Test
-        @DisplayName("LUT-367: 차단 관계면 DM 전송이 차단된다 (수신·발신 공통)")
-        void sendMessage_blocked_throws() {
+        @DisplayName("LUT-383: 발신자가 차단한 상대에게는 DM 전송이 에러로 막힌다")
+        void sendMessage_senderBlocking_throws() {
             // given
             DirectMessageRequest request = DirectMessageRequest.builder()
                 .content("안녕하세요!")
@@ -152,7 +152,8 @@ class GuildDirectMessageServiceTest {
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
             when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
                 .thenReturn(List.of(USER_ID_2));
-            when(userQueryFacadeService.isBlockedBetween(USER_ID_1, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_1))
+                .thenReturn(List.of(USER_ID_2));
 
             // when & then
             org.assertj.core.api.Assertions.assertThatThrownBy(
@@ -160,6 +161,44 @@ class GuildDirectMessageServiceTest {
                 .isInstanceOf(io.pinkspider.global.exception.CustomException.class)
                 .hasMessageContaining("error.dm.blocked_user");
             verify(messageRepository, org.mockito.Mockito.never()).save(any(GuildDirectMessage.class));
+        }
+
+        @Test
+        @DisplayName("LUT-383: 피차단자 발신은 정상 저장되지만 수신자에게는 어디에도 전달되지 않는다 (shadow block)")
+        void sendMessage_shadowBlocked_savedButHiddenFromRecipient() {
+            // given: USER_ID_2(수신자)가 USER_ID_1(발신자)을 차단한 상태
+            DirectMessageRequest request = DirectMessageRequest.builder()
+                .content("조용한 차단 테스트")
+                .build();
+
+            when(guildQueryFacadeService.guildExists(1L)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_1)).thenReturn(List.of());
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_2))
+                .thenReturn(List.of(USER_ID_1));
+            when(userQueryFacadeService.getUserNickname(USER_ID_1)).thenReturn(NICKNAME_1);
+            when(conversationRepository.findConversationIncludingInactive(1L, USER_ID_1, USER_ID_2))
+                .thenReturn(Optional.of(testConversation));
+            when(messageRepository.save(any(GuildDirectMessage.class))).thenAnswer(inv -> {
+                GuildDirectMessage msg = inv.getArgument(0);
+                setId(msg, GuildDirectMessage.class, 1L);
+                return msg;
+            });
+
+            // when
+            DirectMessageResponse response = dmService.sendMessage(1L, USER_ID_1, USER_ID_2, request);
+
+            // then: 발신자 화면은 정상 전송(저장 + 에코), 수신자 실시간·알림 이벤트는 생략
+            assertThat(response).isNotNull();
+            verify(messageRepository).save(any(GuildDirectMessage.class));
+            verify(dmRealtimePublisher).publishToUser(
+                eq(USER_ID_1), eq(GuildDirectMessageService.DM_DESTINATION), any());
+            verify(dmRealtimePublisher, never()).publishToUser(
+                eq(USER_ID_2), eq(GuildDirectMessageService.DM_DESTINATION), any());
+            verify(eventPublisher, never()).publishEvent(any(GuildDirectMessageEvent.class));
         }
 
         @Test
@@ -506,6 +545,27 @@ class GuildDirectMessageServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-383: 내가 차단한 상대와의 대화는 목록에서 숨긴다")
+        void getConversations_excludesBlockedUser() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(USER_ID_1, USER_ID_2));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_1))
+                .thenReturn(List.of(USER_ID_2));
+
+            // when
+            List<DirectConversationResponse> result = dmService.getConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
         @DisplayName("회원 탈퇴한 상대와의 대화는 목록에서 제외한다 (LUT-285)")
         void getConversations_excludesWithdrawnUser() {
             // given
@@ -613,6 +673,23 @@ class GuildDirectMessageServiceTest {
             // LUT-263: 읽음 처리는 방을 보고 있다는 신호 → presence 갱신
             verify(dmPresenceService).markViewing(USER_ID_2, 1L);
         }
+
+        @Test
+        @DisplayName("LUT-383: 차단한 상대의 방은 읽음 처리하지 않는다 (피차단자 '안읽음' 유지)")
+        void markAsRead_blockedOther_skips() {
+            // given: USER_ID_2가 상대(USER_ID_1)를 차단한 상태
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_2)).thenReturn(true);
+            when(conversationRepository.findById(1L)).thenReturn(Optional.of(testConversation));
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_2))
+                .thenReturn(List.of(USER_ID_1));
+
+            // when
+            dmService.markAsRead(1L, USER_ID_2, 1L);
+
+            // then: 읽음 처리·presence 갱신 모두 생략
+            verify(messageRepository, never()).markAllAsRead(anyLong(), anyString());
+            verify(dmPresenceService, never()).markViewing(anyString(), anyLong());
+        }
     }
 
     @Nested
@@ -620,17 +697,35 @@ class GuildDirectMessageServiceTest {
     class GetUnreadCountTest {
 
         @Test
-        @DisplayName("전체 안읽은 DM 수를 조회한다")
+        @DisplayName("전체 안읽은 DM 수를 조회한다 (차단 없음 — __none__ 센티널)")
         void getTotalUnreadCount_success() {
             // given
             when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
-            when(messageRepository.countTotalUnreadMessages(1L, USER_ID_1)).thenReturn(10);
+            when(messageRepository.countTotalUnreadMessages(1L, USER_ID_1, List.of("__none__")))
+                .thenReturn(10);
 
             // when
             int count = dmService.getTotalUnreadCount(1L, USER_ID_1);
 
             // then
             assertThat(count).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("LUT-383: 차단한 상대의 미읽음은 뱃지 카운트에서 제외된다")
+        void getTotalUnreadCount_excludesBlockedSenders() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(userQueryFacadeService.getBlockedUserIds(USER_ID_1))
+                .thenReturn(List.of(USER_ID_2));
+            when(messageRepository.countTotalUnreadMessages(1L, USER_ID_1, List.of(USER_ID_2)))
+                .thenReturn(3);
+
+            // when
+            int count = dmService.getTotalUnreadCount(1L, USER_ID_1);
+
+            // then
+            assertThat(count).isEqualTo(3);
         }
     }
 
