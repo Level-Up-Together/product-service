@@ -21,7 +21,14 @@ public interface ActivityFeedImageRepository extends JpaRepository<ActivityFeedI
 
     int countByFeedId(Long feedId);
 
-    @Modifying
+    /**
+     * LUT-385: 반드시 벌크 삭제(@Query)여야 한다. 파생 삭제(deleteBy...)는 엔티티 로드 후 제거를
+     * ActionQueue에 쌓는데, Hibernate flush 순서상 INSERT가 DELETE보다 먼저 실행되어
+     * "전체 교체(삭제 후 재등록)" 시 기존 행과 (feed_id, sort_order) 유니크 제약이 충돌한다.
+     * 벌크 삭제는 호출 즉시 실행되므로 이후 INSERT가 안전하다.
+     */
+    @Modifying(flushAutomatically = true)
     @Transactional(transactionManager = "feedTransactionManager")
-    void deleteByFeedId(Long feedId);
+    @Query("DELETE FROM ActivityFeedImage i WHERE i.feed.id = :feedId")
+    void deleteByFeedId(@Param("feedId") Long feedId);
 }

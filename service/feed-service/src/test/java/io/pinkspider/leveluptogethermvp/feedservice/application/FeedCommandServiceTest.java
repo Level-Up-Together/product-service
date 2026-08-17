@@ -1005,6 +1005,30 @@ class FeedCommandServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-385: 이미지 교체는 기존 child rows 삭제 후 신규 저장 순서로 실행된다")
+        void updateFeedImagesByExecutionId_deleteBeforeInsert() {
+            // given — 재등록으로 이미지가 2장이 된 상태의 동기화
+            Long executionId = 10L;
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findFirstByExecutionIdAndUserIdOrderByCreatedAtDesc(executionId, TEST_USER_ID))
+                .thenReturn(Optional.of(feed));
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+
+            // when
+            feedCommandService.updateFeedImagesByExecutionId(
+                executionId, TEST_USER_ID, List.of("https://x.com/a.jpg", "https://x.com/b.jpg"));
+
+            // then — 삭제가 신규 저장보다 먼저여야 한다. 실제 flush 순서 보장은
+            // ActivityFeedImageRepository.deleteByFeedId 의 벌크 @Query가 담당한다
+            // (ActivityFeedImageRepositoryContractTest 가드 참조).
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(activityFeedImageRepository);
+            inOrder.verify(activityFeedImageRepository).deleteByFeedId(1L);
+            inOrder.verify(activityFeedImageRepository, org.mockito.Mockito.times(2))
+                .save(any(io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage.class));
+            assertThat(feed.getImageUrl()).isEqualTo("https://x.com/a.jpg");
+        }
+
+        @Test
         @DisplayName("executionId에 해당하는 피드가 없으면 업데이트하지 않는다")
         void updateFeedImageUrlByExecutionId_notFound_doesNothing() {
             // given
