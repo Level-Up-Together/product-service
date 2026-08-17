@@ -794,7 +794,8 @@ class GuildChatServiceTest {
             when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
             when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
                 .thenReturn(Optional.of(readStatus));
-            when(readStatusRepository.countUnreadMessagesForUser(eq(1L), anyLong())).thenReturn(3);
+            when(readStatusRepository.countUnreadMessagesForUser(eq(1L), anyLong(), anyList()))
+                .thenReturn(3);
 
             // when
             var result = guildChatService.getChatRoomInfo(1L, testUserId);
@@ -816,7 +817,7 @@ class GuildChatServiceTest {
             when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
             when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
                 .thenReturn(Optional.empty());
-            when(chatMessageRepository.countByGuildId(1L)).thenReturn(20L);
+            when(chatMessageRepository.countByGuildId(eq(1L), anyList())).thenReturn(20L);
 
             // when
             var result = guildChatService.getChatRoomInfo(1L, testUserId);
@@ -824,6 +825,83 @@ class GuildChatServiceTest {
             // then
             assertThat(result).isNotNull();
             assertThat(result.getUnreadMessageCount()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("LUT-384: 차단한 유저 목록이 안읽음 카운트 쿼리에 전달된다")
+        void getChatRoomInfo_blockedUsers_excludedFromUnreadCount() {
+            // given
+            GuildChatReadStatus readStatus = GuildChatReadStatus.create(1L, testUserId);
+            setId(readStatus, 1L);
+
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
+            when(guildQueryFacadeService.getActiveMemberCount(1L)).thenReturn(10);
+            when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(readStatus));
+            when(userQueryFacadeService.getBlockedUserIds(testUserId))
+                .thenReturn(List.of("blocked-user-id"));
+            when(readStatusRepository.countUnreadMessagesForUser(
+                eq(1L), anyLong(), eq(List.of("blocked-user-id"))))
+                .thenReturn(0);
+
+            // when
+            var result = guildChatService.getChatRoomInfo(1L, testUserId);
+
+            // then
+            assertThat(result.getUnreadMessageCount()).isZero();
+            verify(readStatusRepository).countUnreadMessagesForUser(
+                eq(1L), anyLong(), eq(List.of("blocked-user-id")));
+        }
+
+        @Test
+        @DisplayName("LUT-384: 차단 목록이 비어있으면 센티널이 카운트 쿼리에 전달된다")
+        void getChatRoomInfo_noBlockedUsers_sentinelPassed() {
+            // given
+            GuildChatReadStatus readStatus = GuildChatReadStatus.create(1L, testUserId);
+            setId(readStatus, 1L);
+
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
+            when(guildQueryFacadeService.getActiveMemberCount(1L)).thenReturn(10);
+            when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(readStatus));
+            when(userQueryFacadeService.getBlockedUserIds(testUserId))
+                .thenReturn(Collections.emptyList());
+            when(readStatusRepository.countUnreadMessagesForUser(
+                eq(1L), anyLong(), eq(List.of("__none__"))))
+                .thenReturn(2);
+
+            // when
+            var result = guildChatService.getChatRoomInfo(1L, testUserId);
+
+            // then
+            assertThat(result.getUnreadMessageCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("LUT-384: 읽음 상태가 없는 폴백 경로에도 차단 목록이 전달된다")
+        void getChatRoomInfo_noReadStatus_blockedUsersExcluded() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, testUserId)).thenReturn(true);
+            when(guildQueryFacadeService.getGuildBasicInfo(1L)).thenReturn(new GuildBasicInfo(1L, "테스트길드", null, 1));
+            when(guildQueryFacadeService.getActiveMemberCount(1L)).thenReturn(10);
+            when(participantRepository.countActiveParticipants(1L)).thenReturn(5L);
+            when(readStatusRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(userQueryFacadeService.getBlockedUserIds(testUserId))
+                .thenReturn(List.of("blocked-user-id"));
+            when(chatMessageRepository.countByGuildId(eq(1L), eq(List.of("blocked-user-id"))))
+                .thenReturn(5L);
+
+            // when
+            var result = guildChatService.getChatRoomInfo(1L, testUserId);
+
+            // then
+            assertThat(result.getUnreadMessageCount()).isEqualTo(5);
+            verify(chatMessageRepository).countByGuildId(eq(1L), eq(List.of("blocked-user-id")));
         }
     }
 

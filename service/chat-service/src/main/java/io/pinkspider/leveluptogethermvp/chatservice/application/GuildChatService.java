@@ -230,9 +230,12 @@ public class GuildChatService {
 
         Long lastReadMessageId = readStatus != null ? readStatus.getLastReadMessageId() : 0L;
 
+        // LUT-384: 차단한 유저의 메시지는 안읽음 카운트에서도 제외 — 메시지 탭 레드닷이 이 값에서 파생된다
+        List<String> excludedSenderIds = resolveExcludedSenderIds(userId);
         int unreadCount = readStatus != null
-            ? readStatusRepository.countUnreadMessagesForUser(guildId, readStatus.getLastReadMessageId())
-            : (int) chatMessageRepository.countByGuildId(guildId);
+            ? readStatusRepository.countUnreadMessagesForUser(
+                guildId, readStatus.getLastReadMessageId(), excludedSenderIds)
+            : (int) chatMessageRepository.countByGuildId(guildId, excludedSenderIds);
 
         return ChatRoomInfoResponse.of(guildInfo.id(), guildInfo.name(), guildInfo.imageUrl(),
             memberCount, participantCount, unreadCount, lastReadMessageId);

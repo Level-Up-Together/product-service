@@ -29,13 +29,18 @@ public interface GuildChatReadStatusRepository extends JpaRepository<GuildChatRe
         @Param("guildId") Long guildId,
         @Param("messageIds") List<Long> messageIds);
 
+    // LUT-384: 차단한 유저(excludedSenderIds)의 메시지는 안읽음 카운트에서 제외 —
+    // 본문 조회(LUT-373)와 같은 필터를 쓰지 않으면 목록은 비었는데 뱃지·레드닷만 남는다.
+    // 시스템 메시지는 senderId 가 NULL 이라 NOT IN 평가가 NULL 이 되므로 IS NULL 분기를 반드시 둔다.
     @Query("SELECT COUNT(m) FROM GuildChatMessage m " +
            "WHERE m.guildId = :guildId " +
            "AND m.isDeleted = false " +
-           "AND m.id > :lastReadMessageId")
+           "AND m.id > :lastReadMessageId " +
+           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds)")
     int countUnreadMessagesForUser(
         @Param("guildId") Long guildId,
-        @Param("lastReadMessageId") Long lastReadMessageId);
+        @Param("lastReadMessageId") Long lastReadMessageId,
+        @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     void deleteByGuildIdAndUserId(Long guildId, String userId);
 }

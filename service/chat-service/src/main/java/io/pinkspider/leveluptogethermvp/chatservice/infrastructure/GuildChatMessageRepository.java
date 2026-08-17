@@ -63,8 +63,13 @@ public interface GuildChatMessageRepository extends JpaRepository<GuildChatMessa
         @Param("guildId") Long guildId, @Param("keyword") String keyword,
         @Param("excludedSenderIds") List<String> excludedSenderIds, Pageable pageable);
 
-    @Query("SELECT COUNT(m) FROM GuildChatMessage m WHERE m.guildId = :guildId AND m.isDeleted = false")
-    long countByGuildId(@Param("guildId") Long guildId);
+    // LUT-384: 읽음 상태가 없는 유저의 전체 안읽음 폴백 — 차단 유저 메시지는 카운트에서 제외
+    @Query("SELECT COUNT(m) FROM GuildChatMessage m WHERE m.guildId = :guildId " +
+           "AND m.isDeleted = false " +
+           "AND (m.senderId IS NULL OR m.senderId NOT IN :excludedSenderIds)")
+    long countByGuildId(
+        @Param("guildId") Long guildId,
+        @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     @Modifying
     @Transactional(transactionManager = "chatTransactionManager")
