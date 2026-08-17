@@ -245,7 +245,7 @@ class GuildServiceTest {
     class CreateGuildAdditionalTest {
 
         @Test
-        @DisplayName("레벨 20 미만인 사용자는 길드를 생성할 수 없다")
+        @DisplayName("LUT-386: 레벨 5 미만인 사용자는 길드를 생성할 수 없다")
         void createGuild_failWhenLevelTooLow() {
             // given
             GuildCreateRequest request = GuildCreateRequest.builder()
@@ -255,13 +255,35 @@ class GuildServiceTest {
                 .categoryId(testCategoryId)
                 .build();
 
-            UserExperienceDto userExperience = new UserExperienceDto(null, testUserId, 19, 0, 0, null, null, null);
+            UserExperienceDto userExperience = new UserExperienceDto(null, testUserId, 4, 0, 0, null, null, null);
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
 
             // when & then
             assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("레벨 20 이상부터");
+                .hasMessageContaining("레벨 5 이상부터");
+        }
+
+        @Test
+        @DisplayName("LUT-386: 레벨 5 이상이면 창설 레벨 가드를 통과한다")
+        void createGuild_levelFive_passesLevelGuard() {
+            // given — 레벨 가드 통과 후 다음 검증(마스터 1인 1길드)에서 멈추게 해
+            // 레벨 때문에 거부되지 않음을 확인한다
+            GuildCreateRequest request = GuildCreateRequest.builder()
+                .name("새 길드")
+                .description("설명")
+                .visibility(GuildVisibility.PUBLIC)
+                .categoryId(testCategoryId)
+                .build();
+
+            UserExperienceDto userExperience = new UserExperienceDto(null, testUserId, 5, 0, 0, null, null, null);
+            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
+            when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 다른 길드의 마스터");
         }
 
         @Test

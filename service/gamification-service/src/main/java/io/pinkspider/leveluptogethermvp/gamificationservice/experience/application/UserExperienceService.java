@@ -34,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserExperienceService {
 
-    // LUT-375: 길드 창설 가능 레벨 20 → 5 하향 (웹 GuildHome.GUILD_CREATION_MIN_LEVEL 과 동기)
+    // LUT-375: 길드 창설 가능 레벨 20 → 5 하향. 이 값은 3곳이 동기여야 한다 —
+    // 여기(창설 가능 알림 임계값) / guild GuildService(창설 검증, LUT-386) / 웹 GuildHome.
     private static final int GUILD_CREATION_MIN_LEVEL = 5;
 
     private final UserExperienceRepository userExperienceRepository;
