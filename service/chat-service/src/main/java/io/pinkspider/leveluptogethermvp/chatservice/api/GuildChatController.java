@@ -7,14 +7,17 @@ import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageReques
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatParticipantResponse;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatRoomInfoResponse;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ReadStatusUpdate;
 import java.time.LocalDateTime;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,12 +28,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/guilds/{guildId}/chat")
-@RequiredArgsConstructor
 public class GuildChatController {
 
     private final GuildChatService chatService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    public GuildChatController(
+            GuildChatService chatService,
+            @Autowired(required = false) SimpMessagingTemplate messagingTemplate) {
+        this.chatService = chatService;
+        this.messagingTemplate = messagingTemplate;
+    }
 
     // 메시지 전송
     @PostMapping
@@ -129,13 +141,31 @@ public class GuildChatController {
     }
 
     // 메시지 읽음 처리
+    // LUT-395: 채팅방 입장 직후(WebSocket 미연결 시점)엔 이 REST 경로가 유일한 읽음 처리
+    // 수단이라, WebSocket 컨트롤러와 동일하게 읽음 상태를 브로드캐스트해야 다른 참여자의
+    // 안읽음 수가 실시간으로 갱신된다.
     @PostMapping("/read/{messageId}")
     public ResponseEntity<ApiResult<Void>> markAsRead(
         @PathVariable Long guildId,
         @CurrentUser String userId,
         @PathVariable Long messageId) {
         chatService.markAsRead(guildId, userId, messageId);
+        broadcastReadStatus(guildId, userId, messageId);
         return ResponseEntity.ok(ApiResult.getBase());
+    }
+
+    private void broadcastReadStatus(Long guildId, String userId, Long messageId) {
+        if (messagingTemplate == null) {
+            return;
+        }
+        try {
+            ReadStatusUpdate update = new ReadStatusUpdate(
+                guildId, messageId, userId, chatService.getUnreadCount(guildId, messageId));
+            messagingTemplate.convertAndSend("/topic/guild/" + guildId + "/read", update);
+        } catch (Exception e) {
+            log.error("읽음 상태 브로드캐스트 실패: guildId={}, userId={}, messageId={}, error={}",
+                guildId, userId, messageId, e.getMessage());
+        }
     }
 
     // ============ 채팅방 참여 관련 엔드포인트 ============

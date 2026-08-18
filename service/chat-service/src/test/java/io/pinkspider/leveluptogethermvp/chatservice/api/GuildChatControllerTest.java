@@ -5,7 +5,9 @@ import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -41,6 +43,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.ActiveProfiles;
@@ -69,6 +72,9 @@ class GuildChatControllerTest {
 
     @MockitoBean
     private GuildChatService guildChatService;
+
+    @MockitoBean
+    private SimpMessagingTemplate messagingTemplate;
 
     private static final String X_USER_NICKNAME = "X-User-Nickname";
     private static final String MOCK_USER_ID = "test-user-123";
@@ -652,6 +658,7 @@ class GuildChatControllerTest {
         Long messageId = 100L;
 
         doNothing().when(guildChatService).markAsRead(anyLong(), anyString(), anyLong());
+        when(guildChatService.getUnreadCount(anyLong(), anyLong())).thenReturn(2);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -681,6 +688,8 @@ class GuildChatControllerTest {
 
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(messagingTemplate).convertAndSend(
+            eq("/topic/guild/" + guildId + "/read"), any(io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ReadStatusUpdate.class));
     }
 
     @Test

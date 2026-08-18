@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.chatservice.api;
 import io.pinkspider.leveluptogethermvp.chatservice.application.GuildChatService;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageRequest;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ChatMessageResponse;
+import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.ReadStatusUpdate;
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildChatParticipantRepository;
 import io.pinkspider.global.facade.UserQueryFacade;
 import java.security.Principal;
@@ -147,12 +148,4 @@ public class GuildChatWebSocketController {
 
     // 읽음 요청 DTO
     public record ReadRequest(Long messageId) {}
-
-    // 읽음 상태 업데이트 DTO
-    public record ReadStatusUpdate(
-        Long guildId,
-        Long messageId,
-        String userId,
-        int unreadCount
-    ) {}
 }
