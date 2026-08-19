@@ -4,7 +4,6 @@ import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
-import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.UserTitleDto;
@@ -139,13 +138,8 @@ public class FriendService {
         // 친구 요청 처리 완료 이벤트 발행 (알림 삭제용)
         eventPublisher.publishEvent(new FriendRequestProcessedEvent(userId, requestId));
 
-        // 친구 요청 거절 이벤트 발행
-        Users rejecter = userRepository.findById(userId).orElse(null);
-        String rejecterNickname = rejecter != null ? rejecter.getNickname() : "사용자";
-        eventPublisher.publishEvent(new FriendRequestRejectedEvent(
-            userId, friendship.getUserId(), rejecterNickname, friendship.getId()
-        ));
-
+        // LUT-396: 조용한 거절 — 요청자에게 거절 사실이 알림으로 통지되지 않아야 한다.
+        // (참고: 차단·친구삭제와 동일하게 상대방에게 알림을 보내지 않는 액션. 수락만 알림 발송)
         log.info("친구 요청 거절: {} rejected {}", userId, friendship.getUserId());
     }
 

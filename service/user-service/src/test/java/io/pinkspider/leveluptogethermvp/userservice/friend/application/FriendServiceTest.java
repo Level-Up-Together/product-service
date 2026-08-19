@@ -272,10 +272,8 @@ class FriendServiceTest {
             // given
             Long requestId = 1L;
             Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
-            Users rejecter = createTestUser(TEST_USER_ID, "거절자");
 
             when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(rejecter));
 
             // when
             friendService.rejectFriendRequest(TEST_USER_ID, requestId);
@@ -283,7 +281,22 @@ class FriendServiceTest {
             // then
             assertThat(friendship.getStatus()).isEqualTo(FriendshipStatus.REJECTED);
             verify(eventPublisher).publishEvent(any(FriendRequestProcessedEvent.class));
-            verify(eventPublisher).publishEvent(any(FriendRequestRejectedEvent.class));
+        }
+
+        @Test
+        @DisplayName("LUT-396: 조용한 거절 — 요청자에게 거절 알림을 발행하지 않는다")
+        void rejectFriendRequest_doesNotPublishRejectedEvent() {
+            // given
+            Long requestId = 1L;
+            Friendship friendship = createTestFriendship(requestId, FRIEND_USER_ID, TEST_USER_ID, FriendshipStatus.PENDING);
+
+            when(friendshipRepository.findById(requestId)).thenReturn(Optional.of(friendship));
+
+            // when
+            friendService.rejectFriendRequest(TEST_USER_ID, requestId);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(FriendRequestRejectedEvent.class));
         }
     }
 
