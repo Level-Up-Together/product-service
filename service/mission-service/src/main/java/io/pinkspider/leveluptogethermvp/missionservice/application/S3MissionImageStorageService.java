@@ -1,9 +1,11 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.component.ImageResizer;
 import io.pinkspider.global.config.s3.S3ImageProperties;
 import io.pinkspider.global.exception.CustomException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +26,13 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @RequiredArgsConstructor
 public class S3MissionImageStorageService implements MissionImageStorageService {
 
+    private static final String THUMB_SUFFIX = "_thumb";
+    private static final String MEDIUM_SUFFIX = "_medium";
+
     private final S3Client s3Client;
     private final S3ImageProperties s3Properties;
     private final MissionImageProperties properties;
+    private final ImageResizer imageResizer;
 
     @Override
     public String store(MultipartFile file, String userId, Long missionId, String executionDate) {
@@ -43,14 +49,14 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
             String extension = getExtension(originalFilename);
             String newFilename = executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
             String key = "missions/" + userId + "/" + missionId + "/" + newFilename;
+            byte[] originalBytes = file.getBytes();
 
-            PutObjectRequest putRequest = PutObjectRequest.builder()
-                    .bucket(s3Properties.getBucket())
-                    .key(key)
-                    .contentType(file.getContentType())
-                    .build();
+            putObject(key, file.getContentType(), originalBytes);
 
-            s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            uploadVariant(key, extension, file.getContentType(), originalBytes, THUMB_SUFFIX,
+                    ImageResizer.THUMBNAIL_MAX_DIMENSION);
+            uploadVariant(key, extension, file.getContentType(), originalBytes, MEDIUM_SUFFIX,
+                    ImageResizer.MEDIUM_MAX_DIMENSION);
 
             String cdnUrl = s3Properties.getCdnBaseUrl() + "/" + key;
             log.info("미션 이미지 S3 저장: userId={}, missionId={}, key={}", userId, missionId, key);
@@ -62,6 +68,38 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
         }
     }
 
+    /** LUT-400: 원본과 같은 디렉터리에 리사이즈 변형(thumb/medium)을 best-effort로 함께 저장한다. */
+    private void uploadVariant(String originalKey, String extension, String contentType,
+            byte[] originalBytes, String suffix, int maxDimension) {
+        try {
+            Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, maxDimension);
+            if (resized.isEmpty()) {
+                return;
+            }
+            String variantKey = insertSuffix(originalKey, suffix);
+            putObject(variantKey, contentType, resized.get());
+        } catch (Exception e) {
+            log.warn("미션 이미지 변형 저장 실패, 원본만 사용: key={}, suffix={}", originalKey, suffix, e);
+        }
+    }
+
+    private void putObject(String key, String contentType, byte[] bytes) {
+        PutObjectRequest putRequest = PutObjectRequest.builder()
+                .bucket(s3Properties.getBucket())
+                .key(key)
+                .contentType(contentType)
+                .build();
+        s3Client.putObject(putRequest, RequestBody.fromBytes(bytes));
+    }
+
+    private String insertSuffix(String key, String suffix) {
+        int dotIndex = key.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return key + suffix;
+        }
+        return key.substring(0, dotIndex) + suffix + key.substring(dotIndex);
+    }
+
     @Override
     public void delete(String imageUrl) {
         if (imageUrl == null || imageUrl.isEmpty()) {
@@ -70,19 +108,25 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
 
         if (imageUrl.startsWith(s3Properties.getCdnBaseUrl())) {
             String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
-            try {
-                s3Client.deleteObject(DeleteObjectRequest.builder()
-                        .bucket(s3Properties.getBucket())
-                        .key(key)
-                        .build());
-                log.info("미션 이미지 S3 삭제: key={}", key);
-            } catch (Exception e) {
-                log.warn("미션 이미지 S3 삭제 실패: key={}", key, e);
-            }
+            deleteObject(key);
+            deleteObject(insertSuffix(key, THUMB_SUFFIX));
+            deleteObject(insertSuffix(key, MEDIUM_SUFFIX));
             return;
         }
 
         log.debug("S3 삭제 대상 아님 (로컬/외부 URL): {}", imageUrl);
+    }
+
+    private void deleteObject(String key) {
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(s3Properties.getBucket())
+                    .key(key)
+                    .build());
+            log.info("미션 이미지 S3 삭제: key={}", key);
+        } catch (Exception e) {
+            log.warn("미션 이미지 S3 삭제 실패: key={}", key, e);
+        }
     }
 
     @Override

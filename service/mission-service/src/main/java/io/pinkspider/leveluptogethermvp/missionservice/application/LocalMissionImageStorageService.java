@@ -1,12 +1,13 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
+import io.pinkspider.global.component.ImageResizer;
 import io.pinkspider.global.exception.CustomException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class LocalMissionImageStorageService implements MissionImageStorageService {
 
+    private static final String THUMB_SUFFIX = "_thumb";
+    private static final String MEDIUM_SUFFIX = "_medium";
+
     private final MissionImageProperties properties;
+    private final ImageResizer imageResizer;
 
     @Override
     public String store(MultipartFile file, String userId, Long missionId, String executionDate) {
@@ -46,10 +51,16 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
             String extension = getExtension(originalFilename);
             String newFilename = executionDate + "_" + UUID.randomUUID().toString() + "." + extension;
+            byte[] originalBytes = file.getBytes();
 
             // 파일 저장
             Path targetPath = uploadDir.resolve(newFilename);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(targetPath, originalBytes);
+
+            uploadVariant(uploadDir, newFilename, extension, originalBytes, THUMB_SUFFIX,
+                    ImageResizer.THUMBNAIL_MAX_DIMENSION);
+            uploadVariant(uploadDir, newFilename, extension, originalBytes, MEDIUM_SUFFIX,
+                    ImageResizer.MEDIUM_MAX_DIMENSION);
 
             log.info("미션 이미지 저장: userId={}, missionId={}, path={}", userId, missionId, targetPath);
 
@@ -60,6 +71,29 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             log.error("미션 이미지 저장 실패: userId={}, missionId={}", userId, missionId, e);
             throw new CustomException("MISSION_IMAGE_003", "error.image.save_failed");
         }
+    }
+
+    /** LUT-400: 원본과 같은 디렉터리에 리사이즈 변형(thumb/medium)을 best-effort로 함께 저장한다. */
+    private void uploadVariant(Path uploadDir, String originalFilename, String extension,
+            byte[] originalBytes, String suffix, int maxDimension) {
+        try {
+            Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, maxDimension);
+            if (resized.isEmpty()) {
+                return;
+            }
+            Path variantPath = uploadDir.resolve(insertSuffix(originalFilename, suffix));
+            Files.write(variantPath, resized.get());
+        } catch (Exception e) {
+            log.warn("미션 이미지 변형 저장 실패, 원본만 사용: file={}, suffix={}", originalFilename, suffix, e);
+        }
+    }
+
+    private String insertSuffix(String filename, String suffix) {
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return filename + suffix;
+        }
+        return filename.substring(0, dotIndex) + suffix + filename.substring(dotIndex);
     }
 
     @Override
@@ -74,17 +108,21 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
             return;
         }
 
-        try {
-            // URL에서 파일 경로 추출
-            String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
-            Path filePath = Paths.get(properties.getPath(), relativePath);
+        String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
+        deleteIfExists(relativePath);
+        deleteIfExists(insertSuffix(relativePath, THUMB_SUFFIX));
+        deleteIfExists(insertSuffix(relativePath, MEDIUM_SUFFIX));
+    }
 
+    private void deleteIfExists(String relativePath) {
+        try {
+            Path filePath = Paths.get(properties.getPath(), relativePath);
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
                 log.info("미션 이미지 삭제: path={}", filePath);
             }
         } catch (IOException e) {
-            log.warn("미션 이미지 삭제 실패: url={}", imageUrl, e);
+            log.warn("미션 이미지 삭제 실패: path={}", relativePath, e);
             // 삭제 실패는 치명적이지 않으므로 예외를 던지지 않음
         }
     }

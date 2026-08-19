@@ -2,12 +2,16 @@ package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.component.ImageResizer;
 import io.pinkspider.global.exception.CustomException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,6 +28,9 @@ class LocalMissionImageStorageServiceTest {
     @Mock
     private MissionImageProperties properties;
 
+    @Mock
+    private ImageResizer imageResizer;
+
     private LocalMissionImageStorageService storageService;
 
     @TempDir
@@ -36,7 +43,7 @@ class LocalMissionImageStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        storageService = new LocalMissionImageStorageService(properties);
+        storageService = new LocalMissionImageStorageService(properties, imageResizer);
     }
 
     @Nested
@@ -104,6 +111,59 @@ class LocalMissionImageStorageServiceTest {
             assertThat(result).startsWith(URL_PREFIX + "/" + TEST_USER_ID + "/" + MISSION_ID + "/" + EXECUTION_DATE);
             assertThat(result).endsWith(".jpg");
         }
+
+        @Test
+        @DisplayName("LUT-400: 리사이즈 변형이 생성되면 thumb/medium 파일도 함께 저장한다")
+        void store_withVariants_savesThumbAndMediumFiles() throws IOException {
+            // given
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "test.jpg", "image/jpeg", "test image content".getBytes()
+            );
+
+            when(properties.getMaxSize()).thenReturn(5242880L);
+            when(properties.getAllowedExtensionList()).thenReturn(java.util.Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(imageResizer.resize(any(byte[].class), org.mockito.ArgumentMatchers.eq("jpg"), anyInt()))
+                .thenReturn(Optional.of("thumb-bytes".getBytes()));
+
+            // when
+            String result = storageService.store(file, TEST_USER_ID, MISSION_ID, EXECUTION_DATE);
+
+            // then
+            String originalFilename = result.substring(result.lastIndexOf('/') + 1);
+            String baseName = originalFilename.substring(0, originalFilename.lastIndexOf('.'));
+            Path userDir = tempDir.resolve(TEST_USER_ID).resolve(String.valueOf(MISSION_ID));
+            assertThat(Files.exists(userDir.resolve(baseName + "_thumb.jpg"))).isTrue();
+            assertThat(Files.exists(userDir.resolve(baseName + "_medium.jpg"))).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-400: 변형 생성이 비어있으면 원본만 저장한다")
+        void store_variantEmpty_savesOriginalOnly() throws IOException {
+            // given
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "test.jpg", "image/jpeg", "test image content".getBytes()
+            );
+
+            when(properties.getMaxSize()).thenReturn(5242880L);
+            when(properties.getAllowedExtensionList()).thenReturn(java.util.Arrays.asList("jpg", "jpeg", "png", "gif", "webp"));
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(imageResizer.resize(any(byte[].class), org.mockito.ArgumentMatchers.anyString(), anyInt()))
+                .thenReturn(Optional.empty());
+
+            // when
+            String result = storageService.store(file, TEST_USER_ID, MISSION_ID, EXECUTION_DATE);
+
+            // then
+            String originalFilename = result.substring(result.lastIndexOf('/') + 1);
+            String baseName = originalFilename.substring(0, originalFilename.lastIndexOf('.'));
+            Path userDir = tempDir.resolve(TEST_USER_ID).resolve(String.valueOf(MISSION_ID));
+            assertThat(Files.exists(userDir.resolve(originalFilename))).isTrue();
+            assertThat(Files.exists(userDir.resolve(baseName + "_thumb.jpg"))).isFalse();
+            assertThat(Files.exists(userDir.resolve(baseName + "_medium.jpg"))).isFalse();
+        }
     }
 
     @Nested
@@ -159,6 +219,33 @@ class LocalMissionImageStorageServiceTest {
 
             // then
             assertThat(Files.exists(testFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("LUT-400: 원본 삭제 시 thumb/medium 변형도 함께 삭제한다")
+        void delete_removesVariantsToo() throws IOException {
+            // given
+            Path userDir = tempDir.resolve(TEST_USER_ID).resolve(String.valueOf(MISSION_ID));
+            Files.createDirectories(userDir);
+            Path originalFile = userDir.resolve("test-image.jpg");
+            Path thumbFile = userDir.resolve("test-image_thumb.jpg");
+            Path mediumFile = userDir.resolve("test-image_medium.jpg");
+            Files.write(originalFile, "original".getBytes());
+            Files.write(thumbFile, "thumb".getBytes());
+            Files.write(mediumFile, "medium".getBytes());
+
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(properties.getPath()).thenReturn(tempDir.toString());
+
+            String imageUrl = URL_PREFIX + "/" + TEST_USER_ID + "/" + MISSION_ID + "/test-image.jpg";
+
+            // when
+            storageService.delete(imageUrl);
+
+            // then
+            assertThat(Files.exists(originalFile)).isFalse();
+            assertThat(Files.exists(thumbFile)).isFalse();
+            assertThat(Files.exists(mediumFile)).isFalse();
         }
     }
 
