@@ -67,6 +67,9 @@ class NoticeControllerTest {
             .id(id)
             .title("테스트 공지사항 " + id)
             .content("테스트 공지사항 내용입니다.")
+            .contentEn("Test notice content.")
+            .contentJa("テスト お知らせの内容です。")
+            .contentAr("محتوى الإشعار التجريبي.")
             .noticeType(type)
             .noticeTypeName(type.getDescription())
             .priority(1)
@@ -112,6 +115,9 @@ class NoticeControllerTest {
                             fieldWithPath("value[].id").type(JsonFieldType.NUMBER).description("공지사항 ID"),
                             fieldWithPath("value[].title").type(JsonFieldType.STRING).description("공지사항 제목"),
                             fieldWithPath("value[].content").type(JsonFieldType.STRING).description("공지사항 내용").optional(),
+                            fieldWithPath("value[].content_en").type(JsonFieldType.STRING).description("공지사항 내용 (영어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value[].content_ja").type(JsonFieldType.STRING).description("공지사항 내용 (일본어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value[].content_ar").type(JsonFieldType.STRING).description("공지사항 내용 (아랍어, 미입력 시 한글 폴백)").optional(),
                             fieldWithPath("value[].notice_type").type(JsonFieldType.STRING).description("공지 유형 (GENERAL, EVENT, MAINTENANCE, UPDATE)"),
                             fieldWithPath("value[].notice_type_name").type(JsonFieldType.STRING).description("공지 유형 표시명").optional(),
                             fieldWithPath("value[].priority").type(JsonFieldType.NUMBER).description("우선순위").optional(),
@@ -177,6 +183,9 @@ class NoticeControllerTest {
                             fieldWithPath("value.id").type(JsonFieldType.NUMBER).description("공지사항 ID"),
                             fieldWithPath("value.title").type(JsonFieldType.STRING).description("공지사항 제목"),
                             fieldWithPath("value.content").type(JsonFieldType.STRING).description("공지사항 내용").optional(),
+                            fieldWithPath("value.content_en").type(JsonFieldType.STRING).description("공지사항 내용 (영어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value.content_ja").type(JsonFieldType.STRING).description("공지사항 내용 (일본어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value.content_ar").type(JsonFieldType.STRING).description("공지사항 내용 (아랍어, 미입력 시 한글 폴백)").optional(),
                             fieldWithPath("value.notice_type").type(JsonFieldType.STRING).description("공지 유형 (GENERAL, EVENT, MAINTENANCE, UPDATE)"),
                             fieldWithPath("value.notice_type_name").type(JsonFieldType.STRING).description("공지 유형 표시명").optional(),
                             fieldWithPath("value.priority").type(JsonFieldType.NUMBER).description("우선순위").optional(),

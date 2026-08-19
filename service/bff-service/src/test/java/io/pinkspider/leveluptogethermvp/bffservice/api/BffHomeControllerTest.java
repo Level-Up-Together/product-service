@@ -189,6 +189,9 @@ class BffHomeControllerTest {
             .id(1L)
             .title("테스트 공지사항")
             .content("테스트 공지사항 내용입니다.")
+            .contentEn("Test notice content.")
+            .contentJa("テスト お知らせの内容です。")
+            .contentAr("محتوى الإشعار التجريبي.")
             .noticeType(NoticeType.GENERAL)
             .noticeTypeName("일반")
             .priority(1)
@@ -372,6 +375,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.notices[].id").type(JsonFieldType.NUMBER).description("공지사항 ID"),
                             fieldWithPath("value.notices[].title").type(JsonFieldType.STRING).description("제목"),
                             fieldWithPath("value.notices[].content").type(JsonFieldType.STRING).description("내용"),
+                            fieldWithPath("value.notices[].content_en").type(JsonFieldType.STRING).description("내용 (영어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value.notices[].content_ja").type(JsonFieldType.STRING).description("내용 (일본어, 미입력 시 한글 폴백)").optional(),
+                            fieldWithPath("value.notices[].content_ar").type(JsonFieldType.STRING).description("내용 (아랍어, 미입력 시 한글 폴백)").optional(),
                             fieldWithPath("value.notices[].notice_type").type(JsonFieldType.STRING).description("공지 유형"),
                             fieldWithPath("value.notices[].notice_type_name").type(JsonFieldType.STRING).description("공지 유형명"),
                             fieldWithPath("value.notices[].priority").type(JsonFieldType.NUMBER).description("우선순위"),

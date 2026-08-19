@@ -33,6 +33,9 @@ class NoticeServiceTest {
             .id(id)
             .title("테스트 공지사항 " + id)
             .content("테스트 공지사항 내용입니다.")
+            .contentEn("Test notice content.")
+            .contentJa("テスト お知らせの内容です。")
+            .contentAr("محتوى الإشعار التجريبي.")
             .noticeType(type)
             .noticeTypeName(type.getDescription())
             .priority(1)
@@ -138,6 +141,9 @@ class NoticeServiceTest {
             assertThat(result.getId()).isEqualTo(noticeId);
             assertThat(result.getNoticeType()).isEqualTo(NoticeType.MAINTENANCE);
             assertThat(result.getTitle()).isEqualTo("테스트 공지사항 1");
+            assertThat(result.getContentEn()).isEqualTo("Test notice content.");
+            assertThat(result.getContentJa()).isEqualTo("テスト お知らせの内容です。");
+            assertThat(result.getContentAr()).isEqualTo("محتوى الإشعار التجريبي.");
         }
 
         @Test

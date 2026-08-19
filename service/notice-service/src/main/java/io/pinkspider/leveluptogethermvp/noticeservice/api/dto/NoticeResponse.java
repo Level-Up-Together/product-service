@@ -20,6 +20,9 @@ public class NoticeResponse {
     private Long id;
     private String title;
     private String content;
+    private String contentEn;
+    private String contentAr;
+    private String contentJa;
     private NoticeType noticeType;
     private String noticeTypeName;
     private Integer priority;
