@@ -308,7 +308,7 @@ public void run() { ...}
 `missionservice/saga/MissionCompletionSaga.java` 참고 — Regular/Pinned 분기 + 10단계 step. 새 step 추가 시 `getStepName()`, 보상 로직,
 멱등성 고려 필수.
 
-## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356)
+## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
 다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP` / `PINK_PURCHASE`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
 **핑크다이아** (LUT-356): 결제 구매 재화 — `user_diamond.pink_balance`로 블루(기존 `balance`)와 분리 관리.
@@ -323,9 +323,17 @@ public void run() { ...}
 `localizedPrice`만 사용(국가/환율별 상이 — 서버 저장가 표시 금지). `iap.verification.enabled=false`(기본)면
 검증 스킵(dev용) — **prod는 config에 활성화 + Apple/Google 자격증명 필수**.
 
-**합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
-(`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
-유상 몫을 구분 기록, `balance_after`는 총잔액(블루+핑크) 의미로 통일.
+**결제 가격 캡처 · 결제이력** (LUT-401): `diamond_bundle_purchase`에 `price_amount`/`price_currency`/`status`
+(`PAID`/`REFUNDED`)/`refunded_at` 저장 — 어드민 CS/환불 대응·매출 확인용. 플랫폼별 캡처 방식이 다르다:
+- **Android**: `verifyGoogle()`이 Play Developer API 응답의 `priceAmountMicros`(÷1,000,000)/`priceCurrencyCode`를 파싱.
+- **iOS**: 레거시 `verifyReceipt` 응답에는 가격 필드가 없어 **Apple App Store Server API**(`AppStoreServerAPIClient.getTransactionInfo`
+  → `SignedDataVerifier.verifyAndDecodeTransaction`로 JWS 검증·디코딩 → `price`(밀리유닛, ÷1000)/`currency`)를 추가 호출.
+  `IapAppleProperties`(`iap.apple.*`: `key-id`/`issuer-id`/`private-key`/`bundle-id`/`app-id`)로 자격증명 주입,
+  `classpath:apple/AppleRootCA-G3.cer`를 신뢰 루트로 사용. `sandbox`/`prod` 환경별로 별도 클라이언트 인스턴스를 lazy 캐싱.
+  가격 캡처는 **best-effort**(모든 예외를 잡아 `IapVerificationResult.withoutPrice(...)`로 폴백) — 실패해도 결제/지급 자체는
+  막지 않는다(가격 없이 저장). Prod 배포 전 App Store Connect에서 .p8 키 발급 + Key ID/Issuer ID/App Apple ID 확보 후
+  `config-repository/product-service/product-service-prod.yml`의 `iap.apple.*`에 등록 필수(코드베이스 직접 커밋 금지).
+- 환불 자동 감지(Apple Server Notifications V2 / Google RTDN)는 미구현 — `status`/`refunded_at` 컬럼만 확보(후속 과제).
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
@@ -338,6 +346,11 @@ public void run() { ...}
 | `POST /api/v1/diamond-bundles/{id}/purchase`                      | 필요            | IAP 영수증 검증 + 핑크다이아 멱등 지급 (LUT-354)  |
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
+| `GET /api/internal/diamond-payments`                              | Internal      | Admin 다이아 결제이력 조회 — 어드민은 `DIAMOND_PAYMENT_READ` 권한 필요 (LUT-401) |
+
+**합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
+(`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
+유상 몫을 구분 기록, `balance_after`는 총잔액(블루+핑크) 의미로 통일.
 
 **가격 할증 (`io.pinkspider.global.policy.LevelRarityPolicy`)** — 자기 등급보다 높은 등급의 아이템은 등급 차이만큼 비싸다.
 

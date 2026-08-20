@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.IapVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.UserDiamondBalanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundlePurchase;
@@ -44,7 +45,8 @@ public class DiamondBundlePurchaseService {
         }
 
         // 영수증 검증 (외부 HTTP — 트랜잭션 밖)
-        String transactionId = iapVerificationService.verify(request);
+        IapVerificationResult verification = iapVerificationService.verify(request);
+        String transactionId = verification.transactionId();
 
         // 멱등 선체크 — 이미 지급된 트랜잭션이면 지급 없이 현재 잔액 반환
         var existing = purchaseRepository.findByStoreTransactionId(transactionId);
@@ -53,7 +55,7 @@ public class DiamondBundlePurchaseService {
         }
 
         try {
-            int balanceAfter = purchaseTxService.recordAndGrant(userId, bundle, request, transactionId);
+            int balanceAfter = purchaseTxService.recordAndGrant(userId, bundle, request, verification);
             UserDiamondBalanceResponse balances = diamondService.getBalances(userId);
             log.info("핑크다이아 묶음 구매 완료: userId={}, bundleId={}, count={}, tx={}",
                 userId, bundleId, bundle.getDiamondCount(), transactionId);

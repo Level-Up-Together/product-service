@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseResponse;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.IapVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.UserDiamondBalanceResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundlePurchase;
@@ -51,6 +52,7 @@ class DiamondBundlePurchaseServiceTest {
 
     private static final String USER_ID = "user-1";
     private static final String TX_ID = "store-tx-001";
+    private static final IapVerificationResult VERIFICATION = IapVerificationResult.withoutPrice(TX_ID);
 
     private DiamondBundle bundle(Long id, String productId) {
         DiamondBundle bundle = DiamondBundle.builder()
@@ -76,9 +78,9 @@ class DiamondBundlePurchaseServiceTest {
     @DisplayName("검증 성공 시 구매 기록 + 핑크다이아를 지급한다")
     void purchase_success() {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
-        when(iapVerificationService.verify(any())).thenReturn(TX_ID);
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
-        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(TX_ID))).thenReturn(110);
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION))).thenReturn(110);
         when(diamondService.getBalances(USER_ID))
             .thenReturn(UserDiamondBalanceResponse.of(10, 100));
 
@@ -95,7 +97,7 @@ class DiamondBundlePurchaseServiceTest {
     @DisplayName("같은 트랜잭션 재요청이면 지급 없이 기존 기록으로 응답한다 (멱등)")
     void purchase_idempotent_alreadyProcessed() {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
-        when(iapVerificationService.verify(any())).thenReturn(TX_ID);
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         DiamondBundlePurchase existing = DiamondBundlePurchase.builder()
             .userId(USER_ID).bundleId(1L).platform("ios")
             .storeProductId("pink_100").storeTransactionId(TX_ID).diamondCount(100)
@@ -108,21 +110,21 @@ class DiamondBundlePurchaseServiceTest {
             purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isTrue();
-        verify(purchaseTxService, never()).recordAndGrant(anyString(), any(), any(), anyString());
+        verify(purchaseTxService, never()).recordAndGrant(anyString(), any(), any(), any());
     }
 
     @Test
     @DisplayName("동시 재요청 race — 유니크 위반이면 기존 기록으로 멱등 응답한다")
     void purchase_race_uniqueViolation_returnsExisting() {
         when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
-        when(iapVerificationService.verify(any())).thenReturn(TX_ID);
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
         when(purchaseRepository.findByStoreTransactionId(TX_ID))
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(DiamondBundlePurchase.builder()
                 .userId(USER_ID).bundleId(1L).platform("ios")
                 .storeProductId("pink_100").storeTransactionId(TX_ID).diamondCount(100)
                 .build()));
-        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(TX_ID)))
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
             .thenThrow(new DataIntegrityViolationException("uk_bundle_purchase_transaction"));
         when(diamondService.getBalances(USER_ID))
             .thenReturn(UserDiamondBalanceResponse.of(10, 100));

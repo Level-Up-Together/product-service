@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseRequest;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.IapVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundle;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundlePurchase;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructure.DiamondBundlePurchaseRepository;
@@ -27,15 +28,17 @@ public class DiamondBundlePurchaseTxService {
     @Transactional(transactionManager = "gamificationTransactionManager")
     public int recordAndGrant(
             String userId, DiamondBundle bundle,
-            DiamondBundlePurchaseRequest request, String transactionId) {
+            DiamondBundlePurchaseRequest request, IapVerificationResult verification) {
         // saveAndFlush 로 유니크 위반을 이 자리에서 감지 — 지급 전에 멱등이 판정된다
         purchaseRepository.saveAndFlush(DiamondBundlePurchase.builder()
             .userId(userId)
             .bundleId(bundle.getId())
             .platform(request.getPlatform())
             .storeProductId(request.getStoreProductId())
-            .storeTransactionId(transactionId)
+            .storeTransactionId(verification.transactionId())
             .diamondCount(bundle.getDiamondCount())
+            .priceAmount(verification.priceAmount())
+            .priceCurrency(verification.priceCurrency())
             .build());
 
         return diamondService.grantPinkDiamonds(

@@ -10,19 +10,33 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseRequest;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.IapVerificationResult;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.client.RestTemplate;
 
-@DisplayName("IapVerificationService 테스트 (LUT-354)")
+@DisplayName("IapVerificationService 테스트 (LUT-354, LUT-401)")
 class IapVerificationServiceTest {
 
     private static final String APPLE_URL = "https://apple.example/verifyReceipt";
     private static final String APPLE_SANDBOX_URL = "https://apple-sandbox.example/verifyReceipt";
 
+    @TempDir
+    Path tempDir;
+
     private IapVerificationService service(boolean enabled) {
-        return new IapVerificationService(enabled, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut", "");
+        // Apple 자격증명 미설정 — App Store Server API 가격 보강은 내부에서 best-effort 로 실패해
+        // withoutPrice 로 폴백한다(가격 캡처 자체는 별도 테스트에서 검증).
+        return new IapVerificationService(
+            enabled, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut", "", new IapAppleProperties());
     }
 
     private DiamondBundlePurchaseRequest iosRequest() {
@@ -49,13 +63,13 @@ class IapVerificationServiceTest {
         @Test
         @DisplayName("ios는 transactionId를 신뢰해 반환한다")
         void disabled_ios_trustsTransactionId() {
-            assertThat(service(false).verify(iosRequest())).isEqualTo("tx-001");
+            assertThat(service(false).verify(iosRequest()).transactionId()).isEqualTo("tx-001");
         }
 
         @Test
         @DisplayName("android는 purchaseToken을 신뢰해 반환한다")
         void disabled_android_trustsPurchaseToken() {
-            assertThat(service(false).verify(androidRequest())).isEqualTo("token-001");
+            assertThat(service(false).verify(androidRequest()).transactionId()).isEqualTo("token-001");
         }
 
         @Test
@@ -86,7 +100,7 @@ class IapVerificationServiceTest {
                 .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
                     "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
-            assertThat(svc.verify(iosRequest())).isEqualTo("tx-001");
+            assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
         }
 
         @Test
@@ -101,7 +115,7 @@ class IapVerificationServiceTest {
                 .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
                     "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
 
-            assertThat(svc.verify(iosRequest())).isEqualTo("tx-001");
+            assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
         }
 
         @Test
@@ -146,6 +160,48 @@ class IapVerificationServiceTest {
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.iap.receipt_required");
         }
+
+        @Test
+        @DisplayName("LUT-401: App Store Server API 자격증명이 없으면 가격 없이(null) 구매를 그대로 진행한다")
+        void apple_priceCapture_missingCredentials_fallsBackWithoutPrice() {
+            IapVerificationService svc = service(true);
+            RestTemplate rest = mock(RestTemplate.class);
+            svc.setRestTemplate(rest);
+            when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
+                .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
+                    "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+
+            IapVerificationResult result = svc.verify(iosRequest());
+
+            assertThat(result.transactionId()).isEqualTo("tx-001");
+            assertThat(result.priceAmount()).isNull();
+            assertThat(result.priceCurrency()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("가격 변환 (LUT-401)")
+    class PriceConversionTest {
+
+        @Test
+        @DisplayName("Apple 밀리유닛을 소수 가격으로 변환한다")
+        void applePriceToDecimal_convertsMilliunits() {
+            assertThat(IapVerificationService.applePriceToDecimal(1990L))
+                .isEqualByComparingTo(new BigDecimal("1.990"));
+        }
+
+        @Test
+        @DisplayName("Apple 가격이 null이면 null을 반환한다")
+        void applePriceToDecimal_null_returnsNull() {
+            assertThat(IapVerificationService.applePriceToDecimal(null)).isNull();
+        }
+
+        @Test
+        @DisplayName("Google 마이크로유닛 문자열을 소수 가격으로 변환한다")
+        void googleMicrosToDecimal_convertsMicros() {
+            assertThat(IapVerificationService.googleMicrosToDecimal("1990000"))
+                .isEqualByComparingTo(new BigDecimal("1.990000"));
+        }
     }
 
     @Nested
@@ -159,6 +215,75 @@ class IapVerificationServiceTest {
             assertThatThrownBy(() -> service(true).verify(androidRequest()))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.iap.verification_failed");
+        }
+
+        @Test
+        @DisplayName("LUT-401: 구매 완료 상태면 응답에 포함된 실제 결제 가격/통화를 파싱한다")
+        void google_valid_parsesPrice() throws Exception {
+            Path serviceAccountFile = writeFakeServiceAccountJson();
+            IapVerificationService svc = new IapVerificationService(
+                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
+                serviceAccountFile.toString(), new IapAppleProperties());
+            RestTemplate rest = mock(RestTemplate.class);
+            svc.setRestTemplate(rest);
+
+            when(rest.postForObject(eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.exchange(
+                    contains("/purchases/products/pink_100/tokens/token-001"),
+                    eq(org.springframework.http.HttpMethod.GET),
+                    any(),
+                    eq(String.class)))
+                .thenReturn(org.springframework.http.ResponseEntity.ok(
+                    "{\"purchaseState\":0,\"priceAmountMicros\":\"1990000\",\"priceCurrencyCode\":\"USD\"}"));
+
+            IapVerificationResult result = svc.verify(androidRequest());
+
+            assertThat(result.transactionId()).isEqualTo("token-001");
+            assertThat(result.priceAmount()).isEqualByComparingTo(new BigDecimal("1.990000"));
+            assertThat(result.priceCurrency()).isEqualTo("USD");
+        }
+
+        @Test
+        @DisplayName("LUT-401: 가격 필드가 없으면 가격 없이(null) 반환한다")
+        void google_missingPriceFields_returnsWithoutPrice() throws Exception {
+            Path serviceAccountFile = writeFakeServiceAccountJson();
+            IapVerificationService svc = new IapVerificationService(
+                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
+                serviceAccountFile.toString(), new IapAppleProperties());
+            RestTemplate rest = mock(RestTemplate.class);
+            svc.setRestTemplate(rest);
+
+            when(rest.postForObject(eq("https://oauth2.googleapis.com/token"), any(), eq(String.class)))
+                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.exchange(
+                    contains("/purchases/products/pink_100/tokens/token-001"),
+                    eq(org.springframework.http.HttpMethod.GET),
+                    any(),
+                    eq(String.class)))
+                .thenReturn(org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
+
+            IapVerificationResult result = svc.verify(androidRequest());
+
+            assertThat(result.transactionId()).isEqualTo("token-001");
+            assertThat(result.priceAmount()).isNull();
+            assertThat(result.priceCurrency()).isNull();
+        }
+
+        /** RSA 키를 즉석 생성해 parsePrivateKey 가 소비할 수 있는 형태의 임시 서비스계정 JSON을 만든다 */
+        private Path writeFakeServiceAccountJson() throws Exception {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(2048);
+            KeyPair keyPair = keyGen.generateKeyPair();
+            String privateKeyPem = "-----BEGIN PRIVATE KEY-----\n"
+                + Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded())
+                + "\n-----END PRIVATE KEY-----\n";
+
+            Path serviceAccountFile = tempDir.resolve("service-account-" + System.nanoTime() + ".json");
+            String json = "{\"client_email\":\"svc@example.iam.gserviceaccount.com\",\"private_key\":\""
+                + privateKeyPem.replace("\n", "\\n") + "\"}";
+            Files.writeString(serviceAccountFile, json);
+            return serviceAccountFile;
         }
     }
 }

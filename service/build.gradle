@@ -103,6 +103,9 @@ dependencies {
     // Thumbnailator (LUT-400: 업로드 시점 썸네일/리사이즈 변형 생성)
     implementation 'net.coobird:thumbnailator:0.4.20'
 
+    // Apple App Store Server API (LUT-401: IAP 결제 실제 가격/통화 확보)
+    implementation 'com.apple.itunes.storekit:app-store-server-library:5.2.0'
+
     // GeoIP (user-service)
     implementation 'com.maxmind.geoip2:geoip2:4.2.0'
 

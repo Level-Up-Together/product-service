@@ -1,8 +1,11 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.enums.DiamondPurchaseStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -10,8 +13,11 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -73,4 +79,23 @@ public class DiamondBundlePurchase extends LocalDateTimeBaseEntity {
     @Column(name = "diamond_count", nullable = false)
     @Comment("지급된 핑크다이아 개수")
     private Integer diamondCount;
+
+    @Column(name = "price_amount", precision = 12, scale = 2)
+    @Comment("실제 결제 금액 (LUT-401, 검증 응답에서 확보 — 확보 실패 시 null)")
+    private BigDecimal priceAmount;
+
+    @Column(name = "price_currency", length = 3)
+    @Comment("결제 통화 (ISO 4217, LUT-401)")
+    private String priceCurrency;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @Comment("결제 상태 (LUT-401, 구매 시점엔 항상 PAID)")
+    @Builder.Default
+    private DiamondPurchaseStatus status = DiamondPurchaseStatus.PAID;
+
+    @Column(name = "refunded_at")
+    @Comment("환불 처리 일시 (LUT-401, 자동 감지는 후속 범위)")
+    private LocalDateTime refundedAt;
 }
