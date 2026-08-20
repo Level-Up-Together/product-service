@@ -18,15 +18,21 @@ public interface DiamondBundlePurchaseRepository extends JpaRepository<DiamondBu
 
     Optional<DiamondBundlePurchase> findByStoreTransactionId(String storeTransactionId);
 
+    /** LUT-404: 번들 삭제 가드 — 결제 기록(재무 증적)이 있는 번들은 하드 삭제를 거부한다. */
+    boolean existsByBundleId(Long bundleId);
+
     /**
      * LUT-401: 어드민 결제이력 — 닉네임 필터 없음(기간/플랫폼/상품/상태만). keyword 미입력이거나
      * 닉네임 매칭 결과가 없을 때 사용한다(닉네임 매칭 시엔 {@link #searchWithUsers}).
+     *
+     * <p>번들 조인은 LEFT — 가드(LUT-404) 이전에 삭제된 번들의 결제 기록도 목록에 남아야
+     * count 쿼리(무조인)와 행수가 일치한다. 상품명만 null 로 내려간다.
      */
     @Query(value = "SELECT new io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto."
         + "DiamondPaymentHistoryRow(dbp.id, dbp.userId, dbp.bundleId, db.name, dbp.platform, "
         + "dbp.storeProductId, dbp.storeTransactionId, dbp.diamondCount, dbp.priceAmount, "
         + "dbp.priceCurrency, dbp.status, dbp.refundedAt, dbp.createdAt) "
-        + "FROM DiamondBundlePurchase dbp JOIN DiamondBundle db ON db.id = dbp.bundleId "
+        + "FROM DiamondBundlePurchase dbp LEFT JOIN DiamondBundle db ON db.id = dbp.bundleId "
         + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
         + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
         + "AND (:platform IS NULL OR dbp.platform = :platform) "
@@ -52,7 +58,7 @@ public interface DiamondBundlePurchaseRepository extends JpaRepository<DiamondBu
         + "DiamondPaymentHistoryRow(dbp.id, dbp.userId, dbp.bundleId, db.name, dbp.platform, "
         + "dbp.storeProductId, dbp.storeTransactionId, dbp.diamondCount, dbp.priceAmount, "
         + "dbp.priceCurrency, dbp.status, dbp.refundedAt, dbp.createdAt) "
-        + "FROM DiamondBundlePurchase dbp JOIN DiamondBundle db ON db.id = dbp.bundleId "
+        + "FROM DiamondBundlePurchase dbp LEFT JOIN DiamondBundle db ON db.id = dbp.bundleId "
         + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
         + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
         + "AND (:platform IS NULL OR dbp.platform = :platform) "

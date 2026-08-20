@@ -14,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.D
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructure.DiamondBundlePurchaseRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructure.DiamondBundleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopItemImageStorageService;
 import java.util.List;
@@ -33,6 +34,9 @@ class DiamondBundleAdminServiceTest {
 
     @Mock
     private DiamondBundleRepository diamondBundleRepository;
+
+    @Mock
+    private DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
 
     @Mock
     private ShopItemImageStorageService imageStorageService;
@@ -207,11 +211,27 @@ class DiamondBundleAdminServiceTest {
         void deleteBundle_deletesImage() {
             DiamondBundle bundle = createBundle(1L, "핑크다이아 100개", 100);
             when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle));
+            when(diamondBundlePurchaseRepository.existsByBundleId(1L)).thenReturn(false);
 
             diamondBundleAdminService.deleteBundle(1L);
 
             verify(diamondBundleRepository).deleteById(1L);
             verify(imageStorageService).delete("/uploads/shop-items/bundle-old.png");
+        }
+
+        @Test
+        @DisplayName("결제 기록이 있는 번들은 삭제를 거부한다 (LUT-404)")
+        void deleteBundle_withPurchases_throws() {
+            DiamondBundle bundle = createBundle(1L, "핑크다이아 100개", 100);
+            when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle));
+            when(diamondBundlePurchaseRepository.existsByBundleId(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> diamondBundleAdminService.deleteBundle(1L))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("error.diamond_bundle.has_purchases");
+
+            verify(diamondBundleRepository, never()).deleteById(1L);
+            verify(imageStorageService, never()).delete(anyString());
         }
     }
 }

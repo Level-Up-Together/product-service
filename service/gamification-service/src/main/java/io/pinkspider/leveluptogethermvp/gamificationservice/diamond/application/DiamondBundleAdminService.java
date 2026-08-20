@@ -5,6 +5,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.D
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundleAdminResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.entity.DiamondBundle;
+import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructure.DiamondBundlePurchaseRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructure.DiamondBundleRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ShopItemImageStorageService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class DiamondBundleAdminService {
 
     private final DiamondBundleRepository diamondBundleRepository;
+    private final DiamondBundlePurchaseRepository diamondBundlePurchaseRepository;
     private final ShopItemImageStorageService imageStorageService;
 
     @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
@@ -112,6 +114,10 @@ public class DiamondBundleAdminService {
 
     public void deleteBundle(Long id) {
         DiamondBundle bundle = findById(id);
+        // LUT-404: 결제 기록은 재무/CS 증적 — 기록이 있는 번들은 삭제 대신 활성 토글로 판매 중단
+        if (diamondBundlePurchaseRepository.existsByBundleId(id)) {
+            throw new CustomException("400", "error.diamond_bundle.has_purchases");
+        }
         String imageUrl = bundle.getImageUrl();
         diamondBundleRepository.deleteById(id);
         imageStorageService.delete(imageUrl);
