@@ -88,6 +88,8 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
                 .bucket(s3Properties.getBucket())
                 .key(key)
                 .contentType(contentType)
+                // LUT-406: UUID 파일명 불변 — CloudFront/브라우저 공격적 캐시 허용
+                .cacheControl("public, max-age=31536000, immutable")
                 .build();
         s3Client.putObject(putRequest, RequestBody.fromBytes(bytes));
     }

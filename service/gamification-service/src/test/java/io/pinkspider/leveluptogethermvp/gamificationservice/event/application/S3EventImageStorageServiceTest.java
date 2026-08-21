@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
@@ -73,7 +74,11 @@ class S3EventImageStorageServiceTest {
             assertThat(result).isNotNull();
             assertThat(result).startsWith("https://cdn.example.com/events/");
             assertThat(result).endsWith(".jpg");
-            verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+            // LUT-406: 업로드 객체에 immutable 캐시 메타데이터가 실려야 CloudFront/브라우저가 캐시한다
+            ArgumentCaptor<PutObjectRequest> putCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+            verify(s3Client).putObject(putCaptor.capture(), any(RequestBody.class));
+            assertThat(putCaptor.getValue().cacheControl())
+                .isEqualTo("public, max-age=31536000, immutable");
         }
 
         @Test
