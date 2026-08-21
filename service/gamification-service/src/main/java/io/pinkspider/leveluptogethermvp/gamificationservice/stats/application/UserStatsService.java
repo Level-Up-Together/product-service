@@ -1,21 +1,31 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.stats.application;
 
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import java.time.LocalDate;
-import lombok.RequiredArgsConstructor;
+import java.time.ZoneId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional(readOnly = true, transactionManager = "gamificationTransactionManager")
 public class UserStatsService {
 
     private final UserStatsRepository userStatsRepository;
+    private final UserQueryFacade userQueryFacade;
+
+    // LUT-405: userQueryFacadeService → userProfileCacheService → gamificationQueryFacadeService
+    // → userStatsService 로 이어지는 user↔gamification 생성 사이클을 @Lazy 로 끊는다.
+    public UserStatsService(
+            UserStatsRepository userStatsRepository, @Lazy UserQueryFacade userQueryFacade) {
+        this.userStatsRepository = userStatsRepository;
+        this.userQueryFacade = userQueryFacade;
+    }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserStats getOrCreateUserStats(String userId) {
@@ -40,7 +50,10 @@ public class UserStatsService {
         if (isGuildMission) {
             stats.incrementGuildMissionCompletion();
         }
-        stats.updateStreak(LocalDate.now());
+        // LUT-405: 출석(recordAttendance)과 같은 유저 타임존 날짜를 쓴다.
+        // 서버 UTC 날짜(LocalDate.now())를 쓰면 KST 00~09시 미션 완료가 어제 날짜로
+        // 들어가 streak 을 리셋시키고 max_streak(연속 출석 업적)이 동결된다.
+        stats.updateStreak(LocalDate.now(resolveUserZone(userId)));
         log.debug("미션 완료 기록: userId={}, totalCompletions={}", userId, stats.getTotalMissionCompletions());
     }
 
@@ -157,6 +170,16 @@ public class UserStatsService {
         UserStats stats = getOrCreateUserStats(userId);
         stats.setTotalLikesReceived(likesReceived);
         stats.setFriendCount(friendCount);
+    }
+
+    /** LUT-405: streak 날짜 계산은 유저 preferred_timezone 기준 (실패 시 Asia/Seoul 폴백) */
+    private ZoneId resolveUserZone(String userId) {
+        try {
+            String timezone = userQueryFacade.getPreferredTimezone(userId);
+            return ZoneId.of(timezone != null ? timezone : "Asia/Seoul");
+        } catch (Exception e) {
+            return ZoneId.of("Asia/Seoul");
+        }
     }
 
     /**

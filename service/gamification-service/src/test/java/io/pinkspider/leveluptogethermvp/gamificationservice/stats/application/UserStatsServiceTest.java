@@ -6,9 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,6 +26,9 @@ class UserStatsServiceTest {
 
     @Mock
     private UserStatsRepository userStatsRepository;
+
+    @Mock
+    private UserQueryFacade userQueryFacade;
 
     @InjectMocks
     private UserStatsService userStatsService;
@@ -137,6 +143,44 @@ class UserStatsServiceTest {
             // then
             assertThat(stats.getTotalMissionCompletions()).isEqualTo(11);
             assertThat(stats.getTotalGuildMissionCompletions()).isEqualTo(1);
+        }
+
+        // LUT-405: 서버 UTC 날짜(LocalDate.now())를 쓰면 KST 00~09시 미션 완료가 어제
+        // 날짜로 들어가 streak 을 리셋시킨다 — 출석과 같은 유저 타임존 날짜를 써야 한다.
+        @Test
+        @DisplayName("LUT-405: streak 갱신은 유저 preferred_timezone 날짜를 사용한다")
+        void recordMissionCompletion_usesUserTimezoneDate() {
+            // given
+            ZoneId userZone = ZoneId.of("Pacific/Auckland");
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            stats.setLastActivityDate(LocalDate.now(userZone).minusDays(1));
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID)).thenReturn("Pacific/Auckland");
+
+            // when
+            userStatsService.recordMissionCompletion(TEST_USER_ID, false);
+
+            // then — 유저 존 기준 어제 → 오늘이므로 연속 증가
+            assertThat(stats.getCurrentStreak()).isEqualTo(6);
+            assertThat(stats.getLastActivityDate()).isEqualTo(LocalDate.now(userZone));
+        }
+
+        @Test
+        @DisplayName("LUT-405: 타임존 조회 실패 시 Asia/Seoul 로 폴백한다")
+        void recordMissionCompletion_timezoneLookupFails_fallsBackToSeoul() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(userQueryFacade.getPreferredTimezone(TEST_USER_ID))
+                .thenThrow(new RuntimeException("user-db unavailable"));
+
+            // when
+            userStatsService.recordMissionCompletion(TEST_USER_ID, false);
+
+            // then — 폴백 존 기준 오늘 날짜로 기록
+            assertThat(stats.getLastActivityDate()).isEqualTo(LocalDate.now(ZoneId.of("Asia/Seoul")));
         }
     }
 

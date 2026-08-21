@@ -165,6 +165,12 @@ public class UserStats extends LocalDateTimeBaseEntity {
         } else if (lastActivityDate.equals(today)) {
             // 같은 날 중복 호출 - 아무것도 하지 않음
             return;
+        } else if (today.isBefore(lastActivityDate)) {
+            // LUT-405: 과거 날짜 유입은 무시한다. 호출자마다 날짜의 시계가 달라
+            // (출석=유저 타임존, 미션 완료=서버 UTC) KST 00~09시 미션 완료가 어제 날짜로
+            // 들어오던 케이스 — 리셋하면 streak 이 파괴되고 lastActivityDate 까지 역행해
+            // 이후 비교도 연쇄적으로 꼬인다.
+            return;
         } else if (lastActivityDate.plusDays(1).equals(today)) {
             // 연속
             this.currentStreak++;
