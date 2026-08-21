@@ -367,4 +367,118 @@ class LocalMissionImageStorageServiceTest {
             assertThat(result).isFalse();
         }
     }
+
+    // LUT-409: LUT-400 이전 업로드분(원본만 존재)에 thumb/medium 변형을 백필한다
+    @Nested
+    @DisplayName("backfillVariants 테스트")
+    class BackfillVariantsTest {
+
+        private static final byte[] ORIGINAL = "original-image".getBytes();
+        private static final byte[] RESIZED = "resized-image".getBytes();
+
+        private Path writeOriginal(String relativeDir, String filename) throws IOException {
+            Path dir = tempDir.resolve(relativeDir);
+            Files.createDirectories(dir);
+            Path original = dir.resolve(filename);
+            Files.write(original, ORIGINAL);
+            return original;
+        }
+
+        @Test
+        @DisplayName("변형이 없는 원본에 thumb/medium 2개를 생성한다")
+        void backfill_createsBothVariants() throws IOException {
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(imageResizer.resize(any(byte[].class), any(), anyInt()))
+                .thenReturn(Optional.of(RESIZED));
+            writeOriginal("user1/1", "2024-01-15_abc.jpg");
+
+            int created = storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/2024-01-15_abc.jpg");
+
+            assertThat(created).isEqualTo(2);
+            assertThat(tempDir.resolve("user1/1/2024-01-15_abc_thumb.jpg")).exists();
+            assertThat(tempDir.resolve("user1/1/2024-01-15_abc_medium.jpg")).exists();
+        }
+
+        @Test
+        @DisplayName("멱등: 변형이 모두 존재하면 아무것도 생성하지 않는다")
+        void backfill_allVariantsExist_skips() throws IOException {
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            writeOriginal("user1/1", "2024-01-15_abc.jpg");
+            Files.write(tempDir.resolve("user1/1/2024-01-15_abc_thumb.jpg"), RESIZED);
+            Files.write(tempDir.resolve("user1/1/2024-01-15_abc_medium.jpg"), RESIZED);
+
+            int created = storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/2024-01-15_abc.jpg");
+
+            assertThat(created).isZero();
+        }
+
+        @Test
+        @DisplayName("일부만 없으면 없는 변형만 생성한다")
+        void backfill_partialVariants_createsMissingOnly() throws IOException {
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(imageResizer.resize(any(byte[].class), any(), anyInt()))
+                .thenReturn(Optional.of(RESIZED));
+            writeOriginal("user1/1", "2024-01-15_abc.jpg");
+            Files.write(tempDir.resolve("user1/1/2024-01-15_abc_thumb.jpg"), RESIZED);
+
+            int created = storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/2024-01-15_abc.jpg");
+
+            assertThat(created).isEqualTo(1);
+            assertThat(tempDir.resolve("user1/1/2024-01-15_abc_medium.jpg")).exists();
+        }
+
+        @Test
+        @DisplayName("리사이즈 불가 포맷(GIF 등)은 변형 없이 0을 반환한다")
+        void backfill_unresizableFormat_returnsZero() throws IOException {
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+            when(imageResizer.resize(any(byte[].class), any(), anyInt()))
+                .thenReturn(Optional.empty());
+            writeOriginal("user1/1", "2024-01-15_abc.gif");
+
+            int created = storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/2024-01-15_abc.gif");
+
+            assertThat(created).isZero();
+            assertThat(tempDir.resolve("user1/1/2024-01-15_abc_thumb.gif")).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("이 저장소가 서빙하지 않는 URL 은 대상에서 제외한다")
+        void backfill_foreignUrl_returnsZero() {
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+
+            int created = storageService.backfillVariants("https://cdn.example.com/missions/a.jpg");
+
+            assertThat(created).isZero();
+        }
+
+        @Test
+        @DisplayName("변형 URL 자체는 대상에서 제외한다 (방어)")
+        void backfill_variantUrl_returnsZero() {
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+
+            int created = storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/2024-01-15_abc_thumb.jpg");
+
+            assertThat(created).isZero();
+        }
+
+        @Test
+        @DisplayName("원본 파일이 없으면 예외를 던진다 (호출자가 실패로 집계)")
+        void backfill_missingOriginal_throws() {
+            when(properties.getPath()).thenReturn(tempDir.toString());
+            when(properties.getUrlPrefix()).thenReturn(URL_PREFIX);
+
+            assertThatThrownBy(() -> storageService.backfillVariants(
+                URL_PREFIX + "/user1/1/missing.jpg"))
+                .isInstanceOf(IllegalStateException.class);
+        }
+    }
 }

@@ -379,3 +379,14 @@ Accept: application/json
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/v1/mission-categories/1
 Accept: application/json
+
+### ----------------------------------------------------------
+### LUT-409: 과거 업로드 이미지 thumb/medium 변형 백필 (Internal)
+### 멱등 — 재실행해도 이미 생성된 변형은 건너뜀. limit 로 분할 실행 가능
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/internal/mission-images/backfill-variants?limit=100
+Accept: application/json
+
+### 전량 실행 (limit 미지정)
+POST {{baseUrl}}/api/internal/mission-images/backfill-variants
+Accept: application/json

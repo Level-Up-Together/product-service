@@ -14,9 +14,14 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Service
@@ -100,6 +105,72 @@ public class S3MissionImageStorageService implements MissionImageStorageService 
             return key + suffix;
         }
         return key.substring(0, dotIndex) + suffix + key.substring(dotIndex);
+    }
+
+    /**
+     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 —
+     * 이미 존재하는 변형은 headObject 로 확인해 건너뛰고, 원본은 필요할 때 1회만 내려받는다.
+     * 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
+     */
+    @Override
+    public int backfillVariants(String imageUrl) {
+        if (imageUrl == null || !imageUrl.startsWith(s3Properties.getCdnBaseUrl() + "/")) {
+            return 0;
+        }
+        String key = imageUrl.substring(s3Properties.getCdnBaseUrl().length() + 1);
+        if (isVariantKey(key)) {
+            return 0;
+        }
+
+        String extension = getExtension(key);
+        byte[] originalBytes = null;
+        String contentType = null;
+        int created = 0;
+
+        for (Variant variant : List.of(
+                new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
+                new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
+            String variantKey = insertSuffix(key, variant.suffix());
+            if (objectExists(variantKey)) {
+                continue;
+            }
+            if (originalBytes == null) {
+                ResponseBytes<GetObjectResponse> original = s3Client.getObjectAsBytes(
+                        GetObjectRequest.builder()
+                                .bucket(s3Properties.getBucket())
+                                .key(key)
+                                .build());
+                originalBytes = original.asByteArray();
+                contentType = original.response().contentType();
+            }
+            Optional<byte[]> resized = imageResizer.resize(originalBytes, extension, variant.maxDimension());
+            if (resized.isEmpty()) {
+                continue;
+            }
+            putObject(variantKey, contentType, resized.get());
+            created++;
+        }
+        return created;
+    }
+
+    private record Variant(String suffix, int maxDimension) {}
+
+    private boolean isVariantKey(String key) {
+        int dotIndex = key.lastIndexOf('.');
+        String base = dotIndex < 0 ? key : key.substring(0, dotIndex);
+        return base.endsWith(THUMB_SUFFIX) || base.endsWith(MEDIUM_SUFFIX);
+    }
+
+    private boolean objectExists(String key) {
+        try {
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(s3Properties.getBucket())
+                    .key(key)
+                    .build());
+            return true;
+        } catch (NoSuchKeyException e) {
+            return false;
+        }
     }
 
     @Override

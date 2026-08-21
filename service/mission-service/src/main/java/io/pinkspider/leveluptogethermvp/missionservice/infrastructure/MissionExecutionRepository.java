@@ -335,4 +335,8 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
            "AND m.targetDurationMinutes IS NOT NULL " +
            "AND me.expEarned >= m.targetDurationMinutes")
     List<Long> findAchievedTargetTemplateIdsByUserId(@Param("userId") String userId);
+
+    /** LUT-409: 변형 백필 대상 스캔 — 대표 이미지 URL (이미지 테이블 도입 전 레거시 행 포함, 중복 제거) */
+    @Query("SELECT DISTINCT me.imageUrl FROM MissionExecution me WHERE me.imageUrl IS NOT NULL")
+    List<String> findDistinctImageUrls();
 }

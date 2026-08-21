@@ -96,6 +96,64 @@ public class LocalMissionImageStorageService implements MissionImageStorageServi
         return filename.substring(0, dotIndex) + suffix + filename.substring(dotIndex);
     }
 
+    /**
+     * LUT-409: 변형(thumb/medium)이 없는 과거 업로드 원본에 변형을 생성한다. 멱등 —
+     * 이미 존재하는 변형 파일은 건너뛰고, 원본 바이트는 필요할 때 1회만 읽는다.
+     * 리사이즈 불가 포맷(GIF 등)은 변형 없이 원본 fallback 을 유지한다 (업로드 경로와 동일 정책).
+     */
+    @Override
+    public int backfillVariants(String imageUrl) {
+        if (imageUrl == null || !imageUrl.startsWith(properties.getUrlPrefix() + "/")) {
+            return 0;
+        }
+        String relativePath = imageUrl.substring(properties.getUrlPrefix().length());
+        if (isVariantPath(relativePath)) {
+            return 0;
+        }
+
+        Path originalPath = Paths.get(properties.getPath(), relativePath);
+        if (!Files.exists(originalPath)) {
+            throw new IllegalStateException("원본 파일 없음: " + originalPath);
+        }
+
+        try {
+            String extension = getExtension(relativePath);
+            byte[] originalBytes = null;
+            int created = 0;
+
+            for (Variant variant : List.of(
+                    new Variant(THUMB_SUFFIX, ImageResizer.THUMBNAIL_MAX_DIMENSION),
+                    new Variant(MEDIUM_SUFFIX, ImageResizer.MEDIUM_MAX_DIMENSION))) {
+                Path variantPath = Paths.get(properties.getPath(),
+                        insertSuffix(relativePath, variant.suffix()));
+                if (Files.exists(variantPath)) {
+                    continue;
+                }
+                if (originalBytes == null) {
+                    originalBytes = Files.readAllBytes(originalPath);
+                }
+                Optional<byte[]> resized =
+                        imageResizer.resize(originalBytes, extension, variant.maxDimension());
+                if (resized.isEmpty()) {
+                    continue;
+                }
+                Files.write(variantPath, resized.get());
+                created++;
+            }
+            return created;
+        } catch (IOException e) {
+            throw new IllegalStateException("변형 백필 실패: " + originalPath, e);
+        }
+    }
+
+    private record Variant(String suffix, int maxDimension) {}
+
+    private boolean isVariantPath(String path) {
+        int dotIndex = path.lastIndexOf('.');
+        String base = dotIndex < 0 ? path : path.substring(0, dotIndex);
+        return base.endsWith(THUMB_SUFFIX) || base.endsWith(MEDIUM_SUFFIX);
+    }
+
     @Override
     public void delete(String imageUrl) {
         if (imageUrl == null || imageUrl.isEmpty()) {

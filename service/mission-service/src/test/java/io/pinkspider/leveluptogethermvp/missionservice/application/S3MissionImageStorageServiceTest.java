@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,10 +26,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
@@ -234,6 +241,98 @@ class S3MissionImageStorageServiceTest {
             );
 
             assertThat(storageService.isValidImage(file)).isFalse();
+        }
+    }
+
+    // LUT-409: LUT-400 이전 업로드분(원본만 존재)에 thumb/medium 변형을 백필한다
+    @Nested
+    @DisplayName("backfillVariants 테스트")
+    class BackfillVariantsTest {
+
+        private static final String KEY = "missions/user1/1/2024-01-15_abc.jpg";
+        private static final String CDN_URL = "https://cdn.example.com/" + KEY;
+        private static final byte[] ORIGINAL = "original-image".getBytes();
+        private static final byte[] RESIZED = "resized-image".getBytes();
+
+        private void stubOriginalDownload() {
+            when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
+                .thenReturn(ResponseBytes.fromByteArray(
+                    GetObjectResponse.builder().contentType("image/jpeg").build(), ORIGINAL));
+        }
+
+        @Test
+        @DisplayName("변형이 없는 원본에 thumb/medium 2개를 생성하고 immutable 캐시 메타데이터를 싣는다")
+        void backfill_createsBothVariants() {
+            when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().build());
+            stubOriginalDownload();
+            when(imageResizer.resize(any(byte[].class), any(), anyInt()))
+                .thenReturn(Optional.of(RESIZED));
+            when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
+
+            int created = storageService.backfillVariants(CDN_URL);
+
+            assertThat(created).isEqualTo(2);
+            ArgumentCaptor<PutObjectRequest> putCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+            verify(s3Client, times(2)).putObject(putCaptor.capture(), any(RequestBody.class));
+            assertThat(putCaptor.getAllValues())
+                .extracting(PutObjectRequest::key)
+                .containsExactly(
+                    "missions/user1/1/2024-01-15_abc_thumb.jpg",
+                    "missions/user1/1/2024-01-15_abc_medium.jpg");
+            assertThat(putCaptor.getAllValues())
+                .allSatisfy(put -> assertThat(put.cacheControl())
+                    .isEqualTo("public, max-age=31536000, immutable"));
+            // 원본은 1회만 내려받는다
+            verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
+        }
+
+        @Test
+        @DisplayName("멱등: 변형이 모두 존재하면 원본 다운로드도 업로드도 하지 않는다")
+        void backfill_allVariantsExist_skips() {
+            when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenReturn(HeadObjectResponse.builder().build());
+
+            int created = storageService.backfillVariants(CDN_URL);
+
+            assertThat(created).isZero();
+            verify(s3Client, never()).getObjectAsBytes(any(GetObjectRequest.class));
+            verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        }
+
+        @Test
+        @DisplayName("리사이즈 불가 포맷은 변형 없이 0을 반환한다")
+        void backfill_unresizableFormat_returnsZero() {
+            when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().build());
+            stubOriginalDownload();
+            when(imageResizer.resize(any(byte[].class), any(), anyInt()))
+                .thenReturn(Optional.empty());
+
+            int created = storageService.backfillVariants(CDN_URL);
+
+            assertThat(created).isZero();
+            verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        }
+
+        @Test
+        @DisplayName("CDN 이 서빙하지 않는 URL(로컬 /uploads 등)은 대상에서 제외한다")
+        void backfill_foreignUrl_returnsZero() {
+            int created = storageService.backfillVariants("/uploads/missions/user1/1/a.jpg");
+
+            assertThat(created).isZero();
+            verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
+        }
+
+        @Test
+        @DisplayName("변형 URL 자체는 대상에서 제외한다 (방어)")
+        void backfill_variantUrl_returnsZero() {
+            int created = storageService.backfillVariants(
+                "https://cdn.example.com/missions/user1/1/2024-01-15_abc_thumb.jpg");
+
+            assertThat(created).isZero();
+            verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
         }
     }
 }
