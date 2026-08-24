@@ -59,6 +59,9 @@ class SeasonRewardProcessorServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private SeasonRewardProcessorService processorService;
 
@@ -185,6 +188,75 @@ class SeasonRewardProcessorServiceTest {
             SeasonRewardHistory first = captor.getAllValues().get(0);
             assertThat(first.getItemId()).isEqualTo(77L);
             assertThat(first.getItemName()).isEqualTo("우승 날개");
+        }
+
+        @Test
+        @DisplayName("LUT-410: 아이템이 신규 지급되면 획득 알림 이벤트를 4개 언어 아이템명과 함께 발행한다")
+        void publishesItemGrantedEventForNewGrant() throws Exception {
+            testReward1.setItemId(77L);
+            testReward1.setItemName("우승 날개");
+
+            io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem
+                grantedItem =
+                    io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem
+                        .builder()
+                        .name("우승 날개")
+                        .nameEn("Champion Wings")
+                        .nameAr("أجنحة البطل")
+                        .nameJa("チャンピオンの翼")
+                        .build();
+            setId(grantedItem, 77L);
+
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+            when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                .thenReturn(List.of(testReward1));
+
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{"user1", 1000L});
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(Pageable.class)))
+                .thenReturn(topGainers);
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+            when(userItemService.grantItem("user1", 77L)).thenReturn(grantedItem);
+
+            processorService.processSeasonRewards(1L);
+
+            org.mockito.ArgumentCaptor<io.pinkspider.global.event.SeasonRewardItemGrantedEvent>
+                eventCaptor = org.mockito.ArgumentCaptor.forClass(
+                    io.pinkspider.global.event.SeasonRewardItemGrantedEvent.class);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            io.pinkspider.global.event.SeasonRewardItemGrantedEvent event = eventCaptor.getValue();
+            assertThat(event.userId()).isEqualTo("user1");
+            assertThat(event.shopItemId()).isEqualTo(77L);
+            assertThat(event.itemName()).isEqualTo("우승 날개");
+            assertThat(event.itemNameEn()).isEqualTo("Champion Wings");
+        }
+
+        @Test
+        @DisplayName("LUT-410: 이미 보유한 아이템의 멱등 재지급(no-op)에는 알림 이벤트를 발행하지 않는다")
+        void doesNotPublishEventWhenItemAlreadyOwned() throws Exception {
+            testReward1.setItemId(77L);
+            testReward1.setItemName("우승 날개");
+
+            when(seasonRepository.findById(1L)).thenReturn(Optional.of(testSeason));
+            when(rewardHistoryRepository.existsBySeasonId(1L)).thenReturn(false);
+            when(rankRewardRepository.findBySeasonIdOrderBySortOrder(1L))
+                .thenReturn(List.of(testReward1));
+
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{"user1", 1000L});
+
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any(Pageable.class)))
+                .thenReturn(topGainers);
+            when(rewardHistoryRepository.saveAndFlush(any(SeasonRewardHistory.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+            when(userItemService.grantItem("user1", 77L)).thenReturn(null); // 이미 보유
+
+            processorService.processSeasonRewards(1L);
+
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test

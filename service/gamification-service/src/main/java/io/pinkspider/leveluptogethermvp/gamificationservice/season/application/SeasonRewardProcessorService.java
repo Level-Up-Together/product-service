@@ -1,6 +1,8 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
+import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonRewardProcessResult;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRewardHistory;
@@ -12,6 +14,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Exper
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.TitleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,7 @@ public class SeasonRewardProcessorService {
     private final ExperienceHistoryRepository experienceHistoryRepository;
     private final TitleService titleService;
     private final io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService userItemService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 시즌 보상 처리 (메인 로직)
@@ -176,7 +180,8 @@ public class SeasonRewardProcessorService {
                 titleService.grantTitle(userId, reward.getTitleId());
                 // LUT-339: 보상 아이템 동시 지급 — grantItem 은 이미 보유 시 no-op(멱등)
                 if (reward.getItemId() != null) {
-                    userItemService.grantItem(userId, reward.getItemId());
+                    publishItemGrantedEvent(userId,
+                        userItemService.grantItem(userId, reward.getItemId()));
                 }
                 history.markSuccess();
                 successCount++;
@@ -239,7 +244,8 @@ public class SeasonRewardProcessorService {
                 titleService.grantTitle(history.getUserId(), history.getTitleId());
                 // LUT-339: 아이템 보상도 재지급 (멱등이라 이미 지급분은 무해)
                 if (history.getItemId() != null) {
-                    userItemService.grantItem(history.getUserId(), history.getItemId());
+                    publishItemGrantedEvent(history.getUserId(),
+                        userItemService.grantItem(history.getUserId(), history.getItemId()));
                 }
                 history.markSuccess();
                 retrySuccessCount++;
@@ -253,5 +259,18 @@ public class SeasonRewardProcessorService {
         }
 
         return retrySuccessCount;
+    }
+
+    /**
+     * LUT-410: 신규 지급된 경우에만 획득 알림 이벤트 발행 (멱등 재지급 no-op 은 미발행).
+     * AFTER_COMMIT 리스너라 보상 트랜잭션이 롤백되면 알림도 발송되지 않는다.
+     */
+    private void publishItemGrantedEvent(String userId, ShopItem granted) {
+        if (granted == null) {
+            return;
+        }
+        eventPublisher.publishEvent(new SeasonRewardItemGrantedEvent(
+            userId, granted.getId(), granted.getName(), granted.getNameEn(),
+            granted.getNameAr(), granted.getNameJa()));
     }
 }

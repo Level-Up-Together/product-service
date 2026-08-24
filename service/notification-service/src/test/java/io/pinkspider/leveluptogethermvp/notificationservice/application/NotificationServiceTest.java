@@ -1241,4 +1241,52 @@ class NotificationServiceTest {
             assertThat(result).isZero();
         }
     }
+
+    @Nested
+    @DisplayName("sendNotification locale 의존 인자 테스트 (LUT-410)")
+    class SendNotificationLocalizedArgsTest {
+
+        @Test
+        @DisplayName("수신자 preferredLocale 로 콜백 인자를 생성해 메시지에 반영한다")
+        void sendNotification_localizedArgs_usesRecipientLocale() {
+            // given: 일본어 사용자
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id(TEST_USER_ID)
+                    .email("test@example.com")
+                    .nickname("testNick")
+                    .provider("google")
+                    .preferredLocale("ja")
+                    .build();
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            Notification saved =
+                createTestNotification(1L, TEST_USER_ID, NotificationType.ITEM_PURCHASED);
+
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(notificationRepository.existsByUserIdAndNotificationTypeAndReferenceId(
+                TEST_USER_ID, NotificationType.ITEM_PURCHASED, 3L)).thenReturn(false);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(saved);
+            when(messageSource.getMessage(
+                eq("notification.item_purchased.title"), any(), anyString(), any(java.util.Locale.class)))
+                .thenReturn("アイテム購入完了！");
+            when(messageSource.getMessage(
+                eq("notification.item_purchased.message"), any(), anyString(), any(java.util.Locale.class)))
+                .thenReturn("『{0}』アイテムを獲得しました！");
+
+            // when: locale 에 따라 다른 아이템명을 돌려주는 콜백
+            notificationService.sendLocalizedNotification(
+                TEST_USER_ID, NotificationType.ITEM_PURCHASED, 3L, null,
+                locale -> new Object[] {
+                    "ja".equals(locale.getLanguage()) ? "メディックの翼" : "Medic Wings"
+                });
+
+            // then: ja 아이템명이 메시지에 들어가고 actionUrl 은 인벤토리
+            org.mockito.ArgumentCaptor<Notification> captor =
+                org.mockito.ArgumentCaptor.forClass(Notification.class);
+            verify(notificationRepository).saveAndFlush(captor.capture());
+            assertThat(captor.getValue().getMessage()).isEqualTo("『メディックの翼』アイテムを獲得しました！");
+            assertThat(captor.getValue().getActionUrl()).isEqualTo("/mypage/inventory");
+        }
+    }
 }

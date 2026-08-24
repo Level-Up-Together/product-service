@@ -88,11 +88,14 @@ public class UserItemService {
     /**
      * 아이템 지급 (멱등 — 이미 보유 시 no-op). 동시 지급 race는
      * uk_user_item 제약 + DataIntegrityViolationException 흡수로 방어한다.
+     *
+     * @return 신규 지급된 경우 해당 ShopItem, 이미 보유·동시 지급 race 로 no-op 이면 null —
+     *     호출자가 획득 알림 발행 여부를 판단하는 근거 (LUT-410)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void grantItem(String userId, Long shopItemId) {
+    public ShopItem grantItem(String userId, Long shopItemId) {
         if (userItemRepository.existsByUserIdAndShopItemId(userId, shopItemId)) {
-            return;
+            return null;
         }
         ShopItem shopItem = shopItemRepository.findById(shopItemId)
             .orElseThrow(() -> new CustomException("120602", "error.useritem.item_not_found"));
@@ -104,8 +107,10 @@ public class UserItemService {
                 .acquiredAt(LocalDateTime.now())
                 .build());
             log.info("아이템 지급: userId={}, shopItemId={}", userId, shopItemId);
+            return shopItem;
         } catch (DataIntegrityViolationException e) {
             log.debug("아이템 중복 지급 스킵 (동시 요청): userId={}, shopItemId={}", userId, shopItemId);
+            return null;
         }
     }
 

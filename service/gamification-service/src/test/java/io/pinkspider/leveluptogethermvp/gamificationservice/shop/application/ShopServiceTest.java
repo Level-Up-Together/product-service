@@ -30,9 +30,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +52,9 @@ class ShopServiceTest {
 
     @Mock
     private UserExperienceService userExperienceService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ShopService shopService;
@@ -290,6 +296,56 @@ class ShopServiceTest {
             assertThat(response.price()).isEqualTo(300);
             assertThat(response.balance()).isEqualTo(45);
             verify(userItemRepository).saveAndFlush(any(UserItem.class));
+        }
+
+        @Test
+        @DisplayName("LUT-410: 구매 성공 시 아이템 획득 이벤트를 4개 언어 아이템명과 함께 발행한다")
+        void purchaseItem_publishesItemPurchasedEvent() {
+            ShopItem item = ShopItem.builder()
+                .name("메딕의 날개")
+                .nameEn("Medic Wings")
+                .nameAr("أجنحة المسعف")
+                .nameJa("メディックの翼")
+                .itemType(ShopItemType.BASIC)
+                .rarity(TitleRarity.RARE)
+                .price(300)
+                .isActive(true)
+                .build();
+            setId(item, 3L);
+            when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
+            when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
+            when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개")).thenReturn(45);
+            when(userItemRepository.saveAndFlush(any(UserItem.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            shopService.purchaseItem(USER_ID, 3L);
+
+            ArgumentCaptor<ShopItemPurchasedEvent> captor =
+                ArgumentCaptor.forClass(ShopItemPurchasedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            ShopItemPurchasedEvent event = captor.getValue();
+            assertThat(event.userId()).isEqualTo(USER_ID);
+            assertThat(event.shopItemId()).isEqualTo(3L);
+            assertThat(event.itemName()).isEqualTo("메딕의 날개");
+            assertThat(event.itemNameEn()).isEqualTo("Medic Wings");
+            assertThat(event.itemNameAr()).isEqualTo("أجنحة المسعف");
+            assertThat(event.itemNameJa()).isEqualTo("メディックの翼");
+        }
+
+        @Test
+        @DisplayName("LUT-410: 다이아 부족으로 구매가 실패하면 획득 이벤트를 발행하지 않는다")
+        void purchaseItem_insufficientDiamond_doesNotPublishEvent() {
+            ShopItem item = createShopItem(3L, "메딕의 날개", TitleRarity.RARE, 300);
+            when(shopItemRepository.findById(3L)).thenReturn(Optional.of(item));
+            when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
+            when(userExperienceService.getUserLevel(USER_ID)).thenReturn(LEVEL_RARE);
+            when(diamondService.spendDiamonds(USER_ID, 300, 3L, "메딕의 날개"))
+                .thenThrow(new IllegalStateException("다이아 잔액이 부족합니다"));
+
+            assertThatThrownBy(() -> shopService.purchaseItem(USER_ID, 3L))
+                .isInstanceOf(CustomException.class);
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test

@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.policy.LevelRarityPolicy;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
@@ -21,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +61,7 @@ public class ShopService {
     private final UserItemRepository userItemRepository;
     private final DiamondService diamondService;
     private final UserExperienceService userExperienceService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 판매중 아이템 전체 — 희귀도(일반→신화) → 가격 → ID 오름차순, 보유 여부/유저별 할증가 포함.
@@ -155,6 +158,11 @@ public class ShopService {
             // 동시 구매 race — 예외 전파로 트랜잭션이 롤백되어 차감분도 복구된다
             throw new CustomException("120604", "error.shop.already_owned");
         }
+
+        // LUT-410: 획득 확정 알림 — AFTER_COMMIT 리스너라 구매 트랜잭션이 롤백되면 발송되지 않는다
+        eventPublisher.publishEvent(new ShopItemPurchasedEvent(
+            userId, shopItem.getId(), shopItem.getName(), shopItem.getNameEn(),
+            shopItem.getNameAr(), shopItem.getNameJa()));
 
         log.info("아이템 구매: userId={}, shopItemId={}, basePrice={}, effectivePrice={}, balance={}",
             userId, shopItemId, shopItem.getPrice(), effectivePrice, balance);

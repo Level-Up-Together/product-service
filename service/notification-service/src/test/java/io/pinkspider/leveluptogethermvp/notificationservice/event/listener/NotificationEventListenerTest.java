@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.notificationservice.event.listener;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -29,6 +30,8 @@ import io.pinkspider.global.event.GuildJoinRequestedEvent;
 import io.pinkspider.global.event.GuildMissionArrivedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.MissionReminderEvent;
+import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -37,10 +40,13 @@ import io.pinkspider.global.enums.NotificationType;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -123,6 +129,64 @@ class NotificationEventListenerTest {
                     anyString(), eq(NotificationType.TITLE_ACQUIRED),
                     anyLong(), anyString(), anyString());
             eventListener.handleTitleAcquired(event);
+        }
+    }
+
+    // ==================== 아이템 획득 (LUT-410) ====================
+
+    @Nested
+    @DisplayName("아이템 획득 이벤트 처리")
+    class HandleItemAcquiredTest {
+
+        @SuppressWarnings("unchecked")
+        private Function<Locale, Object[]> captureLocalizedArgs(NotificationType type, Long itemId) {
+            ArgumentCaptor<Function<Locale, Object[]>> captor =
+                ArgumentCaptor.forClass(Function.class);
+            verify(notificationService).sendLocalizedNotification(
+                eq("user-123"), eq(type), eq(itemId), isNull(), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        @DisplayName("상점 구매 이벤트 발생 시 ITEM_PURCHASED 알림을 수신자 locale 아이템명으로 호출")
+        void shouldCallNotificationServiceOnShopItemPurchased() {
+            ShopItemPurchasedEvent event = new ShopItemPurchasedEvent(
+                "user-123", 3L, "메딕의 날개", "Medic Wings", "أجنحة المسعف", "メディックの翼");
+
+            eventListener.handleShopItemPurchased(event);
+
+            Function<Locale, Object[]> args =
+                captureLocalizedArgs(NotificationType.ITEM_PURCHASED, 3L);
+            assertThat(args.apply(Locale.KOREAN)[0]).isEqualTo("메딕의 날개");
+            assertThat(args.apply(Locale.ENGLISH)[0]).isEqualTo("Medic Wings");
+            assertThat(args.apply(Locale.JAPANESE)[0]).isEqualTo("メディックの翼");
+            assertThat(args.apply(Locale.forLanguageTag("ar"))[0]).isEqualTo("أجنحة المسعف");
+        }
+
+        @Test
+        @DisplayName("시즌 보상 이벤트 발생 시 SEASON_REWARD_ITEM 알림을 호출하고 미등록 언어는 기본명으로 폴백")
+        void shouldCallNotificationServiceOnSeasonRewardItemGranted() {
+            SeasonRewardItemGrantedEvent event = new SeasonRewardItemGrantedEvent(
+                "user-123", 77L, "우승 날개", null, null, null);
+
+            eventListener.handleSeasonRewardItemGranted(event);
+
+            Function<Locale, Object[]> args =
+                captureLocalizedArgs(NotificationType.SEASON_REWARD_ITEM, 77L);
+            assertThat(args.apply(Locale.ENGLISH)[0]).isEqualTo("우승 날개");
+            assertThat(args.apply(Locale.KOREAN)[0]).isEqualTo("우승 날개");
+        }
+
+        @Test
+        @DisplayName("알림 서비스 실패해도 예외를 던지지 않음")
+        void shouldNotThrowExceptionOnNotificationFailure() {
+            ShopItemPurchasedEvent event = new ShopItemPurchasedEvent(
+                "user-123", 3L, "메딕의 날개", null, null, null);
+            doThrow(new RuntimeException("알림 전송 실패"))
+                .when(notificationService).sendLocalizedNotification(
+                    anyString(), eq(NotificationType.ITEM_PURCHASED),
+                    anyLong(), isNull(), any(Function.class));
+            eventListener.handleShopItemPurchased(event);
         }
     }
 

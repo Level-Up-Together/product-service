@@ -21,6 +21,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -77,7 +78,22 @@ public class NotificationService {
     @Transactional(transactionManager = "notificationTransactionManager")
     public void sendNotification(String userId, NotificationType type,
                                   Long referenceId, String iconUrl, Object... messageArgs) {
+        sendLocalizedNotification(userId, type, referenceId, iconUrl, locale -> messageArgs);
+    }
+
+    /**
+     * 수신자 locale 의존 인자를 지원하는 변형 (LUT-410).
+     *
+     * <p>DB 다국어 컬럼(예: ShopItem 의 name/nameEn/nameAr/nameJa)에서 온 값은 메시지 키가 아니라
+     * MessageSource 로 현지화할 수 없다 — 수신자 locale 을 먼저 결정한 뒤 인자를 만들도록 콜백을 받는다.
+     * (sendNotification 오버로드로 두면 Object... 와의 모호성으로 테스트 matcher 가 깨져 별도 이름 사용)
+     */
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void sendLocalizedNotification(String userId, NotificationType type,
+                                  Long referenceId, String iconUrl,
+                                  Function<Locale, Object[]> localizedArgs) {
         Locale userLocale = resolveUserLocale(userId);
+        Object[] messageArgs = localizedArgs.apply(userLocale);
         String title = resolveNotificationMessage(type.getDefaultTitle(), userLocale, messageArgs);
         String message = resolveNotificationMessage(type.getMessageTemplate(), userLocale, messageArgs);
         String referenceType = type.getReferenceType();

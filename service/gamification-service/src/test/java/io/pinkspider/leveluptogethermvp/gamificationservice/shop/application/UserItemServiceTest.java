@@ -244,7 +244,7 @@ class UserItemServiceTest {
     class GrantItemTest {
 
         @Test
-        @DisplayName("미보유 아이템을 지급한다")
+        @DisplayName("미보유 아이템을 지급하고 지급된 ShopItem 을 반환한다 (LUT-410)")
         void grantItem_success() {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
@@ -252,13 +252,25 @@ class UserItemServiceTest {
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-            userItemService.grantItem(USER_ID, 3L);
+            ShopItem granted = userItemService.grantItem(USER_ID, 3L);
 
             verify(userItemRepository).saveAndFlush(any(UserItem.class));
+            assertThat(granted).isSameAs(item);
         }
 
         @Test
-        @DisplayName("동시 지급 race의 유니크 제약 위반은 흡수한다 (멱등)")
+        @DisplayName("이미 보유한 아이템은 no-op 이고 null 을 반환한다 (LUT-410 알림 미발행 근거)")
+        void grantItem_alreadyOwned_returnsNull() {
+            when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(true);
+
+            ShopItem granted = userItemService.grantItem(USER_ID, 3L);
+
+            assertThat(granted).isNull();
+            verify(userItemRepository, never()).saveAndFlush(any(UserItem.class));
+        }
+
+        @Test
+        @DisplayName("동시 지급 race의 유니크 제약 위반은 흡수하고 null 을 반환한다 (멱등)")
         void grantItem_duplicateRace_swallowed() {
             ShopItem item = createShopItem(3L, "메딕의 날개", ShopItemType.EFFECT);
             when(userItemRepository.existsByUserIdAndShopItemId(USER_ID, 3L)).thenReturn(false);
@@ -266,7 +278,9 @@ class UserItemServiceTest {
             when(userItemRepository.saveAndFlush(any(UserItem.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_user_item"));
 
-            userItemService.grantItem(USER_ID, 3L); // 예외 전파 없음
+            ShopItem granted = userItemService.grantItem(USER_ID, 3L); // 예외 전파 없음
+
+            assertThat(granted).isNull();
         }
 
         @Test

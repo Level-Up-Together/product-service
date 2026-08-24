@@ -24,12 +24,16 @@ import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
 import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
+import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
+import io.pinkspider.global.event.ShopItemPurchasedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.application.NotificationService;
 import io.pinkspider.global.enums.NotificationType;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -108,6 +112,38 @@ public class NotificationEventListener {
         safeHandle("업적 달성", () -> notificationService.sendNotification(
             event.userId(), NotificationType.ACHIEVEMENT_COMPLETED,
             event.achievementId(), null, event.achievementName()));
+    }
+
+    // ==================== 아이템 획득 (LUT-410) ====================
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleShopItemPurchased(ShopItemPurchasedEvent event) {
+        safeHandle("아이템 구매", () -> notificationService.sendLocalizedNotification(
+            event.userId(), NotificationType.ITEM_PURCHASED,
+            event.shopItemId(), null,
+            locale -> new Object[] {
+                localizedItemName(event.itemName(), event.itemNameEn(),
+                    event.itemNameAr(), event.itemNameJa(), locale)
+            }));
+    }
+
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleSeasonRewardItemGranted(SeasonRewardItemGrantedEvent event) {
+        safeHandle("시즌 보상 아이템", () -> notificationService.sendLocalizedNotification(
+            event.userId(), NotificationType.SEASON_REWARD_ITEM,
+            event.shopItemId(), null,
+            locale -> new Object[] {
+                localizedItemName(event.itemName(), event.itemNameEn(),
+                    event.itemNameAr(), event.itemNameJa(), locale)
+            }));
+    }
+
+    /** 수신자 locale 에 맞는 아이템명 선택 — 미등록 언어는 기본값(ko) 폴백 */
+    private String localizedItemName(
+            String name, String nameEn, String nameAr, String nameJa, Locale locale) {
+        return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale.toLanguageTag());
     }
 
     // ==================== 레벨 ====================
