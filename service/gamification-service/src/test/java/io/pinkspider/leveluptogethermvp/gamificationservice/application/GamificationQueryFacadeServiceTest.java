@@ -98,6 +98,9 @@ class GamificationQueryFacadeServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository shopItemRepository;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
+
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
 
@@ -115,7 +118,8 @@ class GamificationQueryFacadeServiceTest {
             seasonRankingService,
             seasonRankRewardRepository,
             shopItemRepository,
-            diamondService
+            diamondService,
+            missionCategoryService
         );
     }
 
@@ -946,6 +950,111 @@ class GamificationQueryFacadeServiceTest {
             // LUT-374: 아이템 미지정 보상은 item=null
             assertThat(result.get(0).item()).isNull();
             verify(seasonRankRewardRepository).findBySeasonIdOrderBySortOrder(1L);
+        }
+
+        @Test
+        @DisplayName("LUT-414: 전체 랭킹 보상은 순위/랭킹타입 로케일 변형을 함께 내려준다")
+        void getSeasonRankRewards_overall_includesLocalizedDisplays() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(2)
+                .rankEnd(10)
+                .categoryId(null)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.rankRangeDisplay()).isEqualTo("2~10위");
+            assertThat(dto.rankRangeDisplayEn()).isEqualTo("Rank 2-10");
+            assertThat(dto.rankRangeDisplayJa()).isEqualTo("2~10位");
+            assertThat(dto.rankRangeDisplayAr()).isEqualTo("المراكز 2-10");
+            assertThat(dto.rankingTypeDisplay()).isEqualTo("전체");
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("Overall");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("総合");
+            assertThat(dto.rankingTypeDisplayAr()).isEqualTo("الإجمالي");
+            // 전체 랭킹은 카테고리 조회를 하지 않는다
+            verify(missionCategoryService, org.mockito.Mockito.never()).getCategory(anyLong());
+        }
+
+        @Test
+        @DisplayName("LUT-414: 카테고리 랭킹 보상은 로케일별 카테고리명을 랭킹타입으로 내려준다")
+        void getSeasonRankRewards_category_includesLocalizedCategoryNames() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(1)
+                .rankEnd(1)
+                .categoryId(7L)
+                .categoryName("운동")
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            var category = io.pinkspider.leveluptogethermvp.metaservice.domain.dto
+                .MissionCategoryResponse.builder()
+                .id(7L)
+                .name("운동")
+                .nameEn("Workout")
+                .nameAr("تمرين")
+                .nameJa("運動")
+                .build();
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(missionCategoryService.getCategory(7L)).thenReturn(category);
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.categoryName()).isEqualTo("운동");
+            assertThat(dto.categoryNameEn()).isEqualTo("Workout");
+            assertThat(dto.categoryNameJa()).isEqualTo("運動");
+            assertThat(dto.rankingTypeDisplay()).isEqualTo("운동");
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("Workout");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("運動");
+            assertThat(dto.rankingTypeDisplayAr()).isEqualTo("تمرين");
+        }
+
+        @Test
+        @DisplayName("LUT-414: 카테고리 조회 실패 시 로케일 변형은 한글 스냅샷으로 폴백한다")
+        void getSeasonRankRewards_categoryLookupFails_fallsBackToSnapshot() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(1)
+                .rankEnd(1)
+                .categoryId(7L)
+                .categoryName("운동")
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(missionCategoryService.getCategory(7L)).thenThrow(new RuntimeException("카테고리 없음"));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then — 예외 없이 렌더 가능해야 하고, 변형은 한글 스냅샷 폴백
+            SeasonRankRewardDto dto = result.get(0);
+            assertThat(dto.categoryNameEn()).isNull();
+            assertThat(dto.rankingTypeDisplayEn()).isEqualTo("운동");
+            assertThat(dto.rankingTypeDisplayJa()).isEqualTo("운동");
         }
 
         @Test

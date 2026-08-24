@@ -121,6 +121,30 @@ public class SeasonRankReward extends LocalDateTimeBaseEntity {
         return rankStart + "~" + rankEnd + "위";
     }
 
+    /** LUT-414: 순위 구간 영어 표기 (예: "Rank 1", "Rank 2-5") */
+    public String getRankRangeDisplayEn() {
+        if (rankStart.equals(rankEnd)) {
+            return "Rank " + rankStart;
+        }
+        return "Rank " + rankStart + "-" + rankEnd;
+    }
+
+    /** LUT-414: 순위 구간 아랍어 표기 (예: "المركز 1", "المراكز 2-5") */
+    public String getRankRangeDisplayAr() {
+        if (rankStart.equals(rankEnd)) {
+            return "المركز " + rankStart;
+        }
+        return "المراكز " + rankStart + "-" + rankEnd;
+    }
+
+    /** LUT-414: 순위 구간 일본어 표기 (예: "1位", "2~5位") */
+    public String getRankRangeDisplayJa() {
+        if (rankStart.equals(rankEnd)) {
+            return rankStart + "位";
+        }
+        return rankStart + "~" + rankEnd + "位";
+    }
+
     /**
      * 전체 랭킹 여부 확인
      */

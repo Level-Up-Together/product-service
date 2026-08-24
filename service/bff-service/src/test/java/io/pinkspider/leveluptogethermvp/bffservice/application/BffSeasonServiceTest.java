@@ -65,8 +65,10 @@ class BffSeasonServiceTest {
         );
 
         testRankRewardDto = new SeasonRankRewardDto(
-            1L, 1L, 1, 1, "1위",
-            null, null, "전체 랭킹",
+            1L, 1L, 1, 1,
+            "1위", "Rank 1", "المركز 1", "1位",
+            null, null, null, null, null,
+            "전체 랭킹", "Overall", "الإجمالي", "総合",
             101L, "골드 챔피언", "LEGENDARY",
             1, true,
             new io.pinkspider.global.facade.dto.SeasonRewardItemDto(

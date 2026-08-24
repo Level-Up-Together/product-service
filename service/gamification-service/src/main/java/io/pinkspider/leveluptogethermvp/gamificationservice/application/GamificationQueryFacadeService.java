@@ -34,11 +34,14 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.Seaso
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.application.SeasonRankingService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.dto.SeasonMyRankingResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
+import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.SeasonRankReward;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRankRewardRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
+import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -69,6 +72,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final SeasonRankRewardRepository seasonRankRewardRepository;
     private final ShopItemRepository shopItemRepository;
     private final DiamondService diamondService;
+    private final MissionCategoryService missionCategoryService;
 
     public GamificationQueryFacadeService(
         TitleService titleService,
@@ -80,7 +84,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         @Lazy SeasonRankingService seasonRankingService,
         SeasonRankRewardRepository seasonRankRewardRepository,
         ShopItemRepository shopItemRepository,
-        DiamondService diamondService
+        DiamondService diamondService,
+        MissionCategoryService missionCategoryService
     ) {
         this.titleService = titleService;
         this.userItemService = userItemService;
@@ -92,6 +97,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.seasonRankRewardRepository = seasonRankRewardRepository;
         this.shopItemRepository = shopItemRepository;
         this.diamondService = diamondService;
+        this.missionCategoryService = missionCategoryService;
     }
 
     // ========== 레벨 조회 ==========
@@ -369,17 +375,60 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             : shopItemRepository.findAllById(itemIds).stream()
                 .collect(Collectors.toMap(ShopItem::getId, item -> item));
 
+        // LUT-414: 카테고리형 보상의 로케일 변형(카테고리명/랭킹타입)용 카테고리 배치 로드.
+        // 조회 실패는 한글 스냅샷 폴백 — display 필드가 시즌 화면 렌더를 막지 않게 한다.
+        Map<Long, MissionCategoryResponse> categoryById = new java.util.HashMap<>();
+        rewards.stream()
+            .map(r -> r.getCategoryId())
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .forEach(categoryId -> {
+                try {
+                    categoryById.put(categoryId, missionCategoryService.getCategory(categoryId));
+                } catch (Exception e) {
+                    log.warn("시즌 보상 카테고리 조회 실패 (한글 스냅샷 폴백): categoryId={}", categoryId);
+                }
+            });
+
         return rewards.stream()
-            .map(r -> new SeasonRankRewardDto(
-                r.getId(), r.getSeason().getId(), r.getRankStart(), r.getRankEnd(),
-                r.getRankRangeDisplay(), r.getCategoryId(), r.getCategoryName(),
-                r.getRankingTypeDisplay(), r.getTitleId(), r.getTitleName(),
-                r.getTitleRarity(), r.getSortOrder(), r.getIsActive(),
-                // Map.of() 불변 맵은 get(null) 에서 NPE — itemId 미지정 보상은 선분기
-                toSeasonRewardItemDto(
-                    r.getItemId() == null ? null : itemById.get(r.getItemId()))
-            ))
+            .map(r -> {
+                MissionCategoryResponse category =
+                    r.getCategoryId() == null ? null : categoryById.get(r.getCategoryId());
+                String categoryNameEn = category != null ? category.getNameEn() : null;
+                String categoryNameAr = category != null ? category.getNameAr() : null;
+                String categoryNameJa = category != null ? category.getNameJa() : null;
+                return new SeasonRankRewardDto(
+                    r.getId(), r.getSeason().getId(), r.getRankStart(), r.getRankEnd(),
+                    r.getRankRangeDisplay(), r.getRankRangeDisplayEn(),
+                    r.getRankRangeDisplayAr(), r.getRankRangeDisplayJa(),
+                    r.getCategoryId(), r.getCategoryName(),
+                    categoryNameEn, categoryNameAr, categoryNameJa,
+                    r.getRankingTypeDisplay(),
+                    rankingTypeDisplayLocalized(r, categoryNameEn, "Overall"),
+                    rankingTypeDisplayLocalized(r, categoryNameAr, "الإجمالي"),
+                    rankingTypeDisplayLocalized(r, categoryNameJa, "総合"),
+                    r.getTitleId(), r.getTitleName(),
+                    r.getTitleRarity(), r.getSortOrder(), r.getIsActive(),
+                    // Map.of() 불변 맵은 get(null) 에서 NPE — itemId 미지정 보상은 선분기
+                    toSeasonRewardItemDto(
+                        r.getItemId() == null ? null : itemById.get(r.getItemId()))
+                );
+            })
             .toList();
+    }
+
+    /**
+     * LUT-414: 랭킹 타입 로케일 표기 — 전체 랭킹은 로케일별 "전체" 라벨, 카테고리 랭킹은 해당 로케일
+     * 카테고리명(미등록 언어는 한글 스냅샷 폴백).
+     */
+    private String rankingTypeDisplayLocalized(
+            SeasonRankReward reward, String localizedCategoryName, String overallLabel) {
+        if (reward.getCategoryId() == null) {
+            return overallLabel;
+        }
+        return localizedCategoryName != null && !localizedCategoryName.isBlank()
+            ? localizedCategoryName
+            : reward.getCategoryName();
     }
 
     private io.pinkspider.global.facade.dto.SeasonRewardItemDto toSeasonRewardItemDto(ShopItem item) {
