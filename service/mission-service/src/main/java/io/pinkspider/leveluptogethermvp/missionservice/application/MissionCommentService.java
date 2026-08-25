@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.missionservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.event.MissionCommentDeletedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
@@ -98,6 +99,7 @@ public class MissionCommentService {
         comment.delete();
         missionCommentRepository.save(comment);
 
+        publishCommentDeletedEvent(comment);
         log.info("미션 댓글 어드민 삭제: commentId={}, reason={}", commentId, reason);
     }
 
@@ -123,7 +125,25 @@ public class MissionCommentService {
         comment.delete();
         missionCommentRepository.save(comment);
 
+        publishCommentDeletedEvent(comment);
         log.info("미션 댓글 삭제: missionId={}, commentId={}, userId={}", missionId, commentId, userId);
+    }
+
+    /**
+     * LUT-418: 받은 댓글 카운터 감소 이벤트 발행.
+     * 작성 시 MissionCommentEvent 발행 조건(작성자 != 미션 생성자)과 정확히 대칭이어야
+     * 카운터가 음수 방향으로 드리프트하지 않는다 (본인 댓글은 작성 시에도 카운트되지 않음).
+     * 조회가 findByIdAndIsDeletedFalse 라 이중 삭제로 인한 이중 발행은 구조적으로 차단된다.
+     */
+    private void publishCommentDeletedEvent(MissionComment comment) {
+        String creatorId = comment.getMission().getCreatorId();
+        if (!comment.getUserId().equals(creatorId)) {
+            eventPublisher.publishEvent(new MissionCommentDeletedEvent(
+                comment.getUserId(),
+                creatorId,
+                comment.getMission().getId()
+            ));
+        }
     }
 
     /**

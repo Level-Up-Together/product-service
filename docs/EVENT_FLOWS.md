@@ -12,7 +12,7 @@
 |------------------------------|------------------------------------|--------------------------------------|-----------------------------------------|
 | GuildService                 | `GuildJoinedEvent`                 | `AchievementEventListener`           | 길드 가입 업적 체크                             |
 | GuildService                 | `GuildJoinedEvent`                 | `FeedProjectionEventListener`        | 길드 가입 피드 생성                             |
-| GuildService                 | `GuildJoinedEvent`                 | `UserStatsCounterEventListener`      | guildJoinCount 증가 + 업적 체크               |
+| GuildService                 | `GuildJoinedEvent`                 | `UserStatsCounterEventListener`      | guildJoinCount 를 distinct 가입 길드 수로 sync + 업적 체크 (LUT-418) |
 | GuildService                 | `GuildCreatedEvent`                | `FeedProjectionEventListener`        | 길드 창설 피드 생성                             |
 | GuildService                 | `GuildInvitationEvent`             | `NotificationEventListener`          | 초대 알림 발송                                |
 | GuildExperienceService       | `GuildLevelUpEvent`                | `FeedProjectionEventListener`        | 길드 레벨업 피드 생성                            |
@@ -59,4 +59,6 @@
 | FeedCommandService           | `FeedCommentReplyEvent`            | `NotificationEventListener`          | 대댓글 알림 — 부모 작성자+스레드 참여자 (QA-73)         |
 | FeedCommandService           | `FeedCommentLikedEvent`            | `NotificationEventListener`          | 댓글 좋아요 알림 (QA-73)                       |
 | MissionCommentService        | `MissionCommentEvent`              | `NotificationEventListener`          | 미션 댓글 알림 (미션 생성자)                       |
+| FeedCommandService           | `FeedCommentDeletedEvent`          | `UserStatsCounterEventListener`      | commentsReceived 감소 — 작성 이벤트와 대칭 가드 (LUT-418) |
+| MissionCommentService        | `MissionCommentDeletedEvent`       | `UserStatsCounterEventListener`      | commentsReceived 감소 — 작성 이벤트와 대칭 가드 (LUT-418) |
 | ReportService                | `ContentReportedEvent`             | `NotificationEventListener`          | 신고 접수 알림 — 피신고 유저 + (길드 콘텐츠 시) 길드마스터    |

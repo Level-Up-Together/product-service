@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.feedservice.application;
 
 import io.pinkspider.global.api.ApiStatus;
+import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
@@ -377,10 +378,15 @@ public class FeedCommandService {
         FeedComment comment = feedCommentRepository.findById(commentId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.comment.not_found"));
 
+        boolean firstDeletion = !comment.getIsDeleted();
         comment.delete();
         feedCommentRepository.save(comment);
 
-        // QA-150: 삭제된 댓글도 카운트에 포함하므로 decrement 하지 않는다.
+        // QA-150: 피드 표시용 comment_count 는 삭제된 댓글도 포함하므로 decrement 하지 않는다.
+        // LUT-418: 업적 소스(user_stats.total_comments_received)는 별개 — 작성 이벤트와 대칭으로 감소시킨다.
+        if (firstDeletion) {
+            publishCommentDeletedEvent(comment);
+        }
         log.info("Feed comment admin deleted: commentId={}, reason={}", commentId, reason);
     }
 
@@ -400,11 +406,32 @@ public class FeedCommandService {
             throw new CustomException(ApiStatus.INVALID_ACCESS.getResultCode(), "error.feed.comment.not_owner");
         }
 
+        boolean firstDeletion = !comment.getIsDeleted();
         comment.delete();
         feedCommentRepository.save(comment);
 
-        // QA-150: 삭제된 댓글도 카운트에 포함하므로 decrement 하지 않는다.
+        // QA-150: 피드 표시용 comment_count 는 삭제된 댓글도 포함하므로 decrement 하지 않는다.
+        // LUT-418: 업적 소스(user_stats.total_comments_received)는 별개 — 작성 이벤트와 대칭으로 감소시킨다.
+        if (firstDeletion) {
+            publishCommentDeletedEvent(comment);
+        }
         log.info("Comment deleted: feedId={}, commentId={}, userId={}", feedId, commentId, userId);
+    }
+
+    /**
+     * LUT-418: 받은 댓글 카운터 감소 이벤트 발행.
+     * 작성 시 FeedCommentEvent 발행 조건(최상위 댓글 && 작성자 != 피드 주인)과 정확히 대칭이어야
+     * 카운터가 음수 방향으로 드리프트하지 않는다 (대댓글·본인 댓글은 작성 시에도 카운트되지 않음).
+     */
+    private void publishCommentDeletedEvent(FeedComment comment) {
+        String feedOwnerId = comment.getFeed().getUserId();
+        if (!comment.isReply() && !comment.getUserId().equals(feedOwnerId)) {
+            eventPublisher.publishEvent(new FeedCommentDeletedEvent(
+                comment.getUserId(),
+                feedOwnerId,
+                comment.getFeed().getId()
+            ));
+        }
     }
 
     /**
