@@ -691,6 +691,10 @@ public class FeedQueryService {
         }
         Map<String, UserProfileInfo> commentProfileMap = profileMap;
 
+        // 2-1b) LUT-422: 댓글 작성자 장착 칭호 일괄 조회 → locale 반영 좌/우 칭호 구성
+        Map<String, DetailedTitleInfoDto> commentTitleMap =
+            loadCommentUserTitles(commentUserIds, targetLocale);
+
         // 2-2) 댓글 번역 일괄 처리 (댓글별 개별 Google 호출 방지)
         List<FeedComment> allComments = new ArrayList<>(roots);
         allComments.addAll(replies);
@@ -705,17 +709,45 @@ public class FeedQueryService {
         Map<Long, List<FeedCommentResponse>> repliesByParent = new java.util.HashMap<>();
         for (FeedComment reply : replies) {
             FeedCommentResponse r = buildCommentResponse(reply, currentUserId, likeCountMap, likedSet,
-                underReviewMap, commentProfileMap, commentTranslationMap, /*hasReplies*/ false);
+                underReviewMap, commentProfileMap, commentTitleMap, commentTranslationMap,
+                /*hasReplies*/ false);
             repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>()).add(r);
         }
 
         return rootPage.map(root -> {
             boolean hasReplies = activeReplyCountByParent.getOrDefault(root.getId(), 0L) > 0;
             FeedCommentResponse response = buildCommentResponse(root, currentUserId, likeCountMap,
-                likedSet, underReviewMap, commentProfileMap, commentTranslationMap, hasReplies);
+                likedSet, underReviewMap, commentProfileMap, commentTitleMap, commentTranslationMap,
+                hasReplies);
             response.setReplies(repliesByParent.getOrDefault(root.getId(), List.of()));
             return response;
         });
+    }
+
+    /**
+     * LUT-422: 댓글 작성자들의 장착 칭호를 일괄 조회해 locale 반영 좌/우 칭호로 변환한다.
+     * 칭호는 표시 부가 정보라 조회 실패 시 댓글 목록 자체는 정상 응답한다 (미표시).
+     */
+    private Map<String, DetailedTitleInfoDto> loadCommentUserTitles(Set<String> userIds, String locale) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, List<UserTitleDto>> titlesByUser =
+                gamificationQueryFacadeService.getEquippedTitlesByUserIds(new ArrayList<>(userIds));
+            Map<String, DetailedTitleInfoDto> result = new HashMap<>();
+            for (Map.Entry<String, List<UserTitleDto>> entry : titlesByUser.entrySet()) {
+                List<UserTitleDto> equipped = entry.getValue();
+                if (equipped == null || equipped.isEmpty()) {
+                    continue;
+                }
+                result.put(entry.getKey(), TitleNameUtils.buildDetailedTitleInfo(equipped, locale));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("댓글 칭호 일괄 조회 실패 - 칭호 미표시: {}", e.getMessage());
+            return Map.of();
+        }
     }
 
     /**
@@ -725,6 +757,7 @@ public class FeedQueryService {
                                                      Map<Long, Integer> likeCountMap, Set<Long> likedSet,
                                                      Map<String, Boolean> underReviewMap,
                                                      Map<String, UserProfileInfo> profileMap,
+                                                     Map<String, DetailedTitleInfoDto> titleMap,
                                                      Map<Long, TranslationInfo> translationMap, boolean hasReplies) {
         TranslationInfo translation = translationMap.getOrDefault(
             comment.getId(), TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode()));
@@ -741,6 +774,15 @@ public class FeedQueryService {
         response.setLikeCount(likeCountMap.getOrDefault(comment.getId(), 0));
         response.setLiked(likedSet.contains(comment.getId()));
         response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(comment.getId()), false));
+
+        // LUT-422: 댓글 유저 좌/우 칭호 (삭제된 댓글은 유저 정보를 노출하지 않으므로 제외)
+        DetailedTitleInfoDto titleInfo = titleMap.get(comment.getUserId());
+        if (titleInfo != null && !response.getIsDeleted()) {
+            response.setUserLeftTitle(titleInfo.leftTitle());
+            response.setUserLeftTitleRarity(titleInfo.leftRarity());
+            response.setUserRightTitle(titleInfo.rightTitle());
+            response.setUserRightTitleRarity(titleInfo.rightRarity());
+        }
 
         // 수정 가능 여부: 본인 + 미삭제 + (최상위면 활성 대댓글 없음 / 대댓글은 항상 가능)
         boolean editable = response.getIsMyComment()

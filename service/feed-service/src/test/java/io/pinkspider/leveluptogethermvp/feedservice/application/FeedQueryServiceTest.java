@@ -441,6 +441,159 @@ class FeedQueryServiceTest {
             assertThat(response.getIsEditable()).isTrue();
             assertThat(response.getReplies()).isEmpty();
         }
+
+        private UserTitleDto commentTitleDto(String userId, String name, String nameEn,
+                                             TitleRarity rarity, TitlePosition position) {
+            return new UserTitleDto(
+                1L, userId, 1L,
+                name, nameEn, null, null,
+                null, null, null, null,
+                rarity,
+                position, "#FFFFFF", null,
+                true, position,
+                java.time.LocalDateTime.now()
+            );
+        }
+
+        private FeedComment rootComment(ActivityFeed feed, Long id, String userId) {
+            FeedComment comment = FeedComment.builder()
+                .feed(feed).userId(userId).userNickname("nick-" + userId)
+                .content("댓글").isDeleted(false).isEdited(false).build();
+            setId(comment, id);
+            return comment;
+        }
+
+        private void stubCommentCollaborators() {
+            when(feedCommentRepository.findRepliesByParentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.countByCommentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
+                .thenReturn(new HashMap<>());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+        }
+
+        @Test
+        @DisplayName("LUT-422: 댓글·대댓글 유저의 좌/우 칭호와 희귀도가 응답에 포함된다")
+        void getComments_withEquippedTitles_setsLeftRightTitles() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment parent = rootComment(feed, 10L, OTHER_USER_ID);
+            FeedComment reply = FeedComment.builder()
+                .feed(feed).userId(TEST_USER_ID).userNickname("나").parent(parent)
+                .content("대댓글").isDeleted(false).isEdited(false).build();
+            setId(reply, 11L);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(parent)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(reply));
+            when(feedCommentLikeRepository.countByCommentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
+                .thenReturn(new HashMap<>());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenReturn(Map.of(
+                    OTHER_USER_ID, List.of(
+                        commentTitleDto(OTHER_USER_ID, "용감한", "Brave", TitleRarity.RARE, TitlePosition.LEFT),
+                        commentTitleDto(OTHER_USER_ID, "전사", "Warrior", TitleRarity.RARE, TitlePosition.RIGHT)),
+                    TEST_USER_ID, List.of(
+                        commentTitleDto(TEST_USER_ID, "성실한", "Diligent", TitleRarity.COMMON, TitlePosition.LEFT))
+                ));
+
+            // when (Accept-Language 미지정 시 기본 언어가 영어라 한국어 검증은 ko 명시)
+            Page<FeedCommentResponse> result =
+                feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "ko");
+
+            // then - 최상위 댓글: 좌/우 칭호 + 동일 희귀도
+            FeedCommentResponse parentResponse = result.getContent().get(0);
+            assertThat(parentResponse.getUserLeftTitle()).isEqualTo("용감한");
+            assertThat(parentResponse.getUserLeftTitleRarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(parentResponse.getUserRightTitle()).isEqualTo("전사");
+            assertThat(parentResponse.getUserRightTitleRarity()).isEqualTo(TitleRarity.RARE);
+
+            // then - 대댓글: 좌측만 장착
+            FeedCommentResponse replyResponse = parentResponse.getReplies().get(0);
+            assertThat(replyResponse.getUserLeftTitle()).isEqualTo("성실한");
+            assertThat(replyResponse.getUserLeftTitleRarity()).isEqualTo(TitleRarity.COMMON);
+            assertThat(replyResponse.getUserRightTitle()).isNull();
+            assertThat(replyResponse.getUserRightTitleRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-422: locale=en이면 댓글 칭호가 영어명으로 내려간다")
+        void getComments_localeEn_localizesTitles() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = rootComment(feed, 10L, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+            stubCommentCollaborators();
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenReturn(Map.of(OTHER_USER_ID, List.of(
+                    commentTitleDto(OTHER_USER_ID, "용감한", "Brave", TitleRarity.EPIC, TitlePosition.LEFT))));
+
+            // when
+            Page<FeedCommentResponse> result =
+                feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10, "en");
+
+            // then
+            assertThat(result.getContent().get(0).getUserLeftTitle()).isEqualTo("Brave");
+            assertThat(result.getContent().get(0).getUserLeftTitleRarity()).isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("LUT-422: 칭호 미장착 유저는 칭호 필드가 null이다")
+        void getComments_noEquippedTitles_titleFieldsNull() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = rootComment(feed, 10L, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+            stubCommentCollaborators();
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenReturn(Map.of());
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then
+            FeedCommentResponse response = result.getContent().get(0);
+            assertThat(response.getUserLeftTitle()).isNull();
+            assertThat(response.getUserLeftTitleRarity()).isNull();
+            assertThat(response.getUserRightTitle()).isNull();
+            assertThat(response.getUserRightTitleRarity()).isNull();
+        }
+
+        @Test
+        @DisplayName("LUT-422: 칭호 조회가 실패해도 댓글 목록은 정상 반환된다 (칭호만 미표시)")
+        void getComments_titleFacadeFails_gracefullyOmitsTitles() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = rootComment(feed, 10L, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+            stubCommentCollaborators();
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(anyList()))
+                .thenThrow(new RuntimeException("gamification-db unavailable"));
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getUserLeftTitle()).isNull();
+        }
     }
 
     @Nested

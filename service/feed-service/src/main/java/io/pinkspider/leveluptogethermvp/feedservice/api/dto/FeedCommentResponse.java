@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import java.time.LocalDateTime;
@@ -29,6 +30,14 @@ public class FeedCommentResponse {
     private String userNickname;
     private String userProfileImageUrl;
     private Integer userLevel;
+
+    // LUT-422: 댓글 유저 좌/우 칭호 — 조회 시점 장착 칭호를 locale 반영해 내려준다
+    // (피드 작성자 영역의 user_left_title / user_left_title_rarity 패턴과 동일)
+    private String userLeftTitle;
+    private TitleRarity userLeftTitleRarity;
+    private String userRightTitle;
+    private TitleRarity userRightTitleRarity;
+
     private String content;
 
     @JsonIgnore
