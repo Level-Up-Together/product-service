@@ -165,6 +165,10 @@ public class RankingService {
             .collect(Collectors.toList());
         Set<String> activeUserIds = new HashSet<>(userQueryFacadeService.getActiveUserIds(userIds));
 
+        // LUT-426: 레벨·칭호는 페이지 단위 배치 조회 (행 단위 N+1 제거)
+        Map<String, UserExperience> expMap = loadUserExperienceMap(userIds);
+        Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(userIds);
+
         List<RankingResponse> responses = new ArrayList<>();
         long startRank = pageable.getOffset() + 1;
 
@@ -173,13 +177,11 @@ public class RankingService {
                 continue;
             }
 
-            // 유저 레벨 조회
-            Integer userLevel = userExperienceRepository.findByUserId(stats.getUserId())
-                .map(exp -> exp.getCurrentLevel())
-                .orElse(1);
+            UserExperience exp = expMap.get(stats.getUserId());
+            Integer userLevel = exp != null ? exp.getCurrentLevel() : 1;
 
-            // 장착된 칭호 조회 (LEFT + RIGHT 조합 및 등급)
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(stats.getUserId(), locale);
+            // 장착된 칭호 조합 (LEFT + RIGHT 조합 및 등급)
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(stats.getUserId()), locale);
 
             responses.add(RankingResponse.from(stats, startRank++, null, userLevel,
                 titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
@@ -280,6 +282,7 @@ public class RankingService {
             .map(UserExperience::getUserId)
             .collect(Collectors.toList());
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+        Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         for (int i = 0; i < slice.size(); i++) {
@@ -287,7 +290,7 @@ public class RankingService {
             UserProfileInfo profile = profileMap.get(exp.getUserId());
             String nickname = profile != null ? profile.nickname() : null;
             String profileImageUrl = profile != null ? profile.picture() : null;
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(exp.getUserId(), locale);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(exp.getUserId()), locale);
 
             responses.add(LevelRankingResponse.from(
                 exp, ranks[from + i], totalUsers, nickname, profileImageUrl,
@@ -357,6 +360,8 @@ public class RankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+        Map<String, UserExperience> expMap = loadUserExperienceMap(sliceIds);
+        Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         for (int i = 0; i < slice.size(); i++) {
@@ -365,8 +370,8 @@ public class RankingService {
             long rank = ranks[from + i];
 
             UserProfileInfo profile = profileMap.get(userId);
-            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+            UserExperience userExp = expMap.get(userId);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(userId), locale);
 
             responses.add(LevelRankingResponse.builder()
                 .rank(rank)
@@ -419,14 +424,16 @@ public class RankingService {
 
         List<String> sliceIds = slice.stream().map(Map.Entry::getKey).collect(Collectors.toList());
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+        Map<String, UserExperience> expMap = loadUserExperienceMap(sliceIds);
+        Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         for (int i = 0; i < slice.size(); i++) {
             String userId = slice.get(i).getKey();
             long rank = from + i + 1L;
             UserProfileInfo profile = profileMap.get(userId);
-            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+            UserExperience userExp = expMap.get(userId);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(userId), locale);
 
             LevelRankingResponse response = LevelRankingResponse.builder()
                 .rank(rank)
@@ -573,6 +580,8 @@ public class RankingService {
             .map(row -> (String) row[0])
             .collect(Collectors.toList());
         Map<String, UserProfileInfo> profileMap = userQueryFacadeService.getUserProfiles(sliceIds);
+        Map<String, UserExperience> expMap = loadUserExperienceMap(sliceIds);
+        Map<String, List<UserTitle>> titleMap = loadEquippedTitleMap(sliceIds);
 
         List<LevelRankingResponse> responses = new ArrayList<>();
         for (int i = 0; i < slice.size(); i++) {
@@ -581,8 +590,8 @@ public class RankingService {
             long rank = ranks[from + i];
 
             UserProfileInfo profile = profileMap.get(userId);
-            UserExperience userExp = userExperienceRepository.findByUserId(userId).orElse(null);
-            TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
+            UserExperience userExp = expMap.get(userId);
+            TitleInfo titleInfo = buildTitleInfoFromList(titleMap.get(userId), locale);
 
             responses.add(LevelRankingResponse.builder()
                 .rank(rank)
@@ -810,8 +819,30 @@ public class RankingService {
 
     /** LUT-255: locale에 맞는 칭호명으로 조합 */
     private TitleInfo getCombinedEquippedTitleInfo(String userId, String locale) {
-        List<UserTitle> equippedTitles = userTitleRepository.findEquippedTitlesByUserId(userId);
-        if (equippedTitles.isEmpty()) {
+        return buildTitleInfoFromList(userTitleRepository.findEquippedTitlesByUserId(userId), locale);
+    }
+
+    /** LUT-426: 유저별 장착 칭호 배치 조회 — 랭킹 목록의 행 단위 칭호 쿼리(N+1) 제거용 */
+    private Map<String, List<UserTitle>> loadEquippedTitleMap(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
+            .collect(Collectors.groupingBy(UserTitle::getUserId));
+    }
+
+    /** LUT-426: 유저별 경험치 배치 조회 — 랭킹 목록의 행 단위 레벨 쿼리(N+1) 제거용 */
+    private Map<String, UserExperience> loadUserExperienceMap(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userExperienceRepository.findByUserIdIn(userIds).stream()
+            .collect(Collectors.toMap(UserExperience::getUserId, exp -> exp));
+    }
+
+    /** LUT-426: 미리 조회한 장착 칭호 목록으로 조합 정보 생성 (배치 경로 공용) */
+    private TitleInfo buildTitleInfoFromList(List<UserTitle> equippedTitles, String locale) {
+        if (equippedTitles == null || equippedTitles.isEmpty()) {
             return new TitleInfo(null, null, null, null, null, null, null);
         }
 
