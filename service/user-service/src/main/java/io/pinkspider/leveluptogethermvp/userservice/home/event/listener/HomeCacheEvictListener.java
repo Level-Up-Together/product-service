@@ -24,7 +24,9 @@ public class HomeCacheEvictListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTitleEquipped(TitleEquippedEvent event) {
         evictMvpCaches();
-        log.debug("칭호 장착 변경으로 MVP 캐시 무효화: userId={}", event.userId());
+        // LUT-427: 시즌 MVP에도 칭호가 실리므로 함께 무효화 (아이템 장착과 동일 정책)
+        evictCache("seasonMvpData");
+        log.debug("칭호 장착 변경으로 MVP·시즌 캐시 무효화: userId={}", event.userId());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

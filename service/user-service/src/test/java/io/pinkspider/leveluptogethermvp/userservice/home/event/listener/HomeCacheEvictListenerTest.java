@@ -44,15 +44,16 @@ class HomeCacheEvictListenerTest {
     }
 
     @Test
-    @DisplayName("칭호 장착 이벤트는 기존대로 MVP 캐시만 비운다 (시즌 캐시 미대상)")
-    void handleTitleEquipped_evictsMvpCachesOnly() {
+    @DisplayName("칭호 장착 이벤트도 시즌 MVP 캐시까지 비운다 (아이템 장착과 동일 정책)")
+    void handleTitleEquipped_evictsMvpAndSeasonCaches() {
         when(redisCacheManager.getCache(anyString())).thenReturn(cache);
 
         listener.handleTitleEquipped(new TitleEquippedEvent("user-1", "용감한 전사", null, null));
 
         verify(redisCacheManager).getCache("todayPlayers");
         verify(redisCacheManager).getCache("todayPlayersByCategory");
-        verify(redisCacheManager, never()).getCache("seasonMvpData");
+        verify(redisCacheManager).getCache("seasonMvpData");
+        verify(cache, times(3)).clear();
     }
 
     @Test
