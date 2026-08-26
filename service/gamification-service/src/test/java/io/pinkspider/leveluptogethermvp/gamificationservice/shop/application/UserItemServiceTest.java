@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.event.ItemEquippedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemResponse;
@@ -25,9 +26,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +41,9 @@ class UserItemServiceTest {
 
     @Mock
     private ShopItemRepository shopItemRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserItemService userItemService;
@@ -129,6 +135,13 @@ class UserItemServiceTest {
             assertThat(result.isEquipped()).isTrue();
             assertThat(target.getIsEquipped()).isTrue();
             assertThat(equipped.getIsEquipped()).isFalse(); // 같은 타입 기존 장착 해제
+
+            // LUT-427: 장착 변경 이벤트 발행 (홈·시즌 캐시 무효화 트리거)
+            ArgumentCaptor<ItemEquippedEvent> captor = ArgumentCaptor.forClass(ItemEquippedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(USER_ID);
+            assertThat(captor.getValue().shopItemId()).isEqualTo(3L);
+            assertThat(captor.getValue().equipped()).isTrue();
         }
 
         @Test
@@ -184,6 +197,7 @@ class UserItemServiceTest {
 
             assertThat(result.isEquipped()).isTrue();
             verify(userItemRepository, never()).findEquippedByUserIdAndItemTypeIn(any(), any());
+            verify(eventPublisher, never()).publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
         }
 
         @Test
@@ -214,6 +228,11 @@ class UserItemServiceTest {
 
             assertThat(result.isEquipped()).isFalse();
             assertThat(target.getIsEquipped()).isFalse();
+
+            // LUT-427: 해제 이벤트 발행 (equipped=false)
+            ArgumentCaptor<ItemEquippedEvent> captor = ArgumentCaptor.forClass(ItemEquippedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().equipped()).isFalse();
         }
 
         @Test
@@ -228,6 +247,7 @@ class UserItemServiceTest {
             UserItemResponse result = userItemService.unequipItem(USER_ID, 3L);
 
             assertThat(result.isEquipped()).isFalse();
+            verify(eventPublisher, never()).publishEvent(any(ItemEquippedEvent.class)); // 변경 없음 → 미발행
         }
 
         @Test

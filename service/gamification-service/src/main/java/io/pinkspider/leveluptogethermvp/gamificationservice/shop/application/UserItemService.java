@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
+import io.pinkspider.global.event.ItemEquippedEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemResponse;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,7 @@ public class UserItemService {
 
     private final UserItemRepository userItemRepository;
     private final ShopItemRepository shopItemRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 내 인벤토리 조회 — 기본 아이템 미보유 시 lazy 지급 후 반환 */
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -65,6 +68,8 @@ public class UserItemService {
             .forEach(UserItem::unequip);
 
         userItem.equip();
+        // LUT-427: 홈·시즌 캐시 즉시 무효화 트리거 (AFTER_COMMIT 리스너 수신)
+        eventPublisher.publishEvent(new ItemEquippedEvent(userId, shopItemId, true));
         log.info("아이템 장착: userId={}, shopItemId={}, type={}",
             userId, shopItemId, userItem.getShopItem().getItemType());
         return UserItemResponse.from(userItem);
@@ -83,6 +88,8 @@ public class UserItemService {
         }
 
         userItem.unequip();
+        // LUT-427: 홈·시즌 캐시 즉시 무효화 트리거 (AFTER_COMMIT 리스너 수신)
+        eventPublisher.publishEvent(new ItemEquippedEvent(userId, shopItemId, false));
         log.info("아이템 장착해제: userId={}, shopItemId={}", userId, shopItemId);
         return UserItemResponse.from(userItem);
     }
