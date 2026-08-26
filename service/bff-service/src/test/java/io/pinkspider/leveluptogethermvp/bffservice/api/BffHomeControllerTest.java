@@ -44,6 +44,8 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionSta
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionSource;
 import io.pinkspider.global.enums.MissionStatus;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisibility;
 import io.pinkspider.leveluptogethermvp.noticeservice.api.dto.NoticeResponse;
@@ -141,6 +143,8 @@ class BffHomeControllerTest {
             .role(role)
             .status(GuildMemberStatus.ACTIVE)
             .joinedAt(LocalDateTime.now())
+            .equippedItemRarities(List.of(
+                new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)))
             .build();
     }
 
@@ -449,6 +453,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
                             fieldWithPath("value.rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value.rankings[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
+                            fieldWithPath("value.rankings[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.rankings[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.rankings[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.rankings[].earned_exp").type(JsonFieldType.NUMBER).description("획득 경험치"),
                             fieldWithPath("value.rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.mvp_guilds[]").type(JsonFieldType.ARRAY).description("MVP 길드 랭킹 (금일 EXP 획득 기준 상위 5개)"),
@@ -565,6 +572,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.members[].right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
                             fieldWithPath("value.members[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional(),
                             fieldWithPath("value.members[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
+                            fieldWithPath("value.members[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.members[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.members[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional(),
                             fieldWithPath("value.posts").type(JsonFieldType.OBJECT).description("게시글 목록 (페이징)"),
                             fieldWithPath("value.posts.content[]").type(JsonFieldType.ARRAY).description("게시글 목록"),
                             fieldWithPath("value.posts.content[].id").type(JsonFieldType.NUMBER).description("게시글 ID"),
@@ -722,6 +732,9 @@ class BffHomeControllerTest {
                             fieldWithPath("value.guild_activity_feeds.content[].user_left_title_rarity").type(JsonFieldType.STRING).description("사용자 좌측 칭호 등급").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].user_right_title").type(JsonFieldType.STRING).description("사용자 우측 칭호").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].user_right_title_rarity").type(JsonFieldType.STRING).description("사용자 우측 칭호 등급").optional(),
+                            fieldWithPath("value.guild_activity_feeds.content[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.guild_activity_feeds.content[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.guild_activity_feeds.content[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].activity_type").type(JsonFieldType.STRING).description("활동 유형"),
                             fieldWithPath("value.guild_activity_feeds.content[].activity_type_display_name").type(JsonFieldType.STRING).description("활동 유형 표시명"),
                             fieldWithPath("value.guild_activity_feeds.content[].category").type(JsonFieldType.STRING).description("활동 카테고리"),

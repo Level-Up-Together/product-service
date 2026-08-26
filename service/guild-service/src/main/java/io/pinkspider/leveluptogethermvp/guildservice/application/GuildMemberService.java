@@ -24,6 +24,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryS
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.translation.TitleNameUtils;
@@ -570,6 +571,15 @@ public class GuildMemberService {
                 response.setRightTitleRarity(titleInfo.rightRarity());
             } catch (Exception e) {
                 log.warn("칭호 정보 조회 실패: userId={}", member.getUserId());
+            }
+            try {
+                // LUT-424: 장착 아이템 희귀도 (썸네일 등급 표식용, 실패 시 빈 배열 유지)
+                response.setEquippedItemRarities(
+                    gamificationQueryFacadeService
+                        .getEquippedItemRaritiesByUserIds(List.of(member.getUserId()))
+                        .getOrDefault(member.getUserId(), List.of()));
+            } catch (Exception e) {
+                log.warn("장착 아이템 희귀도 조회 실패: userId={}", member.getUserId());
             }
         }
         return response;

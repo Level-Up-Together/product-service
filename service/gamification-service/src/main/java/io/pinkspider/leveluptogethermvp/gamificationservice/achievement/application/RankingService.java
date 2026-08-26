@@ -13,8 +13,10 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.Exper
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -28,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +56,8 @@ public class RankingService {
     // LUT-275: 랭킹 목록의 "현재 진행중인 미션" 표시용
     private final MissionQueryFacade missionQueryFacade;
     private final MissionCategoryService missionCategoryService;
+    // LUT-424: 랭킹 썸네일의 장착 아이템 등급 표식용
+    private final UserItemService userItemService;
 
     // 종합 랭킹 (랭킹 포인트 기준)
     public Page<RankingResponse> getOverallRanking(Pageable pageable) {
@@ -122,8 +128,10 @@ public class RankingService {
 
         TitleInfo titleInfo = getCombinedEquippedTitleInfo(userId, locale);
 
-        return RankingResponse.from(stats, rank, null, userLevel, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
+        RankingResponse response = RankingResponse.from(stats, rank, null, userLevel, titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
             titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
+        enrichRankingItemRarities(List.of(response));
+        return response;
     }
 
     // 주변 랭킹 조회 (내 위아래 N명)
@@ -178,6 +186,7 @@ public class RankingService {
                 titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity()));
         }
 
+        enrichRankingItemRarities(responses);
         return new PageImpl<>(responses, pageable, statsPage.getTotalElements());
     }
 
@@ -208,21 +217,24 @@ public class RankingService {
         UserExperience userExp = userExperienceRepository.findByUserId(userId)
             .orElse(null);
 
+        LevelRankingResponse response;
         if (userExp == null) {
-            return LevelRankingResponse.defaultResponse(userId, totalUsers, nickname, profileImageUrl,
+            response = LevelRankingResponse.defaultResponse(userId, totalUsers, nickname, profileImageUrl,
+                titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
+                titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
+        } else {
+            long rank = userExperienceRepository.calculateLevelRankAmongActiveUsers(
+                userExp.getCurrentLevel(),
+                userExp.getTotalExp(),
+                activeUserIds
+            );
+
+            response = LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl,
                 titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
                 titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
         }
-
-        long rank = userExperienceRepository.calculateLevelRankAmongActiveUsers(
-            userExp.getCurrentLevel(),
-            userExp.getTotalExp(),
-            activeUserIds
-        );
-
-        return LevelRankingResponse.from(userExp, rank, totalUsers, nickname, profileImageUrl,
-            titleInfo.name(), titleInfo.rarity(), titleInfo.colorCode(),
-            titleInfo.leftTitle(), titleInfo.leftRarity(), titleInfo.rightTitle(), titleInfo.rightRarity());
+        enrichItemRarities(List.of(response));
+        return response;
     }
 
     /**
@@ -284,6 +296,7 @@ public class RankingService {
                 titleInfo.rightRarity()));
         }
 
+        enrichItemRarities(responses);
         enrichInProgressMissions(responses, viewerUserId, locale);
         return new PageImpl<>(responses, pageable, totalUsers);
     }
@@ -375,6 +388,7 @@ public class RankingService {
                 .build());
         }
 
+        enrichItemRarities(responses);
         enrichInProgressMissions(responses, viewerUserId, locale);
         return new PageImpl<>(responses, pageable, totalUsers);
     }
@@ -436,6 +450,7 @@ public class RankingService {
                 toInProgressMissionInfo(slice.get(i).getValue(), userId, viewerUserId, locale));
             responses.add(response);
         }
+        enrichItemRarities(responses);
         return new PageImpl<>(responses, pageable, totalUsers);
     }
 
@@ -505,7 +520,7 @@ public class RankingService {
             ? totalUsers + 1
             : active.stream().filter(row -> categoryExpOf(row) > myPeriodExp).count() + 1;
 
-        return LevelRankingResponse.builder()
+        LevelRankingResponse response = LevelRankingResponse.builder()
             .rank(rank)
             .userId(userId)
             .nickname(profile != null ? profile.nickname() : null)
@@ -524,6 +539,8 @@ public class RankingService {
             .totalUsers(totalUsers)
             .percentile(myPeriodExp == null ? 100.0 : calculatePercentile(rank, totalUsers))
             .build();
+        enrichItemRarities(List.of(response));
+        return response;
     }
 
     /**
@@ -587,8 +604,46 @@ public class RankingService {
                 .percentile(calculatePercentile(rank, totalUsers))
                 .build());
         }
+        enrichItemRarities(responses);
         enrichInProgressMissions(responses, viewerUserId, locale);
         return new PageImpl<>(responses, pageable, totalUsers);
+    }
+
+    /**
+     * LUT-424: 랭킹 응답에 장착 아이템 타입·희귀도를 일괄 주입한다 (단일 IN 쿼리).
+     * 썸네일 표식용 데코 데이터라 조회 실패 시 빈 배열(@Builder.Default)을 유지하고 랭킹 응답은 살린다.
+     */
+    private <T> void enrichEquippedItemRarities(List<T> responses,
+                                                 Function<T, String> userIdExtractor,
+                                                 BiConsumer<T, List<EquippedItemRarityDto>> setter) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        try {
+            List<String> userIds = responses.stream()
+                .map(userIdExtractor)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+            Map<String, List<EquippedItemRarityDto>> rarityMap =
+                userItemService.getEquippedItemRarityMap(userIds);
+            for (T response : responses) {
+                String userId = userIdExtractor.apply(response);
+                setter.accept(response, rarityMap.getOrDefault(userId, List.of()));
+            }
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
+        }
+    }
+
+    private void enrichItemRarities(List<LevelRankingResponse> responses) {
+        enrichEquippedItemRarities(responses, LevelRankingResponse::getUserId,
+            LevelRankingResponse::setEquippedItemRarities);
+    }
+
+    private void enrichRankingItemRarities(List<RankingResponse> responses) {
+        enrichEquippedItemRarities(responses, RankingResponse::getUserId,
+            RankingResponse::setEquippedItemRarities);
     }
 
     /** 잘못된 타임존 문자열은 기본값(Asia/Seoul)으로 폴백 — 무인증 공개 API의 클라이언트 헤더 방어 */
@@ -694,7 +749,7 @@ public class RankingService {
             ? totalUsers + 1
             : activeRows.stream().filter(row -> categoryExpOf(row) > myCategoryExp).count() + 1;
 
-        return LevelRankingResponse.builder()
+        LevelRankingResponse response = LevelRankingResponse.builder()
             .rank(rank)
             .userId(userId)
             .nickname(profile != null ? profile.nickname() : null)
@@ -712,6 +767,8 @@ public class RankingService {
             .totalUsers(totalUsers)
             .percentile(myCategoryExp == null ? 100.0 : calculatePercentile(rank, totalUsers))
             .build();
+        enrichItemRarities(List.of(response));
+        return response;
     }
 
     /** 카테고리 랭킹 행 {userId, categoryExp} 에서 카테고리 경험치를 추출한다. */

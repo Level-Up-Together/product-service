@@ -16,7 +16,9 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -102,6 +104,7 @@ class HomeControllerTest {
             .title("모험가")
             .earnedExp(1000L - (rank * 100L))
             .rank(rank)
+            .equippedItemRarities(List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)))
             .build();
     }
 
@@ -263,7 +266,10 @@ class HomeControllerTest {
                             fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
                             fieldWithPath("value[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
                             fieldWithPath("value[].earned_exp").type(JsonFieldType.NUMBER).description("오늘 획득한 경험치"),
-                            fieldWithPath("value[].rank").type(JsonFieldType.NUMBER).description("순위")
+                            fieldWithPath("value[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424). 미장착 시 빈 배열").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC, FULL, HEAD, EFFECT, ETC)").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional()
                         )
                         .build()
                 )
@@ -385,8 +391,10 @@ class HomeControllerTest {
         );
 
         List<SeasonMvpPlayerDto> players = List.of(
-            new SeasonMvpPlayerDto("user-1", "플레이어1", "https://example.com/profile1.jpg", 15, "모험가", null, null, null, null, null, 50000L, 1),
-            new SeasonMvpPlayerDto("user-2", "플레이어2", "https://example.com/profile2.jpg", 12, "탐험가", null, null, null, null, null, 40000L, 2)
+            new SeasonMvpPlayerDto("user-1", "플레이어1", "https://example.com/profile1.jpg", 15, "모험가", null, null, null, null, null, 50000L, 1,
+                List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))),
+            new SeasonMvpPlayerDto("user-2", "플레이어2", "https://example.com/profile2.jpg", 12, "탐험가", null, null, null, null, null, 40000L, 2,
+                List.of())
         );
 
         List<SeasonMvpGuildDto> guilds = List.of(
@@ -439,6 +447,9 @@ class HomeControllerTest {
                             fieldWithPath("value.season_mvp_players[].right_title_color_code").type(JsonFieldType.STRING).description("오른쪽 칭호 색상 코드").optional(),
                             fieldWithPath("value.season_mvp_players[].season_exp").type(JsonFieldType.NUMBER).description("시즌 획득 경험치"),
                             fieldWithPath("value.season_mvp_players[].rank").type(JsonFieldType.NUMBER).description("순위"),
+                            fieldWithPath("value.season_mvp_players[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424). 미장착 시 빈 배열").optional(),
+                            fieldWithPath("value.season_mvp_players[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC, FULL, HEAD, EFFECT, ETC)").optional(),
+                            fieldWithPath("value.season_mvp_players[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC)").optional(),
                             fieldWithPath("value.season_mvp_guilds[]").type(JsonFieldType.ARRAY).description("시즌 MVP 길드 목록"),
                             fieldWithPath("value.season_mvp_guilds[].guild_id").type(JsonFieldType.NUMBER).description("길드 ID"),
                             fieldWithPath("value.season_mvp_guilds[].name").type(JsonFieldType.STRING).description("길드명"),

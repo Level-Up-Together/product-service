@@ -21,6 +21,8 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.Seaso
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto.SeasonMvpPlayerResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.domain.entity.Season;
 import io.pinkspider.leveluptogethermvp.gamificationservice.season.infrastructure.SeasonRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -65,6 +67,9 @@ class SeasonRankingServiceTest {
 
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private UserItemService userItemService;
 
     @InjectMocks
     private SeasonRankingService seasonRankingService;
@@ -165,6 +170,64 @@ class SeasonRankingServiceTest {
             // 합쳐진 칭호와 가장 높은 등급
             assertThat(player.title()).isEqualTo("강인한 정복자");
             assertThat(player.titleRarity()).isEqualTo(TitleRarity.MYTHIC);
+        }
+
+        @Test
+        @DisplayName("시즌 MVP 플레이어에 장착 아이템 타입·희귀도가 포함된다 (LUT-424)")
+        void getSeasonMvpData_withEquippedItemRarities() {
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{testUserId, 1000L});
+
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of());
+            when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
+                .thenReturn(java.util.Map.of(testUserId, List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+
+            Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
+
+            assertThat(resultOpt).isPresent();
+            SeasonMvpPlayerResponse player = resultOpt.get().seasonMvpPlayers().get(0);
+            assertThat(player.equippedItemRarities()).hasSize(2);
+            assertThat(player.equippedItemRarities()).extracting(EquippedItemRarityDto::itemType)
+                .containsExactlyInAnyOrder("HEAD", "EFFECT");
+        }
+
+        @Test
+        @DisplayName("아이템 희귀도 조회가 실패해도 시즌 MVP 응답은 빈 배열로 유지된다 (LUT-424)")
+        void getSeasonMvpData_itemRarityFailure_keepsResponse() {
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(new Object[]{testUserId, 1000L});
+
+            when(seasonRepository.findCurrentSeason(any(LocalDateTime.class))).thenReturn(Optional.of(testSeason));
+            when(experienceHistoryRepository.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(guildQueryFacadeService.getTopExpGuildsByPeriod(any(), any(), any()))
+                .thenReturn(List.of());
+            when(userQueryFacadeService.getActiveUserIds(List.of(testUserId))).thenReturn(List.of(testUserId));
+            when(userQueryFacadeService.getUserProfiles(List.of(testUserId))).thenReturn(java.util.Map.of(testUserId, new UserProfileInfo(testUserId, "테스터", "https://example.com/profile.jpg", 5, null, null, null)));
+            when(userExperienceRepository.findByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of(testUserExperience));
+            when(userTitleRepository.findEquippedTitlesByUserIdIn(List.of(testUserId)))
+                .thenReturn(List.of());
+            when(userItemService.getEquippedItemRarityMap(List.of(testUserId)))
+                .thenThrow(new RuntimeException("db down"));
+
+            Optional<SeasonMvpData> resultOpt = seasonRankingService.getSeasonMvpData(null);
+
+            assertThat(resultOpt).isPresent();
+            SeasonMvpPlayerResponse player = resultOpt.get().seasonMvpPlayers().get(0);
+            assertThat(player.equippedItemRarities()).isEmpty();
         }
 
         @Test

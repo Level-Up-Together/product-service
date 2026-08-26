@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.ActivityType;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.enums.FeedVisibility;
@@ -37,6 +38,11 @@ public class ActivityFeedResponse {
     private TitleRarity userLeftTitleRarity;
     private String userRightTitle;
     private TitleRarity userRightTitleRarity;
+
+    // LUT-424: 작성자 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 스냅샷 없이 조회 시점 라이브 주입, 미장착이면 빈 배열.
+    @Builder.Default
+    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
+
     private ActivityType activityType;
     private String activityTypeDisplayName;
     private String category;

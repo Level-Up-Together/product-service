@@ -18,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.userservice.home.api.dto.MvpGuildRespons
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
@@ -116,6 +117,89 @@ class HomeServiceTest {
             assertThat(result.get(0).getNickname()).isEqualTo("테스터");
             assertThat(result.get(0).getLevel()).isEqualTo(5);
             assertThat(result.get(0).getRank()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("장착 아이템 타입·희귀도를 함께 내려준다 (LUT-424)")
+        void getTodayPlayers_returnsEquippedItemRarities() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("BASIC", TitleRarity.RARE))));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).hasSize(2);
+            assertThat(result.get(0).getEquippedItemRarities().get(0).itemType()).isEqualTo("HEAD");
+            assertThat(result.get(0).getEquippedItemRarities().get(0).rarity())
+                .isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("장착 아이템이 없는 유저는 빈 배열로 내려준다 (LUT-424)")
+        void getTodayPlayers_noEquippedItems_returnsEmptyList() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("아이템 희귀도 조회 실패 시에도 플레이어 응답은 유지된다 (LUT-424)")
+        void getTodayPlayers_itemRarityFetchFailure_keepsResponse() {
+            // given
+            Object[] row1 = {testUserId, 100L};
+            List<Object[]> topGainers = new ArrayList<>();
+            topGainers.add(row1);
+
+            when(gamificationQueryFacadeService.findTopExpGainersByPeriod(any(), any(), any()))
+                .thenReturn(topGainers);
+            when(userRepository.findAllById(List.of(testUserId))).thenReturn(List.of(testUser));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId, 5));
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(testUserId)))
+                .thenThrow(new RuntimeException("gamification_db down"));
+
+            // when
+            List<TodayPlayerResponse> result = homeService.getTodayPlayers();
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).isEmpty();
         }
 
         @Test

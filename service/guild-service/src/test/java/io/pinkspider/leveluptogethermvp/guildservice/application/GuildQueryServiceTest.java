@@ -31,6 +31,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.TitlePosition;
@@ -490,6 +491,71 @@ class GuildQueryServiceTest {
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getUserLevel()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("LUT-424: 길드 멤버 응답에 장착 아이템 희귀도가 배치 주입된다")
+        void getGuildMembers_setsEquippedItemRarities() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(java.util.Map.of(testMasterId, List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).hasSize(2);
+            assertThat(result.get(0).getEquippedItemRarities().get(0).itemType()).isEqualTo("HEAD");
+            assertThat(result.get(0).getEquippedItemRarities().get(0).rarity())
+                .isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("LUT-424: 장착 아이템이 없는 멤버는 빈 배열로 반환된다")
+        void getGuildMembers_noEquippedItems_returnsEmptyList() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(java.util.Map.of());
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("LUT-424: 아이템 희귀도 조회 실패 시에도 멤버 목록은 빈 배열로 정상 반환된다")
+        void getGuildMembers_itemRarityLookupFails_returnsEmptyList() {
+            // given
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            lenient().when(guildMemberRepository.isActiveMember(1L, testMasterId)).thenReturn(true);
+            when(guildMemberRepository.findActiveMembers(1L)).thenReturn(List.of(testMasterMember));
+            when(userQueryFacadeService.getActiveUserIds(anyList())).thenReturn(List.of(testMasterId));
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(java.util.Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenThrow(new RuntimeException("gamification down"));
+
+            // when
+            List<GuildMemberResponse> result = guildQueryService.getGuildMembers(1L, testMasterId);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).isEmpty();
         }
 
         @Test

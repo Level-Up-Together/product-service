@@ -33,6 +33,7 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
@@ -593,6 +594,161 @@ class FeedQueryServiceTest {
             // then
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getUserLeftTitle()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-424 장착 아이템 희귀도 테스트")
+    class EquippedItemRaritiesTest {
+
+        private FeedComment rootComment(ActivityFeed feed, Long id, String userId) {
+            FeedComment comment = FeedComment.builder()
+                .feed(feed).userId(userId).userNickname("nick-" + userId)
+                .content("댓글").isDeleted(false).isEdited(false).build();
+            setId(comment, id);
+            return comment;
+        }
+
+        private void stubCommentCollaborators() {
+            when(feedCommentRepository.findRepliesByParentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.countByCommentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
+                .thenReturn(new HashMap<>());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+        }
+
+        @Test
+        @DisplayName("피드 목록에 작성자 장착 아이템 타입·희귀도가 포함된다")
+        void getPublicFeeds_setsEquippedItemRarities() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            // then
+            List<EquippedItemRarityDto> rarities = result.getContent().get(0).getEquippedItemRarities();
+            assertThat(rarities).hasSize(2);
+            assertThat(rarities.get(0).itemType()).isEqualTo("HEAD");
+            assertThat(rarities.get(0).rarity()).isEqualTo(TitleRarity.EPIC);
+            assertThat(rarities.get(1).itemType()).isEqualTo("EFFECT");
+            assertThat(rarities.get(1).rarity()).isEqualTo(TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("피드: 아이템 조회가 실패해도 피드 목록은 정상 반환되고 빈 배열을 유지한다")
+        void getPublicFeeds_itemFacadeFails_keepsEmptyList() {
+            // given
+            ActivityFeed feed = createTestFeed(1L, TEST_USER_ID);
+            when(activityFeedRepository.findAccessibleFeeds(any(), any(), any(), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(feed)));
+            when(feedLikeRepository.findLikedFeedIds(eq(TEST_USER_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenThrow(new RuntimeException("gamification-db unavailable"));
+
+            // when
+            Page<ActivityFeedResponse> result = feedQueryService.getPublicFeeds(TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("댓글·대댓글 유저의 장착 아이템 타입·희귀도가 응답에 포함된다")
+        void getComments_setsEquippedItemRarities() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment parent = rootComment(feed, 10L, OTHER_USER_ID);
+            FeedComment reply = FeedComment.builder()
+                .feed(feed).userId(TEST_USER_ID).userNickname("나").parent(parent)
+                .content("대댓글").isDeleted(false).isEdited(false).build();
+            setId(reply, 11L);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(parent)));
+            when(feedCommentRepository.findRepliesByParentIds(List.of(10L))).thenReturn(List.of(reply));
+            when(feedCommentLikeRepository.countByCommentIds(anyList())).thenReturn(List.of());
+            when(feedCommentLikeRepository.findLikedCommentIds(anyString(), anyList())).thenReturn(List.of());
+            when(reportService.isUnderReviewBatch(eq(ReportTargetType.FEED_COMMENT), anyList()))
+                .thenReturn(new HashMap<>());
+            when(userQueryFacadeService.getUserProfiles(anyList())).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(Map.of(
+                    OTHER_USER_ID, List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)),
+                    TEST_USER_ID, List.of(new EquippedItemRarityDto("BACK", TitleRarity.RARE))));
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then - 최상위 댓글
+            FeedCommentResponse parentResponse = result.getContent().get(0);
+            assertThat(parentResponse.getEquippedItemRarities()).hasSize(1);
+            assertThat(parentResponse.getEquippedItemRarities().get(0).itemType()).isEqualTo("HEAD");
+            assertThat(parentResponse.getEquippedItemRarities().get(0).rarity()).isEqualTo(TitleRarity.EPIC);
+
+            // then - 대댓글
+            FeedCommentResponse replyResponse = parentResponse.getReplies().get(0);
+            assertThat(replyResponse.getEquippedItemRarities()).hasSize(1);
+            assertThat(replyResponse.getEquippedItemRarities().get(0).itemType()).isEqualTo("BACK");
+            assertThat(replyResponse.getEquippedItemRarities().get(0).rarity()).isEqualTo(TitleRarity.RARE);
+        }
+
+        @Test
+        @DisplayName("댓글: 아이템 미장착 유저는 빈 배열이다")
+        void getComments_noEquippedItems_emptyList() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = rootComment(feed, 10L, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+            stubCommentCollaborators();
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenReturn(Map.of());
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("댓글: 아이템 조회가 실패해도 댓글 목록은 정상 반환된다 (빈 배열 유지)")
+        void getComments_itemFacadeFails_gracefullyKeepsEmptyList() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = rootComment(feed, 10L, OTHER_USER_ID);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(feedCommentRepository.findRootCommentsByFeedIdExcluding(eq(feedId), anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+            stubCommentCollaborators();
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(anyList()))
+                .thenThrow(new RuntimeException("gamification-db unavailable"));
+
+            // when
+            Page<FeedCommentResponse> result = feedQueryService.getComments(feedId, TEST_USER_ID, 0, 10);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).isEmpty();
         }
     }
 

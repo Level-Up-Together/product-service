@@ -20,6 +20,8 @@ import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import io.pinkspider.global.component.LmObjectMapper;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildExperienceService;
 import io.pinkspider.leveluptogethermvp.guildservice.application.GuildHeadquartersService;
@@ -501,6 +503,9 @@ class GuildControllerTest {
                 .role(GuildMemberRole.MASTER)
                 .status(GuildMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
+                .equippedItemRarities(List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE)))
                 .build(),
             GuildMemberResponse.builder()
                 .id(2L)
@@ -548,7 +553,10 @@ class GuildControllerTest {
                             fieldWithPath("value[].left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
                             fieldWithPath("value[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
                             fieldWithPath("value[].right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
-                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional()
                         )
                         .build()
                 )
@@ -1003,7 +1011,10 @@ class GuildControllerTest {
                             fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
                             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
                             fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
-                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional()
                         )
                         .build()
                 )
@@ -1065,7 +1076,10 @@ class GuildControllerTest {
                             fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
                             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
                             fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
-                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional()
                         )
                         .build()
                 )
@@ -1312,7 +1326,10 @@ class GuildControllerTest {
                             fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("왼쪽 칭호명").optional(),
                             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 희귀도").optional(),
                             fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("오른쪽 칭호명").optional(),
-                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional()
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 희귀도").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional()
                         )
                         .build()
                 )

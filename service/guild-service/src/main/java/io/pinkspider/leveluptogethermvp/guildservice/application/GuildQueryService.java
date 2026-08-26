@@ -11,6 +11,7 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildReposit
 import io.pinkspider.global.feign.admin.AdminInternalFeignClient;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
@@ -284,6 +285,16 @@ public class GuildQueryService {
         }
         Map<String, List<UserTitleDto>> equippedTitlesMap = titlesMap;
 
+        // 장착 아이템 희귀도 배치 조회 (LUT-424: 썸네일 등급 표식용, 실패 시 빈 배열 유지)
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap;
+        try {
+            itemRarityMap = gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(activeMemberUserIds);
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 배치 조회 실패: guildId={}, error={}", guildId, e.getMessage());
+            itemRarityMap = Map.of();
+        }
+        Map<String, List<EquippedItemRarityDto>> equippedItemRarityMap = itemRarityMap;
+
         // 멤버 정보에 사용자 정보 추가
         return members.stream()
             .map(member -> {
@@ -303,6 +314,8 @@ public class GuildQueryService {
                     response.setRightTitleName(titleInfo.rightTitle());
                     response.setRightTitleRarity(titleInfo.rightRarity());
                 }
+                response.setEquippedItemRarities(
+                    equippedItemRarityMap.getOrDefault(member.getUserId(), List.of()));
                 return response;
             })
             .toList();

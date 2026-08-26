@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.translation.dto.TranslationInfo;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
 import java.time.LocalDateTime;
@@ -37,6 +38,10 @@ public class FeedCommentResponse {
     private TitleRarity userLeftTitleRarity;
     private String userRightTitle;
     private TitleRarity userRightTitleRarity;
+
+    // LUT-424: 댓글 유저 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 미장착이면 빈 배열.
+    @Builder.Default
+    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
     private String content;
 

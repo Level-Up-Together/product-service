@@ -15,6 +15,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
 import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.RankingService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.LevelRankingResponse;
@@ -77,6 +79,8 @@ class RankingControllerTest {
                 .nickname("최강자")
                 .userLevel(50)
                 .equippedTitleName("레전드")
+                // LUT-424: 1위 행에만 장착 아이템 희귀도 예시 부여
+                .equippedItemRarities(List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)))
                 .build(),
             RankingResponse.builder()
                 .rank(2L)
@@ -139,6 +143,9 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value.content[].right_title_name").type(JsonFieldType.STRING).description("우측 칭호").optional(),
                             fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.pageable").type(JsonFieldType.OBJECT).description("페이징 정보").optional(),
                             fieldWithPath("value.pageable.page_number").type(JsonFieldType.NUMBER).description("페이지 번호").optional(),
                             fieldWithPath("value.pageable.page_size").type(JsonFieldType.NUMBER).description("페이지 크기").optional(),
@@ -328,7 +335,10 @@ class RankingControllerTest {
                             fieldWithPath("value.left_title_name").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
                             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value.right_title_name").type(JsonFieldType.STRING).description("우측 칭호").optional(),
-                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional()
+                            fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional()
                         )
                         .build()
                 )
@@ -388,7 +398,10 @@ class RankingControllerTest {
                             fieldWithPath("value[].left_title_name").type(JsonFieldType.STRING).description("좌측 칭호").optional(),
                             fieldWithPath("value[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value[].right_title_name").type(JsonFieldType.STRING).description("우측 칭호").optional(),
-                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional()
+                            fieldWithPath("value[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional()
                         )
                         .build()
                 )
@@ -409,6 +422,10 @@ class RankingControllerTest {
             .totalExp(totalExp)
             .totalUsers(100L)
             .percentile(rank / 100.0 * 100)
+            // LUT-424: 1위 행에만 장착 아이템 희귀도 예시 부여
+            .equippedItemRarities(rank == 1L
+                ? List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))
+                : List.of())
             // LUT-275: 1위 행에만 진행중 미션 예시 부여 (없는 유저는 null 임을 함께 문서화)
             .inProgressMission(rank == 1L
                 ? LevelRankingResponse.InProgressMissionInfo.builder()
@@ -469,6 +486,9 @@ class RankingControllerTest {
             fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
             fieldWithPath("value.content[].right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
             fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+            fieldWithPath("value.content[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+            fieldWithPath("value.content[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+            fieldWithPath("value.content[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
             fieldWithPath("value.content[].current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
             fieldWithPath("value.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
             fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
@@ -555,6 +575,9 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value.content[].right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
                             fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.content[].current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
                             fieldWithPath("value.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
@@ -651,6 +674,9 @@ class RankingControllerTest {
                             fieldWithPath("value.content[].left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value.content[].right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
                             fieldWithPath("value.content[].right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.content[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.content[].current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
                             fieldWithPath("value.content[].current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.content[].total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
@@ -742,6 +768,9 @@ class RankingControllerTest {
                             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
                             fieldWithPath("value.right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
                             fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),
@@ -989,6 +1018,9 @@ class RankingControllerTest {
             fieldWithPath("value.left_title_rarity").type(JsonFieldType.STRING).description("좌측 칭호 등급").optional(),
             fieldWithPath("value.right_title").type(JsonFieldType.STRING).description("우측 칭호").optional(),
             fieldWithPath("value.right_title_rarity").type(JsonFieldType.STRING).description("우측 칭호 등급").optional(),
+            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+            fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+            fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 총 경험치"),

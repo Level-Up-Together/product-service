@@ -198,7 +198,8 @@ class BffHomeServiceTest {
             null,
             null,
             1000L,
-            1
+            1,
+            List.of()
         );
 
         testSeasonMvpGuildDto = new SeasonMvpGuildDto(

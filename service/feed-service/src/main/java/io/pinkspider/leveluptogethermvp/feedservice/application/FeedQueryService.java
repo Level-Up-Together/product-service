@@ -27,6 +27,7 @@ import io.pinkspider.global.enums.ReportTargetType;
 import io.pinkspider.leveluptogethermvp.supportservice.report.application.ReportService;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.GuildMembershipInfo;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
@@ -119,6 +120,7 @@ public class FeedQueryService {
         });
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -249,6 +251,7 @@ public class FeedQueryService {
         });
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), targetLocale);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -345,6 +348,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(responseList);
         localizeUserTitles(responseList, acceptLanguage);
+        enrichEquippedItemRarities(responseList);
 
         return new org.springframework.data.domain.PageImpl<>(
             responseList,
@@ -393,6 +397,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -473,6 +478,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -515,6 +521,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -552,6 +559,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -594,6 +602,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
+        enrichEquippedItemRarities(result.getContent());
         return result;
     }
 
@@ -624,6 +633,7 @@ public class FeedQueryService {
         // QA-53: 다중 이미지 캐러셀
         enrichWithImageUrls(List.of(response));
         localizeUserTitles(List.of(response), acceptLanguage);
+        enrichEquippedItemRarities(List.of(response));
         return response;
     }
 
@@ -695,6 +705,10 @@ public class FeedQueryService {
         Map<String, DetailedTitleInfoDto> commentTitleMap =
             loadCommentUserTitles(commentUserIds, targetLocale);
 
+        // 2-1c) LUT-424: 댓글 작성자 장착 아이템 타입·희귀도 일괄 조회 (썸네일 등급 표식용)
+        Map<String, List<EquippedItemRarityDto>> commentItemRarityMap =
+            loadCommentUserItemRarities(commentUserIds);
+
         // 2-2) 댓글 번역 일괄 처리 (댓글별 개별 Google 호출 방지)
         List<FeedComment> allComments = new ArrayList<>(roots);
         allComments.addAll(replies);
@@ -709,16 +723,16 @@ public class FeedQueryService {
         Map<Long, List<FeedCommentResponse>> repliesByParent = new java.util.HashMap<>();
         for (FeedComment reply : replies) {
             FeedCommentResponse r = buildCommentResponse(reply, currentUserId, likeCountMap, likedSet,
-                underReviewMap, commentProfileMap, commentTitleMap, commentTranslationMap,
-                /*hasReplies*/ false);
+                underReviewMap, commentProfileMap, commentTitleMap, commentItemRarityMap,
+                commentTranslationMap, /*hasReplies*/ false);
             repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>()).add(r);
         }
 
         return rootPage.map(root -> {
             boolean hasReplies = activeReplyCountByParent.getOrDefault(root.getId(), 0L) > 0;
             FeedCommentResponse response = buildCommentResponse(root, currentUserId, likeCountMap,
-                likedSet, underReviewMap, commentProfileMap, commentTitleMap, commentTranslationMap,
-                hasReplies);
+                likedSet, underReviewMap, commentProfileMap, commentTitleMap, commentItemRarityMap,
+                commentTranslationMap, hasReplies);
             response.setReplies(repliesByParent.getOrDefault(root.getId(), List.of()));
             return response;
         });
@@ -750,6 +764,20 @@ public class FeedQueryService {
         }
     }
 
+    /** LUT-424: 댓글 작성자 장착 아이템 타입·희귀도 일괄 조회 — 표시 부가 정보라 실패 시 빈 맵 (빈 배열 유지). */
+    private Map<String, List<EquippedItemRarityDto>> loadCommentUserItemRarities(Set<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(
+                new ArrayList<>(userIds));
+        } catch (Exception e) {
+            log.warn("댓글 장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
     /**
      * 단일 댓글 응답 빌드 헬퍼. 트리 응답에서 부모/대댓글 공통으로 사용.
      */
@@ -758,6 +786,7 @@ public class FeedQueryService {
                                                      Map<String, Boolean> underReviewMap,
                                                      Map<String, UserProfileInfo> profileMap,
                                                      Map<String, DetailedTitleInfoDto> titleMap,
+                                                     Map<String, List<EquippedItemRarityDto>> itemRarityMap,
                                                      Map<Long, TranslationInfo> translationMap, boolean hasReplies) {
         TranslationInfo translation = translationMap.getOrDefault(
             comment.getId(), TranslationInfo.notTranslated(SupportedLocale.DEFAULT.getCode()));
@@ -782,6 +811,12 @@ public class FeedQueryService {
             response.setUserLeftTitleRarity(titleInfo.leftRarity());
             response.setUserRightTitle(titleInfo.rightTitle());
             response.setUserRightTitleRarity(titleInfo.rightRarity());
+        }
+
+        // LUT-424: 댓글 유저 장착 아이템 타입·희귀도 (삭제된 댓글 제외 — 빈 배열 유지)
+        if (!response.getIsDeleted()) {
+            response.setEquippedItemRarities(
+                itemRarityMap.getOrDefault(comment.getUserId(), List.of()));
         }
 
         // 수정 가능 여부: 본인 + 미삭제 + (최상위면 활성 대댓글 없음 / 대댓글은 항상 가능)
@@ -1006,6 +1041,34 @@ public class FeedQueryService {
             }
         } catch (Exception e) {
             log.warn("피드 칭호 다국어 변환 실패 - 스냅샷 유지: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * LUT-424: 피드 작성자들의 장착 아이템 타입·희귀도를 배치 조회해 채운다 (썸네일 등급 표식용).
+     * 아이템은 피드 스냅샷이 없어 locale 무관 항상 라이브 조회하며, 표시 부가 정보라 실패 시 빈 배열을 유지한다.
+     */
+    private void enrichEquippedItemRarities(List<ActivityFeedResponse> responses) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        List<String> userIds = responses.stream()
+            .map(ActivityFeedResponse::getUserId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, List<EquippedItemRarityDto>> rarityMap =
+                gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(userIds);
+            for (ActivityFeedResponse response : responses) {
+                response.setEquippedItemRarities(
+                    rarityMap.getOrDefault(response.getUserId(), List.of()));
+            }
+        } catch (Exception e) {
+            log.warn("피드 장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
         }
     }
 }

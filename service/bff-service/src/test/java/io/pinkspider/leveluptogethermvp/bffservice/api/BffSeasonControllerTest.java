@@ -20,6 +20,7 @@ import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
 import io.pinkspider.global.facade.dto.SeasonMvpPlayerDto;
@@ -147,7 +148,8 @@ class BffSeasonControllerTest {
             null,
             null,
             10000L - (rank * 100L),
-            rank
+            rank,
+            List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))
         );
     }
 
@@ -309,6 +311,9 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.player_rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
                             fieldWithPath("value.player_rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
                             fieldWithPath("value.player_rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.player_rankings[].season_exp").type(JsonFieldType.NUMBER).description("시즌 경험치"),
                             fieldWithPath("value.player_rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             // 길드 랭킹
@@ -443,6 +448,9 @@ class BffSeasonControllerTest {
                             fieldWithPath("value.player_rankings[].left_title_rarity").type(JsonFieldType.STRING).description("왼쪽 칭호 등급").optional(),
                             fieldWithPath("value.player_rankings[].right_title").type(JsonFieldType.STRING).description("오른쪽 칭호 (명사형)").optional(),
                             fieldWithPath("value.player_rankings[].right_title_rarity").type(JsonFieldType.STRING).description("오른쪽 칭호 등급").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities").type(JsonFieldType.ARRAY).description("장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-424)").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value.player_rankings[].equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도 (COMMON~MYTHIC)").optional(),
                             fieldWithPath("value.player_rankings[].season_exp").type(JsonFieldType.NUMBER).description("시즌 경험치"),
                             fieldWithPath("value.player_rankings[].rank").type(JsonFieldType.NUMBER).description("순위"),
                             fieldWithPath("value.guild_rankings[]").type(JsonFieldType.ARRAY).description("길드 랭킹"),

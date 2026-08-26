@@ -16,6 +16,7 @@ import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -800,7 +801,8 @@ class GamificationQueryFacadeServiceTest {
             SeasonMvpPlayerResponse player = SeasonMvpPlayerResponse.of(
                 "player-1", "플레이어1", null, 10,
                 "신입 수련생", TitleRarity.COMMON, "신입", TitleRarity.COMMON,
-                "수련생", TitleRarity.COMMON, 1000L, 1
+                "수련생", TitleRarity.COMMON, 1000L, 1,
+                List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))
             );
             SeasonMvpGuildResponse guild = SeasonMvpGuildResponse.of(
                 100L, "챔피언 길드", null, 5, 30, 5000L, 1
@@ -1134,7 +1136,8 @@ class GamificationQueryFacadeServiceTest {
             SeasonMvpPlayerResponse player = SeasonMvpPlayerResponse.of(
                 "player-1", "플레이어1", null, 10,
                 "신입 수련생", TitleRarity.COMMON, "신입", TitleRarity.COMMON,
-                "수련생", TitleRarity.COMMON, 1000L, 1
+                "수련생", TitleRarity.COMMON, 1000L, 1,
+                List.of(new EquippedItemRarityDto("BASIC", TitleRarity.RARE))
             );
 
             when(seasonRankingService.getSeasonById(1L)).thenReturn(Optional.of(season));
@@ -1148,6 +1151,8 @@ class GamificationQueryFacadeServiceTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).userId()).isEqualTo("player-1");
             assertThat(result.get(0).seasonExp()).isEqualTo(1000L);
+            assertThat(result.get(0).equippedItemRarities()).hasSize(1);
+            assertThat(result.get(0).equippedItemRarities().get(0).itemType()).isEqualTo("BASIC");
             assertThat(result.get(0).rank()).isEqualTo(1);
             verify(seasonRankingService).getSeasonPlayerRankings(eq(season), eq(null), eq(10), eq("ko"));
         }
@@ -1345,6 +1350,26 @@ class GamificationQueryFacadeServiceTest {
             assertThat(result.get(0).itemType()).isEqualTo("EFFECT");
             assertThat(result.get(0).imagePosition()).isEqualTo("BACK");
             assertThat(result.get(0).isEquipped()).isTrue();
+        }
+
+        @Test
+        @DisplayName("getEquippedItemRaritiesByUserIds 는 UserItemService 배치 조회에 위임한다 (LUT-424)")
+        void getEquippedItemRaritiesByUserIds_delegates() {
+            // given
+            var rarityMap = java.util.Map.of(
+                TEST_USER_ID, java.util.List.of(
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE),
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC)));
+            when(userItemService.getEquippedItemRarityMap(java.util.List.of(TEST_USER_ID, "other-user")))
+                .thenReturn(rarityMap);
+
+            // when
+            var result = facadeService.getEquippedItemRaritiesByUserIds(
+                java.util.List.of(TEST_USER_ID, "other-user"));
+
+            // then
+            assertThat(result).isEqualTo(rarityMap);
+            assertThat(result).doesNotContainKey("other-user");
         }
     }
 }

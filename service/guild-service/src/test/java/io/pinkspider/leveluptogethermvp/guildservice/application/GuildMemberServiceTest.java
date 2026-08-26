@@ -35,6 +35,7 @@ import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.TitlePosition;
@@ -44,6 +45,7 @@ import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryRe
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -713,6 +715,65 @@ class GuildMemberServiceTest {
 
             // then
             assertThat(response.getEquippedTitleName()).isEqualTo("용감한");
+        }
+
+        @Test
+        @DisplayName("LUT-424: 승격 응답에 장착 아이템 희귀도가 포함된다")
+        void promoteToSubMaster_setsEquippedItemRarities() {
+            // given
+            GuildMember targetMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileInfo(testUserId, "테스트유저", null, 1, null, null, null));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(testUserId)))
+                .thenReturn(Map.of(testUserId,
+                    List.of(new EquippedItemRarityDto("BASIC", TitleRarity.LEGENDARY))));
+
+            // when
+            GuildMemberResponse response =
+                guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId);
+
+            // then
+            assertThat(response.getEquippedItemRarities()).hasSize(1);
+            assertThat(response.getEquippedItemRarities().get(0).itemType()).isEqualTo("BASIC");
+            assertThat(response.getEquippedItemRarities().get(0).rarity())
+                .isEqualTo(TitleRarity.LEGENDARY);
+        }
+
+        @Test
+        @DisplayName("LUT-424: 아이템 희귀도 조회 실패 시에도 승격 응답은 빈 배열로 정상 반환된다")
+        void promoteToSubMaster_itemRarityLookupFails_returnsEmptyList() {
+            // given
+            GuildMember targetMember = GuildMember.builder()
+                .guild(testGuild)
+                .userId(testUserId)
+                .role(GuildMemberRole.MEMBER)
+                .status(GuildMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+            when(guildHelper.findActiveGuildById(1L)).thenReturn(testGuild);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId)).thenReturn(Optional.of(targetMember));
+            when(userQueryFacadeService.getUserProfile(testUserId)).thenReturn(
+                new UserProfileInfo(testUserId, "테스트유저", null, 1, null, null, null));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(testUserId)))
+                .thenThrow(new RuntimeException("gamification down"));
+
+            // when
+            GuildMemberResponse response =
+                guildMemberService.promoteToSubMaster(1L, testMasterId, testUserId);
+
+            // then
+            assertThat(response.getRole()).isEqualTo(GuildMemberRole.SUB_MASTER);
+            assertThat(response.getEquippedItemRarities()).isEmpty();
         }
 
         @Test

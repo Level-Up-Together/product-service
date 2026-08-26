@@ -19,6 +19,7 @@ import io.pinkspider.global.event.FriendRequestRejectedEvent;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendResponse;
@@ -524,6 +525,85 @@ class FriendServiceTest {
             assertThat(result.getContent().get(0).getFriendTitle()).isNull();
             assertThat(result.getContent().get(0).getFriendTitleLeft()).isNull();
             assertThat(result.getContent().get(0).getFriendTitleRight()).isNull();
+        }
+
+        @Test
+        @DisplayName("장착 아이템 타입·희귀도를 함께 내려준다 (LUT-424)")
+        void getFriends_returnsEquippedItemRarities() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID,
+                    List.of(new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+
+            // when
+            Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
+
+            // then
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).hasSize(1);
+            assertThat(result.getContent().get(0).getEquippedItemRarities().get(0).itemType())
+                .isEqualTo("HEAD");
+            assertThat(result.getContent().get(0).getEquippedItemRarities().get(0).rarity())
+                .isEqualTo(TitleRarity.EPIC);
+        }
+
+        @Test
+        @DisplayName("아이템 희귀도 조회 실패 시에도 친구 목록은 빈 배열로 유지된다 (LUT-424)")
+        void getFriends_itemRarityFetchFailure_keepsResponse() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Friendship friendship = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.ACCEPTED);
+            Page<Friendship> page = new PageImpl<>(List.of(friendship), pageable, 1);
+            Users friend = createTestUser(FRIEND_USER_ID, "친구");
+
+            when(friendshipRepository.findFriends(TEST_USER_ID, pageable)).thenReturn(page);
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(friend));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenThrow(new RuntimeException("gamification_db down"));
+
+            // when
+            Page<FriendResponse> result = friendService.getFriends(TEST_USER_ID, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("차단 목록에도 장착 아이템 타입·희귀도를 내려준다 (LUT-424)")
+        void getBlockedUsers_returnsEquippedItemRarities() {
+            // given
+            Friendship blocked = createTestFriendship(1L, TEST_USER_ID, FRIEND_USER_ID, FriendshipStatus.BLOCKED);
+            Users target = createTestUser(FRIEND_USER_ID, "차단유저");
+
+            when(friendshipRepository.findBlockedUsers(TEST_USER_ID)).thenReturn(List.of(blocked));
+            when(userRepository.findAllById(List.of(FRIEND_USER_ID))).thenReturn(List.of(target));
+            when(gamificationQueryFacadeService.getUserLevelMap(List.of(FRIEND_USER_ID))).thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of());
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(FRIEND_USER_ID)))
+                .thenReturn(Map.of(FRIEND_USER_ID,
+                    List.of(new EquippedItemRarityDto("EFFECT", TitleRarity.LEGENDARY))));
+
+            // when
+            List<FriendResponse> result = friendService.getBlockedUsers(TEST_USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities()).hasSize(1);
+            assertThat(result.get(0).getEquippedItemRarities().get(0).itemType()).isEqualTo("EFFECT");
         }
 
         private UserTitleDto titleDto(String userId, String name, TitlePosition position) {

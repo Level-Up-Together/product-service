@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserExperience;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,6 +37,11 @@ public class LevelRankingResponse {
 
     // LUT-297: 주간/월간 랭킹에서 해당 기간 획득 경험치 (정렬 기준). 그 외 랭킹에서는 null.
     private Long periodExp;
+
+    // LUT-424: 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 미장착이면 빈 배열.
+    @lombok.Setter
+    @Builder.Default
+    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
     // LUT-275: 현재 실시간 진행중인 미션 (없으면 null). 프로필(LUT-257)과 동일 스펙 —
     // 비노출 시 미션 정보는 null 마스킹되고 is_visible=false 로 내려간다.

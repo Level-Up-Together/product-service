@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.application;
 import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.SeasonDto;
 import io.pinkspider.global.facade.dto.SeasonMvpDataDto;
 import io.pinkspider.global.facade.dto.SeasonMvpGuildDto;
@@ -212,6 +213,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         return userItemService.getEquippedItemEntities(userId).stream()
             .map(this::toUserItemDto)
             .toList();
+    }
+
+    @Override
+    public Map<String, List<EquippedItemRarityDto>> getEquippedItemRaritiesByUserIds(
+            List<String> userIds) {
+        return userItemService.getEquippedItemRarityMap(userIds);
     }
 
     private UserItemDto toUserItemDto(
@@ -453,7 +460,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             .map(p -> new SeasonMvpPlayerDto(
                 p.userId(), p.nickname(), p.profileImageUrl(), p.level(),
                 p.title(), p.titleRarity(), p.leftTitle(), p.leftTitleRarity(),
-                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank()
+                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank(),
+                p.equippedItemRarities() != null ? p.equippedItemRarities() : List.of()
             ))
             .toList();
     }
@@ -563,7 +571,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             .map(p -> new SeasonMvpPlayerDto(
                 p.userId(), p.nickname(), p.profileImageUrl(), p.level(),
                 p.title(), p.titleRarity(), p.leftTitle(), p.leftTitleRarity(),
-                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank()
+                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank(),
+                p.equippedItemRarities() != null ? p.equippedItemRarities() : List.of()
             ))
             .toList();
 

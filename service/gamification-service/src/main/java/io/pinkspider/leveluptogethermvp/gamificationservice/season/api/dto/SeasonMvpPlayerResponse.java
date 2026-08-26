@@ -3,6 +3,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.season.api.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import java.util.List;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record SeasonMvpPlayerResponse(
@@ -17,7 +19,8 @@ public record SeasonMvpPlayerResponse(
     String rightTitle,
     TitleRarity rightTitleRarity,
     Long seasonExp,
-    Integer rank
+    Integer rank,
+    List<EquippedItemRarityDto> equippedItemRarities
 ) {
     public static SeasonMvpPlayerResponse of(
         String userId,
@@ -31,7 +34,8 @@ public record SeasonMvpPlayerResponse(
         String rightTitle,
         TitleRarity rightTitleRarity,
         Long seasonExp,
-        Integer rank
+        Integer rank,
+        List<EquippedItemRarityDto> equippedItemRarities
     ) {
         return new SeasonMvpPlayerResponse(
             userId,
@@ -45,7 +49,8 @@ public record SeasonMvpPlayerResponse(
             rightTitle,
             rightTitleRarity,
             seasonExp,
-            rank
+            rank,
+            equippedItemRarities != null ? equippedItemRarities : List.of()
         );
     }
 }

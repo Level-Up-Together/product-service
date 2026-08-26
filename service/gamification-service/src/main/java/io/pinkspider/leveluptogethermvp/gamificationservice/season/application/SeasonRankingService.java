@@ -16,9 +16,11 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserEx
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserTitle;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.ExperienceHistoryRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserExperienceRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserTitleRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import io.pinkspider.global.translation.LocaleUtils;
@@ -55,6 +57,7 @@ public class SeasonRankingService {
     private final UserQueryFacade userQueryFacadeService;
     private final UserExperienceRepository userExperienceRepository;
     private final UserTitleRepository userTitleRepository;
+    private final UserItemService userItemService;
     private final MissionCategoryService missionCategoryService;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -112,7 +115,8 @@ public class SeasonRankingService {
             data.seasonMvpPlayers().stream().map(p -> new SeasonMvpPlayerDto(
                 p.userId(), p.nickname(), p.profileImageUrl(), p.level(),
                 p.title(), p.titleRarity(), p.leftTitle(), p.leftTitleRarity(),
-                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank()
+                p.rightTitle(), p.rightTitleRarity(), p.seasonExp(), p.rank(),
+                p.equippedItemRarities() != null ? p.equippedItemRarities() : List.of()
             )).toList(),
             data.seasonMvpGuilds().stream().map(g -> new SeasonMvpGuildDto(
                 g.guildId(), g.name(), g.imageUrl(), g.level(),
@@ -171,6 +175,9 @@ public class SeasonRankingService {
         Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
             .collect(Collectors.groupingBy(UserTitle::getUserId));
 
+        // 4-1. 배치 조회: 장착 아이템 희귀도 (LUT-424)
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(userIds);
+
         // 5. 결과 조합
         List<SeasonMvpPlayerResponse> result = new ArrayList<>();
         int rank = 1;
@@ -200,11 +207,22 @@ public class SeasonRankingService {
                 titleInfo.rightTitle(),
                 titleInfo.rightRarity(),
                 earnedExp,
-                rank++
+                rank++,
+                itemRarityMap.getOrDefault(odayUserId, List.of())
             ));
         }
 
         return result;
+    }
+
+    /** LUT-424: 장착 아이템 희귀도 배치 조회 — 표식 데코 데이터라 실패해도 랭킹 응답은 유지한다. */
+    private Map<String, List<EquippedItemRarityDto>> loadEquippedItemRarities(List<String> userIds) {
+        try {
+            return userItemService.getEquippedItemRarityMap(userIds);
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 조회 실패 — 아이템 표식 없이 응답: {}", e.getMessage());
+            return Map.of();
+        }
     }
 
     /**
@@ -472,6 +490,8 @@ public class SeasonRankingService {
         Map<String, List<UserTitle>> titleMap = userTitleRepository.findEquippedTitlesByUserIdIn(userIds).stream()
             .collect(Collectors.groupingBy(UserTitle::getUserId));
 
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(userIds);
+
         List<SeasonMvpPlayerResponse> result = new ArrayList<>();
         int rank = 1;
 
@@ -500,7 +520,8 @@ public class SeasonRankingService {
                 titleInfo.rightTitle(),
                 titleInfo.rightRarity(),
                 earnedExp,
-                rank++
+                rank++,
+                itemRarityMap.getOrDefault(odayUserId, List.of())
             ));
         }
 

@@ -22,11 +22,14 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.d
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.domain.dto.RankingResponse;
 import io.pinkspider.global.facade.MissionQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.InProgressMissionDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.UserItemService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -63,6 +66,9 @@ class RankingServiceTest {
 
     @Mock
     private MissionCategoryService missionCategoryService;
+
+    @Mock
+    private UserItemService userItemService;
 
     @InjectMocks
     private RankingService rankingService;
@@ -119,6 +125,57 @@ class RankingServiceTest {
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getContent().get(0).getRank()).isEqualTo(1);
             assertThat(result.getContent().get(1).getRank()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("장착 아이템 타입·희귀도를 함께 내려주고, 미장착 유저는 빈 배열이다 (LUT-424)")
+        void getOverallRanking_withEquippedItemRarities() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            UserStats stats1 = createTestUserStats(1L, "user1", 1000L);
+            UserStats stats2 = createTestUserStats(2L, "user2", 800L);
+            Page<UserStats> statsPage = new PageImpl<>(List.of(stats1, stats2), pageable, 2);
+
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1", "user2"))).thenReturn(List.of("user1", "user2"));
+            when(userExperienceRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId(anyString())).thenReturn(Collections.emptyList());
+            when(userItemService.getEquippedItemRarityMap(List.of("user1", "user2")))
+                .thenReturn(Map.of("user1", List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC),
+                    new EquippedItemRarityDto("BASIC", TitleRarity.RARE))));
+
+            // when
+            Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
+
+            // then
+            assertThat(result.getContent().get(0).getEquippedItemRarities())
+                .extracting(EquippedItemRarityDto::itemType)
+                .containsExactlyInAnyOrder("HEAD", "BASIC");
+            assertThat(result.getContent().get(1).getEquippedItemRarities()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("아이템 희귀도 조회가 실패해도 랭킹 응답은 빈 배열로 유지된다 (LUT-424)")
+        void getOverallRanking_itemRarityFailure_keepsResponse() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            UserStats stats = createTestUserStats(1L, "user1", 1000L);
+            Page<UserStats> statsPage = new PageImpl<>(List.of(stats), pageable, 1);
+
+            when(userStatsRepository.findAllByOrderByRankingPointsDesc(pageable)).thenReturn(statsPage);
+            when(userQueryFacadeService.getActiveUserIds(List.of("user1"))).thenReturn(List.of("user1"));
+            when(userExperienceRepository.findByUserId("user1")).thenReturn(Optional.empty());
+            when(userTitleRepository.findEquippedTitlesByUserId("user1")).thenReturn(Collections.emptyList());
+            when(userItemService.getEquippedItemRarityMap(anyList()))
+                .thenThrow(new RuntimeException("db down"));
+
+            // when
+            Page<RankingResponse> result = rankingService.getOverallRanking(pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getEquippedItemRarities()).isEmpty();
         }
     }
 

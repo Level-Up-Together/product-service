@@ -4,10 +4,13 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Builder
@@ -33,6 +36,11 @@ public class RankingResponse {
     private TitleRarity leftTitleRarity;
     private String rightTitleName;
     private TitleRarity rightTitleRarity;
+
+    // LUT-424: 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 미장착이면 빈 배열.
+    @Setter
+    @Builder.Default
+    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
     public static RankingResponse from(UserStats stats, Long rank) {
         return RankingResponse.builder()

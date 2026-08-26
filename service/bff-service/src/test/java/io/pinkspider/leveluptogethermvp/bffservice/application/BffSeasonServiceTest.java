@@ -81,7 +81,9 @@ class BffSeasonServiceTest {
             "user-1", "플레이어1", "https://example.com/profile.jpg",
             15, "모험가", TitleRarity.RARE,
             null, null, null, null,
-            10000L, 1
+            10000L, 1,
+            List.of(new io.pinkspider.global.facade.dto.EquippedItemRarityDto(
+                "HEAD", TitleRarity.EPIC))
         );
 
         testGuildRanking = new SeasonMvpGuildDto(

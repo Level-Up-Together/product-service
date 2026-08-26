@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
@@ -8,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -117,6 +119,26 @@ public class UserItemService {
     /** 장착중 아이템 목록 (파사드 → 프로필 응답용) */
     public List<UserItem> getEquippedItemEntities(String userId) {
         return userItemRepository.findEquippedByUserId(userId);
+    }
+
+    /**
+     * LUT-424: 여러 유저의 장착 아이템 타입·희귀도 맵 (썸네일 등급 표식용). 장착 아이템이 없는 유저는 키가 없다 —
+     * 호출부는 getOrDefault(userId, List.of())로 빈 배열 처리할 것.
+     */
+    public Map<String, List<EquippedItemRarityDto>> getEquippedItemRarityMap(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userItemRepository.findEquippedByUserIdIn(userIds).stream()
+            .collect(Collectors.groupingBy(
+                UserItem::getUserId,
+                Collectors.mapping(
+                    ui -> new EquippedItemRarityDto(
+                        ui.getShopItem().getItemType() != null
+                            ? ui.getShopItem().getItemType().name()
+                            : null,
+                        ui.getShopItem().getRarity()),
+                    Collectors.toList())));
     }
 
     /** 가입 시/인벤토리 조회 시 기본 아이템(ID:2) 지급. 아이템 미등록 등 실패는 로그만 남긴다. */

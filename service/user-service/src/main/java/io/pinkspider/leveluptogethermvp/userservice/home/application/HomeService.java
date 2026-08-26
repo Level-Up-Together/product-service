@@ -8,6 +8,7 @@ import io.pinkspider.global.facade.dto.GuildWithMemberCount;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
@@ -120,6 +121,9 @@ public class HomeService {
         // 4. 배치 조회: 장착된 칭호
         Map<String, List<UserTitleDto>> titleMap = gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
 
+        // 4-1. 배치 조회: 장착 아이템 희귀도 (LUT-424)
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(userIds);
+
         // 5. 결과 조합
         List<TodayPlayerResponse> result = new ArrayList<>();
         int rank = 1;
@@ -151,7 +155,8 @@ public class HomeService {
                 titleInfo.rightRarity(),
                 titleInfo.rightColorCode(),
                 earnedExp,
-                rank++
+                rank++,
+                itemRarityMap.getOrDefault(odayUserId, List.of())
             ));
         }
 
@@ -250,6 +255,7 @@ public class HomeService {
             .collect(Collectors.toMap(Users::getId, u -> u));
         Map<String, Integer> levelMap = gamificationQueryFacadeService.getUserLevelMap(candidateUserIds);
         Map<String, List<UserTitleDto>> titleMap = gamificationQueryFacadeService.getEquippedTitlesByUserIds(candidateUserIds);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = loadEquippedItemRarities(candidateUserIds);
 
         for (String userId : candidateUserIds) {
             if (result.size() >= maxPlayers) break;
@@ -278,9 +284,20 @@ public class HomeService {
                 titleInfo.rightRarity(),
                 titleInfo.rightColorCode(),
                 expByUserId.getOrDefault(userId, 0L),
-                result.size() + 1
+                result.size() + 1,
+                itemRarityMap.getOrDefault(userId, List.of())
             ));
             addedUserIds.add(userId);
+        }
+    }
+
+    /** LUT-424: 장착 아이템 희귀도 배치 조회 — 썸네일 표식용 데코 데이터라 실패해도 홈 응답은 유지한다. */
+    private Map<String, List<EquippedItemRarityDto>> loadEquippedItemRarities(List<String> userIds) {
+        try {
+            return gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(userIds);
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 조회 실패 - 아이템 표식 없이 응답: {}", e.getMessage());
+            return Map.of();
         }
     }
 

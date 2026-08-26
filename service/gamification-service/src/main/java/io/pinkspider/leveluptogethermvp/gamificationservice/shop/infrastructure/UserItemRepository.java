@@ -30,6 +30,11 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
         + "WHERE ui.userId = :userId AND ui.isEquipped = true")
     List<UserItem> findEquippedByUserId(@Param("userId") String userId);
 
+    /** LUT-424: 여러 유저의 장착 아이템 일괄 조회 (썸네일 등급 표식용) */
+    @Query("SELECT ui FROM UserItem ui JOIN FETCH ui.shopItem "
+        + "WHERE ui.userId IN :userIds AND ui.isEquipped = true")
+    List<UserItem> findEquippedByUserIdIn(@Param("userIds") Collection<String> userIds);
+
     @Query("SELECT ui FROM UserItem ui JOIN FETCH ui.shopItem si "
         + "WHERE ui.userId = :userId AND ui.isEquipped = true AND si.itemType IN :itemTypes")
     List<UserItem> findEquippedByUserIdAndItemTypeIn(

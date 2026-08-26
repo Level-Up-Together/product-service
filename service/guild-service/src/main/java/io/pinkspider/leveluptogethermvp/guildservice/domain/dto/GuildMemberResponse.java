@@ -6,7 +6,9 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberStatus;
 import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -46,6 +48,11 @@ public class GuildMemberResponse {
     private String rightTitleName;
     @Setter
     private TitleRarity rightTitleRarity;
+
+    // LUT-424: 장착 아이템 타입·희귀도 (썸네일 등급 표식용). 미장착이면 빈 배열.
+    @Setter
+    @Builder.Default
+    private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
     public static GuildMemberResponse from(GuildMember member) {
         return GuildMemberResponse.builder()

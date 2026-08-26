@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.UserItemResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.UserItem;
@@ -18,6 +19,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -300,6 +302,63 @@ class UserItemServiceTest {
             when(shopItemRepository.findById(2L)).thenReturn(Optional.empty());
 
             userItemService.grantDefaultItems(USER_ID); // 예외 전파 없음
+        }
+    }
+
+    @Nested
+    @DisplayName("장착 아이템 희귀도 배치 조회 (LUT-424)")
+    class GetEquippedItemRarityMap {
+
+        private UserItem equippedItemOf(String userId, ShopItem shopItem) {
+            UserItem userItem = UserItem.builder()
+                .userId(userId)
+                .shopItem(shopItem)
+                .isEquipped(true)
+                .acquiredAt(LocalDateTime.now())
+                .build();
+            setId(userItem, shopItem.getId() * 100);
+            return userItem;
+        }
+
+        @Test
+        @DisplayName("유저별로 장착 아이템의 타입·희귀도를 묶어 반환한다")
+        void getEquippedItemRarityMap_groupsByUser() {
+            ShopItem head = createShopItem(1L, "왕관", ShopItemType.HEAD);
+            ShopItem wing = createShopItem(2L, "천사의 날개", ShopItemType.BASIC);
+            when(userItemRepository.findEquippedByUserIdIn(List.of("user-a", "user-b")))
+                .thenReturn(List.of(
+                    equippedItemOf("user-a", head),
+                    equippedItemOf("user-a", wing),
+                    equippedItemOf("user-b", head)));
+
+            Map<String, List<EquippedItemRarityDto>> result =
+                userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
+
+            assertThat(result.get("user-a")).extracting(EquippedItemRarityDto::itemType)
+                .containsExactlyInAnyOrder("HEAD", "BASIC");
+            assertThat(result.get("user-a")).extracting(EquippedItemRarityDto::rarity)
+                .containsOnly(TitleRarity.RARE);
+            assertThat(result.get("user-b")).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("장착 아이템이 없는 유저는 키가 없다")
+        void getEquippedItemRarityMap_userWithoutEquipped_absent() {
+            when(userItemRepository.findEquippedByUserIdIn(List.of("user-a", "user-b")))
+                .thenReturn(List.of());
+
+            Map<String, List<EquippedItemRarityDto>> result =
+                userItemService.getEquippedItemRarityMap(List.of("user-a", "user-b"));
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("userIds 가 null/빈 리스트면 쿼리 없이 빈 맵을 반환한다")
+        void getEquippedItemRarityMap_emptyInput_noQuery() {
+            assertThat(userItemService.getEquippedItemRarityMap(null)).isEmpty();
+            assertThat(userItemService.getEquippedItemRarityMap(List.of())).isEmpty();
+            verify(userItemRepository, never()).findEquippedByUserIdIn(any());
         }
     }
 }

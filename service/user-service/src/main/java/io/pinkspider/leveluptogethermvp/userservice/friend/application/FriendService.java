@@ -6,6 +6,7 @@ import io.pinkspider.global.event.FriendRequestEvent;
 import io.pinkspider.global.event.FriendRequestProcessedEvent;
 import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.facade.GamificationQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserTitleDto;
 import io.pinkspider.global.translation.TitleNameUtils;
 import io.pinkspider.leveluptogethermvp.userservice.friend.domain.dto.FriendRequestResponse;
@@ -239,10 +240,11 @@ public class FriendService {
             .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
             .toList();
 
-        // 사용자 정보, 레벨, 좌/우 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호, 장착 아이템 희귀도 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
         Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = getEquippedItemRarityMap(friendIds);
 
         return friendships.map(friendship -> {
             String friendId = friendship.getUserId().equals(userId)
@@ -259,7 +261,8 @@ public class FriendService {
                 titlePair.left(),
                 titlePair.leftRarity(),
                 titlePair.right(),
-                titlePair.rightRarity()
+                titlePair.rightRarity(),
+                itemRarityMap.getOrDefault(friendId, List.of())
             );
         });
     }
@@ -278,10 +281,11 @@ public class FriendService {
             .map(f -> f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId())
             .toList();
 
-        // 사용자 정보, 레벨, 좌/우 칭호 조회
+        // 사용자 정보, 레벨, 좌/우 칭호, 장착 아이템 희귀도 조회
         Map<String, Users> userMap = getUserMap(friendIds);
         Map<String, Integer> levelMap = getLevelMap(friendIds);
         Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(friendIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = getEquippedItemRarityMap(friendIds);
 
         return friendships.stream()
             .map(friendship -> {
@@ -299,7 +303,8 @@ public class FriendService {
                     titlePair.left(),
                     titlePair.leftRarity(),
                     titlePair.right(),
-                    titlePair.rightRarity()
+                    titlePair.rightRarity(),
+                    itemRarityMap.getOrDefault(friendId, List.of())
                 );
             })
             .toList();
@@ -314,6 +319,19 @@ public class FriendService {
     // 레벨 정보 조회 헬퍼 메서드 (배치 조회)
     private Map<String, Integer> getLevelMap(List<String> userIds) {
         return gamificationQueryFacadeService.getUserLevelMap(userIds);
+    }
+
+    /** LUT-424: 장착 아이템 희귀도 배치 조회 — 썸네일 표식용 데코 데이터라 실패 시 빈 배열로 응답한다. */
+    private Map<String, List<EquippedItemRarityDto>> getEquippedItemRarityMap(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(userIds);
+        } catch (Exception e) {
+            log.warn("장착 아이템 희귀도 조회 실패 - 아이템 표식 없이 응답: {}", e.getMessage());
+            return Map.of();
+        }
     }
 
     // 좌/우 칭호 모두 배치 조회 (QA-93, LUT-255: locale 반영)
@@ -413,6 +431,7 @@ public class FriendService {
         Map<String, Users> userMap = getUserMap(targetIds);
         Map<String, Integer> levelMap = getLevelMap(targetIds);
         Map<String, EquippedTitlePair> titlePairMap = getEquippedTitlePairMap(targetIds, locale);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap = getEquippedItemRarityMap(targetIds);
 
         return blocked.stream().map(friendship -> {
             String targetId = friendship.getFriendId();
@@ -427,7 +446,8 @@ public class FriendService {
                 titlePair.left(),
                 titlePair.leftRarity(),
                 titlePair.right(),
-                titlePair.rightRarity()
+                titlePair.rightRarity(),
+                itemRarityMap.getOrDefault(targetId, List.of())
             );
         }).toList();
     }
