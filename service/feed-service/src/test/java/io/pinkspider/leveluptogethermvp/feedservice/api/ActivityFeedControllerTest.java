@@ -519,7 +519,7 @@ class ActivityFeedControllerTest {
         FeedCommentResponse response = MockUtil.readJsonFileToClass(
             "fixture/feed/feedCommentResponse.json", FeedCommentResponse.class);
 
-        when(feedCommandService.addComment(anyLong(), anyString(), any(FeedCommentRequest.class)))
+        when(feedCommandService.addComment(anyLong(), anyString(), any(FeedCommentRequest.class), any()))
             .thenReturn(response);
 
         // when
@@ -552,11 +552,11 @@ class ActivityFeedControllerTest {
                             fieldWithPath("value.user_nickname").type(JsonFieldType.STRING).description("작성자 닉네임"),
                             fieldWithPath("value.user_profile_image_url").type(JsonFieldType.STRING).description("작성자 프로필 이미지").optional(),
                             fieldWithPath("value.user_level").type(JsonFieldType.NUMBER).description("작성자 레벨").optional(),
-                            fieldWithPath("value.user_left_title").type(JsonFieldType.STRING).description("작성자 좌측 칭호 (LUT-422, 작성 응답은 null — 목록 조회 시 제공)").optional(),
+                            fieldWithPath("value.user_left_title").type(JsonFieldType.STRING).description("작성자 좌측 칭호 (LUT-428: 작성 응답에도 목록 조회와 동일하게 제공)").optional(),
                             fieldWithPath("value.user_left_title_rarity").type(JsonFieldType.STRING).description("작성자 좌측 칭호 희귀도 (LUT-422)").optional(),
-                            fieldWithPath("value.user_right_title").type(JsonFieldType.STRING).description("작성자 우측 칭호 (LUT-422, 작성 응답은 null — 목록 조회 시 제공)").optional(),
+                            fieldWithPath("value.user_right_title").type(JsonFieldType.STRING).description("작성자 우측 칭호 (LUT-428: 작성 응답에도 목록 조회와 동일하게 제공)").optional(),
                             fieldWithPath("value.user_right_title_rarity").type(JsonFieldType.STRING).description("작성자 우측 칭호 희귀도 (LUT-422)").optional(),
-                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("작성자 장착 아이템 타입·희귀도 (LUT-424, 목록 조회 시 제공)").optional(),
+                            fieldWithPath("value.equipped_item_rarities").type(JsonFieldType.ARRAY).description("작성자 장착 아이템 타입·희귀도 (LUT-428: 작성 응답에도 제공)").optional(),
                             fieldWithPath("value.equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (HEAD/BACK/BASIC/FULL/EFFECT/ETC)").optional(),
                             fieldWithPath("value.equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional(),
                             fieldWithPath("value.content").type(JsonFieldType.STRING).description("댓글 내용"),
@@ -632,7 +632,7 @@ class ActivityFeedControllerTest {
         response.setEdited(true);
         response.setContent("수정된 댓글");
 
-        when(feedCommandService.updateComment(anyLong(), anyLong(), anyString(), any(FeedCommentUpdateRequest.class)))
+        when(feedCommandService.updateComment(anyLong(), anyLong(), anyString(), any(FeedCommentUpdateRequest.class), any()))
             .thenReturn(response);
 
         // when

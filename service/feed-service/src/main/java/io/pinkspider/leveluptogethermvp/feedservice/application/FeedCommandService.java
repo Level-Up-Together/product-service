@@ -16,7 +16,11 @@ import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentResponse;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedCommentUpdateRequest;
 import io.pinkspider.leveluptogethermvp.feedservice.api.dto.FeedLikeResponse;
 import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.TitleInfoDto;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
+import io.pinkspider.global.translation.enums.SupportedLocale;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeed;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.ActivityFeedImage;
 import io.pinkspider.leveluptogethermvp.feedservice.domain.entity.FeedComment;
@@ -193,6 +197,16 @@ public class FeedCommandService {
      */
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request) {
+        return addComment(feedId, userId, request, null);
+    }
+
+    /**
+     * 댓글/대댓글 작성 (다국어). LUT-428: 작성 직후 응답에도 목록 조회와 동일하게
+     * 작성자 칭호·장착 아이템 희귀도·is_editable을 채워 프론트 재조회가 필요 없게 한다.
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public FeedCommentResponse addComment(Long feedId, String userId, FeedCommentRequest request,
+                                          String acceptLanguage) {
         ActivityFeed feed = activityFeedRepository.findById(feedId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(), "error.feed.not_found"));
 
@@ -251,7 +265,11 @@ public class FeedCommandService {
             }
         }
 
-        return FeedCommentResponse.from(saved, null, userId);
+        FeedCommentResponse response = FeedCommentResponse.from(saved, null, userId);
+        // 방금 작성한 본인 댓글 — 최상위는 대댓글이 아직 없고 대댓글은 항상 수정 가능하므로 무조건 true
+        response.setEditable(true);
+        enrichCommentAuthorInfo(response, userId, acceptLanguage);
+        return response;
     }
 
     /**
@@ -260,6 +278,15 @@ public class FeedCommandService {
     @Transactional(transactionManager = "feedTransactionManager")
     public FeedCommentResponse updateComment(Long feedId, Long commentId, String userId,
                                              FeedCommentUpdateRequest request) {
+        return updateComment(feedId, commentId, userId, request, null);
+    }
+
+    /**
+     * 댓글 수정 (다국어). LUT-428: 수정 응답에도 작성자 칭호·장착 아이템 희귀도·is_editable을 채운다.
+     */
+    @Transactional(transactionManager = "feedTransactionManager")
+    public FeedCommentResponse updateComment(Long feedId, Long commentId, String userId,
+                                             FeedCommentUpdateRequest request, String acceptLanguage) {
         FeedComment comment = feedCommentRepository.findById(commentId)
             .orElseThrow(() -> new CustomException(ApiStatus.CLIENT_ERROR.getResultCode(),
                 "error.feed.comment.not_found"));
@@ -283,7 +310,42 @@ public class FeedCommandService {
         FeedComment saved = feedCommentRepository.save(comment);
 
         log.info("Comment updated: feedId={}, commentId={}, userId={}", feedId, commentId, userId);
-        return FeedCommentResponse.from(saved, null, userId);
+        FeedCommentResponse response = FeedCommentResponse.from(saved, null, userId);
+        // 수정이 허용된 댓글(본인+미삭제+대댓글 없음/대댓글)이므로 여전히 수정 가능
+        response.setEditable(true);
+        enrichCommentAuthorInfo(response, userId, acceptLanguage);
+        return response;
+    }
+
+    /**
+     * LUT-428: 작성/수정 응답에 작성자 표시 정보(좌/우 칭호 + 장착 아이템 희귀도)를 목록 조회
+     * (FeedQueryService.getComments)와 동일한 값으로 채운다. 표시 부가 정보라 조회 실패 시에도
+     * 댓글 저장 결과 응답은 유지한다 (칭호 미표시 / 빈 배열).
+     */
+    private void enrichCommentAuthorInfo(FeedCommentResponse response, String userId,
+                                         String acceptLanguage) {
+        String targetLocale = SupportedLocale.extractLanguageCode(acceptLanguage);
+        try {
+            List<UserTitleDto> equipped =
+                gamificationQueryFacadeService.getEquippedTitlesByUserId(userId);
+            if (equipped != null && !equipped.isEmpty()) {
+                DetailedTitleInfoDto titleInfo =
+                    TitleNameUtils.buildDetailedTitleInfo(equipped, targetLocale);
+                response.setUserLeftTitle(titleInfo.leftTitle());
+                response.setUserLeftTitleRarity(titleInfo.leftRarity());
+                response.setUserRightTitle(titleInfo.rightTitle());
+                response.setUserRightTitleRarity(titleInfo.rightRarity());
+            }
+        } catch (Exception e) {
+            log.warn("댓글 응답 칭호 조회 실패 - 칭호 미표시: {}", e.getMessage());
+        }
+        try {
+            response.setEquippedItemRarities(
+                gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(userId))
+                    .getOrDefault(userId, List.of()));
+        } catch (Exception e) {
+            log.warn("댓글 응답 장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
+        }
     }
 
     /**

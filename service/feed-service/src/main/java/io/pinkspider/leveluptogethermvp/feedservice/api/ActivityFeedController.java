@@ -239,9 +239,10 @@ public class ActivityFeedController {
     public ResponseEntity<ApiResult<FeedCommentResponse>> addComment(
         @PathVariable Long feedId,
         @CurrentUser String userId,
-        @Valid @RequestBody FeedCommentRequest request
+        @Valid @RequestBody FeedCommentRequest request,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        FeedCommentResponse comment = feedCommandService.addComment(feedId, userId, request);
+        FeedCommentResponse comment = feedCommandService.addComment(feedId, userId, request, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<FeedCommentResponse>builder().value(comment).build());
     }
 
@@ -266,9 +267,10 @@ public class ActivityFeedController {
         @PathVariable Long feedId,
         @PathVariable Long commentId,
         @CurrentUser String userId,
-        @Valid @RequestBody FeedCommentUpdateRequest request
+        @Valid @RequestBody FeedCommentUpdateRequest request,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage
     ) {
-        FeedCommentResponse response = feedCommandService.updateComment(feedId, commentId, userId, request);
+        FeedCommentResponse response = feedCommandService.updateComment(feedId, commentId, userId, request, acceptLanguage);
         return ResponseEntity.ok(ApiResult.<FeedCommentResponse>builder().value(response).build());
     }
 

@@ -35,11 +35,15 @@ import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.ActivityFeedR
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentLikeRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedCommentRepository;
 import io.pinkspider.leveluptogethermvp.feedservice.infrastructure.FeedLikeRepository;
+import io.pinkspider.global.enums.TitlePosition;
 import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -105,6 +109,20 @@ class FeedCommandServiceTest {
         TestReflectionUtils.setField(request, "content", content);
         TestReflectionUtils.setField(request, "parentId", parentId);
         return request;
+    }
+
+    /** LUT-428: 작성/수정 응답 채움 검증용 장착 칭호 DTO */
+    private UserTitleDto equippedTitleDto(String userId, String name, String nameEn,
+                                          TitleRarity rarity, TitlePosition position) {
+        return new UserTitleDto(
+            1L, userId, 1L,
+            name, nameEn, null, null,
+            null, null, null, null,
+            rarity,
+            position, "#FFFFFF", null,
+            true, position,
+            java.time.LocalDateTime.now()
+        );
     }
 
     private FeedCommentUpdateRequest createTestUpdateRequest(String content) {
@@ -322,6 +340,92 @@ class FeedCommandServiceTest {
         }
 
         @Test
+        @DisplayName("작성 응답에 작성자 칭호·장착 아이템 희귀도·is_editable이 채워진다 (LUT-428)")
+        void addComment_fillsAuthorDisplayInfo() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            UserProfileInfo userProfile = new UserProfileInfo(
+                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
+
+            FeedComment savedComment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname(userProfile.nickname())
+                .userLevel(userProfile.level())
+                .content("테스트 댓글")
+                .isDeleted(false)
+                .build();
+            setId(savedComment, 1L);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(
+                    equippedTitleDto(TEST_USER_ID, "강인한", "Strong", TitleRarity.UNCOMMON, TitlePosition.LEFT),
+                    equippedTitleDto(TEST_USER_ID, "정복자", "Conqueror", TitleRarity.MYTHIC, TitlePosition.RIGHT)));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    new EquippedItemRarityDto("HEAD", TitleRarity.EPIC))));
+
+            // when
+            FeedCommentResponse result = feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
+
+            // then — 목록 조회(getComments)와 동일한 작성자 표시 정보
+            assertThat(result.getUserNickname()).isEqualTo("테스트유저");
+            assertThat(result.getUserLeftTitle()).isEqualTo("강인한");
+            assertThat(result.getUserLeftTitleRarity()).isEqualTo(TitleRarity.UNCOMMON);
+            assertThat(result.getUserRightTitle()).isEqualTo("정복자");
+            assertThat(result.getUserRightTitleRarity()).isEqualTo(TitleRarity.MYTHIC);
+            assertThat(result.getEquippedItemRarities()).hasSize(1);
+            assertThat(result.getEquippedItemRarities().get(0).itemType()).isEqualTo("HEAD");
+            assertThat(result.getIsMyComment()).isTrue();
+            assertThat(result.getIsEditable()).isTrue();
+        }
+
+        @Test
+        @DisplayName("칭호/아이템 조회가 실패해도 댓글 작성 응답은 유지된다 (LUT-428)")
+        void addComment_displayInfoFailure_keepsResponse() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            UserProfileInfo userProfile = new UserProfileInfo(
+                TEST_USER_ID, "테스트유저", null, 5, null, null, null);
+            FeedCommentRequest request = createTestCommentRequest("테스트 댓글");
+
+            FeedComment savedComment = FeedComment.builder()
+                .feed(feed)
+                .userId(TEST_USER_ID)
+                .userNickname(userProfile.nickname())
+                .userLevel(userProfile.level())
+                .content("테스트 댓글")
+                .isDeleted(false)
+                .build();
+            setId(savedComment, 1L);
+
+            when(activityFeedRepository.findById(feedId)).thenReturn(Optional.of(feed));
+            when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(userProfile);
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(savedComment);
+            when(activityFeedRepository.save(any(ActivityFeed.class))).thenReturn(feed);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenThrow(new RuntimeException("facade down"));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
+                .thenThrow(new RuntimeException("facade down"));
+
+            // when
+            FeedCommentResponse result = feedCommandService.addComment(feedId, TEST_USER_ID, request, "ko");
+
+            // then — 댓글 작성은 성공, 표시 정보만 미포함
+            assertThat(result).isNotNull();
+            assertThat(result.getUserLeftTitle()).isNull();
+            assertThat(result.getEquippedItemRarities()).isEmpty();
+            assertThat(result.getIsEditable()).isTrue();
+        }
+
+        @Test
         @DisplayName("존재하지 않는 피드에 댓글 추가 시 예외 발생")
         void addComment_feedNotFound() {
             // given
@@ -436,6 +540,39 @@ class FeedCommandServiceTest {
             // then
             assertThat(comment.getIsEdited()).isTrue();
             assertThat(comment.getContent()).isEqualTo("수정된 댓글");
+        }
+
+        @Test
+        @DisplayName("수정 응답에 작성자 칭호·장착 아이템 희귀도·is_editable이 채워진다 (LUT-428)")
+        void updateComment_fillsAuthorDisplayInfo() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 10L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+            FeedCommentUpdateRequest request = createTestUpdateRequest("수정된 댓글");
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.countActiveRepliesByParentId(commentId)).thenReturn(0);
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserId(TEST_USER_ID))
+                .thenReturn(List.of(
+                    equippedTitleDto(TEST_USER_ID, "강인한", "Strong", TitleRarity.UNCOMMON, TitlePosition.LEFT)));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(TEST_USER_ID)))
+                .thenReturn(Map.of(TEST_USER_ID, List.of(
+                    new EquippedItemRarityDto("EFFECT", TitleRarity.RARE))));
+
+            // when
+            FeedCommentResponse result =
+                feedCommandService.updateComment(feedId, commentId, TEST_USER_ID, request, "en");
+
+            // then — locale(en) 반영 칭호 + 아이템 희귀도 + 수정 가능
+            assertThat(result.getUserLeftTitle()).isEqualTo("Strong");
+            assertThat(result.getUserLeftTitleRarity()).isEqualTo(TitleRarity.UNCOMMON);
+            assertThat(result.getEquippedItemRarities()).hasSize(1);
+            assertThat(result.getEquippedItemRarities().get(0).rarity()).isEqualTo(TitleRarity.RARE);
+            assertThat(result.getIsMyComment()).isTrue();
+            assertThat(result.getIsEditable()).isTrue();
         }
 
         @Test
