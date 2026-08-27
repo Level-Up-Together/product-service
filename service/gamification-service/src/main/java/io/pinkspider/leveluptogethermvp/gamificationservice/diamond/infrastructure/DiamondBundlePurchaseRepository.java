@@ -28,56 +28,90 @@ public interface DiamondBundlePurchaseRepository extends JpaRepository<DiamondBu
      * <p>번들 조인은 LEFT — 가드(LUT-404) 이전에 삭제된 번들의 결제 기록도 목록에 남아야
      * count 쿼리(무조인)와 행수가 일치한다. 상품명만 null 로 내려간다.
      */
+    default Page<DiamondPaymentHistoryRow> search(
+        LocalDateTime startAt, LocalDateTime endAt, String platform, Long bundleId,
+        DiamondPurchaseStatus status, Pageable pageable) {
+        return searchInternal(
+            startAt != null, startAt, endAt != null, endAt, platform != null, platform,
+            bundleId != null, bundleId, status != null, status, pageable);
+    }
+
+    /**
+     * LUT-431: {@code (:param IS NULL OR ...)} 패턴은 단독 {@code :param IS NULL} 자리의 타입을
+     * PostgreSQL 이 추론하지 못해, 필터 미지정(null 바인드) 시 42P18(could not determine data type of
+     * parameter)로 조회 전체가 죽는다 — timestamp/bigint/enum 파라미터가 대상이며 H2 기반 테스트에선
+     * 재현되지 않아 dev/prod 에서만 드러났다. 필터 적용 여부를 boolean 플래그로 분리해 nullable
+     * 파라미터가 항상 타입 추론이 가능한 비교 위치에만 나타나게 한다. 호출은 위 default 메서드로.
+     */
     @Query(value = "SELECT new io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto."
         + "DiamondPaymentHistoryRow(dbp.id, dbp.userId, dbp.bundleId, db.name, dbp.platform, "
         + "dbp.storeProductId, dbp.storeTransactionId, dbp.diamondCount, dbp.priceAmount, "
         + "dbp.priceCurrency, dbp.status, dbp.refundedAt, dbp.createdAt) "
         + "FROM DiamondBundlePurchase dbp LEFT JOIN DiamondBundle db ON db.id = dbp.bundleId "
-        + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
-        + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
-        + "AND (:platform IS NULL OR dbp.platform = :platform) "
-        + "AND (:bundleId IS NULL OR dbp.bundleId = :bundleId) "
-        + "AND (:status IS NULL OR dbp.status = :status) "
+        + "WHERE (:startAtSet = false OR dbp.createdAt >= :startAt) "
+        + "AND (:endAtSet = false OR dbp.createdAt <= :endAt) "
+        + "AND (:platformSet = false OR dbp.platform = :platform) "
+        + "AND (:bundleIdSet = false OR dbp.bundleId = :bundleId) "
+        + "AND (:statusSet = false OR dbp.status = :status) "
         + "ORDER BY dbp.id DESC",
         countQuery = "SELECT COUNT(dbp) FROM DiamondBundlePurchase dbp "
-            + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
-            + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
-            + "AND (:platform IS NULL OR dbp.platform = :platform) "
-            + "AND (:bundleId IS NULL OR dbp.bundleId = :bundleId) "
-            + "AND (:status IS NULL OR dbp.status = :status)")
-    Page<DiamondPaymentHistoryRow> search(
+            + "WHERE (:startAtSet = false OR dbp.createdAt >= :startAt) "
+            + "AND (:endAtSet = false OR dbp.createdAt <= :endAt) "
+            + "AND (:platformSet = false OR dbp.platform = :platform) "
+            + "AND (:bundleIdSet = false OR dbp.bundleId = :bundleId) "
+            + "AND (:statusSet = false OR dbp.status = :status)")
+    Page<DiamondPaymentHistoryRow> searchInternal(
+        @Param("startAtSet") boolean startAtSet,
         @Param("startAt") LocalDateTime startAt,
+        @Param("endAtSet") boolean endAtSet,
         @Param("endAt") LocalDateTime endAt,
+        @Param("platformSet") boolean platformSet,
         @Param("platform") String platform,
+        @Param("bundleIdSet") boolean bundleIdSet,
         @Param("bundleId") Long bundleId,
+        @Param("statusSet") boolean statusSet,
         @Param("status") DiamondPurchaseStatus status,
         Pageable pageable);
 
     /** LUT-401: 어드민 결제이력 — 닉네임 매칭된 userId 목록으로 추가 필터링 (빈 리스트는 JPQL IN 무효라 별도 메서드로 분리) */
+    default Page<DiamondPaymentHistoryRow> searchWithUsers(
+        LocalDateTime startAt, LocalDateTime endAt, String platform, Long bundleId,
+        DiamondPurchaseStatus status, List<String> userIds, Pageable pageable) {
+        return searchWithUsersInternal(
+            startAt != null, startAt, endAt != null, endAt, platform != null, platform,
+            bundleId != null, bundleId, status != null, status, userIds, pageable);
+    }
+
+    /** LUT-431: 플래그 분리 이유는 {@link #searchInternal} 참조. 호출은 위 default 메서드로. */
     @Query(value = "SELECT new io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto."
         + "DiamondPaymentHistoryRow(dbp.id, dbp.userId, dbp.bundleId, db.name, dbp.platform, "
         + "dbp.storeProductId, dbp.storeTransactionId, dbp.diamondCount, dbp.priceAmount, "
         + "dbp.priceCurrency, dbp.status, dbp.refundedAt, dbp.createdAt) "
         + "FROM DiamondBundlePurchase dbp LEFT JOIN DiamondBundle db ON db.id = dbp.bundleId "
-        + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
-        + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
-        + "AND (:platform IS NULL OR dbp.platform = :platform) "
-        + "AND (:bundleId IS NULL OR dbp.bundleId = :bundleId) "
-        + "AND (:status IS NULL OR dbp.status = :status) "
+        + "WHERE (:startAtSet = false OR dbp.createdAt >= :startAt) "
+        + "AND (:endAtSet = false OR dbp.createdAt <= :endAt) "
+        + "AND (:platformSet = false OR dbp.platform = :platform) "
+        + "AND (:bundleIdSet = false OR dbp.bundleId = :bundleId) "
+        + "AND (:statusSet = false OR dbp.status = :status) "
         + "AND dbp.userId IN :userIds "
         + "ORDER BY dbp.id DESC",
         countQuery = "SELECT COUNT(dbp) FROM DiamondBundlePurchase dbp "
-            + "WHERE (:startAt IS NULL OR dbp.createdAt >= :startAt) "
-            + "AND (:endAt IS NULL OR dbp.createdAt <= :endAt) "
-            + "AND (:platform IS NULL OR dbp.platform = :platform) "
-            + "AND (:bundleId IS NULL OR dbp.bundleId = :bundleId) "
-            + "AND (:status IS NULL OR dbp.status = :status) "
+            + "WHERE (:startAtSet = false OR dbp.createdAt >= :startAt) "
+            + "AND (:endAtSet = false OR dbp.createdAt <= :endAt) "
+            + "AND (:platformSet = false OR dbp.platform = :platform) "
+            + "AND (:bundleIdSet = false OR dbp.bundleId = :bundleId) "
+            + "AND (:statusSet = false OR dbp.status = :status) "
             + "AND dbp.userId IN :userIds")
-    Page<DiamondPaymentHistoryRow> searchWithUsers(
+    Page<DiamondPaymentHistoryRow> searchWithUsersInternal(
+        @Param("startAtSet") boolean startAtSet,
         @Param("startAt") LocalDateTime startAt,
+        @Param("endAtSet") boolean endAtSet,
         @Param("endAt") LocalDateTime endAt,
+        @Param("platformSet") boolean platformSet,
         @Param("platform") String platform,
+        @Param("bundleIdSet") boolean bundleIdSet,
         @Param("bundleId") Long bundleId,
+        @Param("statusSet") boolean statusSet,
         @Param("status") DiamondPurchaseStatus status,
         @Param("userIds") List<String> userIds,
         Pageable pageable);
