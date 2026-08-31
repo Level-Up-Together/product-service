@@ -506,4 +506,17 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findAutoCompletedGuildInstancesNeedingGuildExp(
         @Param("lastId") Long lastId,
         org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * LUT-433: 참여자별 수행 통계 배치 집계 — [participantId, 수행일수(distinct 날짜), 완료 횟수, 획득 경험치 합].
+     * 고정(pinned) 미션의 일일 인스턴스 기준. 길드 미션 상세 참여자 목록 표시용.
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT dmi.participant.id, COUNT(DISTINCT dmi.instanceDate), COUNT(dmi), "
+            + "COALESCE(SUM(dmi.expEarned), 0) "
+            + "FROM DailyMissionInstance dmi "
+            + "WHERE dmi.participant.id IN :participantIds AND dmi.status = 'COMPLETED' "
+            + "GROUP BY dmi.participant.id")
+    List<Object[]> aggregateCompletedStatsByParticipantIds(
+        @Param("participantIds") List<Long> participantIds);
 }

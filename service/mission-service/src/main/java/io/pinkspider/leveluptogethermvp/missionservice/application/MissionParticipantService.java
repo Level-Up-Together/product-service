@@ -10,7 +10,9 @@ import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExe
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionParticipantRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionRepository;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -183,11 +185,47 @@ public class MissionParticipantService {
 
     public List<MissionParticipantResponse> getMissionParticipants(Long missionId) {
         // QA-176: 탈퇴/실패 상태 참여자는 노출하지 않는다.
-        return participantRepository.findByMissionId(missionId).stream()
+        List<MissionParticipant> participants = participantRepository.findByMissionId(missionId).stream()
             .filter(p -> p.getStatus() != ParticipantStatus.WITHDRAWN
                 && p.getStatus() != ParticipantStatus.FAILED)
-            .map(MissionParticipantResponse::from)
             .toList();
+
+        // LUT-433: 참여자별 수행 통계(일수/횟수/경험치) — 실행 모드(mission_execution)와
+        // 고정 미션(daily_mission_instance) 양쪽을 배치 집계해 합산한다 (미션당 한쪽만 행이 있음).
+        Map<Long, long[]> statsByParticipantId = loadParticipantStats(
+            participants.stream().map(MissionParticipant::getId).toList());
+
+        return participants.stream()
+            .map(p -> {
+                MissionParticipantResponse response = MissionParticipantResponse.from(p);
+                long[] stats = statsByParticipantId.get(p.getId());
+                if (stats != null) {
+                    response.setProgressDays((int) stats[0]);
+                    response.setExecutionCount((int) stats[1]);
+                    response.setEarnedExp((int) stats[2]);
+                }
+                return response;
+            })
+            .toList();
+    }
+
+    /** LUT-433: participantId → [수행일수, 완료횟수, 획득경험치]. 수행 이력 없는 참여자는 키 없음. */
+    private Map<Long, long[]> loadParticipantStats(List<Long> participantIds) {
+        if (participantIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, long[]> merged = new HashMap<>();
+        java.util.stream.Stream.concat(
+                executionRepository.aggregateCompletedStatsByParticipantIds(participantIds).stream(),
+                dailyMissionInstanceRepository.aggregateCompletedStatsByParticipantIds(participantIds).stream())
+            .forEach(row -> {
+                Long participantId = ((Number) row[0]).longValue();
+                long[] acc = merged.computeIfAbsent(participantId, k -> new long[3]);
+                acc[0] += ((Number) row[1]).longValue();
+                acc[1] += ((Number) row[2]).longValue();
+                acc[2] += ((Number) row[3]).longValue();
+            });
+        return merged;
     }
 
     public List<MissionParticipantResponse> getMyParticipations(String userId) {

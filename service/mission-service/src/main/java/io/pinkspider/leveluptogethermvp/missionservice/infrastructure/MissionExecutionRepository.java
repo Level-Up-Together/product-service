@@ -339,4 +339,16 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
     /** LUT-409: 변형 백필 대상 스캔 — 대표 이미지 URL (이미지 테이블 도입 전 레거시 행 포함, 중복 제거) */
     @Query("SELECT DISTINCT me.imageUrl FROM MissionExecution me WHERE me.imageUrl IS NOT NULL")
     List<String> findDistinctImageUrls();
+
+    /**
+     * LUT-433: 참여자별 수행 통계 배치 집계 — [participantId, 수행일수(distinct 날짜), 완료 횟수, 획득 경험치 합].
+     * 길드 미션 상세 참여자 목록 표시용.
+     */
+    @Query("SELECT me.participant.id, COUNT(DISTINCT me.executionDate), COUNT(me), "
+        + "COALESCE(SUM(me.expEarned), 0) "
+        + "FROM MissionExecution me "
+        + "WHERE me.participant.id IN :participantIds AND me.status = 'COMPLETED' "
+        + "GROUP BY me.participant.id")
+    List<Object[]> aggregateCompletedStatsByParticipantIds(
+        @Param("participantIds") List<Long> participantIds);
 }

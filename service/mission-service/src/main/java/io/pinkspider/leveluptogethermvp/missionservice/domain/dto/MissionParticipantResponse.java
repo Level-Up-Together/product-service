@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionParticipant;
@@ -32,6 +33,17 @@ public class MissionParticipantResponse {
     private LocalDateTime completedAt;
 
     private LocalDateTime createdAt;
+
+    // LUT-433: 참여자별 수행 통계 (길드 미션 상세 참여자 목록 전용 — getMissionParticipants 에서만 세팅).
+    // 미세팅 경로에서는 직렬화되지 않아 기존 응답 스키마에 영향 없음. 미수행 참여자는 목록에서도 null.
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer progressDays;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer executionCount;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer earnedExp;
 
     public static MissionParticipantResponse from(MissionParticipant participant) {
         return MissionParticipantResponse.builder()

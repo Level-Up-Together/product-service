@@ -513,6 +513,53 @@ class MissionParticipantServiceTest {
             assertThat(response).hasSize(1);
             assertThat(response.get(0).getUserId()).isEqualTo("user-active");
         }
+
+        @Test
+        @DisplayName("[LUT-433] 실행/고정 양쪽 수행 통계를 합산해 응답에 채운다")
+        void getMissionParticipants_mergesStatsFromBothSources() {
+            // given
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+
+            MissionParticipant withHistory = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.ACCEPTED)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(withHistory, 1L);
+
+            MissionParticipant noHistory = MissionParticipant.builder()
+                .mission(mission)
+                .userId("user-2")
+                .status(ParticipantStatus.ACCEPTED)
+                .joinedAt(LocalDateTime.now())
+                .build();
+            setId(noHistory, 2L);
+
+            when(participantRepository.findByMissionId(missionId))
+                .thenReturn(List.of(withHistory, noHistory));
+            when(executionRepository.aggregateCompletedStatsByParticipantIds(List.of(1L, 2L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 3L, 5L, 300L}));
+            when(dailyMissionInstanceRepository.aggregateCompletedStatsByParticipantIds(List.of(1L, 2L)))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 2L, 2L, 120L}));
+
+            // when
+            List<MissionParticipantResponse> response =
+                missionParticipantService.getMissionParticipants(missionId);
+
+            // then
+            assertThat(response).hasSize(2);
+            MissionParticipantResponse first = response.get(0);
+            assertThat(first.getProgressDays()).isEqualTo(5);
+            assertThat(first.getExecutionCount()).isEqualTo(7);
+            assertThat(first.getEarnedExp()).isEqualTo(420);
+
+            MissionParticipantResponse second = response.get(1);
+            assertThat(second.getProgressDays()).isNull();
+            assertThat(second.getExecutionCount()).isNull();
+            assertThat(second.getEarnedExp()).isNull();
+        }
     }
 
     @Nested

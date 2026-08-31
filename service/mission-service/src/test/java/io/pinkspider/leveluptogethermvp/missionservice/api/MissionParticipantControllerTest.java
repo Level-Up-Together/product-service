@@ -386,7 +386,7 @@ class MissionParticipantControllerTest {
         // given
         Long missionId = 1L;
         List<MissionParticipantResponse> responses = MockUtil.readJsonFileToClassList(
-            "fixture/missionservice/missionParticipantResponseList.json",
+            "fixture/missionservice/missionParticipantWithStatsResponseList.json",
             new TypeReference<List<MissionParticipantResponse>>() {});
 
         when(participantService.getMissionParticipants(anyLong()))
@@ -420,7 +420,10 @@ class MissionParticipantControllerTest {
                             fieldWithPath("value[].note").type(JsonFieldType.STRING).description("메모").optional(),
                             fieldWithPath("value[].joined_at").type(JsonFieldType.STRING).description("참여일시").optional(),
                             fieldWithPath("value[].completed_at").type(JsonFieldType.STRING).description("완료일시").optional(),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional()
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("생성일시").optional(),
+                            fieldWithPath("value[].progress_days").type(JsonFieldType.NUMBER).description("수행한 일수 (distinct 날짜 수, LUT-433 — 수행 이력 없으면 미포함)").optional(),
+                            fieldWithPath("value[].execution_count").type(JsonFieldType.NUMBER).description("완료 수행 횟수 (LUT-433)").optional(),
+                            fieldWithPath("value[].earned_exp").type(JsonFieldType.NUMBER).description("이 미션에서 획득한 총 경험치 (LUT-433)").optional()
                         )
                         .build()
                 )
