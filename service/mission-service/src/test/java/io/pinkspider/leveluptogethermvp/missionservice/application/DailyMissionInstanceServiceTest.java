@@ -669,6 +669,28 @@ class DailyMissionInstanceServiceTest {
         }
 
         @Test
+        @DisplayName("일일 수행 한도 초과 시 코드·params 를 담은 CustomException 이 발생한다 (LUT-419)")
+        void startInstanceByMission_dailyLimitExceeded_throwsCustomExceptionWithParams() {
+            // given
+            LocalDate today = LocalDate.now();
+            TestReflectionUtils.setField(mission, "dailyExecutionLimit", 3);
+            TestReflectionUtils.setField(mission, "baseMissionId", null);
+
+            when(participantRepository.findByMissionIdAndUserId(MISSION_ID, TEST_USER_ID))
+                .thenReturn(Optional.of(participant));
+            when(instanceRepository.countCompletedByParticipantIdAndDate(PARTICIPANT_ID, today))
+                .thenReturn(3L);
+
+            // when & then — FE 전역 오류 모달이 코드로 다국어 매핑, params.max 로 보간
+            assertThatThrownBy(() -> service.startInstanceByMission(MISSION_ID, TEST_USER_ID, today))
+                .isInstanceOfSatisfying(io.pinkspider.global.exception.CustomException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo("050110");
+                    assertThat(e.getMessage()).isEqualTo("error.mission.daily_limit_exceeded");
+                    assertThat(e.getParams()).containsEntry("max", 3);
+                });
+        }
+
+        @Test
         @DisplayName("PENDING 인스턴스가 없으면 새로 생성 후 시작한다")
         void startInstanceByMission_createsIfNotExists() {
             // given

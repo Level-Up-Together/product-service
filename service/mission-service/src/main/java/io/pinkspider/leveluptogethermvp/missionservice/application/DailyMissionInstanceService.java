@@ -183,8 +183,10 @@ public class DailyMissionInstanceService {
                     userId, mission.getBaseMissionId(), date)
                 : instanceRepository.countCompletedByParticipantIdAndDate(participant.getId(), date);
             if (todayCompleted >= mission.getDailyExecutionLimit()) {
-                throw new IllegalStateException(
-                    "오늘 수행 가능한 횟수를 초과했습니다. (최대 " + mission.getDailyExecutionLimit() + "회)");
+                // LUT-419: 코드+params 로 응답 — FE 전역 오류 모달이 코드 매핑으로 다국어 표시, 서버 메시지도
+                // MessageSource {0} 보간으로 현지화 (기존: 하드코딩 한글 IllegalStateException)
+                throw new CustomException("050110", "error.mission.daily_limit_exceeded",
+                    java.util.Map.of("max", mission.getDailyExecutionLimit()));
             }
         }
 
