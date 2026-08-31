@@ -26,6 +26,9 @@ public interface GuildMemberRepository extends JpaRepository<GuildMember, Long> 
     @Query("SELECT COUNT(gm) FROM GuildMember gm WHERE gm.guild.id = :guildId AND gm.status = 'ACTIVE'")
     long countActiveMembers(@Param("guildId") Long guildId);
 
+    /** LUT-418: 가입해 본 distinct 길드 수 — status 무관 전체 행 카운트 (소프트 삭제 이력 = 가입 이력) */
+    long countByUserId(String userId);
+
     @Query("SELECT gm FROM GuildMember gm JOIN FETCH gm.guild g WHERE gm.userId = :userId AND gm.status = 'ACTIVE' AND g.isActive = true")
     List<GuildMember> findActiveGuildsByUserId(@Param("userId") String userId);
 

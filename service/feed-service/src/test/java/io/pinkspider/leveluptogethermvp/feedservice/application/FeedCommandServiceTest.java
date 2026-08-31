@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -796,6 +798,112 @@ class FeedCommandServiceTest {
             assertThatThrownBy(() -> feedCommandService.deleteComment(wrongFeedId, commentId, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.feed.comment.wrong_feed");
+        }
+
+        @Test
+        @DisplayName("LUT-418: 타인 피드의 최상위 댓글 삭제 시 카운터 감소 이벤트를 발행한다")
+        void deleteComment_publishesDeletedEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            // when
+            feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID);
+
+            // then
+            ArgumentCaptor<FeedCommentDeletedEvent> captor =
+                ArgumentCaptor.forClass(FeedCommentDeletedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
+            assertThat(captor.getValue().feedOwnerId()).isEqualTo(OTHER_USER_ID);
+            assertThat(captor.getValue().feedId()).isEqualTo(feedId);
+        }
+
+        @Test
+        @DisplayName("LUT-418: 대댓글 삭제 시에는 카운터 감소 이벤트를 발행하지 않는다 (작성 시에도 미집계)")
+        void deleteComment_reply_noDeletedEvent() {
+            // given
+            Long feedId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment parent = createTestComment(1L, feed, OTHER_USER_ID, null);
+            FeedComment reply = createTestComment(2L, feed, TEST_USER_ID, parent);
+
+            when(feedCommentRepository.findById(2L)).thenReturn(Optional.of(reply));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(reply);
+
+            // when
+            feedCommandService.deleteComment(feedId, 2L, TEST_USER_ID);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentDeletedEvent.class));
+        }
+
+        @Test
+        @DisplayName("LUT-418: 본인 피드에 단 본인 댓글 삭제 시 이벤트를 발행하지 않는다 (작성 시에도 미집계)")
+        void deleteComment_selfFeed_noDeletedEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, TEST_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            // when
+            feedCommandService.deleteComment(feedId, commentId, TEST_USER_ID);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentDeletedEvent.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteCommentByAdmin 테스트 (LUT-418)")
+    class DeleteCommentByAdminEventTest {
+
+        @Test
+        @DisplayName("어드민 삭제도 타인 피드 최상위 댓글이면 카운터 감소 이벤트를 발행한다")
+        void deleteCommentByAdmin_publishesDeletedEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            // when
+            feedCommandService.deleteCommentByAdmin(commentId, "신고 처리");
+
+            // then
+            verify(eventPublisher).publishEvent(any(FeedCommentDeletedEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미 삭제된 댓글을 다시 삭제해도 이벤트를 중복 발행하지 않는다")
+        void deleteCommentByAdmin_alreadyDeleted_noDuplicateEvent() {
+            // given
+            Long feedId = 1L;
+            Long commentId = 1L;
+            ActivityFeed feed = createTestFeed(feedId, OTHER_USER_ID);
+            FeedComment comment = createTestComment(commentId, feed, TEST_USER_ID, null);
+            comment.delete(); // 이미 삭제된 상태
+
+            when(feedCommentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+            when(feedCommentRepository.save(any(FeedComment.class))).thenReturn(comment);
+
+            // when
+            feedCommandService.deleteCommentByAdmin(commentId, "신고 처리");
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(FeedCommentDeletedEvent.class));
         }
     }
 

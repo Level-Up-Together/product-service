@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.stats.application;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.domain.dto.UserStatsResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
@@ -18,13 +19,18 @@ public class UserStatsService {
 
     private final UserStatsRepository userStatsRepository;
     private final UserQueryFacade userQueryFacade;
+    private final GuildQueryFacade guildQueryFacade;
 
     // LUT-405: userQueryFacadeService → userProfileCacheService → gamificationQueryFacadeService
     // → userStatsService 로 이어지는 user↔gamification 생성 사이클을 @Lazy 로 끊는다.
+    // LUT-418: guildQueryFacade 도 같은 이유로 @Lazy (guild↔gamification 생성 사이클 예방).
     public UserStatsService(
-            UserStatsRepository userStatsRepository, @Lazy UserQueryFacade userQueryFacade) {
+            UserStatsRepository userStatsRepository,
+            @Lazy UserQueryFacade userQueryFacade,
+            @Lazy GuildQueryFacade guildQueryFacade) {
         this.userStatsRepository = userStatsRepository;
         this.userQueryFacade = userQueryFacade;
+        this.guildQueryFacade = guildQueryFacade;
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")
@@ -132,10 +138,18 @@ public class UserStatsService {
         stats.decrementLikesReceived();
     }
 
+    /**
+     * LUT-418: 길드 가입 카운터를 "가입해 본 distinct 길드 수"로 동기화한다.
+     *
+     * <p>이벤트마다 +1 하던 기존 방식은 같은 길드 탈퇴→재가입 반복으로 무한 누적됐다. guild_member는 탈퇴/추방/해체/회원탈퇴 모두 소프트
+     * 삭제(행 보존)이고 재가입은 기존 행 재활성화라, 전 status 행 수를 그대로 덮어쓰면 재가입·중복 이벤트에 멱등이다. 탈퇴해도 이력 행은 남으므로
+     * 카운트가 줄지 않는다 (달성 업적 회수 방지).
+     */
     @Transactional(transactionManager = "gamificationTransactionManager")
-    public void incrementGuildJoinCount(String userId) {
+    public void syncGuildJoinCount(String userId) {
+        long distinctGuilds = guildQueryFacade.countDistinctJoinedGuilds(userId);
         UserStats stats = getOrCreateUserStats(userId);
-        stats.incrementGuildJoinCount();
+        stats.setGuildJoinCount((int) distinctGuilds);
     }
 
     @Transactional(transactionManager = "gamificationTransactionManager")

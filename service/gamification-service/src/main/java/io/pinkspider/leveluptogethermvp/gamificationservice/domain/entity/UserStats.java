@@ -111,7 +111,7 @@ public class UserStats extends LocalDateTimeBaseEntity {
     private Integer friendCount = 0;
 
     @Column(name = "guild_join_count", nullable = false)
-    @Comment("길드 가입 횟수")
+    @Comment("가입해 본 distinct 길드 수 (LUT-418: 재가입 중복 집계 방지)")
     @Builder.Default
     private Integer guildJoinCount = 0;
 
@@ -213,10 +213,6 @@ public class UserStats extends LocalDateTimeBaseEntity {
         if (this.friendCount > 0) {
             this.friendCount--;
         }
-    }
-
-    public void incrementGuildJoinCount() {
-        this.guildJoinCount++;
     }
 
     public void incrementCommentsReceived() {

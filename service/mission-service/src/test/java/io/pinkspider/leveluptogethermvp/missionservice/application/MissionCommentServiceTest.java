@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.event.MissionCommentDeletedEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.missionservice.domain.dto.MissionCommentRequest;
@@ -350,6 +351,62 @@ class MissionCommentServiceTest {
             assertThatThrownBy(() -> missionCommentService.deleteComment(wrongMissionId, COMMENT_ID, TEST_USER_ID))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.mission.comment.wrong_mission");
+        }
+
+        @Test
+        @DisplayName("LUT-418: 타인 미션의 댓글 삭제 시 카운터 감소 이벤트를 발행한다")
+        void deleteComment_publishesDeletedEvent() {
+            // given
+            Mission mission = createTestMission();
+            MissionComment comment = createTestComment(mission, TEST_USER_ID);
+
+            when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
+                .thenReturn(Optional.of(comment));
+
+            // when
+            missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, TEST_USER_ID);
+
+            // then
+            ArgumentCaptor<MissionCommentDeletedEvent> captor =
+                ArgumentCaptor.forClass(MissionCommentDeletedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(TEST_USER_ID);
+            assertThat(captor.getValue().missionCreatorId()).isEqualTo(CREATOR_USER_ID);
+            assertThat(captor.getValue().missionId()).isEqualTo(MISSION_ID);
+        }
+
+        @Test
+        @DisplayName("LUT-418: 본인 미션에 단 본인 댓글 삭제 시 이벤트를 발행하지 않는다 (작성 시에도 미집계)")
+        void deleteComment_selfMission_noDeletedEvent() {
+            // given
+            Mission mission = createTestMission();
+            MissionComment comment = createTestComment(mission, CREATOR_USER_ID);
+
+            when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
+                .thenReturn(Optional.of(comment));
+
+            // when
+            missionCommentService.deleteComment(MISSION_ID, COMMENT_ID, CREATOR_USER_ID);
+
+            // then
+            verify(eventPublisher, never()).publishEvent(any(MissionCommentDeletedEvent.class));
+        }
+
+        @Test
+        @DisplayName("LUT-418: 어드민 삭제도 타인 댓글이면 카운터 감소 이벤트를 발행한다")
+        void deleteCommentByAdmin_publishesDeletedEvent() {
+            // given
+            Mission mission = createTestMission();
+            MissionComment comment = createTestComment(mission, TEST_USER_ID);
+
+            when(missionCommentRepository.findByIdAndIsDeletedFalse(COMMENT_ID))
+                .thenReturn(Optional.of(comment));
+
+            // when
+            missionCommentService.deleteCommentByAdmin(COMMENT_ID, "신고 처리");
+
+            // then
+            verify(eventPublisher).publishEvent(any(MissionCommentDeletedEvent.class));
         }
     }
 

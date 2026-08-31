@@ -510,6 +510,27 @@ class GuildQueryFacadeServiceTest {
     }
 
     @Nested
+    @DisplayName("countDistinctJoinedGuilds (LUT-418)")
+    class CountDistinctJoinedGuildsTest {
+
+        @Test
+        @DisplayName("status 무관 전체 guild_member 행 수를 반환한다 (탈퇴 이력 포함)")
+        void shouldCountAllMembershipRowsRegardlessOfStatus() {
+            when(guildMemberRepository.countByUserId("user-1")).thenReturn(3L);
+
+            assertThat(facadeService.countDistinctJoinedGuilds("user-1")).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("가입 이력이 없으면 0을 반환한다")
+        void shouldReturnZeroWhenNoHistory() {
+            when(guildMemberRepository.countByUserId("user-1")).thenReturn(0L);
+
+            assertThat(facadeService.countDistinctJoinedGuilds("user-1")).isZero();
+        }
+    }
+
+    @Nested
     @DisplayName("countActiveMembersByGuildIds")
     class CountActiveMembersByGuildIdsTest {
 

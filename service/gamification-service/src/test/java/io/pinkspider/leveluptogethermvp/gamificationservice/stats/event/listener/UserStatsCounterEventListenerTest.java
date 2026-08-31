@@ -2,15 +2,18 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.stats.event.listene
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.anyString;
 
+import io.pinkspider.global.event.FeedCommentDeletedEvent;
 import io.pinkspider.global.event.FeedLikedEvent;
 import io.pinkspider.global.event.FeedUnlikedEvent;
 import io.pinkspider.global.event.FriendRemovedEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
 import io.pinkspider.global.event.GuildJoinedEvent;
+import io.pinkspider.global.event.MissionCommentDeletedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.achievement.application.AchievementService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
 import org.junit.jupiter.api.DisplayName;
@@ -142,7 +145,7 @@ class UserStatsCounterEventListenerTest {
     class HandleGuildJoinedTest {
 
         @Test
-        @DisplayName("길드 가입 카운터를 증가시키고 업적을 체크한다")
+        @DisplayName("LUT-418: 길드 가입 카운터를 distinct 길드 수로 동기화하고 업적을 체크한다")
         void handleGuildJoined_success() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, 1L, "테스트 길드");
@@ -151,8 +154,23 @@ class UserStatsCounterEventListenerTest {
             listener.handleGuildJoined(event);
 
             // then
-            verify(userStatsService).incrementGuildJoinCount(USER_ID);
+            verify(userStatsService).syncGuildJoinCount(USER_ID);
             verify(achievementService).checkAchievementsByDataSource(USER_ID, "USER_STATS");
+        }
+
+        @Test
+        @DisplayName("LUT-418: 같은 길드 재가입 이벤트가 반복돼도 sync 호출이라 카운터가 누적 증가하지 않는다")
+        void handleGuildJoined_rejoinIdempotent() {
+            // given - 같은 길드 탈퇴 후 재가입으로 이벤트가 다시 발행된 상황
+            GuildJoinedEvent firstJoin = new GuildJoinedEvent(USER_ID, 1L, "테스트 길드");
+            GuildJoinedEvent rejoin = new GuildJoinedEvent(USER_ID, 1L, "테스트 길드");
+
+            // when
+            listener.handleGuildJoined(firstJoin);
+            listener.handleGuildJoined(rejoin);
+
+            // then - 증가 연산이 아닌 동기화(덮어쓰기)만 2회 호출된다
+            verify(userStatsService, times(2)).syncGuildJoinCount(USER_ID);
         }
 
         @Test
@@ -160,10 +178,74 @@ class UserStatsCounterEventListenerTest {
         void handleGuildJoined_exceptionHandled() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, 1L, "테스트 길드");
-            doThrow(new RuntimeException("DB error")).when(userStatsService).incrementGuildJoinCount(USER_ID);
+            doThrow(new RuntimeException("DB error")).when(userStatsService).syncGuildJoinCount(USER_ID);
 
             // when - 예외가 전파되지 않음
             listener.handleGuildJoined(event);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleFeedCommentDeleted 테스트 (LUT-418)")
+    class HandleFeedCommentDeletedTest {
+
+        @Test
+        @DisplayName("피드 댓글 삭제 시 받은 댓글 카운터를 감소시킨다")
+        void handleFeedCommentDeleted_success() {
+            // given
+            FeedCommentDeletedEvent event = new FeedCommentDeletedEvent(USER_ID, FEED_OWNER_ID, 1L);
+
+            // when
+            listener.handleFeedCommentDeleted(event);
+
+            // then
+            verify(userStatsService).decrementCommentsReceived(FEED_OWNER_ID);
+        }
+
+        @Test
+        @DisplayName("예외 발생 시 로그만 남기고 전파하지 않는다")
+        void handleFeedCommentDeleted_exceptionHandled() {
+            // given
+            FeedCommentDeletedEvent event = new FeedCommentDeletedEvent(USER_ID, FEED_OWNER_ID, 1L);
+            doThrow(new RuntimeException("DB error"))
+                .when(userStatsService).decrementCommentsReceived(FEED_OWNER_ID);
+
+            // when - 예외가 전파되지 않음
+            listener.handleFeedCommentDeleted(event);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleMissionCommentDeleted 테스트 (LUT-418)")
+    class HandleMissionCommentDeletedTest {
+
+        private static final String MISSION_CREATOR_ID = "mission-creator-999";
+
+        @Test
+        @DisplayName("미션 댓글 삭제 시 받은 댓글 카운터를 감소시킨다")
+        void handleMissionCommentDeleted_success() {
+            // given
+            MissionCommentDeletedEvent event =
+                new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
+
+            // when
+            listener.handleMissionCommentDeleted(event);
+
+            // then
+            verify(userStatsService).decrementCommentsReceived(MISSION_CREATOR_ID);
+        }
+
+        @Test
+        @DisplayName("예외 발생 시 로그만 남기고 전파하지 않는다")
+        void handleMissionCommentDeleted_exceptionHandled() {
+            // given
+            MissionCommentDeletedEvent event =
+                new MissionCommentDeletedEvent(USER_ID, MISSION_CREATOR_ID, 1L);
+            doThrow(new RuntimeException("DB error"))
+                .when(userStatsService).decrementCommentsReceived(MISSION_CREATOR_ID);
+
+            // when - 예외가 전파되지 않음
+            listener.handleMissionCommentDeleted(event);
         }
     }
 

@@ -157,6 +157,12 @@ public class GuildQueryFacadeService implements GuildQueryFacade {
             .toList();
     }
 
+    /** LUT-418: 가입해 본 distinct 길드 수 (status 무관). 재가입은 기존 행 재활성화라 중복 집계되지 않는다. */
+    @Override
+    public long countDistinctJoinedGuilds(String userId) {
+        return guildMemberRepository.countByUserId(userId);
+    }
+
     /**
      * Admin Internal API 전용: 사용자 길드 상세 정보 (첫 번째 활성 길드)
      */

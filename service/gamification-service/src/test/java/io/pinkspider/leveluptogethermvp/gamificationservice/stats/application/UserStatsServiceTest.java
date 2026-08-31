@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.UserStats;
 import io.pinkspider.leveluptogethermvp.gamificationservice.infrastructure.UserStatsRepository;
@@ -29,6 +30,9 @@ class UserStatsServiceTest {
 
     @Mock
     private UserQueryFacade userQueryFacade;
+
+    @Mock
+    private GuildQueryFacade guildQueryFacade;
 
     @InjectMocks
     private UserStatsService userStatsService;
@@ -371,6 +375,59 @@ class UserStatsServiceTest {
 
             // then
             assertThat(stats.getTotalLikesReceived()).isEqualTo(0L);
+        }
+    }
+
+    @Nested
+    @DisplayName("syncGuildJoinCount 테스트 (LUT-418)")
+    class SyncGuildJoinCountTest {
+
+        @Test
+        @DisplayName("길드 가입 카운터를 가입해 본 distinct 길드 수로 덮어쓴다")
+        void syncGuildJoinCount_setsDistinctCount() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(guildQueryFacade.countDistinctJoinedGuilds(TEST_USER_ID)).thenReturn(3L);
+
+            // when
+            userStatsService.syncGuildJoinCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getGuildJoinCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("같은 길드 재가입으로 부풀려진 카운터가 실제 distinct 길드 수로 정정된다")
+        void syncGuildJoinCount_correctsInflatedCount() {
+            // given - 탈퇴/재가입 반복으로 5까지 부풀려졌지만 실제 가입해 본 길드는 1개
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            stats.setGuildJoinCount(5);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(guildQueryFacade.countDistinctJoinedGuilds(TEST_USER_ID)).thenReturn(1L);
+
+            // when
+            userStatsService.syncGuildJoinCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getGuildJoinCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("반복 호출해도 결과가 같다 (멱등)")
+        void syncGuildJoinCount_idempotent() {
+            // given
+            UserStats stats = createTestUserStats(1L, TEST_USER_ID, 10, 5);
+            when(userStatsRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(stats));
+            when(guildQueryFacade.countDistinctJoinedGuilds(TEST_USER_ID)).thenReturn(2L);
+
+            // when
+            userStatsService.syncGuildJoinCount(TEST_USER_ID);
+            userStatsService.syncGuildJoinCount(TEST_USER_ID);
+            userStatsService.syncGuildJoinCount(TEST_USER_ID);
+
+            // then
+            assertThat(stats.getGuildJoinCount()).isEqualTo(2);
         }
     }
 
