@@ -208,6 +208,15 @@ public class TitleService {
                 ut -> ut.getTitle().getDisplayName(), (a, b) -> a));
     }
 
+    /** LUT-420: 칭호 ID 배치 조회 — 시즌 보상 칭호명 로케일 변형 매핑용 (파사드 getSeasonRankRewards) */
+    public Map<Long, Title> getTitleEntitiesByIds(List<Long> titleIds) {
+        if (titleIds == null || titleIds.isEmpty()) {
+            return Map.of();
+        }
+        return titleRepository.findAllById(titleIds).stream()
+            .collect(Collectors.toMap(Title::getId, t -> t));
+    }
+
     /**
      * 여러 사용자의 장착된 칭호 엔티티 배치 조회
      */

@@ -69,7 +69,7 @@ class BffSeasonServiceTest {
             "1위", "Rank 1", "المركز 1", "1位",
             null, null, null, null, null,
             "전체 랭킹", "Overall", "الإجمالي", "総合",
-            101L, "골드 챔피언", "LEGENDARY",
+            101L, "골드 챔피언", "Gold Champion", "بطل ذهبي", "ゴールドチャンピオン", "LEGENDARY",
             1, true,
             new io.pinkspider.global.facade.dto.SeasonRewardItemDto(
                 11L, "황금 날개", "Golden Wings", "أجنحة ذهبية", "黄金の翼",

@@ -955,6 +955,74 @@ class GamificationQueryFacadeServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-420: 칭호명 로케일 변형(en/ar/ja)을 칭호 배치 조회로 채워 내려준다")
+        void getSeasonRankRewards_includesLocalizedTitleNames() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(1)
+                .rankEnd(1)
+                .titleId(10L)
+                .titleName("챔피언")
+                .titleRarity("LEGENDARY")
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            Title title = Title.builder()
+                .name("챔피언")
+                .nameEn("Champion")
+                .nameAr("بطل")
+                .nameJa("チャンピオン")
+                .rarity(TitleRarity.LEGENDARY)
+                .build();
+            setId(title, 10L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(titleService.getTitleEntitiesByIds(List.of(10L))).thenReturn(Map.of(10L, title));
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then
+            assertThat(result.get(0).titleName()).isEqualTo("챔피언");
+            assertThat(result.get(0).titleNameEn()).isEqualTo("Champion");
+            assertThat(result.get(0).titleNameAr()).isEqualTo("بطل");
+            assertThat(result.get(0).titleNameJa()).isEqualTo("チャンピオン");
+        }
+
+        @Test
+        @DisplayName("LUT-420: 칭호가 삭제된 보상은 로케일 변형이 null 로 내려간다 (스냅샷 폴백)")
+        void getSeasonRankRewards_missingTitle_localizedNamesNull() {
+            // given
+            Season season = createSeason(1L, "시즌 1");
+            SeasonRankReward reward = SeasonRankReward.builder()
+                .season(season)
+                .rankStart(1)
+                .rankEnd(1)
+                .titleId(99L)
+                .titleName("사라진 칭호")
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+            setId(reward, 100L);
+
+            when(seasonRankRewardRepository.findBySeasonIdOrderBySortOrder(1L)).thenReturn(List.of(reward));
+            when(titleService.getTitleEntitiesByIds(List.of(99L))).thenReturn(Map.of());
+
+            // when
+            List<SeasonRankRewardDto> result = facadeService.getSeasonRankRewards(1L);
+
+            // then — FE 는 titleName(ko 스냅샷)으로 폴백
+            assertThat(result.get(0).titleName()).isEqualTo("사라진 칭호");
+            assertThat(result.get(0).titleNameEn()).isNull();
+            assertThat(result.get(0).titleNameAr()).isNull();
+            assertThat(result.get(0).titleNameJa()).isNull();
+        }
+
+        @Test
         @DisplayName("LUT-414: 전체 랭킹 보상은 순위/랭킹타입 로케일 변형을 함께 내려준다")
         void getSeasonRankRewards_overall_includesLocalizedDisplays() {
             // given

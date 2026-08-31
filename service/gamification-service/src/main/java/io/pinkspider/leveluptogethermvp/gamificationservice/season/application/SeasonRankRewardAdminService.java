@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.season.application;
 
+import io.pinkspider.global.enums.TitlePosition;
+import io.pinkspider.global.enums.TitleRarity;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.entity.Title;
 import io.pinkspider.leveluptogethermvp.gamificationservice.domain.enums.TitleAcquisitionType;
@@ -62,26 +64,10 @@ public class SeasonRankRewardAdminService {
             throw new CustomException("120005", "error.season.rank.overlap");
         }
 
-        Title title;
-        if (request.titleId() != null) {
-            title = titleRepository.findById(request.titleId())
-                .orElseThrow(() -> new CustomException("120006", "error.title.not_found"));
-            title.setName(request.titleName());
-            title.setRarity(request.titleRarity());
-            title.setPositionType(request.titlePositionType());
-        } else {
-            title = Title.builder()
-                .name(request.titleName())
-                .rarity(request.titleRarity())
-                .positionType(request.titlePositionType())
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .acquisitionCondition(buildAcquisitionCondition(season, request.rankStart(), request.rankEnd(), request.categoryId(), request.categoryName()))
-                .isActive(true)
-                .build();
-            title = titleRepository.save(title);
-            log.info("시즌 보상용 새 칭호 생성: titleId={}, name={}, rarity={}",
-                title.getId(), title.getName(), title.getRarity());
-        }
+        Title title = resolveRewardTitle(season, request.titleId(), request.titleName(),
+            request.titleNameEn(), request.titleNameAr(), request.titleNameJa(),
+            request.titleRarity(), request.titlePositionType(),
+            request.rankStart(), request.rankEnd(), request.categoryId(), request.categoryName());
 
         SeasonRankReward reward = SeasonRankReward.builder()
             .season(season)
@@ -120,15 +106,10 @@ public class SeasonRankRewardAdminService {
                 throw new CustomException("120005", "error.season.rank.overlap");
             }
 
-            Title title = Title.builder()
-                .name(request.titleName())
-                .rarity(request.titleRarity())
-                .positionType(request.titlePositionType())
-                .acquisitionType(TitleAcquisitionType.SEASON)
-                .acquisitionCondition(buildAcquisitionCondition(season, request.rankStart(), request.rankEnd(), request.categoryId(), request.categoryName()))
-                .isActive(true)
-                .build();
-            title = titleRepository.save(title);
+            Title title = resolveRewardTitle(season, request.titleId(), request.titleName(),
+                request.titleNameEn(), request.titleNameAr(), request.titleNameJa(),
+                request.titleRarity(), request.titlePositionType(),
+                request.rankStart(), request.rankEnd(), request.categoryId(), request.categoryName());
 
             SeasonRankReward reward = SeasonRankReward.builder()
                 .season(season)
@@ -165,19 +146,19 @@ public class SeasonRankRewardAdminService {
             throw new CustomException("120005", "error.season.rank.overlap");
         }
 
-        Title title = titleRepository.findById(request.titleId())
-            .orElseThrow(() -> new CustomException("120006", "error.title.not_found"));
-
-        title.setName(request.titleName());
-        title.setRarity(request.titleRarity());
-        title.setPositionType(request.titlePositionType());
+        // LUT-420: 참조 모드(titleId 지정)는 기존 칭호를 그대로 사용 — 메타 덮어쓰기 없음.
+        // 미지정 시 요청 값(다국어 포함)으로 새 칭호를 생성해 교체한다.
+        Title title = resolveRewardTitle(reward.getSeason(), request.titleId(), request.titleName(),
+            request.titleNameEn(), request.titleNameAr(), request.titleNameJa(),
+            request.titleRarity(), request.titlePositionType(),
+            request.rankStart(), request.rankEnd(), request.categoryId(), request.categoryName());
 
         reward.setRankStart(request.rankStart());
         reward.setRankEnd(request.rankEnd());
         reward.setCategoryId(request.categoryId());
         reward.setCategoryName(request.categoryName());
-        reward.setTitleId(request.titleId());
-        reward.setTitleName(request.titleName());
+        reward.setTitleId(title.getId());
+        reward.setTitleName(title.getName());
         reward.setTitleRarity(title.getRarity() != null ? title.getRarity().name() : null);
         reward.setItemId(request.itemId());
         reward.setItemName(resolveRewardItemName(request.itemId()));
@@ -189,6 +170,42 @@ public class SeasonRankRewardAdminService {
             rewardId, request.categoryId(), request.rankStart(), request.rankEnd(), request.titleId());
 
         return SeasonRankRewardAdminResponse.from(reward, title);
+    }
+
+    /**
+     * LUT-420: 보상 칭호 결정.
+     *
+     * <p>titleId 지정 = 기존 칭호 참조 — 칭호 메타(이름/등급/포지션)를 절대 수정하지 않는다
+     * (과거에는 요청 값으로 덮어써 셀렉트 UX 에서 기존 칭호가 오염될 수 있었다).
+     * titleId 미지정 = 요청 값(다국어 포함)으로 새 칭호 생성(acquisitionType=SEASON).
+     */
+    private Title resolveRewardTitle(
+            Season season, Long titleId, String titleName,
+            String titleNameEn, String titleNameAr, String titleNameJa,
+            TitleRarity titleRarity, TitlePosition titlePositionType,
+            Integer rankStart, Integer rankEnd, Long categoryId, String categoryName) {
+        if (titleId != null) {
+            return titleRepository.findById(titleId)
+                .orElseThrow(() -> new CustomException("120006", "error.title.not_found"));
+        }
+        if (titleName == null || titleName.isBlank() || titleRarity == null) {
+            throw new CustomException("120008", "error.season.reward.title_required");
+        }
+        Title title = Title.builder()
+            .name(titleName)
+            .nameEn(titleNameEn)
+            .nameAr(titleNameAr)
+            .nameJa(titleNameJa)
+            .rarity(titleRarity)
+            .positionType(titlePositionType != null ? titlePositionType : TitlePosition.RIGHT)
+            .acquisitionType(TitleAcquisitionType.SEASON)
+            .acquisitionCondition(buildAcquisitionCondition(season, rankStart, rankEnd, categoryId, categoryName))
+            .isActive(true)
+            .build();
+        title = titleRepository.save(title);
+        log.info("시즌 보상용 새 칭호 생성: titleId={}, name={}, rarity={}",
+            title.getId(), title.getName(), title.getRarity());
+        return title;
     }
 
     public void deleteRankReward(Long rewardId) {

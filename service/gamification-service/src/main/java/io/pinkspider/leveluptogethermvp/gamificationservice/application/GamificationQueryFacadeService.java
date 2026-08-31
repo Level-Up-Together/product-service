@@ -382,6 +382,14 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
             : shopItemRepository.findAllById(itemIds).stream()
                 .collect(Collectors.toMap(ShopItem::getId, item -> item));
 
+        // LUT-420: 칭호명 로케일 변형용 칭호 배치 로드 — 삭제된 칭호는 스냅샷(titleName, ko)만 내려간다.
+        List<Long> titleIds = rewards.stream()
+            .map(r -> r.getTitleId())
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<Long, Title> titleById = titleService.getTitleEntitiesByIds(titleIds);
+
         // LUT-414: 카테고리형 보상의 로케일 변형(카테고리명/랭킹타입)용 카테고리 배치 로드.
         // 조회 실패는 한글 스냅샷 폴백 — display 필드가 시즌 화면 렌더를 막지 않게 한다.
         Map<Long, MissionCategoryResponse> categoryById = new java.util.HashMap<>();
@@ -415,6 +423,13 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
                     rankingTypeDisplayLocalized(r, categoryNameAr, "الإجمالي"),
                     rankingTypeDisplayLocalized(r, categoryNameJa, "総合"),
                     r.getTitleId(), r.getTitleName(),
+                    // LUT-420: 칭호명 로케일 변형 (칭호 미존재 시 null → FE 가 titleName(ko) 폴백)
+                    r.getTitleId() != null && titleById.containsKey(r.getTitleId())
+                        ? titleById.get(r.getTitleId()).getNameEn() : null,
+                    r.getTitleId() != null && titleById.containsKey(r.getTitleId())
+                        ? titleById.get(r.getTitleId()).getNameAr() : null,
+                    r.getTitleId() != null && titleById.containsKey(r.getTitleId())
+                        ? titleById.get(r.getTitleId()).getNameJa() : null,
                     r.getTitleRarity(), r.getSortOrder(), r.getIsActive(),
                     // Map.of() 불변 맵은 get(null) 에서 NPE — itemId 미지정 보상은 선분기
                     toSeasonRewardItemDto(
