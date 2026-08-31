@@ -403,6 +403,7 @@ class MissionExecutionControllerTest {
                         .expEarned(50)
                         .durationMinutes(60)
                         .completedAt(today.atTime(9, 0))
+                        .missionType("GUILD")
                         .build(),
                     DailyMission.builder()
                         .missionId(2L)
@@ -411,6 +412,7 @@ class MissionExecutionControllerTest {
                         .expEarned(30)
                         .durationMinutes(45)
                         .completedAt(today.atTime(14, 30))
+                        .missionType("PERSONAL")
                         .build()
                 ),
                 yesterdayStr, List.of(
@@ -468,6 +470,7 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.daily_missions.*[].duration_minutes").type(JsonFieldType.NUMBER).description("소요 시간 (분)").optional(),
                             fieldWithPath("value.daily_missions.*[].started_at").type(JsonFieldType.STRING).description("시작 시간").optional(),
                             fieldWithPath("value.daily_missions.*[].completed_at").type(JsonFieldType.STRING).description("완료 시간 (yyyy-MM-dd HH:mm:ss)").optional(),
+                            fieldWithPath("value.daily_missions.*[].mission_type").type(JsonFieldType.STRING).description("미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용 (LUT-434)").optional(),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (캘린더 하이라이트용)")
                         )
                         .build()
@@ -555,6 +558,7 @@ class MissionExecutionControllerTest {
                         .completedAt(LocalDateTime.of(2026, 8, 5, 10, 0))
                         .visibility("PUBLIC")
                         .isVisible(true)
+                        .missionType("GUILD")
                         .build(),
                     WeeklyCalendarResponse.CalendarMission.builder()
                         .expEarned(30)
@@ -612,6 +616,7 @@ class MissionExecutionControllerTest {
                             fieldWithPath("value.daily_missions.*[].completed_at").type(JsonFieldType.STRING).description("완료 시간").optional(),
                             fieldWithPath("value.daily_missions.*[].visibility").type(JsonFieldType.STRING).description("미션 공개범위 (PUBLIC/FRIENDS_ONLY/GUILD_ONLY/FRIENDS_AND_GUILD/PRIVATE)"),
                             fieldWithPath("value.daily_missions.*[].is_visible").type(JsonFieldType.BOOLEAN).description("조회자 노출 여부 — false 면 미션 식별 정보가 null 마스킹됨"),
+                            fieldWithPath("value.daily_missions.*[].mission_type").type(JsonFieldType.STRING).description("미션 유형 (PERSONAL/GUILD) — 길드 색상 판별용, 비노출 시 미포함 (LUT-434)").optional(),
                             fieldWithPath("value.completed_dates[]").type(JsonFieldType.ARRAY).description("완료된 미션이 있는 날짜 목록 (요일 헤더 하이라이트용)")
                         )
                         .build()

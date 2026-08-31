@@ -404,6 +404,7 @@ public class MissionExecutionQueryService {
                 .durationMinutes(durationMinutes)
                 .startedAt(execution.getStartedAt())
                 .completedAt(execution.getCompletedAt())
+                .missionType(missionTypeOf(regularMission))
                 .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
@@ -429,6 +430,7 @@ public class MissionExecutionQueryService {
                 .durationMinutes(durationMinutes)
                 .startedAt(instance.getStartedAt())
                 .completedAt(instance.getCompletedAt())
+                .missionType(missionTypeOf(instance.getParticipant().getMission()))
                 .build();
 
             dailyMissions.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(dailyMission);
@@ -529,6 +531,7 @@ public class MissionExecutionQueryService {
                     .completedAt(execution.getCompletedAt())
                     .visibility(visibility.name())
                     .isVisible(visible)
+                    .missionType(visible ? missionTypeOf(mission) : null)
                     .build());
         }
         for (DailyMissionInstance instance : completedInstances) {
@@ -552,6 +555,8 @@ public class MissionExecutionQueryService {
                     .completedAt(instance.getCompletedAt())
                     .visibility(visibility.name())
                     .isVisible(visible)
+                    .missionType(visible
+                        ? missionTypeOf(instance.getParticipant().getMission()) : null)
                     .build());
         }
 
@@ -570,6 +575,11 @@ public class MissionExecutionQueryService {
             .dailyMissions(dailyMissions)
             .completedDates(completedDates)
             .build();
+    }
+
+    /** LUT-434: 미션 유형 문자열 — 값이 없으면(레거시) null (프론트는 기존 색상 유지) */
+    private static String missionTypeOf(Mission mission) {
+        return mission.getType() != null ? mission.getType().name() : null;
     }
 
     /** 공개범위 조회 — 값이 없으면(레거시) 안전하게 PRIVATE 취급 */

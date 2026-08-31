@@ -213,6 +213,65 @@ class MissionExecutionQueryServiceTest {
         }
 
         @Test
+        @DisplayName("[LUT-434] 길드 미션은 mission_type=GUILD, 개인 미션은 PERSONAL 로 내려간다")
+        void getMonthlyCalendarData_includesMissionType() {
+            // given
+            int year = 2024;
+            int month = 12;
+            LocalDate date = LocalDate.of(year, month, 15);
+
+            Mission guildMission = Mission.builder()
+                .title("길드 합동 미션")
+                .status(MissionStatus.IN_PROGRESS)
+                .visibility(MissionVisibility.PUBLIC)
+                .type(MissionType.GUILD)
+                .creatorId(testUserId)
+                .missionInterval(MissionInterval.DAILY)
+                .expPerCompletion(50)
+                .build();
+            setId(guildMission, 2L);
+
+            MissionParticipant guildParticipant = MissionParticipant.builder()
+                .mission(guildMission)
+                .userId(testUserId)
+                .status(ParticipantStatus.IN_PROGRESS)
+                .build();
+            setId(guildParticipant, 2L);
+
+            MissionExecution guildExecution = MissionExecution.builder()
+                .participant(guildParticipant)
+                .executionDate(date)
+                .status(ExecutionStatus.COMPLETED)
+                .expEarned(50)
+                .build();
+            setId(guildExecution, 10L);
+            TestReflectionUtils.setField(guildExecution, "startedAt", date.atTime(9, 0));
+            TestReflectionUtils.setField(guildExecution, "completedAt", date.atTime(10, 0));
+
+            when(executionRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(guildExecution, createCompletedExecution(1L, date, 30, 45)));
+            when(dailyMissionInstanceRepository.findCompletedByUserIdAndCompletedAtBetween(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(gamificationQueryFacade.getDailyExpSummary(
+                eq(testUserId), any(LocalDateTime.class), any(LocalDateTime.class), any()))
+                .thenReturn(java.util.Map.of(date, 80L));
+
+            // when
+            MonthlyCalendarResponse response =
+                executionService.getMonthlyCalendarData(testUserId, year, month, null);
+
+            // then
+            var missions = response.getDailyMissions().get(date.toString());
+            assertThat(missions).hasSize(2);
+            assertThat(missions).extracting("missionTitle", "missionType")
+                .containsExactlyInAnyOrder(
+                    org.assertj.core.groups.Tuple.tuple("길드 합동 미션", "GUILD"),
+                    org.assertj.core.groups.Tuple.tuple("30일 운동 챌린지", "PERSONAL"));
+        }
+
+        @Test
         @DisplayName("LUT-240: 자정 넘겨 완료된 미션은 executionDate가 아닌 완료 시각(KST) 날짜에 그룹된다")
         void getMonthlyCalendarData_bucketsByCompletionDate() {
             // given: executionDate=12-15 이지만 완료는 UTC 12-15 16:00 = KST 12-16 01:00
@@ -567,6 +626,8 @@ class MissionExecutionQueryServiceTest {
             var visible = missions.stream().filter(m -> Boolean.TRUE.equals(m.getIsVisible())).toList();
             assertThat(visible).hasSize(1);
             assertThat(visible.get(0).getMissionTitle()).isEqualTo("미션-PUBLIC");
+            // LUT-434: 노출 미션은 미션 유형 포함
+            assertThat(visible.get(0).getMissionType()).isEqualTo("PERSONAL");
 
             var masked = missions.stream().filter(m -> Boolean.FALSE.equals(m.getIsVisible())).toList();
             assertThat(masked).hasSize(2);
@@ -574,6 +635,8 @@ class MissionExecutionQueryServiceTest {
                 assertThat(m.getMissionTitle()).isNull();
                 assertThat(m.getMissionId()).isNull();
                 assertThat(m.getCategoryName()).isNull();
+                // LUT-434: 비노출 미션은 미션 유형도 마스킹
+                assertThat(m.getMissionType()).isNull();
                 // 시간표 블록 배치용 시간 필드는 유지
                 assertThat(m.getStartedAt()).isNotNull();
                 assertThat(m.getCompletedAt()).isNotNull();

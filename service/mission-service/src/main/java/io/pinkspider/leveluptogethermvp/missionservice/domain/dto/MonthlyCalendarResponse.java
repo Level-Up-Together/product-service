@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDate;
@@ -57,5 +58,9 @@ public class MonthlyCalendarResponse {
         private Integer durationMinutes;
         private LocalDateTime startedAt;
         private LocalDateTime completedAt;
+
+        /** LUT-434: 미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용 */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        private String missionType;
     }
 }

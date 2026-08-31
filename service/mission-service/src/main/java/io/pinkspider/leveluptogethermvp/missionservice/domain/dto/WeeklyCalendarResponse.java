@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.missionservice.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -63,5 +64,12 @@ public class WeeklyCalendarResponse {
         /** 조회자 노출 여부 — false 면 미션 식별 정보가 null 마스킹됨 */
         @JsonProperty("is_visible")
         private Boolean isVisible;
+
+        /**
+         * LUT-434: 미션 유형 (PERSONAL/GUILD) — 캘린더 블록 길드 색상 판별용.
+         * 비노출(is_visible=false) 미션은 식별 정보와 동일하게 null 마스킹 (필드 미포함).
+         */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        private String missionType;
     }
 }
