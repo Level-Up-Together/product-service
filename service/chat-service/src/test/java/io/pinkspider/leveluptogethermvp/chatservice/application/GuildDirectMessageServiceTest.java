@@ -63,6 +63,9 @@ class GuildDirectMessageServiceTest {
     @Mock
     private DmRealtimePublisher dmRealtimePublisher;
 
+    @Mock
+    private io.pinkspider.global.facade.GamificationQueryFacade gamificationQueryFacadeService;
+
     @InjectMocks
     private GuildDirectMessageService dmService;
 
@@ -495,6 +498,15 @@ class GuildDirectMessageServiceTest {
         }
     }
 
+    private static io.pinkspider.global.facade.dto.UserTitleDto equippedTitle(
+            String name,
+            io.pinkspider.global.enums.TitleRarity rarity,
+            io.pinkspider.global.enums.TitlePosition position) {
+        return new io.pinkspider.global.facade.dto.UserTitleDto(
+            1L, USER_ID_2, 1L, name, null, null, null,
+            null, null, null, null, rarity, position, null, null, true, position, null);
+    }
+
     @Nested
     @DisplayName("대화 목록 조회 테스트")
     class GetConversationsTest {
@@ -522,6 +534,78 @@ class GuildDirectMessageServiceTest {
             assertThat(result.get(0).getOtherUserId()).isEqualTo(USER_ID_2);
             assertThat(result.get(0).getOtherUserNickname()).isEqualTo(NICKNAME_2);
             assertThat(result.get(0).getUnreadCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("[LUT-443] 상대방 칭호·장착 아이템 등급을 응답에 채운다")
+        void getConversations_enrichesOtherUserRarities() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(USER_ID_1, USER_ID_2));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.getUserProfiles(List.of(USER_ID_2)))
+                .thenReturn(java.util.Map.of(USER_ID_2, new UserProfileInfo(USER_ID_2, NICKNAME_2, null, 1, null, null, null)));
+            when(messageRepository.countUnreadMessages(1L, USER_ID_1)).thenReturn(0);
+
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(USER_ID_2)))
+                .thenReturn(java.util.Map.of(USER_ID_2, List.of(
+                    equippedTitle("용사", io.pinkspider.global.enums.TitleRarity.EPIC,
+                        io.pinkspider.global.enums.TitlePosition.LEFT),
+                    equippedTitle("정복자", io.pinkspider.global.enums.TitleRarity.RARE,
+                        io.pinkspider.global.enums.TitlePosition.RIGHT))));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(USER_ID_2)))
+                .thenReturn(java.util.Map.of(USER_ID_2, List.of(
+                    new io.pinkspider.global.facade.dto.EquippedItemRarityDto(
+                        "HEAD", io.pinkspider.global.enums.TitleRarity.LEGENDARY))));
+
+            // when
+            List<DirectConversationResponse> result = dmService.getConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(result).hasSize(1);
+            DirectConversationResponse response = result.get(0);
+            assertThat(response.getOtherUserLeftTitleRarity())
+                .isEqualTo(io.pinkspider.global.enums.TitleRarity.EPIC);
+            assertThat(response.getOtherUserRightTitleRarity())
+                .isEqualTo(io.pinkspider.global.enums.TitleRarity.RARE);
+            assertThat(response.getOtherUserEquippedItemRarities()).hasSize(1);
+            assertThat(response.getOtherUserEquippedItemRarities().get(0).itemType())
+                .isEqualTo("HEAD");
+        }
+
+        @Test
+        @DisplayName("[LUT-443] 등급 조회가 실패해도 목록은 빈 등급으로 내려간다")
+        void getConversations_rarityLookupFailure_fallsBackToEmpty() {
+            // given
+            when(guildQueryFacadeService.isActiveMember(1L, USER_ID_1)).thenReturn(true);
+            when(conversationRepository.findAllByGuildIdAndUserId(1L, USER_ID_1))
+                .thenReturn(List.of(testConversation));
+            when(guildQueryFacadeService.getActiveMemberUserIds(1L))
+                .thenReturn(List.of(USER_ID_1, USER_ID_2));
+            when(userQueryFacadeService.getActiveUserIds(List.of(USER_ID_2)))
+                .thenReturn(List.of(USER_ID_2));
+            when(userQueryFacadeService.getUserProfiles(List.of(USER_ID_2)))
+                .thenReturn(java.util.Map.of(USER_ID_2, new UserProfileInfo(USER_ID_2, NICKNAME_2, null, 1, null, null, null)));
+            when(messageRepository.countUnreadMessages(1L, USER_ID_1)).thenReturn(0);
+
+            when(gamificationQueryFacadeService.getEquippedTitlesByUserIds(List.of(USER_ID_2)))
+                .thenThrow(new RuntimeException("gamification down"));
+            when(gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(List.of(USER_ID_2)))
+                .thenThrow(new RuntimeException("gamification down"));
+
+            // when
+            List<DirectConversationResponse> result = dmService.getConversations(1L, USER_ID_1);
+
+            // then
+            assertThat(result).hasSize(1);
+            DirectConversationResponse response = result.get(0);
+            assertThat(response.getOtherUserLeftTitleRarity()).isNull();
+            assertThat(response.getOtherUserRightTitleRarity()).isNull();
+            assertThat(response.getOtherUserEquippedItemRarities()).isEmpty();
         }
 
         @Test

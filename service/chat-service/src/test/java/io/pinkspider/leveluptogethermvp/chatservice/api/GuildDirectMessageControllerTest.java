@@ -18,6 +18,8 @@ import com.epages.restdocs.apispec.ResourceSnippetParameters;
 import com.epages.restdocs.apispec.SimpleType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.pinkspider.global.component.LmObjectMapper;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.config.ControllerTestConfig;
 import io.pinkspider.leveluptogethermvp.chatservice.application.GuildDirectMessageService;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.dto.DirectConversationResponse;
@@ -87,6 +89,10 @@ class GuildDirectMessageControllerTest {
             .lastMessageAt(LocalDateTime.now())
             .unreadCount(3)
             .createdAt(LocalDateTime.now().minusDays(1))
+            .otherUserLeftTitleRarity(TitleRarity.EPIC)
+            .otherUserRightTitleRarity(TitleRarity.EPIC)
+            .otherUserEquippedItemRarities(
+                List.of(new EquippedItemRarityDto("HEAD", TitleRarity.RARE)))
             .build();
 
         when(dmService.getConversations(anyLong(), anyString()))
@@ -119,7 +125,12 @@ class GuildDirectMessageControllerTest {
                             fieldWithPath("value[].last_message").type(JsonFieldType.STRING).description("마지막 메시지").optional(),
                             fieldWithPath("value[].last_message_at").type(JsonFieldType.STRING).description("마지막 메시지 시간").optional(),
                             fieldWithPath("value[].unread_count").type(JsonFieldType.NUMBER).description("안읽은 메시지 수"),
-                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("대화 생성 시간")
+                            fieldWithPath("value[].created_at").type(JsonFieldType.STRING).description("대화 생성 시간"),
+                            fieldWithPath("value[].other_user_left_title_rarity").type(JsonFieldType.STRING).description("상대방 좌측 칭호 등급 (미장착 시 null, LUT-443)").optional(),
+                            fieldWithPath("value[].other_user_right_title_rarity").type(JsonFieldType.STRING).description("상대방 우측 칭호 등급 (미장착 시 null, LUT-443)").optional(),
+                            fieldWithPath("value[].other_user_equipped_item_rarities").type(JsonFieldType.ARRAY).description("상대방 장착 아이템 타입·희귀도 (썸네일 등급 표식용, LUT-443)").optional(),
+                            fieldWithPath("value[].other_user_equipped_item_rarities[].item_type").type(JsonFieldType.STRING).description("아이템 타입 (BASIC/FULL/HEAD/EFFECT/ETC)").optional(),
+                            fieldWithPath("value[].other_user_equipped_item_rarities[].rarity").type(JsonFieldType.STRING).description("아이템 희귀도").optional()
                         )
                         .build()
                 )

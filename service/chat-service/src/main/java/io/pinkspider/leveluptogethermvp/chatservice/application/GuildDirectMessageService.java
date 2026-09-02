@@ -9,9 +9,14 @@ import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectCo
 import io.pinkspider.leveluptogethermvp.chatservice.infrastructure.GuildDirectMessageRepository;
 import io.pinkspider.leveluptogethermvp.chatservice.realtime.DmRealtimePublisher;
 import io.pinkspider.global.event.GuildDirectMessageEvent;
+import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.global.facade.UserQueryFacade;
+import io.pinkspider.global.facade.dto.DetailedTitleInfoDto;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
+import io.pinkspider.global.facade.dto.UserTitleDto;
+import io.pinkspider.global.translation.TitleNameUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +43,7 @@ public class GuildDirectMessageService {
     private final GuildDirectMessageRepository messageRepository;
     private final GuildQueryFacade guildQueryFacadeService;
     private final UserQueryFacade userQueryFacadeService;
+    private final GamificationQueryFacade gamificationQueryFacadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final DmPresenceService dmPresenceService;
     private final DmRealtimePublisher dmRealtimePublisher;
@@ -152,6 +158,11 @@ public class GuildDirectMessageService {
         Map<String, UserProfileInfo> profileMap =
             userQueryFacadeService.getUserProfiles(visibleOtherUserIds);
 
+        // LUT-443: 상대방 칭호·장착 아이템 등급 배치 조회 (썸네일 스파크용, 실패 시 빈 값 폴백)
+        Map<String, List<UserTitleDto>> titlesMap = loadEquippedTitles(visibleOtherUserIds);
+        Map<String, List<EquippedItemRarityDto>> itemRarityMap =
+            loadEquippedItemRarities(visibleOtherUserIds);
+
         return visibleConversations.stream()
             .map(conv -> {
                 String otherUserId = conv.getOtherUserId(userId);
@@ -159,9 +170,45 @@ public class GuildDirectMessageService {
                 String otherNickname = otherProfile != null ? otherProfile.nickname() : "알 수 없음";
                 String otherProfileImage = otherProfile != null ? otherProfile.picture() : null;
                 int unreadCount = messageRepository.countUnreadMessages(conv.getId(), userId);
-                return DirectConversationResponse.from(conv, userId, otherNickname, otherProfileImage, unreadCount);
+                DirectConversationResponse response = DirectConversationResponse.from(
+                    conv, userId, otherNickname, otherProfileImage, unreadCount);
+                enrichOtherUserRarities(response, otherUserId, titlesMap, itemRarityMap);
+                return response;
             })
             .toList();
+    }
+
+    /** LUT-443: 상대방 칭호 등급 배치 조회 — 실패해도 DM 목록 자체는 내려간다 */
+    private Map<String, List<UserTitleDto>> loadEquippedTitles(List<String> userIds) {
+        try {
+            return gamificationQueryFacadeService.getEquippedTitlesByUserIds(userIds);
+        } catch (Exception e) {
+            log.warn("DM 칭호 등급 배치 조회 실패: error={}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /** LUT-443: 상대방 장착 아이템 희귀도 배치 조회 — 실패 시 빈 배열 유지 */
+    private Map<String, List<EquippedItemRarityDto>> loadEquippedItemRarities(List<String> userIds) {
+        try {
+            return gamificationQueryFacadeService.getEquippedItemRaritiesByUserIds(userIds);
+        } catch (Exception e) {
+            log.warn("DM 장착 아이템 희귀도 배치 조회 실패: error={}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private void enrichOtherUserRarities(
+            DirectConversationResponse response,
+            String otherUserId,
+            Map<String, List<UserTitleDto>> titlesMap,
+            Map<String, List<EquippedItemRarityDto>> itemRarityMap) {
+        DetailedTitleInfoDto titleInfo = TitleNameUtils.buildDetailedTitleInfo(
+            titlesMap.getOrDefault(otherUserId, List.of()), null);
+        response.setOtherUserLeftTitleRarity(titleInfo.leftRarity());
+        response.setOtherUserRightTitleRarity(titleInfo.rightRarity());
+        response.setOtherUserEquippedItemRarities(
+            itemRarityMap.getOrDefault(otherUserId, List.of()));
     }
 
     public Page<DirectMessageResponse> getMessages(
@@ -267,7 +314,13 @@ public class GuildDirectMessageService {
         String otherProfileImage = otherProfile != null ? otherProfile.picture() : null;
         int unreadCount = messageRepository.countUnreadMessages(conversation.getId(), userId);
 
-        return DirectConversationResponse.from(conversation, userId, otherNickname, otherProfileImage, unreadCount);
+        DirectConversationResponse response = DirectConversationResponse.from(
+            conversation, userId, otherNickname, otherProfileImage, unreadCount);
+        // LUT-443: 방 생성/조회 응답에도 동일하게 등급 정보 포함 (단건이므로 단일 원소 배치)
+        enrichOtherUserRarities(response, otherUserId,
+            loadEquippedTitles(List.of(otherUserId)),
+            loadEquippedItemRarities(List.of(otherUserId)));
+        return response;
     }
 
     @Transactional(transactionManager = "chatTransactionManager")

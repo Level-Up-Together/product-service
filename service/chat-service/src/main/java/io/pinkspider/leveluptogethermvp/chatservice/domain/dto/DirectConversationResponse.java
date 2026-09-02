@@ -1,8 +1,11 @@
 package io.pinkspider.leveluptogethermvp.chatservice.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.pinkspider.global.enums.TitleRarity;
+import io.pinkspider.global.facade.dto.EquippedItemRarityDto;
 import io.pinkspider.leveluptogethermvp.chatservice.domain.entity.GuildDirectConversation;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -41,6 +44,18 @@ public class DirectConversationResponse {
 
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
+
+    // LUT-443: DM 썸네일 등급 스파크용 — 상대방 칭호 등급 (미장착 시 null)
+    @JsonProperty("other_user_left_title_rarity")
+    private TitleRarity otherUserLeftTitleRarity;
+
+    @JsonProperty("other_user_right_title_rarity")
+    private TitleRarity otherUserRightTitleRarity;
+
+    /** LUT-443: 상대방 장착 아이템 희귀도 (LUT-424 패턴, 미장착 시 빈 배열) */
+    @Builder.Default
+    @JsonProperty("other_user_equipped_item_rarities")
+    private List<EquippedItemRarityDto> otherUserEquippedItemRarities = List.of();
 
     public static DirectConversationResponse from(
             GuildDirectConversation conversation,
