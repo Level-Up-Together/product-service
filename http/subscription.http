@@ -11,3 +11,29 @@
 GET {{baseUrl}}/api/v1/subscriptions/me
 Authorization: Bearer {{accessToken}}
 Accept: application/json
+
+### ----------------------------------------------------------
+### 구독 영수증 검증 + 권한 부여 (LUT-451) — 최초 구매/복원 공용, 멱등
+### ios: transaction_id / android: purchase_token (+dev 스킵 모드는 base_plan_id 힌트)
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/subscriptions/verify
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "platform": "ios",
+  "product_id": "membership_1m",
+  "transaction_id": "2000000123456789"
+}
+
+### Android 예시
+POST {{baseUrl}}/api/v1/subscriptions/verify
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "platform": "android",
+  "product_id": "membership",
+  "purchase_token": "opaque-play-token",
+  "base_plan_id": "1y"
+}

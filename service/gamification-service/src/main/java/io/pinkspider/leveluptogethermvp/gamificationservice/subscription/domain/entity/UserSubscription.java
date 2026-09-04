@@ -40,8 +40,16 @@ import org.hibernate.annotations.Comment;
 @AllArgsConstructor
 @Table(
         name = "user_subscription",
-        uniqueConstraints =
-                @UniqueConstraint(name = "uk_user_subscription_user", columnNames = {"user_id"}))
+        uniqueConstraints = {
+            @UniqueConstraint(name = "uk_user_subscription_user", columnNames = {"user_id"}),
+            // LUT-451: 같은 스토어 원구독을 두 계정이 나눠 갖는 것을 DB 레벨에서도 차단
+            @UniqueConstraint(
+                    name = "uk_user_subscription_original_tx",
+                    columnNames = {"original_transaction_id"}),
+            @UniqueConstraint(
+                    name = "uk_user_subscription_purchase_token",
+                    columnNames = {"purchase_token"})
+        })
 @Comment("유저 구독 (LUT-450)")
 public class UserSubscription extends LocalDateTimeBaseEntity {
 
