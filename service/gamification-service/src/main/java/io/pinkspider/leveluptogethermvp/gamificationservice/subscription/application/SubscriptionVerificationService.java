@@ -2,7 +2,9 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 
 import com.apple.itunes.storekit.client.AppStoreServerAPIClient;
 import com.apple.itunes.storekit.model.Environment;
+import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import com.apple.itunes.storekit.model.ResponseBodyV2DecodedPayload;
 import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,6 +12,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
 import java.io.ByteArrayInputStream;
@@ -170,6 +174,50 @@ public class SubscriptionVerificationService {
     }
 
     /**
+     * ASSN V2 signedPayload 를 서명 검증·디코딩한다 (LUT-452). 알림의 environment 에 맞는 검증기가
+     * 필요하므로 프로덕션 검증기 실패 시 샌드박스로 재시도한다. 테스트에서 스텁할 수 있게
+     * package-private.
+     *
+     * @throws CustomException 서명 검증 실패 (120702)
+     */
+    AppleSubscriptionNotification decodeAppleNotification(String signedPayload) {
+        try {
+            return decodeNotification(false, signedPayload);
+        } catch (Exception prodFailure) {
+            log.info("ASSN 프로덕션 검증 실패, 샌드박스 재시도: {}", prodFailure.getMessage());
+            try {
+                return decodeNotification(true, signedPayload);
+            } catch (Exception sandboxFailure) {
+                log.error("ASSN 서명 검증 실패: {}", sandboxFailure.getMessage());
+                throw new CustomException("120702", "error.iap.verification_failed");
+            }
+        }
+    }
+
+    private AppleSubscriptionNotification decodeNotification(boolean sandbox, String signedPayload)
+            throws Exception {
+        SignedDataVerifier verifier = signedDataVerifier(sandbox);
+        ResponseBodyV2DecodedPayload payload = verifier.verifyAndDecodeNotification(signedPayload);
+
+        JWSTransactionDecodedPayload transaction = null;
+        JWSRenewalInfoDecodedPayload renewalInfo = null;
+        if (payload.getData() != null) {
+            if (payload.getData().getSignedTransactionInfo() != null) {
+                transaction =
+                        verifier.verifyAndDecodeTransaction(
+                                payload.getData().getSignedTransactionInfo());
+            }
+            if (payload.getData().getSignedRenewalInfo() != null) {
+                renewalInfo =
+                        verifier.verifyAndDecodeRenewalInfo(
+                                payload.getData().getSignedRenewalInfo());
+            }
+        }
+        return new AppleSubscriptionNotification(
+                payload.getRawNotificationType(), payload.getRawSubtype(), transaction, renewalInfo);
+    }
+
+    /**
      * App Store Server API 로 트랜잭션 조회 + JWS 검증·디코딩. 프로덕션에서 못 찾으면 샌드박스로
      * 재시도한다(심사/TestFlight 표준 흐름). 테스트에서 스텁할 수 있게 package-private.
      */
@@ -250,12 +298,41 @@ public class SubscriptionVerificationService {
     // ========== Google ==========
 
     private SubscriptionVerificationResult verifyGoogle(SubscriptionVerifyRequest request) {
+        GoogleSubscriptionState state = fetchGoogleSubscription(request.getPurchaseToken());
+
+        if (state.isPending()) {
+            // 결제 대기 — 아직 권한 부여 대상이 아님
+            log.warn("Google 구독 결제 대기 상태: productId={}", request.getProductId());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        if (!request.getProductId().equals(state.productId())) {
+            log.warn("Google 구독 상품 불일치: 요청={}, 응답={}", request.getProductId(), state.productId());
+            throw new CustomException("120703", "error.iap.product_mismatch");
+        }
+
+        return new SubscriptionVerificationResult(
+                state.productId(),
+                state.basePlanId(),
+                null,
+                request.getPurchaseToken(),
+                state.startedAt(),
+                state.expiresAt(),
+                state.autoRenew(),
+                state.trial());
+    }
+
+    /**
+     * Play Developer API subscriptionsv2 로 구독 현재 상태를 조회한다. 영수증 검증(LUT-451)과 RTDN
+     * 웹훅(LUT-452)이 공유 — RTDN 은 트리거일 뿐이고 상태의 진실은 항상 이 재조회 결과다(페이로드 위조
+     * 방어 겸용). 테스트에서 스텁할 수 있게 package-private.
+     */
+    GoogleSubscriptionState fetchGoogleSubscription(String purchaseToken) {
         try {
             String accessToken = fetchGoogleAccessToken();
             String url =
                     String.format(
                             "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/purchases/subscriptionsv2/tokens/%s",
-                            googlePackageName, request.getPurchaseToken());
+                            googlePackageName, purchaseToken);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
@@ -265,11 +342,6 @@ public class SubscriptionVerificationService {
             JsonNode json = objectMapper.readTree(response.getBody());
 
             String state = json.path("subscriptionState").asText("");
-            if ("SUBSCRIPTION_STATE_PENDING".equals(state)) {
-                // 결제 대기 — 아직 권한 부여 대상이 아님
-                log.warn("Google 구독 결제 대기 상태: productId={}", request.getProductId());
-                throw new CustomException("120702", "error.iap.verification_failed");
-            }
 
             // 플랜 변경 이력이 있으면 line item 이 복수 — 만료가 가장 늦은 항목이 현재 플랜
             JsonNode latest = null;
@@ -283,15 +355,12 @@ public class SubscriptionVerificationService {
                 }
             }
             if (latest == null || !latest.hasNonNull("expiryTime")) {
-                log.warn("Google 구독 응답에 line item/만료 없음: productId={}", request.getProductId());
+                // PENDING 은 line item 이 없을 수 있다 — 상태만 담아 반환 (호출자가 판정)
+                if (GoogleSubscriptionState.STATE_PENDING.equals(state)) {
+                    return new GoogleSubscriptionState(null, null, null, null, false, false, state);
+                }
+                log.warn("Google 구독 응답에 line item/만료 없음: state={}", state);
                 throw new CustomException("120702", "error.iap.verification_failed");
-            }
-            if (!request.getProductId().equals(latest.path("productId").asText())) {
-                log.warn(
-                        "Google 구독 상품 불일치: 요청={}, 응답={}",
-                        request.getProductId(),
-                        latest.path("productId").asText());
-                throw new CustomException("120703", "error.iap.product_mismatch");
             }
 
             String basePlanId = latest.path("offerDetails").path("basePlanId").asText(null);
@@ -302,15 +371,14 @@ public class SubscriptionVerificationService {
             LocalDateTime startedAt =
                     json.hasNonNull("startTime") ? parseRfc3339(json.path("startTime").asText()) : null;
 
-            return new SubscriptionVerificationResult(
+            return new GoogleSubscriptionState(
                     latest.path("productId").asText(),
                     basePlanId,
-                    null,
-                    request.getPurchaseToken(),
                     startedAt,
                     parseRfc3339(latest.path("expiryTime").asText()),
                     autoRenew,
-                    trial);
+                    trial,
+                    state);
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

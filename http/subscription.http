@@ -37,3 +37,27 @@ Content-Type: application/json
   "purchase_token": "opaque-play-token",
   "base_plan_id": "1y"
 }
+
+### ----------------------------------------------------------
+### 구독 웹훅 (LUT-452) — 스토어 서버 호출 경로 (인증 없음)
+### 로컬 검증용: Apple 은 실제 signedPayload 없으면 서명 실패로 폐기 로그
+### ----------------------------------------------------------
+POST {{baseUrl}}/api/v1/webhooks/subscriptions/apple
+Content-Type: application/json
+
+{
+  "signedPayload": "eyJhbGciOi...signed-jws..."
+}
+
+### Google RTDN (Pub/Sub push) — data 는 base64 DeveloperNotification
+### 아래 data 는 {"testNotification":{"version":"1.0"}} 의 base64
+POST {{baseUrl}}/api/v1/webhooks/subscriptions/google
+Content-Type: application/json
+
+{
+  "message": {
+    "data": "eyJ0ZXN0Tm90aWZpY2F0aW9uIjp7InZlcnNpb24iOiIxLjAifX0=",
+    "messageId": "1234567890"
+  },
+  "subscription": "projects/lut/subscriptions/rtdn-sub"
+}

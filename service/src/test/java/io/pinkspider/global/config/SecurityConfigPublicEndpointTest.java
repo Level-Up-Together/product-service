@@ -136,11 +136,33 @@ class SecurityConfigPublicEndpointTest {
 
     /** LUT-350: 목록은 열되 구매는 잠근다. GET 한정 permitAll 이 POST 로 새지 않는지 확인한다. */
     @ParameterizedTest(name = "익명 POST 차단: {0}")
-    @ValueSource(strings = {"/api/v1/shop-items/1/purchase"})
+    @ValueSource(
+            strings = {
+                "/api/v1/shop-items/1/purchase",
+                "/api/v1/subscriptions/verify" // LUT-451: 영수증 검증은 로그인 필수 — 웹훅 permitAll 이 새지 않는지
+            })
     void 익명_POST_는_401_이어야_한다(String path) throws Exception {
         int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
 
         Assertions.assertThat(status).as("%s 는 로그인 필수다", path).isEqualTo(401);
+    }
+
+    /**
+     * LUT-452: 스토어 구독 웹훅 — 스토어 서버가 JWT 없이 호출한다. Apple 은 JWS 서명 검증, Google 은 Play API 재조회가 인증을 대신하므로
+     * 필터체인에서는 열려 있어야 한다.
+     */
+    @ParameterizedTest(name = "익명 POST 허용(웹훅): {0}")
+    @ValueSource(
+            strings = {
+                "/api/v1/webhooks/subscriptions/apple",
+                "/api/v1/webhooks/subscriptions/google"
+            })
+    void 웹훅_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
+        int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();
+
+        Assertions.assertThat(status)
+                .as("%s 는 스토어 서버 호출 경로다 (SecurityConfig permitAll 누락 의심)", path)
+                .isNotEqualTo(401);
     }
 
     /**

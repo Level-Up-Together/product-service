@@ -137,6 +137,14 @@ public class SecurityConfig {
                                         .requestMatchers("/api/internal/**")
                                         .permitAll()
 
+                                        // LUT-452: 스토어 구독 웹훅 (스토어 서버가 호출 — JWT 없음.
+                                        // Apple 은 JWS 서명 검증, Google 은 Play API 재조회가 인증을 대신한다)
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/webhooks/subscriptions/apple",
+                                                "/api/v1/webhooks/subscriptions/google")
+                                        .permitAll()
+
                                         // Browse-first: 비인증 열람 허용 API (GET만)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/bff/home")
                                         .permitAll()
