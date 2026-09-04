@@ -20,6 +20,15 @@ class SubscriptionPlanMappingTest {
     }
 
     @Test
+    @DisplayName("LUT DEV(iOS dev 앱) 전용 dev_ 접두사 상품도 같은 플랜으로 매핑된다")
+    void resolveIosDevPlans() {
+        assertThat(SubscriptionPlanMapping.resolve("ios", "dev_membership_1m", null))
+            .isEqualTo(SubscriptionPlan.MONTHLY);
+        assertThat(SubscriptionPlanMapping.resolve("ios", "dev_membership_1y", null))
+            .isEqualTo(SubscriptionPlan.ANNUAL);
+    }
+
+    @Test
     @DisplayName("Android는 product_id가 동일(membership)해도 base_plan_id로 월간/연간을 구분한다")
     void resolveAndroidPlansByBasePlan() {
         assertThat(SubscriptionPlanMapping.resolve("android", "membership", "1m"))

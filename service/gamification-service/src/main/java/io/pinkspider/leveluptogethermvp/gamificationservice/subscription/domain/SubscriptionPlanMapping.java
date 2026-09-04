@@ -27,10 +27,16 @@ public final class SubscriptionPlanMapping {
     public static final String PLATFORM_IOS = "ios";
     public static final String PLATFORM_ANDROID = "android";
 
+    // dev_* 는 LUT DEV(iOS dev 앱) 전용 상품 — Apple 은 팀 전체 상품 ID 유일 제약이라
+    // dev 앱에 같은 ID 를 재등록할 수 없어 접두사로 분리한다 (dev_diamond_box_* 전례).
+    // Android 는 앱별 상품 네임스페이스라 Play LUT DEV 에 membership 을 그대로 등록 — 행 추가 불필요.
+    // prod 에 이 매핑이 있어도 무해: dev 번들 영수증은 prod 자격증명으로 검증되지 않는다.
     private static final Map<String, SubscriptionPlan> MAPPING =
             Map.of(
                     key(PLATFORM_IOS, "membership_1m", null), SubscriptionPlan.MONTHLY,
                     key(PLATFORM_IOS, "membership_1y", null), SubscriptionPlan.ANNUAL,
+                    key(PLATFORM_IOS, "dev_membership_1m", null), SubscriptionPlan.MONTHLY,
+                    key(PLATFORM_IOS, "dev_membership_1y", null), SubscriptionPlan.ANNUAL,
                     key(PLATFORM_ANDROID, "membership", "1m"), SubscriptionPlan.MONTHLY,
                     key(PLATFORM_ANDROID, "membership", "1y"), SubscriptionPlan.ANNUAL);
 
