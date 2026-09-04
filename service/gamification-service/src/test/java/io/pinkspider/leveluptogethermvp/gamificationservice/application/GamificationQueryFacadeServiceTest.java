@@ -102,6 +102,9 @@ class GamificationQueryFacadeServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService missionCategoryService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionService subscriptionService;
+
     // @Lazy 파라미터가 있어 @InjectMocks 대신 수동 생성
     private GamificationQueryFacadeService facadeService;
 
@@ -120,7 +123,8 @@ class GamificationQueryFacadeServiceTest {
             seasonRankRewardRepository,
             shopItemRepository,
             diamondService,
-            missionCategoryService
+            missionCategoryService,
+            subscriptionService
         );
     }
 

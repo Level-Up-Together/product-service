@@ -264,4 +264,9 @@ public interface ExperienceHistoryRepository extends JpaRepository<ExperienceHis
     List<Object[]> findCategoryMissionStatsByPeriod(
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate);
+
+    /** LUT-454: 특정 레벨(등급 문턱)에 처음 도달한 시각 — 등급 도달 이력용 */
+    @Query("SELECT MIN(eh.createdAt) FROM ExperienceHistory eh "
+        + "WHERE eh.userId = :userId AND eh.levelAfter >= :level")
+    LocalDateTime findFirstReachedAt(@Param("userId") String userId, @Param("level") int level);
 }

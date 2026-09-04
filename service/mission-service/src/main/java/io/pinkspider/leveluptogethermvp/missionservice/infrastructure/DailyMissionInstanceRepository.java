@@ -519,4 +519,23 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
             + "GROUP BY dmi.participant.id")
     List<Object[]> aggregateCompletedStatsByParticipantIds(
         @Param("participantIds") List<Long> participantIds);
+
+    /** LUT-454: 월간 통계 — 기간 내 예정(전 상태) 인스턴스 수 (instanceDate 기준) */
+    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+        + "WHERE dmi.participant.userId = :userId "
+        + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate")
+    long countScheduledInPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
+
+    /** LUT-454: 월간 통계 — 기간 내 완료 인스턴스 수 (instanceDate 기준) */
+    @Query("SELECT COUNT(dmi) FROM DailyMissionInstance dmi "
+        + "WHERE dmi.participant.userId = :userId "
+        + "AND dmi.instanceDate >= :startDate AND dmi.instanceDate <= :endDate "
+        + "AND dmi.status = 'COMPLETED'")
+    long countCompletedInPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
 }

@@ -41,6 +41,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.Use
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.stats.application.UserStatsService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionService;
 import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
 import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import java.time.LocalDate;
@@ -74,6 +75,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     private final ShopItemRepository shopItemRepository;
     private final DiamondService diamondService;
     private final MissionCategoryService missionCategoryService;
+    private final SubscriptionService subscriptionService;
 
     public GamificationQueryFacadeService(
         TitleService titleService,
@@ -86,7 +88,8 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         SeasonRankRewardRepository seasonRankRewardRepository,
         ShopItemRepository shopItemRepository,
         DiamondService diamondService,
-        MissionCategoryService missionCategoryService
+        MissionCategoryService missionCategoryService,
+        SubscriptionService subscriptionService
     ) {
         this.titleService = titleService;
         this.userItemService = userItemService;
@@ -99,6 +102,7 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         this.shopItemRepository = shopItemRepository;
         this.diamondService = diamondService;
         this.missionCategoryService = missionCategoryService;
+        this.subscriptionService = subscriptionService;
     }
 
     // ========== 레벨 조회 ==========
@@ -257,6 +261,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
     @Override
     public Double calculateRankingPercentile(long rankingPoints) {
         return userStatsService.calculateRankingPercentile(rankingPoints);
+    }
+
+    /** LUT-454: 구독 권한 보유 여부 — 미션 통계 API 의 무료/구독 응답 범위 게이팅용 */
+    @Override
+    public boolean isSubscriptionEntitled(String userId) {
+        return subscriptionService.isEntitled(userId);
     }
 
     // ========== 출석 조회 ==========

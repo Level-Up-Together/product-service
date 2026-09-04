@@ -351,4 +351,23 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
         + "GROUP BY me.participant.id")
     List<Object[]> aggregateCompletedStatsByParticipantIds(
         @Param("participantIds") List<Long> participantIds);
+
+    /** LUT-454: 월간 통계 — 기간 내 예정(전 상태) 수행 수 (executionDate 기준) */
+    @Query("SELECT COUNT(me) FROM MissionExecution me "
+        + "WHERE me.participant.userId = :userId "
+        + "AND me.executionDate >= :startDate AND me.executionDate <= :endDate")
+    long countScheduledInPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
+
+    /** LUT-454: 월간 통계 — 기간 내 완료 수행 수 (executionDate 기준) */
+    @Query("SELECT COUNT(me) FROM MissionExecution me "
+        + "WHERE me.participant.userId = :userId "
+        + "AND me.executionDate >= :startDate AND me.executionDate <= :endDate "
+        + "AND me.status = 'COMPLETED'")
+    long countCompletedInPeriod(
+        @Param("userId") String userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
 }

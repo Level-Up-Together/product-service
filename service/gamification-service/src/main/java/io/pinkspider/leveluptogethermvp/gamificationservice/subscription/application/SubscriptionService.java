@@ -27,4 +27,12 @@ public class SubscriptionService {
                         SubscriptionEntitlementResponse.of(subscription, LocalDateTime.now()))
                 .orElseGet(SubscriptionEntitlementResponse::none);
     }
+
+    /** LUT-454: 구독 권한 보유 여부 — 활성/유예기간이면 true. 파사드(통계 게이팅)에서 사용. */
+    public boolean isEntitled(String userId) {
+        return userSubscriptionRepository
+                .findByUserId(userId)
+                .map(subscription -> subscription.isEntitled(LocalDateTime.now()))
+                .orElse(false);
+    }
 }
