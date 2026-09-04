@@ -1,0 +1,13 @@
+### ============================================================
+### 구독 (Subscription) APIs — LUT-450
+### ============================================================
+
+### ----------------------------------------------------------
+### 내 구독 상태(entitlement) 조회
+### 응답: status(NONE|ACTIVE|GRACE_PERIOD|EXPIRED), is_entitled,
+###       plan(MONTHLY|ANNUAL), expires_at, grace_period_expires_at,
+###       auto_renew, trial_used
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/subscriptions/me
+Authorization: Bearer {{accessToken}}
+Accept: application/json
