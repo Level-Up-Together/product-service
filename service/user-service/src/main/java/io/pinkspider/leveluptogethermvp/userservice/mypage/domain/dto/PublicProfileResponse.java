@@ -50,6 +50,10 @@ public class PublicProfileResponse {
     @JsonProperty("is_owner")
     private Boolean isOwner;
 
+    // LUT-455: 구독자 여부 (구독자 뱃지 표시용 — 활성/유예기간이면 true)
+    @JsonProperty("is_subscriber")
+    private Boolean isSubscriber;
+
     // 친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)
     private String friendshipStatus;
 

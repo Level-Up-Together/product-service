@@ -43,6 +43,10 @@ public class ActivityFeedResponse {
     @Builder.Default
     private List<EquippedItemRarityDto> equippedItemRarities = List.of();
 
+    // LUT-455: 작성자 구독자 여부 (구독자 뱃지용). 조회 시점 라이브 주입, 실패 시 false 유지.
+    @Builder.Default
+    private Boolean isSubscriber = false;
+
     private ActivityType activityType;
     private String activityTypeDisplayName;
     private String category;

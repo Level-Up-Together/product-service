@@ -97,6 +97,20 @@ class SubscriptionServiceTest {
     }
 
     @Test
+    @DisplayName("LUT-455: 권한 보유 유저 ID 배치 조회 — 빈 입력은 쿼리 없이 빈 집합")
+    void getEntitledUserIdsBatch() {
+        org.mockito.Mockito.when(
+                userSubscriptionRepository.findEntitledUserIds(
+                    org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(java.util.List.of("user-1"));
+
+        assertThat(subscriptionService.getEntitledUserIds(java.util.List.of("user-1", "user-2")))
+            .containsExactly("user-1");
+        assertThat(subscriptionService.getEntitledUserIds(java.util.List.of())).isEmpty();
+        assertThat(subscriptionService.getEntitledUserIds(null)).isEmpty();
+    }
+
+    @Test
     @DisplayName("만료 + 유예기간 종료면 EXPIRED — 권한 없음")
     void expiredSubscriptionNotEntitled() {
         UserSubscription subscription = UserSubscription.builder()

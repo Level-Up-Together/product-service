@@ -35,4 +35,13 @@ public class SubscriptionService {
                 .map(subscription -> subscription.isEntitled(LocalDateTime.now()))
                 .orElse(false);
     }
+
+    /** LUT-455: 권한 보유 유저 ID 배치 조회 — 피드 작성자 is_subscriber 뱃지용 (IN 1쿼리) */
+    public java.util.Set<String> getEntitledUserIds(java.util.List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(
+                userSubscriptionRepository.findEntitledUserIds(userIds, LocalDateTime.now()));
+    }
 }

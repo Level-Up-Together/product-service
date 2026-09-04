@@ -269,6 +269,12 @@ public class GamificationQueryFacadeService implements GamificationQueryFacade {
         return subscriptionService.isEntitled(userId);
     }
 
+    /** LUT-455: 구독 권한 보유 유저 ID 배치 조회 — 피드 작성자 is_subscriber 뱃지용 */
+    @Override
+    public java.util.Set<String> getSubscribedUserIds(List<String> userIds) {
+        return subscriptionService.getEntitledUserIds(userIds);
+    }
+
     // ========== 출석 조회 ==========
 
     @Override

@@ -216,12 +216,23 @@ public class MyPageService {
             .friendsCount(friendsCount)
             .guilds(guilds)
             .isOwner(isOwner)
+            .isSubscriber(safeIsSubscriber(targetUserId))
             .friendshipStatus(friendshipStatusStr)
             .friendRequestId(friendRequestId)
             .isUnderReview(isUnderReview)
             .inProgressMission(inProgressMission)
             .equippedItems(equippedItems)
             .build();
+    }
+
+    /** LUT-455: 구독자 뱃지 여부 — 표시 부가 정보라 실패 시 false 폴백 */
+    private boolean safeIsSubscriber(String userId) {
+        try {
+            return gamificationQueryFacadeService.isSubscriptionEntitled(userId);
+        } catch (Exception e) {
+            log.warn("구독자 여부 조회 실패 - false 폴백: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
     }
 
     /** LUT-296: 파사드 아이템 DTO → 프로필 장착 아이템 정보 */

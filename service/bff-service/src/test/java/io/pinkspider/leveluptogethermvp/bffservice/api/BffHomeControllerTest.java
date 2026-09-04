@@ -723,6 +723,7 @@ class BffHomeControllerTest {
                             fieldWithPath("value.guild_activity_feeds.content[].id").type(JsonFieldType.NUMBER).description("피드 ID"),
                             fieldWithPath("value.guild_activity_feeds.content[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
                             fieldWithPath("value.guild_activity_feeds.content[].user_nickname").type(JsonFieldType.STRING).description("사용자 닉네임"),
+                            fieldWithPath("value.guild_activity_feeds.content[].is_subscriber").type(JsonFieldType.BOOLEAN).description("작성자 구독자 여부 (구독자 뱃지용, LUT-455)").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].user_profile_image_url").type(JsonFieldType.STRING).description("프로필 이미지 URL").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].user_level").type(JsonFieldType.NUMBER).description("사용자 레벨").optional(),
                             fieldWithPath("value.guild_activity_feeds.content[].user_title").type(JsonFieldType.STRING).description("사용자 칭호").optional(),

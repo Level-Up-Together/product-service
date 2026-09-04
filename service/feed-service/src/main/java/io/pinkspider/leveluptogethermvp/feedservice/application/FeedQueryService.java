@@ -120,7 +120,7 @@ public class FeedQueryService {
         });
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -251,7 +251,7 @@ public class FeedQueryService {
         });
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), targetLocale);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -348,7 +348,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(responseList);
         localizeUserTitles(responseList, acceptLanguage);
-        enrichEquippedItemRarities(responseList);
+        enrichAuthorLiveInfo(responseList);
 
         return new org.springframework.data.domain.PageImpl<>(
             responseList,
@@ -397,7 +397,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -478,7 +478,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -521,7 +521,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -559,7 +559,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -602,7 +602,7 @@ public class FeedQueryService {
         // QA-139: 다중 이미지 응답 보강
         enrichWithImageUrls(result.getContent());
         localizeUserTitles(result.getContent(), acceptLanguage);
-        enrichEquippedItemRarities(result.getContent());
+        enrichAuthorLiveInfo(result.getContent());
         return result;
     }
 
@@ -633,7 +633,7 @@ public class FeedQueryService {
         // QA-53: 다중 이미지 캐러셀
         enrichWithImageUrls(List.of(response));
         localizeUserTitles(List.of(response), acceptLanguage);
-        enrichEquippedItemRarities(List.of(response));
+        enrichAuthorLiveInfo(List.of(response));
         return response;
     }
 
@@ -1045,10 +1045,11 @@ public class FeedQueryService {
     }
 
     /**
-     * LUT-424: 피드 작성자들의 장착 아이템 타입·희귀도를 배치 조회해 채운다 (썸네일 등급 표식용).
-     * 아이템은 피드 스냅샷이 없어 locale 무관 항상 라이브 조회하며, 표시 부가 정보라 실패 시 빈 배열을 유지한다.
+     * 피드 작성자들의 라이브 표시 정보를 배치 조회해 채운다 — LUT-424: 장착 아이템 타입·희귀도
+     * (썸네일 등급 표식), LUT-455: 구독자 여부(구독자 뱃지). 둘 다 피드 스냅샷이 없어 조회 시점
+     * 라이브 주입이며, 표시 부가 정보라 실패 시 기본값(빈 배열/false)을 유지한다.
      */
-    private void enrichEquippedItemRarities(List<ActivityFeedResponse> responses) {
+    private void enrichAuthorLiveInfo(List<ActivityFeedResponse> responses) {
         if (responses == null || responses.isEmpty()) {
             return;
         }
@@ -1069,6 +1070,17 @@ public class FeedQueryService {
             }
         } catch (Exception e) {
             log.warn("피드 장착 아이템 희귀도 조회 실패 - 빈 배열 유지: {}", e.getMessage());
+        }
+
+        // LUT-455: 작성자 구독자 여부 배치 주입 (구독자 뱃지) — 표시 부가 정보라 실패 시 false 유지
+        try {
+            java.util.Set<String> subscribedIds =
+                gamificationQueryFacadeService.getSubscribedUserIds(userIds);
+            for (ActivityFeedResponse response : responses) {
+                response.setIsSubscriber(subscribedIds.contains(response.getUserId()));
+            }
+        } catch (Exception e) {
+            log.warn("피드 구독자 여부 조회 실패 - false 유지: {}", e.getMessage());
         }
     }
 }

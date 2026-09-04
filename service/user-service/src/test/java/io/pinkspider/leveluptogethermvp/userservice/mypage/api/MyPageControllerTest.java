@@ -574,6 +574,7 @@ class MyPageControllerTest {
             .friendsCount(12)
             .guilds(List.of(guild1))
             .isOwner(true)  // 본인이므로 true
+            .isSubscriber(true)
             .friendshipStatus(null)  // 본인 조회시 친구 상태 불필요
             .friendRequestId(null)
             .build();
@@ -617,6 +618,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
+                            fieldWithPath("value.is_subscriber").type(JsonFieldType.BOOLEAN).description("구독자 여부 (구독자 뱃지용, LUT-455)").optional(),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (본인 조회 시 null)").optional(),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (본인 조회 시 null)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
@@ -662,6 +664,7 @@ class MyPageControllerTest {
             .friendsCount(25)
             .guilds(List.of(guild1))
             .isOwner(false)  // 타인이므로 false
+            .isSubscriber(false)
             .friendshipStatus("NONE")  // 친구 관계 없음
             .friendRequestId(null)
             .build();
@@ -705,6 +708,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.guilds[].level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.guilds[].member_count").type(JsonFieldType.NUMBER).description("길드 멤버 수").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부 (true: 본인, false: 타인)"),
+                            fieldWithPath("value.is_subscriber").type(JsonFieldType.BOOLEAN).description("구독자 여부 (구독자 뱃지용, LUT-455)").optional(),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (NONE, PENDING_SENT, PENDING_RECEIVED, ACCEPTED)").optional(),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (PENDING_RECEIVED일 때만 존재)").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
@@ -743,6 +747,7 @@ class MyPageControllerTest {
             .friendsCount(4)
             .guilds(List.of())
             .isOwner(false)
+            .isSubscriber(false)
             .friendshipStatus("PENDING_RECEIVED")  // 상대방이 나에게 친구 요청을 보냄
             .friendRequestId(123L)  // 수락/거절에 사용할 요청 ID
             .build();
@@ -781,6 +786,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
+                            fieldWithPath("value.is_subscriber").type(JsonFieldType.BOOLEAN).description("구독자 여부 (구독자 뱃지용, LUT-455)").optional(),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (PENDING_RECEIVED)"),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID (수락/거절에 사용)"),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),
@@ -819,6 +825,7 @@ class MyPageControllerTest {
             .friendsCount(31)
             .guilds(List.of())
             .isOwner(false)
+            .isSubscriber(false)
             .friendshipStatus("ACCEPTED")  // 이미 친구
             .friendRequestId(null)
             .build();
@@ -857,6 +864,7 @@ class MyPageControllerTest {
                             fieldWithPath("value.friends_count").type(JsonFieldType.NUMBER).description("친구 수 (탈퇴 유저 제외)"),
                             fieldWithPath("value.guilds").type(JsonFieldType.ARRAY).description("소속 길드 목록").optional(),
                             fieldWithPath("value.is_owner").type(JsonFieldType.BOOLEAN).description("본인 여부"),
+                            fieldWithPath("value.is_subscriber").type(JsonFieldType.BOOLEAN).description("구독자 여부 (구독자 뱃지용, LUT-455)").optional(),
                             fieldWithPath("value.friendship_status").type(JsonFieldType.STRING).description("친구 관계 상태 (ACCEPTED)"),
                             fieldWithPath("value.friend_request_id").type(JsonFieldType.NUMBER).description("친구 요청 ID").optional(),
                             fieldWithPath("value.is_under_review").type(JsonFieldType.BOOLEAN).description("신고 처리중 여부").optional(),

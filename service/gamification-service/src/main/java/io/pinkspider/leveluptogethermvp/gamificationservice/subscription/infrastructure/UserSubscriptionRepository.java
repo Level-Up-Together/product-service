@@ -18,6 +18,14 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
                     + " or (s.gracePeriodExpiresAt is not null and s.gracePeriodExpiresAt > :now)")
     List<UserSubscription> findAllEntitled(@Param("now") LocalDateTime now);
 
+    /** LUT-455: 입력 유저 중 권한 보유(활성/유예기간) 유저 ID — 피드 작성자 뱃지 배치 조회 */
+    @Query(
+            "select s.userId from UserSubscription s where s.userId in :userIds"
+                    + " and (s.expiresAt > :now"
+                    + " or (s.gracePeriodExpiresAt is not null and s.gracePeriodExpiresAt > :now))")
+    List<String> findEntitledUserIds(
+            @Param("userIds") List<String> userIds, @Param("now") LocalDateTime now);
+
     /** LUT-451: iOS 교차 계정 재사용 가드 + LUT-452 ASSN V2 웹훅 매칭 */
     Optional<UserSubscription> findByOriginalTransactionId(String originalTransactionId);
 
