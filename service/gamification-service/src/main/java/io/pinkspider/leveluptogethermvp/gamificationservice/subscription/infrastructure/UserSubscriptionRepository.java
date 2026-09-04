@@ -1,12 +1,22 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure;
 
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface UserSubscriptionRepository extends JpaRepository<UserSubscription, Long> {
 
     Optional<UserSubscription> findByUserId(String userId);
+
+    /** LUT-453: 권한 보유(활성 또는 유예기간) 구독 전체 — 일일 스티펜드 지급 대상 */
+    @Query(
+            "select s from UserSubscription s where s.expiresAt > :now"
+                    + " or (s.gracePeriodExpiresAt is not null and s.gracePeriodExpiresAt > :now)")
+    List<UserSubscription> findAllEntitled(@Param("now") LocalDateTime now);
 
     /** LUT-451: iOS 교차 계정 재사용 가드 + LUT-452 ASSN V2 웹훅 매칭 */
     Optional<UserSubscription> findByOriginalTransactionId(String originalTransactionId);

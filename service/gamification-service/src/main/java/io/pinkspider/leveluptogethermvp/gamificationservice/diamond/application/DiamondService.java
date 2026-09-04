@@ -194,6 +194,33 @@ public class DiamondService {
         return balanceAfter;
     }
 
+    /**
+     * LUT-453: 구독 일일 스티펜드 지급 — 블루(무상) 다이아. 이월 허용·소멸 없음.
+     *
+     * <p>원장에 type=SUBSCRIPTION + sourceId=구독 ID 로 남긴다 — 구독분 발행/소진 집계와 추후 별도
+     * 재화 승격의 근거. 일자 멱등은 호출부(subscription_stipend 유니크)가 보장한다.
+     *
+     * @return 지급 후 총잔액 (블루+핑크)
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public int awardSubscriptionStipend(String userId, Long subscriptionId, int amount) {
+        UserDiamond diamond = getOrCreate(userId);
+        diamond.apply(amount);
+        int balanceAfter = diamond.getTotalBalance();
+        diamondHistoryRepository.save(DiamondHistory.builder()
+            .userId(userId)
+            .type(DiamondType.SUBSCRIPTION)
+            .sourceId(subscriptionId)
+            .amount(amount)
+            .balanceAfter(balanceAfter)
+            .description("구독 일일 스티펜드")
+            .build());
+
+        log.info("구독 스티펜드 지급: userId={}, subscriptionId={}, amount={}, balance={}",
+            userId, subscriptionId, amount, balanceAfter);
+        return balanceAfter;
+    }
+
     /** 현재 보유 다이아 잔액 조회. 지급 이력이 없으면 0. (LUT-248: 마이페이지 표기용) */
     public int getBalance(String userId) {
         return userDiamondRepository.findByUserId(userId).map(UserDiamond::getBalance).orElse(0);

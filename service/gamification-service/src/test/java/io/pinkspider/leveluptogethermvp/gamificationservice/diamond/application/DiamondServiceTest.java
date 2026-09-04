@@ -223,6 +223,44 @@ class DiamondServiceTest {
     }
 
     @Nested
+    @DisplayName("awardSubscriptionStipend 테스트 (LUT-453)")
+    class AwardSubscriptionStipendTest {
+
+        @Test
+        @DisplayName("블루 다이아를 지급하고 원장에 type=SUBSCRIPTION + 구독 ID 를 기록한다")
+        void awardsStipendWithSubscriptionSource() {
+            UserDiamond diamond = diamond(3, 5);
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.of(diamond));
+
+            int balanceAfter = diamondService.awardSubscriptionStipend(USER_ID, 77L, 1);
+
+            assertThat(diamond.getBalance()).isEqualTo(4); // 블루(무상) 지급
+            assertThat(balanceAfter).isEqualTo(diamond.getTotalBalance());
+
+            ArgumentCaptor<DiamondHistory> captor = ArgumentCaptor.forClass(DiamondHistory.class);
+            verify(diamondHistoryRepository).save(captor.capture());
+            DiamondHistory history = captor.getValue();
+            assertThat(history.getType()).isEqualTo(DiamondType.SUBSCRIPTION);
+            assertThat(history.getSourceId()).isEqualTo(77L);
+            assertThat(history.getAmount()).isEqualTo(1);
+            assertThat(history.getPinkAmount()).isZero(); // 핑크(유상) 아님
+            assertThat(history.getDescription()).isEqualTo("구독 일일 스티펜드");
+        }
+
+        @Test
+        @DisplayName("다이아 행이 없는 유저는 생성 후 지급한다")
+        void createsUserDiamondIfAbsent() {
+            when(userDiamondRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+            when(userDiamondRepository.save(any(UserDiamond.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            int balanceAfter = diamondService.awardSubscriptionStipend(USER_ID, 77L, 1);
+
+            assertThat(balanceAfter).isEqualTo(1);
+        }
+    }
+
+    @Nested
     @DisplayName("spendDiamonds 테스트")
     class SpendTest {
 
