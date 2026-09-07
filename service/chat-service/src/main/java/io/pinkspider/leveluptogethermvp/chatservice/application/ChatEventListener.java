@@ -37,18 +37,28 @@ public class ChatEventListener {
         guildChatService.notifyMemberKick(event.guildId(), event.memberNickname());
     }
 
-    /** LUT-287: 길드 탈퇴/추방 시 해당 길드에서의 DM 대화방을 목록에서 숨긴다 */
+    /**
+     * LUT-287: 길드 탈퇴/추방 시 해당 길드에서의 DM 대화방을 목록에서 숨긴다.
+     * LUT-471: 단체 채팅 참여 상태도 함께 정리한다 — 남겨두면 participant_count 가 길드원 수를 초과한다.
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleGuildMemberRemoved(GuildMemberRemovedEvent event) {
         int count = guildDirectMessageService.deactivateConversations(event.guildId(), event.userId());
-        log.info("길드 탈퇴/추방 DM 대화방 비활성화: guildId={}, userId={}, count={}",
-            event.guildId(), event.userId(), count);
+        boolean participantDeactivated =
+            guildChatService.deactivateParticipant(event.guildId(), event.userId());
+        log.info("길드 탈퇴/추방 채팅 정리: guildId={}, userId={}, dmCount={}, chatParticipant={}",
+            event.guildId(), event.userId(), count, participantDeactivated);
     }
 
-    /** LUT-287: 회원 탈퇴 시 전 길드의 DM 대화방을 목록에서 숨긴다 */
+    /**
+     * LUT-287: 회원 탈퇴 시 전 길드의 DM 대화방을 목록에서 숨긴다.
+     * LUT-471: 단체 채팅 참여 상태도 전 길드에서 정리한다.
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleUserWithdrawn(UserWithdrawnEvent event) {
         int count = guildDirectMessageService.deactivateConversationsForUser(event.userId());
-        log.info("회원 탈퇴 DM 대화방 비활성화: userId={}, count={}", event.userId(), count);
+        int participantCount = guildChatService.deactivateParticipantsForUser(event.userId());
+        log.info("회원 탈퇴 채팅 정리: userId={}, dmCount={}, chatParticipantCount={}",
+            event.userId(), count, participantCount);
     }
 }

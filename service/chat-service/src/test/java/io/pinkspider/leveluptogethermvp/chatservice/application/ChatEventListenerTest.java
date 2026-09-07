@@ -120,4 +120,37 @@ class ChatEventListenerTest {
             verify(guildDirectMessageService).deactivateConversationsForUser("user-1");
         }
     }
+
+    @Nested
+    @DisplayName("단체 채팅 참여 상태 정리 테스트 (LUT-471)")
+    class GroupChatParticipantCleanupTest {
+
+        @Test
+        @DisplayName("길드 탈퇴/추방 이벤트 수신 시 단체 채팅 참여자를 비활성화한다")
+        void handleGuildMemberRemoved_deactivatesChatParticipant() {
+            // given
+            GuildMemberRemovedEvent event = new GuildMemberRemovedEvent("user-1", 1L);
+            when(guildChatService.deactivateParticipant(1L, "user-1")).thenReturn(true);
+
+            // when
+            chatEventListener.handleGuildMemberRemoved(event);
+
+            // then
+            verify(guildChatService).deactivateParticipant(1L, "user-1");
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴 이벤트 수신 시 전 길드의 단체 채팅 참여자를 비활성화한다")
+        void handleUserWithdrawn_deactivatesAllChatParticipants() {
+            // given
+            UserWithdrawnEvent event = new UserWithdrawnEvent("user-1");
+            when(guildChatService.deactivateParticipantsForUser("user-1")).thenReturn(2);
+
+            // when
+            chatEventListener.handleUserWithdrawn(event);
+
+            // then
+            verify(guildChatService).deactivateParticipantsForUser("user-1");
+        }
+    }
 }

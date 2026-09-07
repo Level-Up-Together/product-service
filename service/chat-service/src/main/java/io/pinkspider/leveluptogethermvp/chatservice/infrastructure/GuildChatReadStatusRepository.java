@@ -43,4 +43,6 @@ public interface GuildChatReadStatusRepository extends JpaRepository<GuildChatRe
         @Param("excludedSenderIds") List<String> excludedSenderIds);
 
     void deleteByGuildIdAndUserId(Long guildId, String userId);
+
+    void deleteByUserId(String userId);
 }

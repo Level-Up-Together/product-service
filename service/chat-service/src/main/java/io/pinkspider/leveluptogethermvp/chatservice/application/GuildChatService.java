@@ -378,6 +378,41 @@ public class GuildChatService {
             });
     }
 
+    /**
+     * 길드 탈퇴/추방 시 단체 채팅 참여 상태 정리 (LUT-471)
+     *
+     * <p>비활성화하지 않으면 participant_count 가 현재 길드원 수를 초과해 노출된다.
+     * 읽음 상태도 함께 삭제해 메시지별 안읽음 집계(readers count)에 잔존하지 않게 한다.
+     * 이미 길드원이 아닌 유저의 정리이므로 validateMembership 을 거치지 않는다.
+     *
+     * @return 참여 중이던 참여자를 비활성화했으면 true
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public boolean deactivateParticipant(Long guildId, String userId) {
+        boolean deactivated = participantRepository.findByGuildIdAndUserId(guildId, userId)
+            .filter(GuildChatParticipant::isParticipating)
+            .map(participant -> {
+                participant.leave();
+                return true;
+            })
+            .orElse(false);
+        readStatusRepository.deleteByGuildIdAndUserId(guildId, userId);
+        return deactivated;
+    }
+
+    /**
+     * 회원 탈퇴 시 전 길드의 단체 채팅 참여 상태 정리 (LUT-471)
+     *
+     * @return 비활성화된 참여자 수
+     */
+    @Transactional(transactionManager = "chatTransactionManager")
+    public int deactivateParticipantsForUser(String userId) {
+        List<GuildChatParticipant> participants = participantRepository.findAllActiveByUserId(userId);
+        participants.forEach(GuildChatParticipant::leave);
+        readStatusRepository.deleteByUserId(userId);
+        return participants.size();
+    }
+
     public boolean isParticipating(Long guildId, String userId) {
         validateMembership(guildId, userId);
         return participantRepository.isParticipating(guildId, userId);

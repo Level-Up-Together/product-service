@@ -672,6 +672,81 @@ class GuildChatServiceTest {
     }
 
     @Nested
+    @DisplayName("길드 탈퇴/추방 참여 정리 테스트 (LUT-471)")
+    class DeactivateParticipantTest {
+
+        @Test
+        @DisplayName("참여 중인 참여자를 비활성화하고 읽음 상태를 삭제한다")
+        void deactivateParticipant_participating_deactivates() {
+            // given
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            setId(participant, 1L);
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            boolean result = guildChatService.deactivateParticipant(1L, testUserId);
+
+            // then
+            assertThat(result).isTrue();
+            assertThat(participant.isParticipating()).isFalse();
+            assertThat(participant.getLeftAt()).isNotNull();
+            verify(readStatusRepository).deleteByGuildIdAndUserId(1L, testUserId);
+        }
+
+        @Test
+        @DisplayName("이미 퇴장한 참여자는 false를 반환하되 읽음 상태는 삭제한다")
+        void deactivateParticipant_alreadyLeft_returnsFalse() {
+            // given
+            GuildChatParticipant participant = GuildChatParticipant.create(1L, testUserId, testNickname);
+            participant.leave();
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(participant));
+
+            // when
+            boolean result = guildChatService.deactivateParticipant(1L, testUserId);
+
+            // then
+            assertThat(result).isFalse();
+            verify(readStatusRepository).deleteByGuildIdAndUserId(1L, testUserId);
+        }
+
+        @Test
+        @DisplayName("참여 이력이 없어도 실패하지 않고 읽음 상태만 정리한다")
+        void deactivateParticipant_noRecord_returnsFalse() {
+            // given
+            when(participantRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+
+            // when
+            boolean result = guildChatService.deactivateParticipant(1L, testUserId);
+
+            // then
+            assertThat(result).isFalse();
+            verify(readStatusRepository).deleteByGuildIdAndUserId(1L, testUserId);
+        }
+
+        @Test
+        @DisplayName("회원 탈퇴 시 전 길드의 참여자를 비활성화하고 읽음 상태를 삭제한다")
+        void deactivateParticipantsForUser_deactivatesAll() {
+            // given
+            GuildChatParticipant participant1 = GuildChatParticipant.create(1L, testUserId, testNickname);
+            GuildChatParticipant participant2 = GuildChatParticipant.create(2L, testUserId, testNickname);
+            when(participantRepository.findAllActiveByUserId(testUserId))
+                .thenReturn(List.of(participant1, participant2));
+
+            // when
+            int count = guildChatService.deactivateParticipantsForUser(testUserId);
+
+            // then
+            assertThat(count).isEqualTo(2);
+            assertThat(participant1.isParticipating()).isFalse();
+            assertThat(participant2.isParticipating()).isFalse();
+            verify(readStatusRepository).deleteByUserId(testUserId);
+        }
+    }
+
+    @Nested
     @DisplayName("읽음/안읽음 카운트 테스트")
     class ReadUnreadCountTest {
 

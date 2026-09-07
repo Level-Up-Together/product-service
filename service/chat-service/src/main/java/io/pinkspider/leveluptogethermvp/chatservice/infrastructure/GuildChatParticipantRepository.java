@@ -25,6 +25,9 @@ public interface GuildChatParticipantRepository extends JpaRepository<GuildChatP
            "WHERE p.guildId = :guildId AND p.userId = :userId AND p.isActive = true")
     boolean isParticipating(@Param("guildId") Long guildId, @Param("userId") String userId);
 
+    @Query("SELECT p FROM GuildChatParticipant p WHERE p.userId = :userId AND p.isActive = true")
+    List<GuildChatParticipant> findAllActiveByUserId(@Param("userId") String userId);
+
     void deleteByGuildIdAndUserId(Long guildId, String userId);
 
     @Modifying
