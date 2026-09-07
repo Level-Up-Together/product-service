@@ -5,6 +5,7 @@ import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.ItemGrantedByAdminEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
@@ -133,6 +134,19 @@ public class NotificationEventListener {
     public void handleSeasonRewardItemGranted(SeasonRewardItemGrantedEvent event) {
         safeHandle("시즌 보상 아이템", () -> notificationService.sendLocalizedNotification(
             event.userId(), NotificationType.SEASON_REWARD_ITEM,
+            event.shopItemId(), null,
+            locale -> new Object[] {
+                localizedItemName(event.itemName(), event.itemNameEn(),
+                    event.itemNameAr(), event.itemNameJa(), locale)
+            }));
+    }
+
+    /** LUT-472: 관리자 수동 지급 — 구매/시즌 보상과 동일한 현지화 아이템명 알림 */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleItemGrantedByAdmin(ItemGrantedByAdminEvent event) {
+        safeHandle("관리자 아이템 지급", () -> notificationService.sendLocalizedNotification(
+            event.userId(), NotificationType.ITEM_GRANTED,
             event.shopItemId(), null,
             locale -> new Object[] {
                 localizedItemName(event.itemName(), event.itemNameEn(),

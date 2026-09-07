@@ -348,6 +348,7 @@ public void run() { ...}
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 | `GET /api/internal/diamond-payments`                              | Internal      | Admin 다이아 결제이력 조회 — 어드민은 `DIAMOND_PAYMENT_READ` 권한 필요 (LUT-401) |
+| `POST/GET /api/internal/item-grants`, `DELETE .../{id}`           | Internal      | Admin 아이템 수동 지급/이력/회수 — 멱등(보유 시 no-op), 회수=인벤토리 삭제+이력 revoked 마킹, `ITEM_GRANTED` 푸시 (LUT-472) |
 
 **합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
 (`UserDiamond.spendCombined`) — 유상 재화 환불 정산 관행. 원장(`diamond_history`)에 `pink_amount`로
