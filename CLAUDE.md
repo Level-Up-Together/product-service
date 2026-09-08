@@ -459,6 +459,8 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 
 JWT 발급/만료/슬라이딩 로직의 백엔드·웹·앱별 동작과 환경별 설정값: [`docs/JWT_TOKEN_LIFECYCLE.md`](docs/JWT_TOKEN_LIFECYCLE.md)
 
+소셜 로그인 연동 해제 정합(탈퇴 시 unlink/revoke, 카카오·Apple 수신 웹훅, 콘솔·config 등록 현황): [`docs/SOCIAL_ACCOUNT_LIFECYCLE.md`](docs/SOCIAL_ACCOUNT_LIFECYCLE.md)
+
 **세션 키는 `deviceId` 기준** (LUT-336) — `deviceType`은 세션 키의 일부가 아니다. 예전에는 재발급/로그아웃/모바일 로그인이 각각 다른 방식으로
 `deviceType`을 해석해(요청 본문 / `X-Device-Type` 헤더 / `"mobile"` 폴백) 같은 기기가 로그인은 `mobile`, 재발급은 `ios`로 기록되며 세션이
 갈라졌다. 지금은 `DeviceTypeResolver` 한 곳에서 정규화한다 — **클라이언트가 보낸 값 우선**, 없을 때만 User-Agent 추정, 최종 폴백 `web`.
