@@ -29,4 +29,15 @@ public class OAuth2Properties {
         private String restApiKey;
         private String appId;
     }
+
+    /**
+     * LUT-476: Sign in with Apple Server-to-Server Notification 수신 설정. audiences 는 알림 JWT 의 aud 허용
+     * 목록 (앱 번들 ID·서비스 ID) — 비어 있으면 검증 생략 (kakaoWebhook.appId 의 null-스킵 관례와 동일).
+     */
+    private AppleWebhook appleWebhook = new AppleWebhook();
+
+    @Data
+    public static class AppleWebhook {
+        private List<String> audiences = new ArrayList<>();
+    }
 }

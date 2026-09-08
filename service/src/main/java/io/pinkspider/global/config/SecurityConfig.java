@@ -145,6 +145,15 @@ public class SecurityConfig {
                                                 "/api/v1/webhooks/subscriptions/google")
                                         .permitAll()
 
+                                        // LUT-476: 소셜 연결 해제 웹훅 (소셜 서버가 호출 — JWT 없음.
+                                        // kakao 는 어드민 키/SET 서명, apple 은 JWS 서명 검증이 인증을 대신한다.
+                                        // kakao unlink 웹훅은 GET/POST 모두 올 수 있어 메서드 무제한)
+                                        .requestMatchers("/api/v1/oauth/kakao/webhook/**")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST, "/api/v1/oauth/apple/webhook")
+                                        .permitAll()
+
                                         // Browse-first: 비인증 열람 허용 API (GET만)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/bff/home")
                                         .permitAll()

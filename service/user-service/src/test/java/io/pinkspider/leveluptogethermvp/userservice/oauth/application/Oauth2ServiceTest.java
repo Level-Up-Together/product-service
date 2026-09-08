@@ -263,6 +263,8 @@ class Oauth2ServiceTest {
                     .email(TEST_EMAIL)
                     .nickname(TEST_NICKNAME)
                     .provider("google")
+                    // LUT-476: 이미 백필된 상태 — 변경 사항이 없어 save 가 없어야 한다
+                    .providerUserId("provider-id-123")
                     .build();
 
                 mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
@@ -281,6 +283,34 @@ class Oauth2ServiceTest {
                 assertThat(result.get().getId()).isEqualTo(TEST_USER_ID);
                 verify(userRepository, never()).save(any(Users.class));
                 verify(eventPublisher, never()).publishEvent(any());
+            }
+        }
+
+        @Test
+        @DisplayName("LUT-476: provider_user_id 미보유 기존 유저는 로그인 시 백필 저장된다")
+        void dbProcessOAuth2User_backfillsProviderUserId() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                // given — 컬럼 신설 전 가입자 (providerUserId null)
+                Users existingUser = Users.builder()
+                    .id(TEST_USER_ID)
+                    .email(TEST_EMAIL)
+                    .nickname(TEST_NICKNAME)
+                    .provider("google")
+                    .build();
+
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "google"))
+                    .thenReturn(Optional.of(existingUser));
+
+                io.pinkspider.leveluptogethermvp.userservice.oauth.domain.dto.OAuth2UserInfo userInfo =
+                    createMockUserInfo(TEST_EMAIL, TEST_NICKNAME, "google");
+
+                // when
+                oauth2Service.findExistingUser(userInfo, null, null);
+
+                // then — 공급자 ID 가 채워지고 저장된다
+                assertThat(existingUser.getProviderUserId()).isEqualTo("provider-id-123");
+                verify(userRepository).save(existingUser);
             }
         }
 
@@ -697,6 +727,8 @@ class Oauth2ServiceTest {
                     .email(TEST_EMAIL)
                     .nickname(TEST_NICKNAME)
                     .provider("google")
+                    // LUT-476: 백필 완료 상태로 두어 save-미호출 단언이 유효하게 유지
+                    .providerUserId("provider-id-123")
                     .preferredLocale("en")
                     .preferredTimezone("Asia/Tokyo")
                     .build();
@@ -759,6 +791,8 @@ class Oauth2ServiceTest {
                     .email(TEST_EMAIL)
                     .nickname(TEST_NICKNAME)
                     .provider("google")
+                    // LUT-476: 백필 완료 상태로 두어 save-미호출 단언이 유효하게 유지
+                    .providerUserId("provider-id-123")
                     .preferredLocale("ko")
                     .preferredTimezone("Asia/Tokyo")
                     .build();
@@ -1210,7 +1244,7 @@ class Oauth2ServiceTest {
 
         private void stubCollaborators(MockedStatic<CryptoUtils> mockedCrypto, String sessionLocale) {
             var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
-                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, sessionLocale, "UTC");
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, sessionLocale, "UTC", "google-sub-1");
             when(signupTokenService.findByToken("signup-token")).thenReturn(session);
             when(userRepository.existsByNickname(TEST_NICKNAME)).thenReturn(false);
             mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
@@ -1283,7 +1317,7 @@ class Oauth2ServiceTest {
         void requiredTermsNotAgreed_blocksBeforeUserCreation() {
             // given
             var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
-                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC");
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC", "google-sub-1");
             when(signupTokenService.findByToken("signup-token")).thenReturn(session);
             org.mockito.Mockito.doThrow(new CustomException("TERMS_001", "error.terms.required_not_agreed"))
                 .when(userTermsService).validateRequiredTermsAgreed(org.mockito.ArgumentMatchers.anySet());
@@ -1302,7 +1336,7 @@ class Oauth2ServiceTest {
         void onlyAgreedVersionIds_arePassedToValidation() {
             // given: v10 동의, v20 미동의(false) — 검증에는 10만 전달돼야 한다
             var session = new io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData(
-                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC");
+                "signup-token", "google", TEST_EMAIL, TEST_NICKNAME, "en", "UTC", "google-sub-1");
             when(signupTokenService.findByToken("signup-token")).thenReturn(session);
             org.mockito.Mockito.doThrow(new CustomException("TERMS_001", "error.terms.required_not_agreed"))
                 .when(userTermsService).validateRequiredTermsAgreed(org.mockito.ArgumentMatchers.anySet());

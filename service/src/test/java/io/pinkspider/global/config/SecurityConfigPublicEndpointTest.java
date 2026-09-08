@@ -155,7 +155,10 @@ class SecurityConfigPublicEndpointTest {
     @ValueSource(
             strings = {
                 "/api/v1/webhooks/subscriptions/apple",
-                "/api/v1/webhooks/subscriptions/google"
+                "/api/v1/webhooks/subscriptions/google",
+                // LUT-476: 소셜 연결 해제 웹훅 — kakao 는 어드민 키/SET, apple 은 JWS 가 인증을 대신
+                "/api/v1/oauth/kakao/webhook/unlink",
+                "/api/v1/oauth/apple/webhook"
             })
     void 웹훅_익명_POST_는_401_이_아니어야_한다(String path) throws Exception {
         int status = mockMvc.perform(post(path)).andReturn().getResponse().getStatus();

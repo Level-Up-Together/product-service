@@ -68,6 +68,8 @@ public class MyPageService {
     private final UserProfileCacheService userProfileCacheService;
     private final UserExistsCacheService userExistsCacheService;
     private final MultiDeviceTokenService multiDeviceTokenService;
+    private final io.pinkspider.leveluptogethermvp.userservice.oauth.application.SocialUnlinkService
+        socialUnlinkService;
 
     /**
      * MyPage 전체 데이터 조회
@@ -605,6 +607,9 @@ public class MyPageService {
         if (user.getPicture() != null) {
             profileImageStorageService.delete(user.getPicture());
         }
+
+        // LUT-476: 소셜 로그인 연동 해제 (kakao unlink 등) — best-effort, 실패해도 탈퇴 진행
+        socialUnlinkService.unlinkOnWithdrawal(user);
 
         // 사용자 상태를 WITHDRAWN으로 변경
         user.withdraw();

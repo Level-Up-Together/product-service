@@ -106,6 +106,10 @@ class MyPageServiceTest {
     @Mock
     private MultiDeviceTokenService multiDeviceTokenService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.oauth.application.SocialUnlinkService
+        socialUnlinkService;
+
     @InjectMocks
     private MyPageService myPageService;
 
@@ -1298,6 +1302,8 @@ class MyPageServiceTest {
             verify(multiDeviceTokenService).logoutAllDevices(TEST_USER_ID);
             verify(userExistsCacheService).evictUserExistsCache(TEST_USER_ID);
             verify(userProfileCacheService).evictUserProfileCache(TEST_USER_ID);
+            // LUT-476: 탈퇴 시 소셜 연동 해제 시도 (best-effort)
+            verify(socialUnlinkService).unlinkOnWithdrawal(user);
         }
 
         @Test

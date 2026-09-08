@@ -29,6 +29,9 @@ class KakaoWebhookServiceTest {
     @Mock
     private MultiDeviceTokenService tokenService;
 
+    @Mock
+    private io.pinkspider.leveluptogethermvp.userservice.mypage.application.MyPageService myPageService;
+
     private OAuth2Properties oAuth2Properties;
     private ObjectMapper objectMapper;
     private KakaoWebhookService kakaoWebhookService;
@@ -48,6 +51,7 @@ class KakaoWebhookServiceTest {
             oAuth2Properties,
             userRepository,
             tokenService,
+            myPageService,
             objectMapper
         );
     }
@@ -69,6 +73,53 @@ class KakaoWebhookServiceTest {
 
             // when & then
             assertDoesNotThrow(() -> kakaoWebhookService.handleUnlinkWebhook(authorization, request));
+        }
+
+        @Test
+        @DisplayName("LUT-476: 매핑된 활성 사용자가 있으면 탈퇴 처리한다")
+        void handleUnlinkWebhook_withdrawsMappedUser() {
+            // given
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .id("user-1").email("e").nickname("n")
+                    .provider("kakao").providerUserId("987654321")
+                    .build();
+            org.mockito.Mockito.when(
+                    userRepository.findActiveByProviderAndProviderUserId("kakao", "987654321"))
+                .thenReturn(java.util.Optional.of(user));
+
+            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
+                .appId("123456")
+                .userId("987654321")
+                .referrerType("ACCOUNT_DELETE")
+                .build();
+
+            // when
+            kakaoWebhookService.handleUnlinkWebhook("KakaoAK test-admin-key", request);
+
+            // then
+            org.mockito.Mockito.verify(myPageService).withdrawUser("user-1");
+        }
+
+        @Test
+        @DisplayName("LUT-476: 매핑되는 활성 사용자가 없으면(백필 전/기탈퇴) 탈퇴 없이 지나간다")
+        void handleUnlinkWebhook_unmappedUser_isNoOp() {
+            // given
+            org.mockito.Mockito.when(
+                    userRepository.findActiveByProviderAndProviderUserId("kakao", "987654321"))
+                .thenReturn(java.util.Optional.empty());
+
+            KakaoUnlinkWebhookRequest request = KakaoUnlinkWebhookRequest.builder()
+                .appId("123456")
+                .userId("987654321")
+                .referrerType("UNLINK_FROM_APPS")
+                .build();
+
+            // when & then
+            assertDoesNotThrow(() -> kakaoWebhookService.handleUnlinkWebhook(
+                "KakaoAK test-admin-key", request));
+            org.mockito.Mockito.verify(myPageService, org.mockito.Mockito.never())
+                .withdrawUser(org.mockito.ArgumentMatchers.anyString());
         }
 
         @Test
@@ -244,7 +295,7 @@ class KakaoWebhookServiceTest {
             props.setKakaoWebhook(kakaoWebhook);
 
             KakaoWebhookService service = new KakaoWebhookService(
-                props, userRepository, tokenService, objectMapper
+                props, userRepository, tokenService, myPageService, objectMapper
             );
 
             String authorization = "KakaoAK some-key";
@@ -272,7 +323,7 @@ class KakaoWebhookServiceTest {
             props.setKakaoWebhook(kakaoWebhook);
 
             KakaoWebhookService service = new KakaoWebhookService(
-                props, userRepository, tokenService, objectMapper
+                props, userRepository, tokenService, myPageService, objectMapper
             );
 
             String authorization = "KakaoAK test-admin-key";

@@ -50,6 +50,14 @@ public class Users extends LocalDateTimeBaseEntity {
     @NotNull
     private String provider;
 
+    /**
+     * LUT-476: 소셜 공급자의 사용자 고유 ID (kakao 회원번호 / apple·google sub).
+     * 소셜 측 연결 해제 웹훅(사용자 식별이 이 값으로만 옴)과 탈퇴 시 unlink 호출에 사용.
+     * 로그인 시점에 저장/백필되므로 그 전의 기존 유저는 null 일 수 있다.
+     */
+    @Column(name = "provider_user_id")
+    private String providerUserId;
+
     @lombok.Builder.Default
     @Column(name = "nickname_set", nullable = false)
     private boolean nicknameSet = false;
@@ -133,6 +141,11 @@ public class Users extends LocalDateTimeBaseEntity {
 
     public void updatePreferredTimezone(String preferredTimezone) {
         this.preferredTimezone = preferredTimezone;
+    }
+
+    /** LUT-476: 로그인 시 소셜 공급자 사용자 ID 저장/백필 */
+    public void updateProviderUserId(String providerUserId) {
+        this.providerUserId = providerUserId;
     }
 
     public void updatePreferredFeedVisibility(String preferredFeedVisibility) {

@@ -296,6 +296,12 @@ public class Oauth2Service {
             needsSave = true;
             log.info("기존 사용자 timezone 업데이트: userId={}, timezone={}", user.getId(), preferredTimezone);
         }
+        // LUT-476: 공급자 사용자 ID 백필 — 소셜 연결 해제 웹훅/탈퇴 unlink 의 유저 매핑 키.
+        // 컬럼 신설 전 가입자는 null 이므로 로그인 시점에 채워 커버리지를 수렴시킨다.
+        if (userInfo.getId() != null && !userInfo.getId().equals(user.getProviderUserId())) {
+            user.updateProviderUserId(userInfo.getId());
+            needsSave = true;
+        }
         if (needsSave) {
             userRepository.save(user);
         }
@@ -324,7 +330,8 @@ public class Oauth2Service {
             userInfo.getEmail(),
             resolveSuggestedNickname(userInfo),
             locale,
-            timezone
+            timezone,
+            userInfo.getId()
         );
         return signupTokenService.createOrRefresh(session);
     }
@@ -386,6 +393,7 @@ public class Oauth2Service {
             .email(session.email())
             .nickname(request.getNickname())
             .provider(session.provider())
+            .providerUserId(session.providerUserId())
             .nicknameSet(true)
             .preferredLocale(preferredLocale)
             .preferredTimezone(session.preferredTimezone())

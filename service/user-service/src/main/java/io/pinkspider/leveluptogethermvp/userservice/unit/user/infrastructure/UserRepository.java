@@ -43,6 +43,18 @@ public interface UserRepository extends JpaRepository<Users, String> {
 
     List<Users> findAllByIdIn(List<String> userIds);
 
+    /**
+     * LUT-476: 소셜 웹훅(연결 해제 통지)에서 공급자 사용자 ID 로 활성 계정 조회.
+     * provider_user_id 는 로그인 시 백필되므로 미백필 유저는 조회되지 않을 수 있다.
+     */
+    @Query(value = "SELECT * FROM users WHERE LOWER(provider) = LOWER(:provider) "
+        + "AND provider_user_id = :providerUserId AND status <> 'WITHDRAWN' LIMIT 1",
+        nativeQuery = true)
+    Optional<Users> findActiveByProviderAndProviderUserId(
+        @Param("provider") String provider,
+        @Param("providerUserId") String providerUserId
+    );
+
     // 닉네임 중복 확인 (자신 제외)
     boolean existsByNicknameAndIdNot(String nickname, String userId);
 

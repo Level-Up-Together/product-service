@@ -51,7 +51,8 @@ class SignupTokenServiceTest {
 
     private SignupSessionData buildData(String token) {
         return new SignupSessionData(
-            token, TEST_PROVIDER, TEST_EMAIL, TEST_NICKNAME, TEST_LOCALE, TEST_TIMEZONE
+            token, TEST_PROVIDER, TEST_EMAIL, TEST_NICKNAME, TEST_LOCALE, TEST_TIMEZONE,
+            "provider-user-1"
         );
     }
 
