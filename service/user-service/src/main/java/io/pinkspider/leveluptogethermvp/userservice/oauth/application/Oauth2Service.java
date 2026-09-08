@@ -73,6 +73,7 @@ public class Oauth2Service {
     private final GeoIpService geoIpService;
     private final NotificationService notificationService;
     private final SignupTokenService signupTokenService;
+    private final AppleTokenService appleTokenService;
     private final UserTermsService userTermsService;
     private final WithdrawalProperties withdrawalProperties;
     private final MessageSource messageSource;
@@ -177,20 +178,30 @@ public class Oauth2Service {
                                                             String deviceType,
                                                             String deviceId,
                                                             String preferredLocale,
-                                                            String preferredTimezone) {
+                                                            String preferredTimezone,
+                                                            String authorizationCode,
+                                                            String authorizationCodeRedirectUri) {
         try {
             OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
+
+            // LUT-477: apple 은 code 교환으로 refresh token 확보 (탈퇴 revoke 용, best-effort).
+            // iOS 네이티브 code 는 redirect_uri 불필요, Android 웹 기반 code 는 발급 시 값과 동일해야 한다.
+            AppleTokenCapture appleTokens = "apple".equals(provider)
+                ? captureAppleTokens(providerToken, authorizationCode, authorizationCodeRedirectUri)
+                : null;
+
             Optional<Users> existingUserOpt = findExistingUser(userInfo, preferredLocale, preferredTimezone);
 
             if (existingUserOpt.isEmpty()) {
                 // 신규 사용자: signup token만 발급 (DB INSERT 보류)
-                String token = prepareSignupSession(userInfo, preferredLocale, preferredTimezone);
+                String token = prepareSignupSession(userInfo, preferredLocale, preferredTimezone, appleTokens);
                 String suggested = resolveSuggestedNickname(userInfo);
                 log.info("Mobile login - 신규 사용자 signup session 발급: provider={}", provider);
                 return SocialLoginResponseDto.newUser(token, suggested);
             }
 
             Users users = existingUserOpt.get();
+            applyAppleTokens(users, appleTokens);
             updateLoginInfo(httpRequest, users);
 
             CreateJwtResponseDto jwt = issueJwt(httpRequest, users, deviceType, deviceId);
@@ -219,17 +230,31 @@ public class Oauth2Service {
         String providerToken = "apple".equals(provider) ? idToken[0] : getProviderAccessToken(httpRequest, provider, code);
 
         OAuth2UserInfo userInfo = getUserInfoFromOAuth2Provider(provider, providerToken);
+
+        // LUT-477: apple 웹 콜백은 code 가 함께 오므로 refresh token 을 확보한다 (탈퇴 revoke 용).
+        // redirect_uri 해석 실패까지 포함해 전 과정이 best-effort — 로그인을 막지 않는다.
+        AppleTokenCapture appleTokens = null;
+        if ("apple".equals(provider)) {
+            try {
+                appleTokens = captureAppleTokens(
+                    providerToken, code, resolveRedirectUri(httpRequest, provider));
+            } catch (Exception e) {
+                log.warn("Apple refresh token 확보 실패 (로그인은 계속 진행): {}", e.getMessage());
+            }
+        }
+
         Optional<Users> existingUserOpt = findExistingUser(userInfo, null, null);
 
         if (existingUserOpt.isEmpty()) {
             // 신규 사용자: signup token만 발급
-            String token = prepareSignupSession(userInfo, null, null);
+            String token = prepareSignupSession(userInfo, null, null, appleTokens);
             String suggested = resolveSuggestedNickname(userInfo);
             log.info("Web callback - 신규 사용자 signup session 발급: provider={}", provider);
             return SocialLoginResponseDto.newUser(token, suggested);
         }
 
         Users users = existingUserOpt.get();
+        applyAppleTokens(users, appleTokens);
         updateLoginInfo(httpRequest, users);
 
         CreateJwtResponseDto jwt = issueJwt(httpRequest, users, deviceType, deviceId);
@@ -314,6 +339,11 @@ public class Oauth2Service {
      * 같은 (provider, email)로 이미 진행 중이면 이전 token을 무효화하고 새 token 발급.
      */
     private String prepareSignupSession(OAuth2UserInfo userInfo, String preferredLocale, String preferredTimezone) {
+        return prepareSignupSession(userInfo, preferredLocale, preferredTimezone, null);
+    }
+
+    private String prepareSignupSession(OAuth2UserInfo userInfo, String preferredLocale,
+                                         String preferredTimezone, AppleTokenCapture appleTokens) {
         boolean localeProvided = preferredLocale != null
             && io.pinkspider.global.translation.enums.SupportedLocale.isSupported(preferredLocale);
         String locale = localeProvided
@@ -331,9 +361,46 @@ public class Oauth2Service {
             resolveSuggestedNickname(userInfo),
             locale,
             timezone,
-            userInfo.getId()
+            userInfo.getId(),
+            appleTokens != null ? appleTokens.encryptedRefreshToken() : null,
+            appleTokens != null ? appleTokens.clientId() : null
         );
         return signupTokenService.createOrRefresh(session);
+    }
+
+    /** LUT-477: apple code 교환 결과 — refresh token 은 AES 암호화 상태로만 다룬다 */
+    record AppleTokenCapture(String encryptedRefreshToken, String clientId) {}
+
+    /**
+     * LUT-477: apple authorization code → refresh token 확보 (탈퇴 revoke 용).
+     * client_id 는 id_token 의 aud 에서 추출 — code 를 발급받은 클라이언트(웹=서비스 ID,
+     * iOS=번들 ID)와 자동으로 일치한다. 실패는 삼킨다 (로그인은 계속 진행).
+     */
+    private AppleTokenCapture captureAppleTokens(String idToken, String authorizationCode, String redirectUri) {
+        if (authorizationCode == null || authorizationCode.isBlank()) {
+            return null;
+        }
+        try {
+            java.util.List<String> audience = jwtUtil.decodeIdToken(idToken).getAudience();
+            if (audience == null || audience.isEmpty()) {
+                return null;
+            }
+            String clientId = audience.get(0);
+            return appleTokenService.exchangeRefreshToken(authorizationCode, clientId, redirectUri)
+                .map(refreshToken -> new AppleTokenCapture(CryptoUtils.encryptAes(refreshToken), clientId))
+                .orElse(null);
+        } catch (Exception e) {
+            log.warn("Apple refresh token 확보 실패 (로그인은 계속 진행): {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void applyAppleTokens(Users user, AppleTokenCapture appleTokens) {
+        if (appleTokens == null) {
+            return;
+        }
+        user.updateAppleTokens(appleTokens.encryptedRefreshToken(), appleTokens.clientId());
+        userRepository.save(user);
     }
 
     /**
@@ -394,6 +461,8 @@ public class Oauth2Service {
             .nickname(request.getNickname())
             .provider(session.provider())
             .providerUserId(session.providerUserId())
+            .appleRefreshToken(session.appleRefreshTokenEnc())
+            .appleClientId(session.appleClientId())
             .nicknameSet(true)
             .preferredLocale(preferredLocale)
             .preferredTimezone(session.preferredTimezone())

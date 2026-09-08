@@ -188,7 +188,7 @@ class Oauth2ControllerTest {
             CreateJwtResponseDto.class);
         SocialLoginResponseDto mockResponse = SocialLoginResponseDto.existingUser(mockCreateJwtResponseDto);
 
-        when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345"), any(), any()))
+        when(oauth2Service.createJwtFromMobileToken(any(), eq("google"), eq("mock_access_token_from_native_sdk"), eq("ios"), eq("device_uuid_12345"), any(), any(), any(), any()))
             .thenReturn(mockResponse);
 
         // when
@@ -212,7 +212,9 @@ class Oauth2ControllerTest {
                             fieldWithPath("device_type").type(JsonFieldType.STRING).description("디바이스 타입 (ios, android)").optional(),
                             fieldWithPath("device_id").type(JsonFieldType.STRING).description("디바이스 고유 ID").optional(),
                             fieldWithPath("preferred_locale").type(JsonFieldType.STRING).description("선호 언어 (ko, en, ar, ja)").optional(),
-                            fieldWithPath("preferred_timezone").type(JsonFieldType.STRING).description("선호 타임존 IANA ID (e.g., Asia/Seoul, Asia/Tokyo)").optional()
+                            fieldWithPath("preferred_timezone").type(JsonFieldType.STRING).description("선호 타임존 IANA ID (e.g., Asia/Seoul, Asia/Tokyo)").optional(),
+                            fieldWithPath("authorization_code").type(JsonFieldType.STRING).description("Apple 전용 - authorization code (서버가 refresh token 교환 후 탈퇴 시 revoke에 사용, LUT-477)").optional(),
+                            fieldWithPath("authorization_code_redirect_uri").type(JsonFieldType.STRING).description("Apple Android 전용 - code 발급 시 사용한 redirect_uri (iOS 네이티브는 미전송, LUT-477)").optional()
                         )
                         .responseFields(
                             fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),

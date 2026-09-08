@@ -40,4 +40,17 @@ public class OAuth2Properties {
     public static class AppleWebhook {
         private List<String> audiences = new ArrayList<>();
     }
+
+    /**
+     * LUT-477: Sign in with Apple 서버 자격증명 — client_secret(ES256 JWT) 서명용. privateKey 는 SIWA 키 .p8 의
+     * PEM 내용 (config 는 cipher). 미설정이면 code 교환/revoke 를 스킵한다.
+     */
+    private Apple apple = new Apple();
+
+    @Data
+    public static class Apple {
+        private String teamId;
+        private String keyId;
+        private String privateKey;
+    }
 }

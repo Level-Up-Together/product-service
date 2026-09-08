@@ -58,6 +58,17 @@ public class Users extends LocalDateTimeBaseEntity {
     @Column(name = "provider_user_id")
     private String providerUserId;
 
+    /**
+     * LUT-477: Apple refresh token (CryptoUtils AES 암호화 저장) — 탈퇴 시 /auth/revoke 용.
+     * 로그인 시 authorization code 교환으로 확보되며, code 를 안 보내는 구 클라이언트는 null.
+     */
+    @Column(name = "apple_refresh_token", columnDefinition = "TEXT")
+    private String appleRefreshToken;
+
+    /** LUT-477: refresh token 을 발급받은 client_id (revoke 시 동일 값 필요 — 웹=서비스 ID, iOS=번들 ID) */
+    @Column(name = "apple_client_id")
+    private String appleClientId;
+
     @lombok.Builder.Default
     @Column(name = "nickname_set", nullable = false)
     private boolean nicknameSet = false;
@@ -148,6 +159,12 @@ public class Users extends LocalDateTimeBaseEntity {
         this.providerUserId = providerUserId;
     }
 
+    /** LUT-477: 로그인 시 Apple refresh token(암호화된 값) 저장/갱신 */
+    public void updateAppleTokens(String encryptedRefreshToken, String appleClientId) {
+        this.appleRefreshToken = encryptedRefreshToken;
+        this.appleClientId = appleClientId;
+    }
+
     public void updatePreferredFeedVisibility(String preferredFeedVisibility) {
         this.preferredFeedVisibility = preferredFeedVisibility;
     }
@@ -208,6 +225,9 @@ public class Users extends LocalDateTimeBaseEntity {
         this.nickname = "탈퇴한 사용자";
         this.picture = null;
         this.bio = null;
+        // LUT-477: revoke 는 withdraw 전에 수행됨 — 사용 끝난 토큰은 보관하지 않는다
+        this.appleRefreshToken = null;
+        this.appleClientId = null;
         this.withdrawnAt = LocalDateTime.now();
     }
 

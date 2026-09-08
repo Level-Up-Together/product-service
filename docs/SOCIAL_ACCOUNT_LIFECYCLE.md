@@ -7,7 +7,7 @@
 
 | | 우리 → 소셜 (탈퇴 시 발신) | 소셜 → 우리 (수신 웹훅) |
 |---|---|---|
-| **Apple** | `/auth/revoke` — **App Store 5.1.1(v) 필수**. refresh token 미보유라 미구현 → **LUT-477** | S2S Notification — **구현·prod 등록 완료** (`POST /api/v1/oauth/apple/webhook`) |
+| **Apple** | `/auth/revoke` — **App Store 5.1.1(v) 필수**. **구현 완료 (LUT-477)** — 로그인 code 교환으로 refresh token 확보·암호화 저장 후 탈퇴 시 revoke | S2S Notification — **구현·prod 등록 완료** (`POST /api/v1/oauth/apple/webhook`) |
 | **Kakao** | 어드민 키 `POST /v1/user/unlink` — **구현 완료** (best-effort) | 연결 끊기 웹훅 + SSF — **구현·dev/prod 등록 완료** |
 | **Google** | token revoke — **의도적 생략** (토큰 미저장, 필수 아님. 유저가 구글 계정 설정에서 자체 해제 가능) | RISC(Cross-Account Protection) — **선택사항, 미구현 결정** |
 
@@ -28,7 +28,7 @@ S2S Notification Endpoint는 ② 반대 방향(Apple→우리, 유저가 Apple I
 
 - **전부 best-effort**: 예외를 삼키고 탈퇴는 계속 진행 (소셜 측 설정·수신 웹훅으로도 정합이 맞춰짐)
 - kakao: `KakaoAdminFeignClient.unlink("KakaoAK {adminKey}", "user_id", 회원번호)` — 어드민 키/회원번호 미보유 시 스킵(로그)
-- apple: 스킵 + 로그 (LUT-477에서 revoke 구현)
+- apple: 저장된 refresh token(AES) 복호화 → `AppleTokenService.revoke` (LUT-477). 토큰/client_id 미보유(구 클라이언트 로그인 유저)면 스킵(로그)
 - google: 스킵 + 로그 (설계상 생략)
 
 ## 4. 수신 웹훅
@@ -88,11 +88,41 @@ apple-webhook:               # prod 만 (dev 는 Apple 등록 불가라 불필�
 
 미설정 시 동작: admin-key 없으면 unlink 발신 스킵 + 웹훅 인증 실패, app-id/audiences 없으면 해당 검증만 생략.
 
-## 6. 알려진 한계·후속
+## 6. Apple 탈퇴 revoke 상세 (LUT-477)
 
-1. **LUT-477 — Apple 탈퇴 revoke**: 로그인이 id_token만 수신해 refresh token이 없다.
-   클라(RN/웹)가 authorizationCode를 전달 → 서버 code 교환 → refresh token 암호화 저장 → 탈퇴 시 `/auth/revoke`.
-   SIWA 전용 .p8 키 필요(IAP 키와 별개). 심사 5.1.1(v) 컴플라이언스라 우선순위 높음
-2. **백필 전 유저**: provider_user_id 가 없는 유저의 웹훅은 처리 불가(로그만) — 로그인 백필로 자연 해소
+로그인 시 refresh token 을 미리 확보해 두었다가 탈퇴 시 `/auth/revoke` 를 호출하는 구조.
+전 과정 **best-effort** — 어느 단계가 실패해도 로그인/탈퇴 자체는 막지 않는다.
+
+### 로그인 시 캡처 (`Oauth2Service.captureAppleTokens`)
+
+1. 클라이언트가 id_token 과 함께 **authorization code** 를 전달
+   - 웹: 기존 콜백이 이미 code+id_token 을 서버로 보냄 — **프론트 변경 없음**
+   - RN iOS: 네이티브 `authorizationCode` (redirect_uri 없이 교환)
+   - RN Android: 웹 기반 SIWA code + 발급 시 redirect_uri (`authorization_code_redirect_uri`)
+   - code 를 안 보내는 구 클라이언트는 그냥 로그인만 진행 (필드 optional — 하위호환)
+2. client_id 는 **id_token 의 aud 에서 추출** — code 발급 주체(웹=서비스 ID, iOS=번들 ID)와 자동 일치
+3. `AppleTokenService.exchangeRefreshToken`: SIWA 키로 서명한 client_secret(ES256 JWT, TTL 5분)로
+   `POST /auth/token` 교환
+4. refresh token 은 `CryptoUtils.encryptAes` 로 암호화해 `users.apple_refresh_token` 에,
+   client_id 는 `users.apple_client_id` 에 저장 (V007). 신규 유저는 `SignupSessionData` 에 담아
+   `completeSignup` 시 INSERT
+5. 탈퇴 시: 복호화 → `POST /auth/revoke` → `withdraw()` 가 두 컬럼 모두 NULL 처리
+
+### 자격증명 (config `app.oauth2.apple.*`)
+
+```yaml
+apple:              # dev/prod 동일 키 (SIWA 키는 팀 소속 — 모든 client_id 서명 가능)
+  team-id: Z53YTTRR32
+  key-id: WT9LPUP7PW          # "LUT SIWA Server Key" (.p8) — APNs 겸용 82UK4YVJX4 와 별개
+  private-key: "{cipher}..."  # p8 base64 본문 한 줄 암호화
+```
+
+미설정이면 `AppleTokenService.isConfigured()=false` → 교환/revoke 전부 no-op (로그인·탈퇴 정상).
+
+## 7. 알려진 한계·후속
+
+1. **백필 전 유저**: provider_user_id 가 없는 유저의 웹훅은 처리 불가(로그만) — 로그인 백필로 자연 해소
+2. **apple refresh token 없는 기존 유저**: LUT-477 배포 전 로그인만 한 유저는 탈퇴 시 revoke 스킵 —
+   다음 apple 로그인 때 code 가 오면 자동 확보
 3. **prod config-server 스테일 가능성**: config push 후 반영 안 되면 클론 fetch 필요 (dev 에서 동일 이슈 확인됨 — 메모리 `dev-config-server-stale-clone` 참조)
 4. Google RISC 는 보안 강화가 필요해지면 별도 티켓으로 도입

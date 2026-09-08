@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.enums.NotificationType;
@@ -95,6 +96,9 @@ class Oauth2ServiceTest {
 
     @Mock
     private SignupTokenService signupTokenService;
+
+    @Mock
+    private AppleTokenService appleTokenService;
 
     @Mock
     private UserTermsService userTermsService;
@@ -473,7 +477,7 @@ class Oauth2ServiceTest {
 
                 // when
                 SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID, null, null);
+                    httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID, null, null, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -526,7 +530,7 @@ class Oauth2ServiceTest {
 
                 // when
                 SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", "mobile", null, null, null);
+                    httpRequest, "google", "google-provider-token", "mobile", null, null, null, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -569,7 +573,7 @@ class Oauth2ServiceTest {
 
                 // when
                 SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
-                    httpRequest, "google", "google-provider-token", null, null, null, null);
+                    httpRequest, "google", "google-provider-token", null, null, null, null, null, null);
 
                 // then
                 assertThat(result).isNotNull();
@@ -588,7 +592,7 @@ class Oauth2ServiceTest {
 
             // when & then
             assertThatThrownBy(() -> oauth2Service.createJwtFromMobileToken(
-                httpRequest, "google", "invalid-token", "mobile", TEST_DEVICE_ID, null, null))
+                httpRequest, "google", "invalid-token", "mobile", TEST_DEVICE_ID, null, null, null, null))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("소셜 로그인 실패");
         }
@@ -616,7 +620,7 @@ class Oauth2ServiceTest {
 
                 oauth2Service.createJwtFromMobileToken(
                     httpRequest, "google", "google-provider-token", "mobile", TEST_DEVICE_ID,
-                    preferredLocale, preferredTimezone);
+                    preferredLocale, preferredTimezone, null, null);
 
                 var captor = org.mockito.ArgumentCaptor.forClass(
                     io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData.class);
@@ -1351,6 +1355,148 @@ class Oauth2ServiceTest {
             var captor = org.mockito.ArgumentCaptor.forClass((Class<java.util.Set<Long>>) (Class<?>) java.util.Set.class);
             verify(userTermsService).validateRequiredTermsAgreed(captor.capture());
             assertThat(captor.getValue()).containsExactly(10L);
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-477: apple refresh token 캡처 테스트")
+    class AppleTokenCaptureTest {
+
+        private static final String APPLE_ID_TOKEN = "apple-id-token";
+        private static final String APPLE_CLIENT_ID = "io.pinkspider.lut";
+
+        private com.nimbusds.jwt.JWTClaimsSet appleClaims() {
+            return new com.nimbusds.jwt.JWTClaimsSet.Builder()
+                .subject("apple-sub-1")
+                .audience(APPLE_CLIENT_ID)
+                .claim("email", TEST_EMAIL)
+                .build();
+        }
+
+        private Users existingAppleUser() {
+            return Users.builder()
+                .id(TEST_USER_ID)
+                .email(TEST_EMAIL)
+                .nickname(TEST_NICKNAME)
+                .provider("apple")
+                .providerUserId("apple-sub-1")
+                .nicknameSet(true)
+                .build();
+        }
+
+        private void mockLoginPlumbing() {
+            when(geoIpService.extractClientIp(httpRequest)).thenReturn("127.0.0.1");
+            when(geoIpService.lookupCountry("127.0.0.1")).thenReturn(GeoIpResult.empty());
+            when(jwtUtil.generateAccessToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_ACCESS_TOKEN);
+            when(jwtUtil.generateRefreshToken(TEST_USER_ID, TEST_EMAIL, TEST_DEVICE_ID))
+                .thenReturn(TEST_REFRESH_TOKEN);
+        }
+
+        @Test
+        @DisplayName("apple 모바일 로그인에 code 가 오면 refresh token 을 교환·암호화해 저장한다")
+        void mobileLogin_appleWithCode_capturesRefreshToken() throws Exception {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = existingAppleUser();
+
+                when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(appleClaims());
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes("apple-rt")).thenReturn("enc-apple-rt");
+                when(appleTokenService.exchangeRefreshToken("auth-code", APPLE_CLIENT_ID, null))
+                    .thenReturn(Optional.of("apple-rt"));
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.of(existingUser));
+                mockLoginPlumbing();
+
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    "auth-code", null);
+
+                assertThat(result).isNotNull();
+                // updateLoginInfo 의 save 와 별개로 캡처 반영 자체를 필드로 검증한다
+                assertThat(existingUser.getAppleRefreshToken()).isEqualTo("enc-apple-rt");
+                assertThat(existingUser.getAppleClientId()).isEqualTo(APPLE_CLIENT_ID);
+            }
+        }
+
+        @Test
+        @DisplayName("code 미전송(구 클라이언트)이면 교환 없이 로그인만 진행한다")
+        void mobileLogin_appleWithoutCode_skipsCapture() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = existingAppleUser();
+
+                try {
+                    when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(appleClaims());
+                } catch (Exception ignored) {
+                }
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.of(existingUser));
+                mockLoginPlumbing();
+
+                oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    null, null);
+
+                assertThat(existingUser.getAppleRefreshToken()).isNull();
+                verifyNoInteractions(appleTokenService);
+            }
+        }
+
+        @Test
+        @DisplayName("code 교환 실패 시에도 로그인은 계속 진행된다")
+        void mobileLogin_appleExchangeFails_loginContinues() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                Users existingUser = existingAppleUser();
+
+                try {
+                    when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(appleClaims());
+                } catch (Exception ignored) {
+                }
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                when(appleTokenService.exchangeRefreshToken("auth-code", APPLE_CLIENT_ID, null))
+                    .thenReturn(Optional.empty());
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.of(existingUser));
+                mockLoginPlumbing();
+
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    "auth-code", null);
+
+                assertThat(result).isNotNull();
+                assertThat(existingUser.getAppleRefreshToken()).isNull();
+            }
+        }
+
+        @Test
+        @DisplayName("신규 apple 유저는 signup session 에 암호화 토큰과 client_id 를 담는다")
+        void mobileLogin_appleNewUser_storesTokensInSignupSession() {
+            try (MockedStatic<CryptoUtils> mockedCrypto = mockStatic(CryptoUtils.class)) {
+                try {
+                    when(jwtUtil.decodeIdToken(APPLE_ID_TOKEN)).thenReturn(appleClaims());
+                } catch (Exception ignored) {
+                }
+                mockedCrypto.when(() -> CryptoUtils.encryptAes(TEST_EMAIL)).thenReturn("encrypted-email");
+                mockedCrypto.when(() -> CryptoUtils.encryptAes("apple-rt")).thenReturn("enc-apple-rt");
+                when(appleTokenService.exchangeRefreshToken(
+                    "auth-code", APPLE_CLIENT_ID, "https://dev.level-up-together.com/oauth/callback/apple"))
+                    .thenReturn(Optional.of("apple-rt"));
+                when(userRepository.findActiveByEncryptedEmailAndProvider("encrypted-email", "apple"))
+                    .thenReturn(Optional.empty());
+                when(signupTokenService.createOrRefresh(any())).thenReturn("signup-token");
+
+                SocialLoginResponseDto result = oauth2Service.createJwtFromMobileToken(
+                    httpRequest, "apple", APPLE_ID_TOKEN, "ios", TEST_DEVICE_ID, null, null,
+                    "auth-code", "https://dev.level-up-together.com/oauth/callback/apple");
+
+                assertThat(result.isNewUser()).isTrue();
+                var captor = org.mockito.ArgumentCaptor.forClass(
+                    io.pinkspider.leveluptogethermvp.userservice.oauth.domain.SignupSessionData.class);
+                verify(signupTokenService).createOrRefresh(captor.capture());
+                assertThat(captor.getValue().appleRefreshTokenEnc()).isEqualTo("enc-apple-rt");
+                assertThat(captor.getValue().appleClientId()).isEqualTo(APPLE_CLIENT_ID);
+            }
         }
     }
 }

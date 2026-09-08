@@ -89,7 +89,9 @@ public class Oauth2Controller {
             request.getDeviceType(),
             request.getDeviceId(),
             request.getPreferredLocale(),
-            request.getPreferredTimezone()
+            request.getPreferredTimezone(),
+            request.getAuthorizationCode(),
+            request.getAuthorizationCodeRedirectUri()
         );
 
         return ApiResult.<SocialLoginResponseDto>builder()
