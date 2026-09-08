@@ -29,9 +29,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Generate GraphQL classes from DGS schema
 ./gradlew generateJava
 
-# Test coverage report (minimum 70%)
+# Test coverage report (minimum 75% — service 모듈 jacocoTestCoverageVerification 이 check/CI 에서 강제)
 ./gradlew test jacocoTestReport
-# Report: app/build/reports/jacoco/html/index.html
+# Report: service/build/reports/jacoco/html/index.html
 ```
 
 ## Architecture Overview

@@ -140,6 +140,35 @@ jacoco {
     toolVersion = "0.8.11"
 }
 
+// 커버리지 집계 제외 목록 — 리포트와 검증 게이트가 같은 기준을 써야 한다
+ext.jacocoExcludes = [
+        '**/Q*.class',
+        '**/config/**',
+        '**/constants/**',
+        '**/dto/**',
+        '**/entity/**',
+        '**/enums/**',
+        '**/exception/**',
+        '**/generated/**',
+        '**/properties/**',
+        '**/pagenation/**',
+        '**/types/**',
+        '**/DgsConstants*.class',
+        '**/*Application.class',
+        // 외부 의존성 (S3, Firebase, Redis Consumer, AWS Rekognition)
+        '**/S3*ImageStorageService.class',
+        '**/Local*ImageStorageService.class',
+        '**/FcmPushService.class',
+        '**/AppPushMessageConsumer.class',
+        '**/AwsRekognitionModerationService.class',
+        // WebSocket 컨트롤러 (통합 테스트 대상)
+        '**/*WebSocketController.class',
+        // Admin 내부 API 컨트롤러
+        '**/*InternalController.class',
+        // HTTP 요청 의존 컴포넌트
+        '**/DeviceIdentifier.class'
+]
+
 jacocoTestReport {
     dependsOn test
     reports {
@@ -149,33 +178,27 @@ jacocoTestReport {
     }
     afterEvaluate {
         classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it, exclude: [
-                    '**/Q*.class',
-                    '**/config/**',
-                    '**/constants/**',
-                    '**/dto/**',
-                    '**/entity/**',
-                    '**/enums/**',
-                    '**/exception/**',
-                    '**/generated/**',
-                    '**/properties/**',
-                    '**/pagenation/**',
-                    '**/types/**',
-                    '**/DgsConstants*.class',
-                    '**/*Application.class',
-                    // 외부 의존성 (S3, Firebase, Redis Consumer, AWS Rekognition)
-                    '**/S3*ImageStorageService.class',
-                    '**/Local*ImageStorageService.class',
-                    '**/FcmPushService.class',
-                    '**/AppPushMessageConsumer.class',
-                    '**/AwsRekognitionModerationService.class',
-                    // WebSocket 컨트롤러 (통합 테스트 대상)
-                    '**/*WebSocketController.class',
-                    // Admin 내부 API 컨트롤러
-                    '**/*InternalController.class',
-                    // HTTP 요청 의존 컴포넌트
-                    '**/DeviceIdentifier.class'
-            ])
+            fileTree(dir: it, exclude: jacocoExcludes)
         }))
     }
 }
+
+// 커버리지 게이트 (INSTRUCTION 기준 75% 미만이면 build 실패).
+// 이전에는 app 모듈에만 룰이 있어 실코드(service)가 검증되지 않았다 — check 에 연결해 CI(clean build)에서 강제.
+jacocoTestCoverageVerification {
+    dependsOn test
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: jacocoExcludes)
+        }))
+    }
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.75
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
