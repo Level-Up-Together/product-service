@@ -34,10 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(transactionManager = "guildTransactionManager", readOnly = true)
 public class GuildService {
 
-    // LUT-386: 길드 창설 가능 레벨 20 → 5 하향. 이 값은 3곳이 동기여야 한다 —
+    // LUT-478: 길드 창설 가능 레벨 5 → 2 완화 (콜드스타트 — 창설이 막히면 길드 공급 자체가 안 늘어남).
+    // 이 값은 3곳이 동기여야 한다 —
     // 여기(창설 검증) / gamification UserExperienceService(창설 가능 알림 임계값) / 웹 GuildHome.
-    // LUT-375 는 gamification·웹만 바꿔 실제 창설이 여전히 400 이었다.
-    private static final int GUILD_CREATION_MIN_LEVEL = 5;
+    // LUT-375 는 gamification·웹만 바꿔 실제 창설이 여전히 400 이었다 (LUT-386 에서 정정).
+    private static final int GUILD_CREATION_MIN_LEVEL = 2;
 
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
