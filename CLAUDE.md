@@ -380,6 +380,16 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
+## 길드 활동 포인트 (LUT-483)
+
+길드 **랭킹·레벨의 기준은 누적 EXP 가 아니라 활동 포인트**다 (EXP 는 표기용 잔존).
+유저 1명 하루 점수 = `floor(min(하루 길드미션 EXP, 60) / 10)` (상한 6점, `guild.point.*` 설정값,
+기본 10/60). 적립은 건별이 아니라 **유저×일자 누적 차분**(`GuildPointService` + `guild_member_daily_point`
+uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하루" 경계는 **KST**. 포인트는 단조 증가만
+(회수·리셋 없음, saga 보상도 EXP 만 차감). 레벨 판정은 `guild_level_config.cumulative_point`
+(자동계산 `required_point(L)=30×(L-1)`), 랭킹은 `GET /api/v1/guilds/ranking` (비로그인 허용,
+포인트 DESC → lastPointAt ASC → id) — **프론트 클라이언트 재정렬 금지**.
+
 ## 유저 차단 (LUT-367)
 
 차단은 `friendship.status = BLOCKED` 행(방향 있음: userId=차단자)으로 표현. API는 `/api/v1/friends/block/{targetId}`

@@ -183,6 +183,8 @@ class GuildControllerTest {
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.total_point").type(JsonFieldType.NUMBER).description("누적 활동 포인트 (랭킹·레벨 기준, LUT-483)").optional(),
+                            fieldWithPath("value.current_point").type(JsonFieldType.NUMBER).description("현재 레벨에서의 포인트 (LUT-483)").optional(),
                             fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
                             fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
@@ -291,6 +293,37 @@ class GuildControllerTest {
         // then
         resultActions.andExpect(MockMvcResultMatchers.status().isOk());
         verify(guildQueryService).getPublicGuilds(any(), any(Pageable.class), eq("en"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/guilds/ranking : 길드 랭킹 — 누적 포인트 서버 정렬 (LUT-483)")
+    void getGuildRanking() throws Exception {
+        // given
+        Page<GuildResponse> page = new PageImpl<>(
+            List.of(createMockGuildResponse()), PageRequest.of(0, 20), 1);
+        when(guildQueryService.getGuildRanking(any(), any(Pageable.class), any())).thenReturn(page);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/guilds/ranking")
+                .contentType(MediaType.APPLICATION_JSON)
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("길드-랭킹. 길드 랭킹 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Guild")
+                        .description("길드 랭킹 조회 - 누적 활동 포인트 내림차순 서버 정렬 "
+                            + "(동점은 먼저 도달한 길드 우선). 비로그인 열람 허용 (LUT-483)")
+                        .build()
+                )
+            )
+        );
+
+        // then
+        resultActions.andExpect(MockMvcResultMatchers.status().isOk());
+        verify(guildQueryService).getGuildRanking(any(), any(Pageable.class), any());
     }
 
     @Test
@@ -471,6 +504,8 @@ class GuildControllerTest {
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.total_point").type(JsonFieldType.NUMBER).description("누적 활동 포인트 (랭킹·레벨 기준, LUT-483)").optional(),
+                            fieldWithPath("value.current_point").type(JsonFieldType.NUMBER).description("현재 레벨에서의 포인트 (LUT-483)").optional(),
                             fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
                             fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),
@@ -707,6 +742,8 @@ class GuildControllerTest {
             .currentLevel(5)
             .currentExp(500)
             .totalExp(1500)
+            .totalPoint(120)
+            .currentPoint(30)
             .requiredExpForNextLevel(600)
             .maxMembers(50)
             .levelTitle("성장하는 길드")
@@ -738,6 +775,8 @@ class GuildControllerTest {
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("현재 레벨"),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치"),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("누적 경험치"),
+                            fieldWithPath("value.total_point").type(JsonFieldType.NUMBER).description("누적 활동 포인트 (랭킹·레벨 기준, LUT-483)"),
+                            fieldWithPath("value.current_point").type(JsonFieldType.NUMBER).description("현재 레벨에서의 포인트 (LUT-483)"),
                             fieldWithPath("value.required_exp_for_next_level").type(JsonFieldType.NUMBER).description("다음 레벨 필요 경험치"),
                             fieldWithPath("value.max_members").type(JsonFieldType.NUMBER).description("최대 멤버 수"),
                             fieldWithPath("value.level_title").type(JsonFieldType.STRING).description("레벨 타이틀").optional()
@@ -940,6 +979,8 @@ class GuildControllerTest {
                             fieldWithPath("value.current_level").type(JsonFieldType.NUMBER).description("길드 레벨").optional(),
                             fieldWithPath("value.current_exp").type(JsonFieldType.NUMBER).description("현재 경험치").optional(),
                             fieldWithPath("value.total_exp").type(JsonFieldType.NUMBER).description("길드 누적 경험치").optional(),
+                            fieldWithPath("value.total_point").type(JsonFieldType.NUMBER).description("누적 활동 포인트 (랭킹·레벨 기준, LUT-483)").optional(),
+                            fieldWithPath("value.current_point").type(JsonFieldType.NUMBER).description("현재 레벨에서의 포인트 (LUT-483)").optional(),
                             fieldWithPath("value.category_id").type(JsonFieldType.NUMBER).description("카테고리 ID").optional(),
                             fieldWithPath("value.category_name").type(JsonFieldType.STRING).description("카테고리 이름").optional(),
                             fieldWithPath("value.category_icon").type(JsonFieldType.STRING).description("카테고리 아이콘").optional(),

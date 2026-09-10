@@ -20,6 +20,8 @@ public class GuildLevelConfigResponse {
     private Integer level;
     private Integer requiredExp;
     private Integer cumulativeExp;
+    private Integer requiredPoint;
+    private Integer cumulativePoint;
     private Integer maxMembers;
     private String title;
     private String description;
@@ -32,6 +34,8 @@ public class GuildLevelConfigResponse {
             .level(entity.getLevel())
             .requiredExp(entity.getRequiredExp())
             .cumulativeExp(entity.getCumulativeExp())
+            .requiredPoint(entity.getRequiredPoint())
+            .cumulativePoint(entity.getCumulativePoint())
             .maxMembers(entity.getMaxMembers())
             .title(entity.getTitle())
             .description(entity.getDescription())

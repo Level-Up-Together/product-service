@@ -82,6 +82,17 @@ public class GuildController {
         return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
     }
 
+    /** LUT-483: 길드 랭킹 — 누적 활동 포인트 내림차순 서버 정렬 */
+    @GetMapping("/ranking")
+    public ResponseEntity<ApiResult<Page<GuildResponse>>> getGuildRanking(
+        @CurrentUser(required = false) String userId,
+        @PageableDefault(size = 20) Pageable pageable,
+        @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String acceptLanguage) {
+
+        Page<GuildResponse> responses = guildQueryService.getGuildRanking(userId, pageable, acceptLanguage);
+        return ResponseEntity.ok(ApiResult.<Page<GuildResponse>>builder().value(responses).build());
+    }
+
     @GetMapping("/search")
     public ResponseEntity<ApiResult<Page<GuildResponse>>> searchGuilds(
         @CurrentUser(required = false) String userId,

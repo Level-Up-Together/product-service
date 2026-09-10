@@ -23,6 +23,9 @@ public record GuildAdminResponse(
     Integer currentLevel,
     Integer currentExp,
     Integer totalExp,
+    // LUT-483: 누적 활동 포인트 — 레벨·랭킹의 실제 기준값
+    Integer totalPoint,
+    Integer currentPoint,
     Long categoryId,
     String categoryName,
     String categoryIcon,
@@ -51,6 +54,8 @@ public record GuildAdminResponse(
             guild.getCurrentLevel(),
             guild.getCurrentExp(),
             guild.getTotalExp(),
+            guild.getTotalPoint(),
+            guild.getCurrentPoint(),
             guild.getCategoryId(),
             categoryName,
             categoryIcon,

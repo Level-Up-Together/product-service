@@ -20,6 +20,9 @@ public class GuildExperienceResponse {
     private Integer currentLevel;
     private Integer currentExp;
     private Integer totalExp;
+    // LUT-483: 레벨의 실제 기준값 (EXP 는 표기용)
+    private Integer totalPoint;
+    private Integer currentPoint;
     private Integer requiredExpForNextLevel;
     private Integer maxMembers;
     private String levelTitle;
@@ -31,6 +34,8 @@ public class GuildExperienceResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .totalPoint(guild.getTotalPoint())
+            .currentPoint(guild.getCurrentPoint())
             .requiredExpForNextLevel(requiredExp)
             .maxMembers(guild.getMaxMembers())
             .levelTitle(levelTitle)

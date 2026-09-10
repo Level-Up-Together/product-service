@@ -108,6 +108,33 @@ public class GuildQueryService {
         });
     }
 
+    /**
+     * LUT-483: 길드 랭킹 — 누적 활동 포인트 기준 서버 정렬. Pageable 의 sort 는 무시되고
+     * 포인트 내림차순(+동점 안정 정렬)이 강제된다.
+     */
+    public Page<GuildResponse> getGuildRanking(String userId, Pageable pageable, String locale) {
+        Page<Guild> guilds = guildRepository.findGuildRanking(
+            org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+
+        List<Long> guildIdLongs = guilds.getContent().stream()
+            .map(Guild::getId)
+            .toList();
+        List<String> guildIds = guildIdLongs.stream()
+            .map(String::valueOf)
+            .toList();
+        Map<String, Boolean> underReviewMap = reportService.isUnderReviewBatch(ReportTargetType.GUILD, guildIds);
+        Set<Long> pendingGuildIds = getPendingJoinRequestGuildIds(userId, guildIdLongs);
+        Map<Long, Integer> memberCountMap = getActiveMemberCounts(guildIdLongs);
+
+        return guilds.map(guild -> {
+            int memberCount = memberCountMap.getOrDefault(guild.getId(), 0);
+            GuildResponse response = guildHelper.buildGuildResponseWithCategory(guild, memberCount, locale);
+            response.setIsUnderReview(underReviewMap.getOrDefault(String.valueOf(guild.getId()), false));
+            response.setIsPendingJoinRequest(pendingGuildIds.contains(guild.getId()));
+            return response;
+        });
+    }
+
     public Page<GuildResponse> searchGuilds(String userId, String keyword, Pageable pageable) {
         return searchGuilds(userId, keyword, pageable, null);
     }

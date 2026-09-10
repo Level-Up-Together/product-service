@@ -88,6 +88,7 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/feeds/category/DAILY",
                 "/api/v1/feeds/user/user-1",
                 "/api/v1/guilds/public",
+                "/api/v1/guilds/ranking", // LUT-483
                 "/api/v1/guilds/search",
                 "/api/v1/guilds/1",
                 "/api/v1/guilds/1/posts",

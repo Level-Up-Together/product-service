@@ -181,6 +181,8 @@ public class SecurityConfig {
                                         .permitAll() // LUT-334: 비로그인 프로필 피드 탭 (PUBLIC 만 조회)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/public")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/guilds/ranking")
+                                        .permitAll() // LUT-483: 길드 랭킹 (browse-first)
                                         .requestMatchers(HttpMethod.GET, "/api/v1/guilds/search")
                                         .permitAll()
                                         // QA-201: /guilds/my 는 인증 필요. 아래 {guildId} permitAll 패턴이

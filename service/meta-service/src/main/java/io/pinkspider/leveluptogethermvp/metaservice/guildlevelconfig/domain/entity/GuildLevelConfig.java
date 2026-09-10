@@ -45,12 +45,22 @@ public class GuildLevelConfig extends LocalDateTimeBaseEntity {
 
     @NotNull
     @Column(name = "required_exp", nullable = false)
-    @Comment("다음 레벨까지 필요한 경험치")
+    @Comment("다음 레벨까지 필요한 경험치 (LUT-483 이후 미사용 — 포인트 기준으로 전환)")
     private Integer requiredExp;
 
     @Column(name = "cumulative_exp")
-    @Comment("이 레벨까지 누적 필요 경험치")
+    @Comment("이 레벨까지 누적 필요 경험치 (LUT-483 이후 미사용)")
     private Integer cumulativeExp;
+
+    // LUT-483: 길드 레벨 기준을 누적 EXP → 누적 활동 포인트로 전환.
+    // 포인트는 EXP 보다 훨씬 작은 스케일(활성 5명이 매일 상한까지 채워도 일 30점)이라 별도 컬럼·값을 쓴다.
+    @Column(name = "required_point")
+    @Comment("다음 레벨까지 필요한 포인트")
+    private Integer requiredPoint;
+
+    @Column(name = "cumulative_point")
+    @Comment("이 레벨까지 누적 필요 포인트 (레벨 판정 단일 기준)")
+    private Integer cumulativePoint;
 
     @NotNull
     @Column(name = "max_members", nullable = false)

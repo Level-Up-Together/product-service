@@ -131,6 +131,33 @@ class GuildQueryServiceTest {
     }
 
     @Nested
+    @DisplayName("LUT-483: 길드 랭킹 조회")
+    class GetGuildRankingTest {
+
+        @Test
+        @DisplayName("포인트 정렬 쿼리 결과를 그대로 응답한다 (포인트 필드 포함)")
+        void getGuildRanking_returnsServerSortedPage() {
+            testGuild.addPoint(120);
+            org.springframework.data.domain.Page<Guild> page =
+                new org.springframework.data.domain.PageImpl<>(
+                    java.util.List.of(testGuild),
+                    org.springframework.data.domain.PageRequest.of(0, 20), 1);
+            when(guildRepository.findGuildRanking(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+            when(reportService.isUnderReviewBatch(any(), any())).thenReturn(java.util.Map.of());
+            when(guildMemberRepository.countActiveMembersByGuildIds(any())).thenReturn(java.util.List.of());
+
+            org.springframework.data.domain.Page<GuildResponse> result =
+                guildQueryService.getGuildRanking(testUserId,
+                    org.springframework.data.domain.PageRequest.of(0, 20), null);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getTotalPoint()).isEqualTo(120);
+            verify(guildRepository).findGuildRanking(any(org.springframework.data.domain.Pageable.class));
+        }
+    }
+
+    @Nested
     @DisplayName("카테고리별 공개 길드 조회 테스트")
     class GetPublicGuildsByCategoryTest {
 

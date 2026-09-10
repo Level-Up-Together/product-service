@@ -32,6 +32,9 @@ public class GuildResponse {
     private Integer currentLevel;
     private Integer currentExp;
     private Integer totalExp;
+    // LUT-483: 누적 활동 포인트 — 길드 랭킹·레벨의 기준값 (EXP 는 표기용으로 유지)
+    private Integer totalPoint;
+    private Integer currentPoint;
     private Long categoryId;
     private String categoryName;
     private String categoryIcon;
@@ -59,6 +62,8 @@ public class GuildResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .totalPoint(guild.getTotalPoint())
+            .currentPoint(guild.getCurrentPoint())
             .categoryId(guild.getCategoryId())
             .baseAddress(guild.getBaseAddress())
             .baseLatitude(guild.getBaseLatitude())
@@ -81,6 +86,8 @@ public class GuildResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .totalPoint(guild.getTotalPoint())
+            .currentPoint(guild.getCurrentPoint())
             .categoryId(guild.getCategoryId())
             .baseAddress(guild.getBaseAddress())
             .baseLatitude(guild.getBaseLatitude())
@@ -103,6 +110,8 @@ public class GuildResponse {
             .currentLevel(guild.getCurrentLevel())
             .currentExp(guild.getCurrentExp())
             .totalExp(guild.getTotalExp())
+            .totalPoint(guild.getTotalPoint())
+            .currentPoint(guild.getCurrentPoint())
             .categoryId(guild.getCategoryId())
             .categoryName(categoryName)
             .categoryIcon(categoryIcon)

@@ -27,6 +27,15 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
     @Query("SELECT g FROM Guild g WHERE g.visibility = 'PUBLIC' AND g.isActive = true")
     Page<Guild> findPublicGuilds(Pageable pageable);
 
+    // LUT-483: 길드 랭킹 — 누적 활동 포인트 내림차순. 동점은 먼저 도달한 길드(lastPointAt 오름차순,
+    // 미적립 길드는 뒤로) → 길드 ID 순으로 안정 정렬한다. 랭킹은 서버가 정렬해 내려준다 —
+    // 프론트가 앞 페이지만 받아 클라이언트 정렬하면 길드 수가 페이지를 넘는 순간 부정확해진다.
+    @Query("SELECT g FROM Guild g WHERE g.visibility = 'PUBLIC' AND g.isActive = true " +
+           "ORDER BY g.totalPoint DESC, " +
+           "CASE WHEN g.lastPointAt IS NULL THEN 1 ELSE 0 END ASC, " +
+           "g.lastPointAt ASC, g.id ASC")
+    Page<Guild> findGuildRanking(Pageable pageable);
+
     @Query("SELECT g FROM Guild g WHERE g.masterId = :userId AND g.isActive = true")
     List<Guild> findByMasterId(@Param("userId") String userId);
 

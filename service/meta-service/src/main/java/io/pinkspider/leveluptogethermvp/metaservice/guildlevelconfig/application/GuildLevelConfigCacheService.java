@@ -75,6 +75,10 @@ public class GuildLevelConfigCacheService {
 
         config.setRequiredExp(requiredExp);
         config.setCumulativeExp(cumulativeExp);
+        // LUT-483: 레거시 경로에서도 레벨 판정 기준(포인트)은 자동계산으로 채운다
+        int requiredPoint = calculateRequiredPoint(level);
+        config.setRequiredPoint(requiredPoint);
+        config.setCumulativePoint(calculateCumulativePoint(level, requiredPoint));
         config.setMaxMembers(maxMembers);
         config.setTitle(title);
         config.setDescription(description);
@@ -135,19 +139,23 @@ public class GuildLevelConfigCacheService {
 
         int calculatedRequiredExp = calculateRequiredExp(request.getLevel(), request.getMaxMembers());
         int calculatedCumulativeExp = calculateCumulativeExp(request.getLevel(), calculatedRequiredExp);
+        int calculatedRequiredPoint = calculateRequiredPoint(request.getLevel());
+        int calculatedCumulativePoint = calculateCumulativePoint(request.getLevel(), calculatedRequiredPoint);
 
         GuildLevelConfig config = GuildLevelConfig.builder()
             .level(request.getLevel())
             .requiredExp(calculatedRequiredExp)
             .cumulativeExp(calculatedCumulativeExp)
+            .requiredPoint(calculatedRequiredPoint)
+            .cumulativePoint(calculatedCumulativePoint)
             .maxMembers(request.getMaxMembers())
             .title(request.getTitle())
             .description(request.getDescription())
             .build();
 
         GuildLevelConfig saved = guildLevelConfigRepository.save(config);
-        log.info("길드 레벨 설정 생성: level={}, requiredExp={} (maxMembers={} * userExp)",
-            saved.getLevel(), calculatedRequiredExp, request.getMaxMembers());
+        log.info("길드 레벨 설정 생성: level={}, requiredPoint={}, cumulativePoint={}",
+            saved.getLevel(), calculatedRequiredPoint, calculatedCumulativePoint);
         return GuildLevelConfigResponse.from(saved);
     }
 
@@ -167,10 +175,14 @@ public class GuildLevelConfigCacheService {
 
         int calculatedRequiredExp = calculateRequiredExp(request.getLevel(), request.getMaxMembers());
         int calculatedCumulativeExp = calculateCumulativeExp(request.getLevel(), calculatedRequiredExp);
+        int calculatedRequiredPoint = calculateRequiredPoint(request.getLevel());
+        int calculatedCumulativePoint = calculateCumulativePoint(request.getLevel(), calculatedRequiredPoint);
 
         config.setLevel(request.getLevel());
         config.setRequiredExp(calculatedRequiredExp);
         config.setCumulativeExp(calculatedCumulativeExp);
+        config.setRequiredPoint(calculatedRequiredPoint);
+        config.setCumulativePoint(calculatedCumulativePoint);
         config.setMaxMembers(request.getMaxMembers());
         config.setTitle(request.getTitle());
         config.setDescription(request.getDescription());
@@ -223,6 +235,30 @@ public class GuildLevelConfigCacheService {
                 return prevCumulative + currentRequiredExp;
             })
             .orElse(currentRequiredExp);
+    }
+
+    // LUT-483: 레벨 스텝당 포인트. 활성 5명이 매일 상한(6점)까지 채우는 길드의 하루치(30점) 기준 —
+    // required_point(L) = 30 × (L-1) 로 레벨이 오를수록 선형 증가한다. 포인트는 EXP 와 스케일이
+    // 달라(훨씬 작음) EXP 공식(maxMembers × userExp)을 재사용할 수 없다.
+    private static final int POINT_PER_LEVEL_STEP = 30;
+
+    /** LUT-483: 필요 포인트 계산 — required_point(L) = 30 × (L-1) */
+    private int calculateRequiredPoint(int guildLevel) {
+        return POINT_PER_LEVEL_STEP * Math.max(0, guildLevel - 1);
+    }
+
+    /** LUT-483: 누적 포인트 계산 — cumulative_point(N) = cumulative_point(N-1) + required_point(N) */
+    private int calculateCumulativePoint(int guildLevel, int currentRequiredPoint) {
+        if (guildLevel <= 1) {
+            return currentRequiredPoint;
+        }
+
+        return guildLevelConfigRepository.findByLevel(guildLevel - 1)
+            .map(prevConfig -> {
+                int prevCumulative = prevConfig.getCumulativePoint() != null ? prevConfig.getCumulativePoint() : 0;
+                return prevCumulative + currentRequiredPoint;
+            })
+            .orElse(currentRequiredPoint);
     }
 
     /**
