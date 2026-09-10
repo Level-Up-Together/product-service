@@ -97,12 +97,16 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            // QA-181: 길드 미션은 모집중(OPEN) 동안 '나의 미션' 비노출. 진행중(IN_PROGRESS) 이후부터 노출.
            "AND NOT (m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD " +
            "         AND m.status = io.pinkspider.global.enums.MissionStatus.OPEN) " +
-           // QA-192: 길드 미션을 마스터가 종료/삭제해도 이미 '수행중(IN_PROGRESS)'인 참여자에게만
-           // 마지막 인증까지 노출한다. 수락만 한(ACCEPTED) 참여자나 일반 미션, PENDING 참여자는
-           // QA-175 의도대로 isDeleted/CANCELLED/COMPLETED 미션을 숨긴다.
+           // QA-192/LUT-482: 길드 미션을 마스터가 종료/삭제해도 '지금 수행 중인 execution' 이 있는
+           // 참여자에게만 마지막 인증까지 노출한다. 이전에는 mp.status = IN_PROGRESS 로 판정했는데,
+           // 참여자 상태는 한 번이라도 진행하면 IN_PROGRESS 로 남아 종료된 미션 카드가 영구히
+           // 목록을 오염시켰다 (LUT-482). execution 기준이라 수행을 마치는 즉시 목록에서 사라진다.
+           // 수락만 한(ACCEPTED) 참여자나 일반 미션은 QA-175 의도대로 isDeleted/CANCELLED/COMPLETED 미션을 숨긴다.
            "AND ( " +
            "    (m.type = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionType.GUILD " +
-           "     AND mp.status = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ParticipantStatus.IN_PROGRESS) " +
+           "     AND EXISTS (SELECT 1 FROM MissionExecution me " +
+           "                 WHERE me.participant = mp " +
+           "                 AND me.status = io.pinkspider.leveluptogethermvp.missionservice.domain.enums.ExecutionStatus.IN_PROGRESS)) " +
            "    OR (m.isDeleted = false " +
            "        AND m.status NOT IN (io.pinkspider.global.enums.MissionStatus.COMPLETED, " +
            "                             io.pinkspider.global.enums.MissionStatus.CANCELLED)) " +
