@@ -33,14 +33,18 @@ public class DiamondPaymentHistoryAdminService {
     private final UserQueryFacade userQueryFacade;
 
     public DiamondPaymentHistoryPageResponse getPaymentHistory(
-            LocalDateTime startAt, LocalDateTime endAt, String nickname,
+            LocalDateTime startAt, LocalDateTime endAt, String nickname, String userId,
             String platform, Long bundleId, DiamondPurchaseStatus status,
             int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         String trimmedNickname = (nickname == null || nickname.isBlank()) ? null : nickname.trim();
 
         Page<DiamondPaymentHistoryRow> rows;
-        if (trimmedNickname == null) {
+        if (userId != null && !userId.isBlank()) {
+            // LUT-486: 유저 상세 '결제 이력' 탭 — userId 지정 시 닉네임 검색보다 우선
+            rows = purchaseRepository.searchWithUsers(
+                startAt, endAt, platform, bundleId, status, List.of(userId.trim()), pageable);
+        } else if (trimmedNickname == null) {
             rows = purchaseRepository.search(startAt, endAt, platform, bundleId, status, pageable);
         } else {
             List<String> matchedUserIds = userQueryFacade.findUserIdsByNicknameContaining(trimmedNickname);

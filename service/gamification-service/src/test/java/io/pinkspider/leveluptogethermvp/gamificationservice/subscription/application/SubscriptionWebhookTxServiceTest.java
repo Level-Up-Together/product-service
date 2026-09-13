@@ -2,6 +2,11 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.apple.itunes.storekit.model.AutoRenewStatus;
@@ -10,6 +15,7 @@ import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -29,6 +35,9 @@ class SubscriptionWebhookTxServiceTest {
     @Mock
     private io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure
         .UserSubscriptionRepository userSubscriptionRepository;
+
+    @Mock
+    private SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
     @InjectMocks
     private SubscriptionWebhookTxService webhookTxService;
@@ -84,6 +93,10 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
             assertThat(sub.getProductId()).isEqualTo("membership_1y");
             assertThat(sub.getAutoRenew()).isTrue();
+            // LUT-486: 만료 엄격 연장 = RENEWAL 결제 이력 기록
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+                any(), any(), any(), eq(newExpiry), any());
         }
 
         @Test
@@ -152,6 +165,10 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getExpiresAt()).isEqualTo(revokedAt);
             assertThat(sub.getAutoRenew()).isFalse();
             assertThat(sub.isEntitled(NOW)).isFalse();
+            // LUT-486: 환불 = REFUND 결제 이력 기록 (회수 시각 기준)
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.REFUND), eq(false),
+                any(), any(), any(), eq(revokedAt), eq(revokedAt));
         }
 
         @Test
@@ -212,6 +229,10 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
             assertThat(sub.getBasePlanId()).isEqualTo("1y");
             assertThat(sub.getGracePeriodExpiresAt()).isNull();
+            // LUT-486: 만료 엄격 연장 = RENEWAL 결제 이력 기록 (Google 은 가격 미제공 → null)
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+                eq(null), eq(null), eq(null), eq(NOW.plusYears(1)), any());
         }
 
         @Test
@@ -241,6 +262,9 @@ class SubscriptionWebhookTxServiceTest {
 
             assertThat(sub.getAutoRenew()).isFalse();
             assertThat(sub.isEntitled(NOW)).isTrue();
+            // LUT-486: 만료 연장 없는 상태 변경(해지 등)은 결제 이력을 남기지 않는다
+            verify(paymentHistoryRecorder, never()).record(
+                any(), any(), anyBoolean(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -254,6 +278,10 @@ class SubscriptionWebhookTxServiceTest {
 
             assertThat(sub.getExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
             assertThat(sub.getAutoRenew()).isFalse();
+            // LUT-486: 환불 = REFUND 결제 이력 기록
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.REFUND), eq(false),
+                eq(null), eq(null), eq(null), any(), any());
         }
 
         @Test

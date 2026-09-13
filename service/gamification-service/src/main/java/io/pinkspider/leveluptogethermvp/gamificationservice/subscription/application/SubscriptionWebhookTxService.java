@@ -6,6 +6,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionWebhookTxService {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
     // ========== Apple (ASSN V2) ==========
 
@@ -100,6 +102,16 @@ public class SubscriptionWebhookTxService {
                                         transaction.getRevocationDate())
                                 : LocalDateTime.now();
                 revoke(subscription, revokedAt);
+                // LUT-486: 환불 이력 — 환불액은 payload 에 없어 가격 null
+                paymentHistoryRecorder.record(
+                        subscription,
+                        SubscriptionPaymentEventType.REFUND,
+                        false,
+                        null,
+                        null,
+                        transaction.getTransactionId(),
+                        revokedAt,
+                        revokedAt);
                 log.info("ASSN 환불/회수 — 권한 종료: userId={}, type={}", subscription.getUserId(), type);
             }
             // 가격 변경 동의 (subtype ACCEPTED) / 예정(PENDING) — 상태 변화 없음, 기록만
@@ -117,6 +129,7 @@ public class SubscriptionWebhookTxService {
             UserSubscription subscription,
             JWSTransactionDecodedPayload transaction,
             JWSRenewalInfoDecodedPayload renewalInfo) {
+        LocalDateTime previousExpiresAt = subscription.getExpiresAt();
         if (transaction.getProductId() != null) {
             subscription.setProductId(transaction.getProductId());
             subscription.setPlan(
@@ -129,6 +142,21 @@ public class SubscriptionWebhookTxService {
         applyAutoRenewStatus(subscription, renewalInfo);
         if (transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1) {
             subscription.setTrialUsed(true);
+        }
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (verify 가 먼저 기록했으면 만료가 같아 스킵 — 자연 멱등)
+        if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
+            paymentHistoryRecorder.record(
+                    subscription,
+                    SubscriptionPaymentEventType.RENEWAL,
+                    transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1,
+                    SubscriptionVerificationService.applePriceToDecimal(transaction.getPrice()),
+                    transaction.getCurrency(),
+                    transaction.getTransactionId(),
+                    subscription.getExpiresAt(),
+                    transaction.getPurchaseDate() != null
+                            ? SubscriptionVerificationService.toLocalDateTime(
+                                    transaction.getPurchaseDate())
+                            : LocalDateTime.now());
         }
         log.info(
                 "ASSN 구독 동기화: userId={}, plan={}, expiresAt={}",
@@ -161,6 +189,7 @@ public class SubscriptionWebhookTxService {
             return;
         }
 
+        LocalDateTime previousExpiresAt = subscription.getExpiresAt();
         subscription.setProductId(state.productId());
         subscription.setBasePlanId(state.basePlanId());
         subscription.setPlan(
@@ -175,6 +204,18 @@ public class SubscriptionWebhookTxService {
         }
         if (state.trial()) {
             subscription.setTrialUsed(true);
+        }
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (Google 은 실결제가를 주지 않아 가격 null)
+        if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
+            paymentHistoryRecorder.record(
+                    subscription,
+                    SubscriptionPaymentEventType.RENEWAL,
+                    state.trial(),
+                    null,
+                    null,
+                    null,
+                    subscription.getExpiresAt(),
+                    LocalDateTime.now());
         }
         log.info(
                 "RTDN 구독 동기화: userId={}, state={}, plan={}, expiresAt={}, autoRenew={}",
@@ -194,7 +235,18 @@ public class SubscriptionWebhookTxService {
             log.warn("RTDN 환불 매칭 구독 행 없음 — 스킵");
             return;
         }
-        revoke(subscription, LocalDateTime.now());
+        LocalDateTime revokedAt = LocalDateTime.now();
+        revoke(subscription, revokedAt);
+        // LUT-486: 환불 이력 — 환불액 미제공, 가격 null
+        paymentHistoryRecorder.record(
+                subscription,
+                SubscriptionPaymentEventType.REFUND,
+                false,
+                null,
+                null,
+                null,
+                revokedAt,
+                revokedAt);
         log.info("RTDN 환불/회수 — 권한 종료: userId={}", subscription.getUserId());
     }
 

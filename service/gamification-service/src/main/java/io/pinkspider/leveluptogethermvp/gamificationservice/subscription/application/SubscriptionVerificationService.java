@@ -18,6 +18,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -138,7 +139,10 @@ public class SubscriptionVerificationService {
                 null,
                 null,
                 true,
-                false);
+                false,
+                ios ? request.getTransactionId() : null,
+                null,
+                null);
     }
 
     // ========== Apple ==========
@@ -170,7 +174,10 @@ public class SubscriptionVerificationService {
                 toLocalDateTime(payload.getOriginalPurchaseDate()),
                 toLocalDateTime(payload.getExpiresDate()),
                 true,
-                trial);
+                trial,
+                payload.getTransactionId(),
+                applePriceToDecimal(payload.getPrice()),
+                payload.getCurrency());
     }
 
     /**
@@ -432,6 +439,11 @@ public class SubscriptionVerificationService {
     }
 
     // ========== 공통 ==========
+
+    /** Apple 가격은 밀리유닛(1/1,000)으로 온다 — 예: 4900000 → 4900.00 (LUT-401 IapVerificationService 패턴) */
+    static BigDecimal applePriceToDecimal(Long milliunits) {
+        return milliunits != null ? BigDecimal.valueOf(milliunits).movePointLeft(3) : null;
+    }
 
     /** epoch millis → UTC LocalDateTime (저장 규약: UTC) */
     static LocalDateTime toLocalDateTime(Long epochMillis) {

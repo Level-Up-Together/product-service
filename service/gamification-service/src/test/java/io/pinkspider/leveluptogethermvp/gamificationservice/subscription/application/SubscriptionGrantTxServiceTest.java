@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDateTime;
@@ -28,6 +30,9 @@ class SubscriptionGrantTxServiceTest {
 
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
+
+    @Mock
+    private SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
     @InjectMocks
     private SubscriptionGrantTxService grantTxService;
@@ -73,6 +78,10 @@ class SubscriptionGrantTxServiceTest {
         assertThat(captor.getValue().getStartedAt()).isEqualTo(NOW.minusMonths(1));
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.plusMonths(1));
         assertThat(saved.getOriginalTransactionId()).isEqualTo("orig-tx-001");
+        // LUT-486: 최초 구매 = PURCHASE 결제 이력 기록
+        verify(paymentHistoryRecorder).record(
+            eq(saved), eq(SubscriptionPaymentEventType.PURCHASE), eq(false),
+            any(), any(), any(), eq(NOW.plusMonths(1)), eq(NOW));
     }
 
     @Test
@@ -89,6 +98,10 @@ class SubscriptionGrantTxServiceTest {
 
         assertThat(result.getExpiresAt()).isEqualTo(NOW.plusDays(20));
         verify(userSubscriptionRepository, never()).saveAndFlush(any());
+        // LUT-486: 멱등 재전송은 결제 이력도 남기지 않는다
+        verify(paymentHistoryRecorder, never()).record(
+            any(), any(), org.mockito.ArgumentMatchers.anyBoolean(),
+            any(), any(), any(), any(), any());
     }
 
     @Test
@@ -106,6 +119,10 @@ class SubscriptionGrantTxServiceTest {
 
         assertThat(result.getExpiresAt()).isEqualTo(NOW.plusMonths(1));
         assertThat(result.getGracePeriodExpiresAt()).isNull();
+        // LUT-486: 만료 엄격 연장 = RENEWAL 결제 이력 기록
+        verify(paymentHistoryRecorder).record(
+            eq(result), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+            any(), any(), any(), eq(NOW.plusMonths(1)), eq(NOW));
     }
 
     @Test

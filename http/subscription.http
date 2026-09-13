@@ -61,3 +61,14 @@ Content-Type: application/json
   },
   "subscription": "projects/lut/subscriptions/rtdn-sub"
 }
+
+### ----------------------------------------------------------
+### 구독 결제 이력 내부 API (LUT-486) — admin-service 패스스루 대상
+### 로컬은 internal api key 미설정(fail-open)이라 헤더 불필요
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/internal/subscription-payments?user_id=test-user-id&page=0&size=20
+Accept: application/json
+
+### 다이아 결제이력 — 유저 필터 (LUT-486, 유저 상세 결제 이력 탭)
+GET {{baseUrl}}/api/internal/diamond-payments?user_id=test-user-id&page=0&size=20
+Accept: application/json

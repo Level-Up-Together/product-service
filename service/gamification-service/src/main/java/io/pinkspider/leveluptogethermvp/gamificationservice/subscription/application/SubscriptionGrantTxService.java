@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionGrantTxService {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
     @Transactional(transactionManager = "gamificationTransactionManager")
     public UserSubscription upsert(
@@ -39,20 +41,33 @@ public class SubscriptionGrantTxService {
         UserSubscription subscription =
                 userSubscriptionRepository.findByUserId(userId).orElse(null);
         if (subscription == null) {
-            return userSubscriptionRepository.saveAndFlush(
-                    UserSubscription.builder()
-                            .userId(userId)
-                            .platform(platform)
-                            .productId(result.storeProductId())
-                            .basePlanId(result.basePlanId())
-                            .plan(plan)
-                            .startedAt(result.startedAt() != null ? result.startedAt() : now)
-                            .expiresAt(expiresAt)
-                            .autoRenew(result.autoRenew())
-                            .trialUsed(result.trial())
-                            .originalTransactionId(result.originalTransactionId())
-                            .purchaseToken(result.purchaseToken())
-                            .build());
+            UserSubscription created =
+                    userSubscriptionRepository.saveAndFlush(
+                            UserSubscription.builder()
+                                    .userId(userId)
+                                    .platform(platform)
+                                    .productId(result.storeProductId())
+                                    .basePlanId(result.basePlanId())
+                                    .plan(plan)
+                                    .startedAt(
+                                            result.startedAt() != null ? result.startedAt() : now)
+                                    .expiresAt(expiresAt)
+                                    .autoRenew(result.autoRenew())
+                                    .trialUsed(result.trial())
+                                    .originalTransactionId(result.originalTransactionId())
+                                    .purchaseToken(result.purchaseToken())
+                                    .build());
+            // LUT-486: 최초 구매(행 신설) = PURCHASE 결제 이력
+            paymentHistoryRecorder.record(
+                    created,
+                    SubscriptionPaymentEventType.PURCHASE,
+                    result.trial(),
+                    result.priceAmount(),
+                    result.priceCurrency(),
+                    result.transactionId(),
+                    expiresAt,
+                    now);
+            return created;
         }
 
         if (result.trial()) {
@@ -80,6 +95,16 @@ public class SubscriptionGrantTxService {
         if (result.purchaseToken() != null) {
             subscription.setPurchaseToken(result.purchaseToken());
         }
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (웹훅과 이중 도착해도 늦은 쪽은 위 멱등 가드에서 걸러짐)
+        paymentHistoryRecorder.record(
+                subscription,
+                SubscriptionPaymentEventType.RENEWAL,
+                result.trial(),
+                result.priceAmount(),
+                result.priceCurrency(),
+                result.transactionId(),
+                expiresAt,
+                now);
         return subscription;
     }
 

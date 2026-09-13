@@ -30,6 +30,7 @@ public class DiamondPaymentHistoryAdminInternalController {
             @RequestParam(name = "end_at", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
             @RequestParam(required = false) String nickname,
+            @RequestParam(name = "user_id", required = false) String userId,
             @RequestParam(required = false) String platform,
             @RequestParam(name = "bundle_id", required = false) Long bundleId,
             @RequestParam(required = false) DiamondPurchaseStatus status,
@@ -37,7 +38,7 @@ public class DiamondPaymentHistoryAdminInternalController {
             @RequestParam(defaultValue = "20") int size) {
         return ApiResult.<DiamondPaymentHistoryPageResponse>builder()
             .value(diamondPaymentHistoryAdminService.getPaymentHistory(
-                startAt, endAt, nickname, platform, bundleId, status, page, size))
+                startAt, endAt, nickname, userId, platform, bundleId, status, page, size))
             .build();
     }
 }

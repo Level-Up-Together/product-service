@@ -64,7 +64,7 @@ class DiamondPaymentHistoryAdminServiceTest {
             .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         DiamondPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, null, "ios", null, null, 0, 20);
+            service.getPaymentHistory(null, null, null, null, "ios", null, null, 0, 20);
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).bundleName()).isEqualTo("핑크다이아 100개");
@@ -86,7 +86,7 @@ class DiamondPaymentHistoryAdminServiceTest {
             .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
 
         DiamondPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, "루미", null, null, null, 0, 20);
+            service.getPaymentHistory(null, null, "루미", null, null, null, null, 0, 20);
 
         assertThat(result.content()).hasSize(1);
         verify(purchaseRepository, never()).search(any(), any(), any(), any(), any(), any());
@@ -98,7 +98,7 @@ class DiamondPaymentHistoryAdminServiceTest {
         when(userQueryFacade.findUserIdsByNicknameContaining("없는유저")).thenReturn(List.of());
 
         DiamondPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, "없는유저", null, null, null, 0, 20);
+            service.getPaymentHistory(null, null, "없는유저", null, null, null, null, 0, 20);
 
         assertThat(result.content()).isEmpty();
         assertThat(result.totalElements()).isZero();
@@ -115,9 +115,28 @@ class DiamondPaymentHistoryAdminServiceTest {
         when(userQueryFacade.getUserProfiles(List.of("withdrawn-user"))).thenReturn(Map.of());
 
         DiamondPaymentHistoryPageResponse result =
-            service.getPaymentHistory(null, null, null, null, null, null, 0, 20);
+            service.getPaymentHistory(null, null, null, null, null, null, null, 0, 20);
 
         assertThat(result.content().get(0).nickname()).isNull();
+    }
+
+    @Test
+    @DisplayName("userId 지정 시 닉네임 검색 없이 해당 유저로 필터링한다 (LUT-486 유저 상세 결제 이력 탭)")
+    void getPaymentHistory_byUserId() {
+        when(purchaseRepository.searchWithUsers(
+                isNull(), isNull(), isNull(), isNull(), isNull(), eq(List.of("user-1")), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(
+                List.of(row(1L, "user-1")), PageRequest.of(0, 20), 1));
+        when(userQueryFacade.getUserProfiles(List.of("user-1")))
+            .thenReturn(Map.of("user-1", profile("user-1", "백루미")));
+
+        DiamondPaymentHistoryPageResponse result =
+            service.getPaymentHistory(null, null, null, "user-1", null, null, null, 0, 20);
+
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).userId()).isEqualTo("user-1");
+        verify(userQueryFacade, never()).findUserIdsByNicknameContaining(any());
+        verify(purchaseRepository, never()).search(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -126,7 +145,7 @@ class DiamondPaymentHistoryAdminServiceTest {
         when(purchaseRepository.search(any(), any(), any(), any(), any(), any(Pageable.class)))
             .thenReturn(Page.empty(PageRequest.of(0, 20)));
 
-        service.getPaymentHistory(null, null, null, null, null, null, 0, 20);
+        service.getPaymentHistory(null, null, null, null, null, null, null, 0, 20);
 
         verify(userQueryFacade, never()).getUserProfiles(any());
     }
