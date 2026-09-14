@@ -28,6 +28,7 @@
 | GamificationService          | `AchievementCompletedEvent`        | `NotificationEventListener`          | 업적 달성 알림                                |
 | GamificationService          | `AchievementCompletedEvent`        | `FeedProjectionEventListener`        | 업적 달성 피드 생성                             |
 | GamificationService          | `TitleEquippedEvent`               | `FeedProjectionEventListener`        | 칭호 변경 피드 업데이트                           |
+| SubscriptionStipendTxService | `SubscriptionStipendGrantedEvent`  | `NotificationEventListener`          | 구독 데일리 스티펜드 지급 알림 — referenceId=지급일 epochDay 로 하루 1회 dedup (LUT-489) |
 | UserItemService              | `ItemEquippedEvent`                | `HomeCacheEvictListener`             | 아이템 장착 변경 시 홈·시즌 캐시 무효화 (LUT-427)      |
 | UserExperienceService        | `UserLevelUpEvent`                 | `FeedProjectionEventListener`        | 레벨업 피드 생성                               |
 | UserExperienceService        | `UserLevelUpEvent`                 | `UserLevelUpProfileSyncListener`     | 유저 프로필 레벨 동기화                           |

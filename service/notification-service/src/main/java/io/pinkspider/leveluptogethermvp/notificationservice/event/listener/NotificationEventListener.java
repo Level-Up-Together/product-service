@@ -27,6 +27,7 @@ import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
 import io.pinkspider.global.event.ShopItemPurchasedEvent;
+import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -158,6 +159,20 @@ public class NotificationEventListener {
     private String localizedItemName(
             String name, String nameEn, String nameAr, String nameJa, Locale locale) {
         return LocaleUtils.getLocalizedText(name, nameEn, nameAr, nameJa, locale.toLanguageTag());
+    }
+
+    // ==================== 구독 (LUT-489) ====================
+
+    /**
+     * 데일리 스티펜드 지급 알림 — referenceId=지급일 epochDay 라 스케줄러 재실행·이벤트
+     * 재발행에도 하루 1회만 저장/발송된다 (SUBSCRIPTION_STIPEND dedup).
+     */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleSubscriptionStipendGranted(SubscriptionStipendGrantedEvent event) {
+        safeHandle("구독 스티펜드", () -> notificationService.sendNotification(
+            event.userId(), NotificationType.SUBSCRIPTION_STIPEND,
+            event.stipendEpochDay(), null, event.amount()));
     }
 
     // ==================== 레벨 ====================

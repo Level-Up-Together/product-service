@@ -32,6 +32,7 @@ import io.pinkspider.global.event.MissionCommentEvent;
 import io.pinkspider.global.event.MissionReminderEvent;
 import io.pinkspider.global.event.SeasonRewardItemGrantedEvent;
 import io.pinkspider.global.event.ShopItemPurchasedEvent;
+import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.global.event.TitleAcquiredEvent;
 import io.pinkspider.global.event.UserLevelUpEvent;
 import io.pinkspider.global.facade.GuildQueryFacade;
@@ -684,6 +685,34 @@ class NotificationEventListenerTest {
             eventListener.handleContentReported(event);
             verify(notificationService).notifyContentReported(TARGET_USER_ID, "피드");
             verify(notificationService, never()).notifyGuildContentReported(anyString(), anyString(), anyLong());
+        }
+    }
+    // ==================== 구독 스티펜드 (LUT-489) ====================
+
+    @Nested
+    @DisplayName("구독 데일리 스티펜드 지급 이벤트 처리")
+    class HandleSubscriptionStipendGrantedTest {
+
+        @Test
+        @DisplayName("지급일 epochDay 를 referenceId 로 스티펜드 알림을 생성한다 — 하루 1회 dedup 키")
+        void handleSubscriptionStipendGranted_notifiesUser() {
+            SubscriptionStipendGrantedEvent event =
+                new SubscriptionStipendGrantedEvent(TARGET_USER_ID, 20345L, 1);
+            eventListener.handleSubscriptionStipendGranted(event);
+            verify(notificationService).sendNotification(
+                eq(TARGET_USER_ID), eq(NotificationType.SUBSCRIPTION_STIPEND),
+                eq(20345L), isNull(), eq(1));
+        }
+
+        @Test
+        @DisplayName("알림 생성 중 예외가 발생해도 전파하지 않는다")
+        void handleSubscriptionStipendGranted_exceptionNotPropagated() {
+            doThrow(new RuntimeException("알림 생성 실패"))
+                .when(notificationService)
+                .sendNotification(anyString(), any(NotificationType.class), anyLong(), any(), any());
+            SubscriptionStipendGrantedEvent event =
+                new SubscriptionStipendGrantedEvent(TARGET_USER_ID, 20345L, 1);
+            eventListener.handleSubscriptionStipendGranted(event);
         }
     }
 }

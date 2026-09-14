@@ -1,5 +1,6 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
 
+import io.pinkspider.global.event.SubscriptionStipendGrantedEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.DiamondService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.SubscriptionStipend;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
@@ -7,6 +8,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrast
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ public class SubscriptionStipendTxService {
 
     private final SubscriptionStipendRepository stipendRepository;
     private final DiamondService diamondService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * @return 실제 지급 여부 (이미 지급된 날이면 false)
@@ -51,6 +54,10 @@ public class SubscriptionStipendTxService {
 
         diamondService.awardSubscriptionStipend(
                 subscription.getUserId(), subscription.getId(), amount);
+        // LUT-489: 지급 커밋 후 푸시 알림 (AFTER_COMMIT 리스너) — 기지급 스킵 경로에선 발행 안 됨
+        eventPublisher.publishEvent(
+                new SubscriptionStipendGrantedEvent(
+                        subscription.getUserId(), stipendDate.toEpochDay(), amount));
         return true;
     }
 }
