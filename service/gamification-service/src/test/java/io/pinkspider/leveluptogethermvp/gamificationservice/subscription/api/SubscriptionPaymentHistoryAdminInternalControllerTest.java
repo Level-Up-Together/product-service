@@ -2,6 +2,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.api;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.parameterWithName;
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -65,6 +66,7 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
         return new SubscriptionPaymentHistoryResponse(
             id,
             "user-1",
+            "백루미",
             "ios",
             "membership_1m",
             null,
@@ -79,7 +81,7 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/internal/subscription-payments : 유저별 구독 결제 이력 조회")
+    @DisplayName("GET /api/internal/subscription-payments : 구독 결제 이력 조회 (유저별/목록 겸용)")
     void getPaymentHistory() throws Exception {
         // given
         SubscriptionPaymentHistoryPageResponse response =
@@ -89,7 +91,8 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                     historyRow(1L, SubscriptionPaymentEventType.PURCHASE)),
                 0, 20, 2L, 1, true, true);
         when(subscriptionPaymentHistoryAdminService.getPaymentHistory(
-            eq("user-1"), anyInt(), anyInt())).thenReturn(response);
+            any(), any(), any(), eq("user-1"), any(), any(), any(), anyInt(), anyInt()))
+            .thenReturn(response);
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -105,10 +108,22 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                 resource(
                     ResourceSnippetParameters.builder()
                         .tag("Subscription - Admin Internal")
-                        .description("유저별 구독 결제 이력 조회 (LUT-486, 어드민 유저 상세 '결제 이력' 탭)")
+                        .description("구독 결제 이력 조회 (LUT-486 유저 상세 탭 / LUT-488 결제이력 통합 페이지 공용)")
                         .queryParameters(
                             parameterWithName("user_id").type(SimpleType.STRING)
-                                .description("사용자 ID"),
+                                .description("사용자 ID — 지정 시 닉네임 검색보다 우선 (유저 상세 탭)").optional(),
+                            parameterWithName("start_at").type(SimpleType.STRING)
+                                .description("결제일시 시작 (ISO 8601)").optional(),
+                            parameterWithName("end_at").type(SimpleType.STRING)
+                                .description("결제일시 종료 (ISO 8601)").optional(),
+                            parameterWithName("nickname").type(SimpleType.STRING)
+                                .description("결제자 닉네임 검색어 (부분 일치)").optional(),
+                            parameterWithName("platform").type(SimpleType.STRING)
+                                .description("결제 플랫폼 (ios|android)").optional(),
+                            parameterWithName("plan").type(SimpleType.STRING)
+                                .description("내부 플랜 (MONTHLY|ANNUAL)").optional(),
+                            parameterWithName("event_type").type(SimpleType.STRING)
+                                .description("이벤트 타입 (PURCHASE|RENEWAL|REFUND)").optional(),
                             parameterWithName("page").type(SimpleType.NUMBER)
                                 .description("페이지 번호 (0부터)").optional(),
                             parameterWithName("size").type(SimpleType.NUMBER)
@@ -120,6 +135,7 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
                             fieldWithPath("value.content[]").type(JsonFieldType.ARRAY).description("구독 결제 이력 목록"),
                             fieldWithPath("value.content[].id").type(JsonFieldType.NUMBER).description("이력 ID"),
                             fieldWithPath("value.content[].user_id").type(JsonFieldType.STRING).description("사용자 ID"),
+                            fieldWithPath("value.content[].nickname").type(JsonFieldType.STRING).description("결제자 닉네임 (프로필 미존재 시 null)").optional(),
                             fieldWithPath("value.content[].platform").type(JsonFieldType.STRING).description("결제 플랫폼 (ios|android)"),
                             fieldWithPath("value.content[].product_id").type(JsonFieldType.STRING).description("스토어 상품 ID"),
                             fieldWithPath("value.content[].base_plan_id").type(JsonFieldType.STRING).description("Android base plan ID — iOS는 null").optional(),
@@ -147,7 +163,31 @@ class SubscriptionPaymentHistoryAdminInternalControllerTest {
         resultActions
             .andExpect(MockMvcResultMatchers.status().isOk())
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.content[0].event_type").value("RENEWAL"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.content[0].nickname").value("백루미"))
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.content[0].price_amount").value(4900.00))
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.total_elements").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/internal/subscription-payments : user_id 없이 필터 목록 조회 (LUT-488)")
+    void getPaymentHistory_listMode() throws Exception {
+        SubscriptionPaymentHistoryPageResponse response =
+            new SubscriptionPaymentHistoryPageResponse(
+                List.of(historyRow(1L, SubscriptionPaymentEventType.PURCHASE)),
+                0, 20, 1L, 1, true, true);
+        when(subscriptionPaymentHistoryAdminService.getPaymentHistory(
+            any(), any(), any(), any(), eq("ios"), eq(SubscriptionPlan.MONTHLY),
+            eq(SubscriptionPaymentEventType.PURCHASE), anyInt(), anyInt()))
+            .thenReturn(response);
+
+        mockMvc.perform(
+                RestDocumentationRequestBuilders.get("/api/internal/subscription-payments")
+                    .param("platform", "ios")
+                    .param("plan", "MONTHLY")
+                    .param("event_type", "PURCHASE")
+                    .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.content[0].event_type").value("PURCHASE"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.total_elements").value(1));
     }
 }

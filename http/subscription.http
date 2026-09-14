@@ -63,10 +63,14 @@ Content-Type: application/json
 }
 
 ### ----------------------------------------------------------
-### 구독 결제 이력 내부 API (LUT-486) — admin-service 패스스루 대상
+### 구독 결제 이력 내부 API (LUT-486/488) — admin-service 패스스루 대상
 ### 로컬은 internal api key 미설정(fail-open)이라 헤더 불필요
 ### ----------------------------------------------------------
 GET {{baseUrl}}/api/internal/subscription-payments?user_id=test-user-id&page=0&size=20
+Accept: application/json
+
+### 결제이력 통합 페이지 목록 모드 (LUT-488) — user_id 없이 필터 조회
+GET {{baseUrl}}/api/internal/subscription-payments?nickname=루미&platform=ios&plan=MONTHLY&event_type=RENEWAL&page=0&size=20
 Accept: application/json
 
 ### 다이아 결제이력 — 유저 필터 (LUT-486, 유저 상세 결제 이력 탭)

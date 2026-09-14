@@ -8,11 +8,12 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** LUT-486: 어드민 구독 결제 이력 행 응답 */
+/** LUT-486: 어드민 구독 결제 이력 행 응답 — nickname 은 목록 화면용 벌크 조회 (LUT-488) */
 @JsonNaming(SnakeCaseStrategy.class)
 public record SubscriptionPaymentHistoryResponse(
         Long id,
         String userId,
+        String nickname,
         String platform,
         String productId,
         String basePlanId,
@@ -25,10 +26,12 @@ public record SubscriptionPaymentHistoryResponse(
         LocalDateTime expiresAt,
         LocalDateTime occurredAt) {
 
-    public static SubscriptionPaymentHistoryResponse from(SubscriptionPaymentHistory history) {
+    public static SubscriptionPaymentHistoryResponse from(
+            SubscriptionPaymentHistory history, String nickname) {
         return new SubscriptionPaymentHistoryResponse(
                 history.getId(),
                 history.getUserId(),
+                nickname,
                 history.getPlatform(),
                 history.getProductId(),
                 history.getBasePlanId(),

@@ -348,7 +348,7 @@ public void run() { ...}
 | `GET /api/internal/shop-items`, `/api/internal/shop-purchases`    | Internal      | Admin 아이템 관리 · 구매이력 (LUT-328)         |
 | `GET /api/internal/diamond-bundles`                               | Internal      | Admin 다이아 묶음상품 관리 (LUT-356)          |
 | `GET /api/internal/diamond-payments`                              | Internal      | Admin 다이아 결제이력 조회 — 어드민은 `DIAMOND_PAYMENT_READ` 권한 필요 (LUT-401). `user_id` 필터 지원 (LUT-486) |
-| `GET /api/internal/subscription-payments`                         | Internal      | Admin 유저별 구독 결제 이력 (LUT-486) — `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS만 캡처 |
+| `GET /api/internal/subscription-payments`                         | Internal      | Admin 구독 결제 이력 — 유저 상세 탭(`user_id`, LUT-486)과 결제이력 통합 페이지(닉네임·기간·플랫폼·플랜·이벤트 필터, LUT-488) 공용. `subscription_payment_history` append-only 원장(만료 엄격 연장 시에만 기록, verify·웹훅 이중 도착 자연 멱등). 가격은 iOS만 캡처 |
 | `POST/GET /api/internal/item-grants`, `DELETE .../{id}`           | Internal      | Admin 아이템 수동 지급/이력/회수 — 멱등(보유 시 no-op), 회수=인벤토리 삭제+이력 revoked 마킹, `ITEM_GRANTED` 푸시 (LUT-472) |
 
 **합산 차감** (LUT-354): 아이템 구매는 블루+핑크 합산 잔액에서 **블루(무상) 우선 소진**
