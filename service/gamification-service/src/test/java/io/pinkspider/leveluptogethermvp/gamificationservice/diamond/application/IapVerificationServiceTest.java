@@ -8,10 +8,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.DiamondBundlePurchaseRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.domain.dto.IapVerificationResult;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
@@ -21,6 +24,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 @DisplayName("IapVerificationService 테스트 (LUT-354, LUT-401)")
@@ -268,6 +274,41 @@ class IapVerificationServiceTest {
             assertThat(result.transactionId()).isEqualTo("token-001");
             assertThat(result.priceAmount()).isNull();
             assertThat(result.priceCurrency()).isNull();
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        @DisplayName("LUT-493: 토큰 교환 JWT의 aud 는 배열이 아닌 문자열이어야 한다")
+        void google_assertionAudience_isSingleString() throws Exception {
+            Path serviceAccountFile = writeFakeServiceAccountJson();
+            IapVerificationService svc = new IapVerificationService(
+                true, APPLE_URL, APPLE_SANDBOX_URL, "io.pinkspider.lut",
+                serviceAccountFile.toString(), new IapAppleProperties());
+            RestTemplate rest = mock(RestTemplate.class);
+            svc.setRestTemplate(rest);
+
+            ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> tokenRequest =
+                ArgumentCaptor.forClass(HttpEntity.class);
+            when(rest.postForObject(
+                    eq("https://oauth2.googleapis.com/token"), tokenRequest.capture(), eq(String.class)))
+                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.exchange(
+                    contains("/purchases/products/pink_100/tokens/token-001"),
+                    eq(org.springframework.http.HttpMethod.GET),
+                    any(),
+                    eq(String.class)))
+                .thenReturn(org.springframework.http.ResponseEntity.ok("{\"purchaseState\":0}"));
+
+            svc.verify(androidRequest());
+
+            // jjwt 0.12 의 audience().add() 는 aud 를 배열로 직렬화한다 — 구글 OAuth2 토큰 엔드포인트는
+            // 문자열 aud 만 허용하므로(invalid_grant: Failed audience check) single() 이어야 한다
+            String assertion = tokenRequest.getValue().getBody().getFirst("assertion");
+            String payloadJson = new String(
+                Base64.getUrlDecoder().decode(assertion.split("\\.")[1]), StandardCharsets.UTF_8);
+            JsonNode aud = new ObjectMapper().readTree(payloadJson).path("aud");
+            assertThat(aud.isTextual()).isTrue();
+            assertThat(aud.asText()).isEqualTo("https://oauth2.googleapis.com/token");
         }
 
         /** RSA 키를 즉석 생성해 parsePrivateKey 가 소비할 수 있는 형태의 임시 서비스계정 JSON을 만든다 */

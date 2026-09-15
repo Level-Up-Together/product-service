@@ -407,9 +407,9 @@ public class SubscriptionVerificationService {
         String assertion =
                 Jwts.builder()
                         .issuer(clientEmail)
+                        // aud는 문자열이어야 한다 — add()는 배열로 직렬화되어 구글이 invalid_grant로 거부 (LUT-493)
                         .audience()
-                        .add("https://oauth2.googleapis.com/token")
-                        .and()
+                        .single("https://oauth2.googleapis.com/token")
                         .claim("scope", "https://www.googleapis.com/auth/androidpublisher")
                         .issuedAt(new Date(now))
                         .expiration(new Date(now + 3600_000L))

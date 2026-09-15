@@ -11,11 +11,14 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.apple.itunes.storekit.model.OfferType;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
@@ -26,8 +29,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 @DisplayName("SubscriptionVerificationService 테스트 (LUT-451)")
@@ -300,6 +306,45 @@ class SubscriptionVerificationServiceTest {
             assertThatThrownBy(() -> service(true).verify(androidRequest()))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.iap.verification_failed");
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        @DisplayName("LUT-493: 토큰 교환 JWT의 aud 는 배열이 아닌 문자열이어야 한다")
+        void google_assertionAudience_isSingleString() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> tokenRequest =
+                ArgumentCaptor.forClass(HttpEntity.class);
+            SubscriptionVerificationService svc = new SubscriptionVerificationService(
+                true, "io.pinkspider.lut", writeFakeServiceAccountJson().toString(),
+                new IapAppleProperties());
+            svc.setRestTemplate(rest);
+            when(rest.postForObject(
+                    eq("https://oauth2.googleapis.com/token"), tokenRequest.capture(), eq(String.class)))
+                .thenReturn("{\"access_token\":\"fake-token\"}");
+            when(rest.exchange(
+                    contains("/purchases/subscriptionsv2/tokens/token-001"),
+                    eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{"
+                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                    + "\"startTime\":\"2026-09-04T00:00:00Z\","
+                    + "\"lineItems\":[{"
+                    + "  \"productId\":\"membership\","
+                    + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
+                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                    + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
+                    + "}]}"));
+
+            svc.verify(androidRequest());
+
+            // jjwt 0.12 의 audience().add() 는 aud 를 배열로 직렬화한다 — 구글 OAuth2 토큰 엔드포인트는
+            // 문자열 aud 만 허용하므로(invalid_grant: Failed audience check) single() 이어야 한다
+            String assertion = tokenRequest.getValue().getBody().getFirst("assertion");
+            String payloadJson = new String(
+                Base64.getUrlDecoder().decode(assertion.split("\\.")[1]), StandardCharsets.UTF_8);
+            JsonNode aud = new ObjectMapper().readTree(payloadJson).path("aud");
+            assertThat(aud.isTextual()).isTrue();
+            assertThat(aud.asText()).isEqualTo("https://oauth2.googleapis.com/token");
         }
 
         /** RSA 키를 즉석 생성해 서비스계정 JSON 파일을 만든다 (IapVerificationServiceTest 패턴) */
