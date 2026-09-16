@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pinkspider.global.exception.CustomException;
@@ -154,17 +159,101 @@ class IapVerificationServiceTest {
         }
 
         @Test
-        @DisplayName("검증 활성 상태에서 ios 영수증이 없으면 예외")
-        void apple_enabledWithoutReceipt_throws() {
+        @DisplayName("검증 활성 상태에서 ios transactionId 가 없으면 예외")
+        void apple_enabledWithoutTransactionId_throws() {
             DiamondBundlePurchaseRequest request = DiamondBundlePurchaseRequest.builder()
                 .platform("ios")
                 .storeProductId("pink_100")
-                .transactionId("tx-001")
+                .receipt("base64-receipt")
                 .build();
 
             assertThatThrownBy(() -> service(true).verify(request))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("error.iap.receipt_required");
+        }
+
+        // LUT-498: react-native-iap v16(StoreKit 2)은 legacy 영수증을 못 주는 경우가 있어 RN 이
+        // transaction_id 만 보낸다. 예전엔 이를 120701 로 거절해 iOS 다이아 결제가 항상 실패했다.
+        @Nested
+        @DisplayName("LUT-498: 영수증 없는 iOS 요청은 App Store Server API 로 검증한다")
+        class AppleServerApiTest {
+
+            private DiamondBundlePurchaseRequest receiptlessRequest() {
+                return DiamondBundlePurchaseRequest.builder()
+                    .platform("ios")
+                    .storeProductId("pink_100")
+                    .transactionId("tx-001")
+                    .build();
+            }
+
+            private JWSTransactionDecodedPayload payload() {
+                return new JWSTransactionDecodedPayload()
+                    .productId("pink_100")
+                    .transactionId("tx-001")
+                    .price(1990L)
+                    .currency("USD");
+            }
+
+            @Test
+            @DisplayName("트랜잭션 조회·상품 일치 시 transactionId 와 가격/통화를 반환한다 (verifyReceipt 미호출)")
+            void receiptless_valid_returnsWithPrice() {
+                IapVerificationService svc = spy(service(true));
+                RestTemplate rest = mock(RestTemplate.class);
+                svc.setRestTemplate(rest);
+                doReturn(payload()).when(svc).fetchAppleTransaction("tx-001");
+
+                IapVerificationResult result = svc.verify(receiptlessRequest());
+
+                assertThat(result.transactionId()).isEqualTo("tx-001");
+                assertThat(result.priceAmount()).isEqualByComparingTo("1.99");
+                assertThat(result.priceCurrency()).isEqualTo("USD");
+                verify(rest, never()).postForObject(any(String.class), any(), eq(String.class));
+            }
+
+            @Test
+            @DisplayName("트랜잭션의 상품이 요청과 다르면 120703")
+            void receiptless_productMismatch_throws() {
+                IapVerificationService svc = spy(service(true));
+                doReturn(payload().productId("pink_550")).when(svc).fetchAppleTransaction("tx-001");
+
+                assertThatThrownBy(() -> svc.verify(receiptlessRequest()))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.product_mismatch");
+            }
+
+            @Test
+            @DisplayName("환불(revocationDate)된 트랜잭션은 120702")
+            void receiptless_revoked_throws() {
+                IapVerificationService svc = spy(service(true));
+                doReturn(payload().revocationDate(1_700_000_000_000L))
+                    .when(svc).fetchAppleTransaction("tx-001");
+
+                assertThatThrownBy(() -> svc.verify(receiptlessRequest()))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
+            }
+
+            @Test
+            @DisplayName("Server API 조회가 prod·sandbox 모두 실패하면 120702 (자격증명 미설정 환경)")
+            void receiptless_apiFailure_throws() {
+                assertThatThrownBy(() -> service(true).verify(receiptlessRequest()))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining("error.iap.verification_failed");
+            }
+
+            @Test
+            @DisplayName("영수증이 있으면 기존 verifyReceipt 경로를 그대로 탄다")
+            void withReceipt_usesLegacyPath() {
+                IapVerificationService svc = spy(service(true));
+                RestTemplate rest = mock(RestTemplate.class);
+                svc.setRestTemplate(rest);
+                when(rest.postForObject(eq(APPLE_URL), any(), eq(String.class)))
+                    .thenReturn("{\"status\":0,\"receipt\":{\"in_app\":[" +
+                        "{\"product_id\":\"pink_100\",\"transaction_id\":\"tx-001\"}]}}");
+
+                assertThat(svc.verify(iosRequest()).transactionId()).isEqualTo("tx-001");
+                verify(svc, never()).fetchAppleTransaction(any());
+            }
         }
 
         @Test

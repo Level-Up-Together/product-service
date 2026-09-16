@@ -335,6 +335,11 @@ public void run() { ...}
   막지 않는다(가격 없이 저장). Prod 배포 전 App Store Connect에서 .p8 키 발급 + Key ID/Issuer ID/App Apple ID 확보 후
   `config-repository/product-service/product-service-prod.yml`의 `iap.apple.*`에 등록 필수(코드베이스 직접 커밋 금지).
 - 환불 자동 감지(Apple Server Notifications V2 / Google RTDN)는 미구현 — `status`/`refunded_at` 컬럼만 확보(후속 과제).
+- **iOS 영수증 없는 요청** (LUT-498): react-native-iap v16(StoreKit 2)은 `getReceiptDataIOS()`가 빈 값을 줄 수 있어 RN이
+  `transaction_id`만 보낸다. `receipt`가 없으면 `verifyReceipt` 대신 **App Store Server API**(`fetchAppleTransaction`,
+  prod→sandbox 폴백)로 상품 일치·미환불(`revocationDate`)을 검증한다 — 구독 검증과 같은 경로. `receipt`가 있으면 기존
+  `verifyReceipt` 경로 유지. 예전엔 receipt 필수(120701)라 iOS 다이아 결제가 dev에서 항상 실패했다.
+  RN 스토어 결제 대기에는 4분 타임아웃(`STORE_PURCHASE_TIMEOUT_MS`, 웹 브릿지 5분보다 짧게)이 있어 무응답 시 `store_timeout`으로 회신한다.
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|

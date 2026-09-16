@@ -13,7 +13,8 @@ import lombok.Setter;
 /**
  * LUT-354: 핑크다이아 묶음상품 IAP 구매 요청 (RN이 스토어 결제 후 영수증 전달).
  *
- * <p>ios: transactionId + receipt(base64 영수증). android: purchaseToken.
+ * <p>ios: transactionId (+ receipt: legacy base64 영수증, 선택 — LUT-498: 없으면 App Store Server API 로
+ * 검증). android: purchaseToken.
  */
 @Getter
 @Setter

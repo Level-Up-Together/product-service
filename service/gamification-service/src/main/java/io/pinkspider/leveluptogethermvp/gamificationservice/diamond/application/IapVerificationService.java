@@ -111,10 +111,17 @@ public class IapVerificationService {
         return verifyGoogle(request);
     }
 
-    /** 플랫폼별 트랜잭션 식별자 존재 검증 — ios=transactionId(+receipt), android=purchaseToken */
+    /**
+     * 플랫폼별 트랜잭션 식별자 존재 검증 — ios=transactionId, android=purchaseToken.
+     *
+     * <p>LUT-498: iOS 는 legacy 영수증(receipt)을 더 이상 필수로 요구하지 않는다. react-native-iap v16
+     * (StoreKit 2)에서는 {@code getReceiptDataIOS()} 가 빈 값을 돌려주는 경우가 있어 RN 이 receipt 없이
+     * transaction_id 만 보내는데, 예전엔 그 요청을 여기서 120701 로 거절해 iOS 다이아 결제가 항상
+     * 실패했다(dev 9/16 재현). receipt 가 없으면 App Store Server API 로 트랜잭션을 직접 검증한다.
+     */
     private String requireTransactionId(DiamondBundlePurchaseRequest request) {
         if ("ios".equals(request.getPlatform())) {
-            if (isBlank(request.getTransactionId()) || (enabled && isBlank(request.getReceipt()))) {
+            if (isBlank(request.getTransactionId())) {
                 throw new CustomException("120701", "error.iap.receipt_required");
             }
             return request.getTransactionId();
@@ -127,7 +134,68 @@ public class IapVerificationService {
 
     // ========== Apple ==========
 
+    /**
+     * iOS 검증. legacy 영수증(receipt)이 있으면 verifyReceipt 경로(기존), 없으면 App Store Server API
+     * 경로(LUT-498)로 검증한다. 두 경로 모두 요청 productId·transactionId 와의 일치를 확인한다.
+     */
     private IapVerificationResult verifyApple(DiamondBundlePurchaseRequest request) {
+        if (isBlank(request.getReceipt())) {
+            return verifyAppleViaServerApi(request);
+        }
+        return verifyAppleViaReceipt(request);
+    }
+
+    /**
+     * LUT-498: App Store Server API 로 트랜잭션을 조회·JWS 검증해 상품 일치와 미환불을 확인한다.
+     * 구독 검증(SubscriptionVerificationService)과 같은 경로 — StoreKit 2 환경에서 legacy 영수증 없이
+     * transaction_id 만으로 검증할 수 있다. 가격/통화는 같은 응답에서 함께 확보한다.
+     */
+    private IapVerificationResult verifyAppleViaServerApi(DiamondBundlePurchaseRequest request) {
+        JWSTransactionDecodedPayload payload = fetchAppleTransaction(request.getTransactionId());
+
+        if (!request.getStoreProductId().equals(payload.getProductId())) {
+            log.warn("Apple 트랜잭션 상품 불일치: 요청={}, 트랜잭션={}",
+                request.getStoreProductId(), payload.getProductId());
+            throw new CustomException("120703", "error.iap.product_mismatch");
+        }
+        if (payload.getRevocationDate() != null) {
+            // 환불·취소된 트랜잭션 — 지급하면 안 된다
+            log.warn("Apple 트랜잭션 환불됨: transactionId={}", request.getTransactionId());
+            throw new CustomException("120702", "error.iap.verification_failed");
+        }
+        String transactionId = payload.getTransactionId() != null
+            ? payload.getTransactionId()
+            : request.getTransactionId();
+        return new IapVerificationResult(
+            transactionId, applePriceToDecimal(payload.getPrice()), payload.getCurrency());
+    }
+
+    /**
+     * App Store Server API 로 트랜잭션 조회 + JWS 검증·디코딩. 프로덕션에서 못 찾으면 샌드박스로
+     * 재시도한다(심사/TestFlight 표준 흐름). 테스트에서 스텁할 수 있게 package-private.
+     */
+    JWSTransactionDecodedPayload fetchAppleTransaction(String transactionId) {
+        try {
+            return fetchAndDecode(false, transactionId);
+        } catch (Exception prodFailure) {
+            log.info("App Store 프로덕션 조회 실패, 샌드박스 재시도: {}", prodFailure.getMessage());
+            try {
+                return fetchAndDecode(true, transactionId);
+            } catch (Exception sandboxFailure) {
+                log.error("Apple 트랜잭션 검증 실패: {}", sandboxFailure.getMessage());
+                throw new CustomException("120702", "error.iap.verification_failed");
+            }
+        }
+    }
+
+    private JWSTransactionDecodedPayload fetchAndDecode(boolean sandbox, String transactionId)
+            throws Exception {
+        TransactionInfoResponse info = appStoreServerAPIClient(sandbox).getTransactionInfo(transactionId);
+        return signedDataVerifier(sandbox).verifyAndDecodeTransaction(info.getSignedTransactionInfo());
+    }
+
+    /** legacy verifyReceipt 경로 (receipt 가 있는 요청 — StoreKit 1 계열 클라이언트 호환) */
+    private IapVerificationResult verifyAppleViaReceipt(DiamondBundlePurchaseRequest request) {
         boolean sandbox = false;
         JsonNode response = postAppleVerify(appleVerifyUrl, request.getReceipt());
         int status = response.path("status").asInt(-1);
