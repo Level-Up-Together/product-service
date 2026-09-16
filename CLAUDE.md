@@ -386,6 +386,24 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
 **비로그인 열람 (LUT-350)** — `userId == null`이면 보유 아이템 없음 + 레벨 1(COMMON)로 계산한다. 화면에 보이는 값이 곧 가입 후 낼 값이라
 로그인해도 가격이 오르지 않는다.
 
+## 구독 (gamificationservice/subscription, LUT-450~453 · 486 · 499)
+
+`user_subscription`(유저당 1행) + `subscription_payment_history`(원장). 상태의 **진실은 항상 스토어 재조회**
+(Android `subscriptionsv2`, iOS App Store Server API) — 웹훅 payload·클라이언트 값은 트리거일 뿐이다.
+
+- **스토어 서버 알림** (LUT-452): `POST /api/v1/webhooks/subscriptions/{apple|google}` permitAll. Android RTDN은 **GCP Pub/Sub push**로만
+  온다 — 토픽 `lut-rtdn-{dev|prod}` + push 구독 → 웹훅 URL, Play Console 수익 창출 설정에 토픽 연결. iOS는 ASC 앱 정보에 Sandbox/Production
+  URL 등록. dev는 2026-09-16 등록 완료(LUT-499); **prod는 config에 `iap:` 섹션 자체가 없어 검증 off** — 등록 전 config 추가·재기동 필수.
+- **자가 치유** (LUT-499, `SubscriptionSelfHealService`): `/subscriptions/me`가 `expires_at` 경과 + `auto_renew` 상태를 보면 응답 전 스토어를
+  재조회해 웹훅과 같은 경로(`SubscriptionWebhookTxService.applyGoogleState` / `applyAppleSnapshot`)로 덮어쓴다. 실패는 삼키고 DB 값 응답.
+  `getMyEntitlement`는 클래스 readOnly 트랜잭션 밖(`NOT_SUPPORTED`)에서 돈다 — readOnly 안에서 쓰기를 부르면 flush 되지 않는다.
+- **구독 연속성 키** (LUT-499): Android 재구독·플랜 변경은 새 `purchase_token`을 발급하고 옛 토큰을 `linkedPurchaseToken`으로 가리킨다.
+  새 토큰이 행에 매칭되지 않으면 옛 토큰 행에 이어 붙이고 토큰을 교체한다(이력 분리 방지). 교차 계정 가드(120802)도 옛 토큰 소유자를 본다.
+  iOS는 `original_transaction_id`가 갱신·플랜 변경에도 유지된다. 원장 거래 ID: iOS=transactionId, Android=`latestOrderId`(가격은 Google이 안 줌).
+- **플랜 변경**: RN `subscribeMembership`이 활성 구매의 `currentPlanId`와 다르면 `purchaseToken`(옛 토큰) + `subscriptionProductReplacementParams`
+  (업그레이드 `with-time-proration`, 다운그레이드 `deferred`)를 전달. 같은 플랜 재구매는 교체 아님.
+- 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.
+
 ## 길드 활동 포인트 (LUT-483)
 
 길드 **랭킹·레벨의 기준은 누적 EXP 가 아니라 활동 포인트**다 (EXP 는 표기용 잔존).

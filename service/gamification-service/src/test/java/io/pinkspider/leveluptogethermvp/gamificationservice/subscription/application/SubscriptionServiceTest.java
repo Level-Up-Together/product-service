@@ -23,10 +23,82 @@ class SubscriptionServiceTest {
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
 
+    @Mock
+    private SubscriptionSelfHealService selfHealService;
+
     @InjectMocks
     private SubscriptionService subscriptionService;
 
     private static final String USER_ID = "user-1";
+
+    // LUT-499: 만료됐는데 자동갱신 중이면(= 스토어 알림 유실 가능) 응답 전 스토어 재조회로 동기화하고 행을 다시 읽는다
+    @Test
+    @DisplayName("LUT-499: 자가 치유가 수행되면 행을 다시 읽어 갱신된 상태로 응답한다")
+    void selfHealRefreshesRow() {
+        UserSubscription stale = UserSubscription.builder()
+            .userId(USER_ID)
+            .platform("android")
+            .productId("membership")
+            .basePlanId("1m")
+            .plan(SubscriptionPlan.MONTHLY)
+            .startedAt(LocalDateTime.now().minusMonths(2))
+            .expiresAt(LocalDateTime.now().minusMinutes(10))
+            .autoRenew(true)
+            .trialUsed(true)
+            .purchaseToken("token-001")
+            .build();
+        UserSubscription healed = UserSubscription.builder()
+            .userId(USER_ID)
+            .platform("android")
+            .productId("membership")
+            .basePlanId("1m")
+            .plan(SubscriptionPlan.MONTHLY)
+            .startedAt(stale.getStartedAt())
+            .expiresAt(LocalDateTime.now().plusDays(20))
+            .autoRenew(true)
+            .trialUsed(true)
+            .purchaseToken("token-001")
+            .build();
+        when(userSubscriptionRepository.findByUserId(USER_ID))
+            .thenReturn(Optional.of(stale), Optional.of(healed));
+        when(selfHealService.syncIfStale(org.mockito.ArgumentMatchers.eq(stale),
+                org.mockito.ArgumentMatchers.any()))
+            .thenReturn(true);
+
+        SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
+
+        assertThat(response.status()).isEqualTo(SubscriptionStatus.ACTIVE);
+        assertThat(response.isEntitled()).isTrue();
+        assertThat(response.expiresAt()).isEqualTo(healed.getExpiresAt());
+    }
+
+    @Test
+    @DisplayName("LUT-499: 자가 치유 대상이 아니면(또는 실패하면) DB 값 그대로 응답한다")
+    void noSelfHealKeepsRow() {
+        UserSubscription expired = UserSubscription.builder()
+            .userId(USER_ID)
+            .platform("android")
+            .productId("membership")
+            .basePlanId("1m")
+            .plan(SubscriptionPlan.MONTHLY)
+            .startedAt(LocalDateTime.now().minusMonths(2))
+            .expiresAt(LocalDateTime.now().minusMinutes(10))
+            .autoRenew(true)
+            .trialUsed(false)
+            .purchaseToken("token-001")
+            .build();
+        when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.of(expired));
+        when(selfHealService.syncIfStale(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
+            .thenReturn(false);
+
+        SubscriptionEntitlementResponse response = subscriptionService.getMyEntitlement(USER_ID);
+
+        assertThat(response.status()).isEqualTo(SubscriptionStatus.EXPIRED);
+        assertThat(response.isEntitled()).isFalse();
+        org.mockito.Mockito.verify(userSubscriptionRepository, org.mockito.Mockito.times(1))
+            .findByUserId(USER_ID);
+    }
 
     @Test
     @DisplayName("구독 이력이 없으면 NONE 응답 — 권한 없음, 플랜/만료 null")

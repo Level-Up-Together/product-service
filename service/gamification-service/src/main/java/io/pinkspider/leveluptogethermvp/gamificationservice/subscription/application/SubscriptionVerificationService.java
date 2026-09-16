@@ -4,7 +4,10 @@ import com.apple.itunes.storekit.client.AppStoreServerAPIClient;
 import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import com.apple.itunes.storekit.model.LastTransactionsItem;
 import com.apple.itunes.storekit.model.ResponseBodyV2DecodedPayload;
+import com.apple.itunes.storekit.model.StatusResponse;
+import com.apple.itunes.storekit.model.SubscriptionGroupIdentifierItem;
 import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +16,7 @@ import io.jsonwebtoken.Jwts;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionSnapshot;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
@@ -225,6 +229,59 @@ public class SubscriptionVerificationService {
     }
 
     /**
+     * LUT-499: App Store Server API "Get All Subscription Statuses" 로 구독 그룹의 **최신** 트랜잭션·갱신 정보를
+     * 조회한다. {@link #fetchAppleTransaction} 은 지정한 트랜잭션 1건만 주므로 갱신 뒤 최신 만료를 알 수 없다 —
+     * 웹훅이 유실됐을 때의 자가 치유({@link SubscriptionSelfHealService})가 쓴다. 프로덕션→샌드박스 재시도는 동일.
+     * 테스트에서 스텁할 수 있게 package-private.
+     */
+    AppleSubscriptionSnapshot fetchAppleLatestSubscription(String originalTransactionId) {
+        try {
+            return fetchLatestSnapshot(false, originalTransactionId);
+        } catch (Exception prodFailure) {
+            log.info("App Store 프로덕션 구독 상태 조회 실패, 샌드박스 재시도: {}", prodFailure.getMessage());
+            try {
+                return fetchLatestSnapshot(true, originalTransactionId);
+            } catch (Exception sandboxFailure) {
+                log.error("Apple 구독 상태 조회 실패: {}", sandboxFailure.getMessage());
+                throw new CustomException("120702", "error.iap.verification_failed");
+            }
+        }
+    }
+
+    private AppleSubscriptionSnapshot fetchLatestSnapshot(boolean sandbox, String originalTransactionId)
+            throws Exception {
+        StatusResponse response =
+                appStoreServerAPIClient(sandbox).getAllSubscriptionStatuses(originalTransactionId, null);
+        SignedDataVerifier verifier = signedDataVerifier(sandbox);
+        LastTransactionsItem matched = null;
+        for (SubscriptionGroupIdentifierItem group : nullSafe(response.getData())) {
+            for (LastTransactionsItem item : nullSafe(group.getLastTransactions())) {
+                if (originalTransactionId.equals(item.getOriginalTransactionId())) {
+                    matched = item;
+                    break;
+                }
+                if (matched == null) {
+                    matched = item;
+                }
+            }
+        }
+        if (matched == null || matched.getSignedTransactionInfo() == null) {
+            throw new IllegalStateException("subscription status has no transaction");
+        }
+        JWSTransactionDecodedPayload transaction =
+                verifier.verifyAndDecodeTransaction(matched.getSignedTransactionInfo());
+        JWSRenewalInfoDecodedPayload renewalInfo =
+                matched.getSignedRenewalInfo() != null
+                        ? verifier.verifyAndDecodeRenewalInfo(matched.getSignedRenewalInfo())
+                        : null;
+        return new AppleSubscriptionSnapshot(transaction, renewalInfo);
+    }
+
+    private static <T> java.util.List<T> nullSafe(java.util.List<T> list) {
+        return list != null ? list : java.util.List.of();
+    }
+
+    /**
      * App Store Server API 로 트랜잭션 조회 + JWS 검증·디코딩. 프로덕션에서 못 찾으면 샌드박스로
      * 재시도한다(심사/TestFlight 표준 흐름). 테스트에서 스텁할 수 있게 package-private.
      */
@@ -317,6 +374,7 @@ public class SubscriptionVerificationService {
             throw new CustomException("120703", "error.iap.product_mismatch");
         }
 
+        // LUT-499: 거래 ID = latestOrderId (가격은 subscriptionsv2 가 주지 않아 null 유지), 연속성 키 동반
         return new SubscriptionVerificationResult(
                 state.productId(),
                 state.basePlanId(),
@@ -325,7 +383,11 @@ public class SubscriptionVerificationService {
                 state.startedAt(),
                 state.expiresAt(),
                 state.autoRenew(),
-                state.trial());
+                state.trial(),
+                state.latestOrderId(),
+                null,
+                null,
+                state.linkedPurchaseToken());
     }
 
     /**
@@ -378,6 +440,10 @@ public class SubscriptionVerificationService {
             LocalDateTime startedAt =
                     json.hasNonNull("startTime") ? parseRfc3339(json.path("startTime").asText()) : null;
 
+            // LUT-499: 연속성 키(재구독·플랜 변경으로 대체된 옛 토큰)와 최신 주문 ID(결제 이력 거래 ID)
+            String linkedPurchaseToken = json.path("linkedPurchaseToken").asText(null);
+            String latestOrderId = json.path("latestOrderId").asText(null);
+
             return new GoogleSubscriptionState(
                     latest.path("productId").asText(),
                     basePlanId,
@@ -385,7 +451,9 @@ public class SubscriptionVerificationService {
                     parseRfc3339(latest.path("expiryTime").asText()),
                     autoRenew,
                     trial,
-                    state);
+                    state,
+                    linkedPurchaseToken,
+                    latestOrderId);
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

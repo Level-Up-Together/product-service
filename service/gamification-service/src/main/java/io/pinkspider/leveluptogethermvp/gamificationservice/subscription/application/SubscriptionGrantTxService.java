@@ -120,6 +120,11 @@ public class SubscriptionGrantTxService {
                             result.originalTransactionId());
         } else if (result.purchaseToken() != null) {
             existing = userSubscriptionRepository.findByPurchaseToken(result.purchaseToken());
+            if (existing.isEmpty() && result.linkedPurchaseToken() != null) {
+                // LUT-499: 재구독으로 새 토큰을 받아도 옛 토큰(linkedPurchaseToken) 소유자를 본다 —
+                // 다른 앱 계정으로 재구독해 권한을 옮기는 우회를 막는다
+                existing = userSubscriptionRepository.findByPurchaseToken(result.linkedPurchaseToken());
+            }
         }
         if (existing.isPresent() && !existing.get().getUserId().equals(userId)) {
             log.warn(

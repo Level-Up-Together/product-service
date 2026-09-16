@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
  * @param autoRenew 자동갱신 여부
  * @param trial 오퍼(무료 체험) 적용 구매 여부
  * @param subscriptionState 원문 상태 (예: SUBSCRIPTION_STATE_ACTIVE|_IN_GRACE_PERIOD|_CANCELED)
+ * @param linkedPurchaseToken LUT-499: 이 구매가 대체한 이전 purchaseToken(재구독·플랜 변경 시 존재). 구독 연속성
+ *     키 — 새 토큰으로 온 알림을 옛 토큰으로 기록된 행에 이어 붙이는 데 쓴다. 없으면 null
+ * @param latestOrderId LUT-499: 최신 결제 주문 ID(GPA.xxxx) — 결제 이력의 거래 ID. 없으면 null
  */
 public record GoogleSubscriptionState(
         String productId,
@@ -23,7 +26,21 @@ public record GoogleSubscriptionState(
         LocalDateTime expiresAt,
         boolean autoRenew,
         boolean trial,
-        String subscriptionState) {
+        String subscriptionState,
+        String linkedPurchaseToken,
+        String latestOrderId) {
+
+    /** LUT-499 이전 시그니처 유지 — 연속성 키·주문 ID 미확보 경로용 */
+    public GoogleSubscriptionState(
+            String productId,
+            String basePlanId,
+            LocalDateTime startedAt,
+            LocalDateTime expiresAt,
+            boolean autoRenew,
+            boolean trial,
+            String subscriptionState) {
+        this(productId, basePlanId, startedAt, expiresAt, autoRenew, trial, subscriptionState, null, null);
+    }
 
     public static final String STATE_PENDING = "SUBSCRIPTION_STATE_PENDING";
     public static final String STATE_IN_GRACE_PERIOD = "SUBSCRIPTION_STATE_IN_GRACE_PERIOD";

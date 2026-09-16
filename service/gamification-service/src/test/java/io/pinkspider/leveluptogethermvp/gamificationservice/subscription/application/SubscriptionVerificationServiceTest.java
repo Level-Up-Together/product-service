@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.apple.itunes.storekit.model.OfferType;
 import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.application.IapAppleProperties;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
 import java.nio.charset.StandardCharsets;
@@ -240,6 +241,58 @@ class SubscriptionVerificationServiceTest {
 
             assertThat(result.autoRenew()).isFalse();
             assertThat(result.trial()).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-499: linkedPurchaseToken·latestOrderId 를 파싱해 연속성 키와 거래 ID로 싣는다")
+        void google_linkedTokenAndOrderId_mapped() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                    contains("/purchases/subscriptionsv2/tokens/token-001"),
+                    eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{"
+                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                    + "\"latestOrderId\":\"GPA.3333-4444-5555-66666\","
+                    + "\"linkedPurchaseToken\":\"token-000\","
+                    + "\"lineItems\":[{"
+                    + "  \"productId\":\"membership\","
+                    + "  \"expiryTime\":\"2027-09-04T00:00:00Z\","
+                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                    + "  \"offerDetails\":{\"basePlanId\":\"1y\"}"
+                    + "}]}"));
+
+            SubscriptionVerificationResult result = svc.verify(androidRequest());
+
+            assertThat(result.transactionId()).isEqualTo("GPA.3333-4444-5555-66666");
+            assertThat(result.linkedPurchaseToken()).isEqualTo("token-000");
+            // Google 은 실결제가를 주지 않는다
+            assertThat(result.priceAmount()).isNull();
+
+            GoogleSubscriptionState state = svc.fetchGoogleSubscription("token-001");
+            assertThat(state.linkedPurchaseToken()).isEqualTo("token-000");
+            assertThat(state.latestOrderId()).isEqualTo("GPA.3333-4444-5555-66666");
+        }
+
+        @Test
+        @DisplayName("LUT-499: 응답에 연속성 키·주문 ID 가 없으면 null 로 둔다")
+        void google_missingLinkedFields_null() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            when(rest.exchange(
+                    contains("/purchases/subscriptionsv2/tokens/token-001"),
+                    eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{"
+                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                    + "\"lineItems\":[{\"productId\":\"membership\","
+                    + "\"expiryTime\":\"2027-09-04T00:00:00Z\","
+                    + "\"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                    + "\"offerDetails\":{\"basePlanId\":\"1y\"}}]}"));
+
+            SubscriptionVerificationResult result = svc.verify(androidRequest());
+
+            assertThat(result.transactionId()).isNull();
+            assertThat(result.linkedPurchaseToken()).isNull();
         }
 
         @Test

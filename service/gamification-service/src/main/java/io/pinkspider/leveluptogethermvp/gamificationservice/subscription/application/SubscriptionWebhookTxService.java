@@ -4,6 +4,7 @@ import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionPlanMapping;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionSnapshot;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
@@ -124,6 +125,39 @@ public class SubscriptionWebhookTxService {
         }
     }
 
+    /**
+     * LUT-499: 자가 치유 — "Get All Subscription Statuses" 스냅샷(최신 트랜잭션 + 갱신 정보)을 웹훅과 같은
+     * 규칙으로 반영한다. 환불·회수된 트랜잭션은 권한 종료, 그 외는 갱신 동기화(만료 연장·플랜·autoRenew).
+     * 만료가 지난 채 autoRenew 만 꺼진 경우도 renewalInfo 반영으로 수렴해 다음 호출부터 재조회하지 않는다.
+     */
+    @Transactional(transactionManager = "gamificationTransactionManager")
+    public void applyAppleSnapshot(String originalTransactionId, AppleSubscriptionSnapshot snapshot) {
+        UserSubscription subscription =
+                userSubscriptionRepository.findByOriginalTransactionId(originalTransactionId).orElse(null);
+        if (subscription == null || snapshot == null || snapshot.transaction() == null) {
+            log.warn("자가 치유 매칭 구독 행/스냅샷 없음 — 스킵: originalTransactionId={}", originalTransactionId);
+            return;
+        }
+        JWSTransactionDecodedPayload transaction = snapshot.transaction();
+        if (transaction.getRevocationDate() != null) {
+            LocalDateTime revokedAt =
+                    SubscriptionVerificationService.toLocalDateTime(transaction.getRevocationDate());
+            revoke(subscription, revokedAt);
+            paymentHistoryRecorder.record(
+                    subscription,
+                    SubscriptionPaymentEventType.REFUND,
+                    false,
+                    null,
+                    null,
+                    transaction.getTransactionId(),
+                    revokedAt,
+                    revokedAt);
+            log.info("자가 치유 — 환불/회수 반영, 권한 종료: userId={}", subscription.getUserId());
+            return;
+        }
+        syncFromTransaction(subscription, transaction, snapshot.renewalInfo());
+    }
+
     /** 트랜잭션 payload 기준 동기화 — 갱신은 만료 연장 + 유예 해제, 플랜 변경은 상품/플랜 교체 */
     private void syncFromTransaction(
             UserSubscription subscription,
@@ -180,6 +214,20 @@ public class SubscriptionWebhookTxService {
     public void applyGoogleState(String purchaseToken, GoogleSubscriptionState state) {
         UserSubscription subscription =
                 userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
+        if (subscription == null && state.linkedPurchaseToken() != null) {
+            // LUT-499: 재구독·플랜 변경은 새 purchaseToken 을 발급하고 옛 토큰을 linkedPurchaseToken 으로 가리킨다.
+            // 옛 토큰으로 기록된 행에 이어 붙여 하나의 구독으로 유지한다(이력이 갈라지지 않게).
+            subscription =
+                    userSubscriptionRepository
+                            .findByPurchaseToken(state.linkedPurchaseToken())
+                            .orElse(null);
+            if (subscription != null) {
+                log.info(
+                        "RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰",
+                        subscription.getUserId());
+                subscription.setPurchaseToken(purchaseToken);
+            }
+        }
         if (subscription == null) {
             log.warn("RTDN 매칭 구독 행 없음 — 스킵: state={}", state.subscriptionState());
             return;
@@ -205,7 +253,8 @@ public class SubscriptionWebhookTxService {
         if (state.trial()) {
             subscription.setTrialUsed(true);
         }
-        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (Google 은 실결제가를 주지 않아 가격 null)
+        // LUT-486: 만료 엄격 연장 = 갱신 결제 이력 (Google 은 실결제가를 주지 않아 가격 null).
+        // LUT-499: 거래 ID 는 subscriptionsv2 의 latestOrderId(GPA.xxxx).
         if (subscription.getExpiresAt().isAfter(previousExpiresAt)) {
             paymentHistoryRecorder.record(
                     subscription,
@@ -213,7 +262,7 @@ public class SubscriptionWebhookTxService {
                     state.trial(),
                     null,
                     null,
-                    null,
+                    state.latestOrderId(),
                     subscription.getExpiresAt(),
                     LocalDateTime.now());
         }

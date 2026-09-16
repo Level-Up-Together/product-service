@@ -284,6 +284,46 @@ class SubscriptionWebhookTxServiceTest {
                 eq(null), eq(null), eq(null), any(), any());
         }
 
+        // LUT-499: 재구독·플랜 변경은 새 purchaseToken 을 발급하고 옛 토큰을 linkedPurchaseToken 으로 가리킨다.
+        // 새 토큰으로 온 알림을 옛 토큰 행에 이어 붙여야 이력이 갈라지지 않는다.
+        @Test
+        @DisplayName("LUT-499: 새 토큰이 매칭 안 되면 linkedPurchaseToken 행에 이어 붙이고 토큰을 교체한다")
+        void linkedPurchaseTokenContinuity() {
+            UserSubscription sub = androidRow(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByPurchaseToken("token-002"))
+                .thenReturn(Optional.empty());
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                .thenReturn(Optional.of(sub));
+
+            webhookTxService.applyGoogleState("token-002", new GoogleSubscriptionState(
+                "membership", "1y", null, NOW.plusYears(1), true, false,
+                "SUBSCRIPTION_STATE_ACTIVE", "token-001", "GPA.1234-5678"));
+
+            assertThat(sub.getPurchaseToken()).isEqualTo("token-002");
+            assertThat(sub.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
+            assertThat(sub.getExpiresAt()).isEqualTo(NOW.plusYears(1));
+            // 거래 ID = latestOrderId
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+                eq(null), eq(null), eq("GPA.1234-5678"), eq(NOW.plusYears(1)), any());
+        }
+
+        @Test
+        @DisplayName("LUT-499: 갱신 이력의 거래 ID 로 latestOrderId 를 기록한다")
+        void latestOrderIdRecorded() {
+            UserSubscription sub = androidRow(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                .thenReturn(Optional.of(sub));
+
+            webhookTxService.applyGoogleState("token-001", new GoogleSubscriptionState(
+                "membership", "1m", null, NOW.plusMonths(1), true, false,
+                "SUBSCRIPTION_STATE_ACTIVE", null, "GPA.9999-0001"));
+
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+                eq(null), eq(null), eq("GPA.9999-0001"), eq(NOW.plusMonths(1)), any());
+        }
+
         @Test
         @DisplayName("매칭 행이 없으면 예외 없이 스킵한다")
         void missingRowIsNoop() {
@@ -295,6 +335,70 @@ class SubscriptionWebhookTxServiceTest {
                     "SUBSCRIPTION_STATE_ACTIVE")))
                 .doesNotThrowAnyException();
             assertThatCode(() -> webhookTxService.revokeByPurchaseToken("token-001"))
+                .doesNotThrowAnyException();
+        }
+    }
+
+    // LUT-499: 자가 치유 — Get All Subscription Statuses 스냅샷을 웹훅과 같은 규칙으로 반영한다
+    @Nested
+    @DisplayName("Apple 스냅샷 반영 (LUT-499 자가 치유)")
+    class AppleSnapshotTest {
+
+        @Test
+        @DisplayName("최신 트랜잭션으로 만료를 연장하고 갱신 정보의 autoRenew 를 반영한다")
+        void snapshotExtendsExpiry() {
+            // JWS 만료는 ms 단위라 비교 기준도 ms 로 절삭한다
+            LocalDateTime target =
+                NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+            UserSubscription sub = row(NOW.minusDays(1));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(sub));
+            JWSRenewalInfoDecodedPayload renewal = new JWSRenewalInfoDecodedPayload()
+                .autoRenewStatus(AutoRenewStatus.ON);
+
+            webhookTxService.applyAppleSnapshot("orig-tx-001",
+                new io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto
+                    .AppleSubscriptionSnapshot(transaction("membership_1m", target), renewal));
+
+            assertThat(sub.getExpiresAt()).isEqualTo(target);
+            assertThat(sub.getAutoRenew()).isTrue();
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.RENEWAL), eq(false),
+                any(), any(), any(), eq(target), any());
+        }
+
+        @Test
+        @DisplayName("환불(revocationDate)된 트랜잭션이면 권한을 즉시 종료하고 REFUND 를 기록한다")
+        void snapshotRevoked() {
+            UserSubscription sub = row(NOW.plusDays(10));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(sub));
+            JWSTransactionDecodedPayload revoked = transaction("membership_1m", NOW.plusDays(10))
+                .transactionId("tx-777")
+                .revocationDate(millis(NOW.minusHours(1)));
+
+            webhookTxService.applyAppleSnapshot("orig-tx-001",
+                new io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto
+                    .AppleSubscriptionSnapshot(revoked, null));
+
+            assertThat(sub.isEntitled(NOW)).isFalse();
+            assertThat(sub.getAutoRenew()).isFalse();
+            verify(paymentHistoryRecorder).record(
+                eq(sub), eq(SubscriptionPaymentEventType.REFUND), eq(false),
+                eq(null), eq(null), eq("tx-777"), any(), any());
+        }
+
+        @Test
+        @DisplayName("행이나 스냅샷이 없으면 예외 없이 스킵한다")
+        void snapshotMissingIsNoop() {
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.empty());
+
+            assertThatCode(() -> webhookTxService.applyAppleSnapshot("orig-tx-001",
+                new io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto
+                    .AppleSubscriptionSnapshot(transaction("membership_1m", NOW), null)))
+                .doesNotThrowAnyException();
+            assertThatCode(() -> webhookTxService.applyAppleSnapshot("orig-tx-001", null))
                 .doesNotThrowAnyException();
         }
     }

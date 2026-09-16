@@ -173,4 +173,50 @@ class SubscriptionGrantTxServiceTest {
             .isInstanceOf(CustomException.class)
             .hasFieldOrPropertyWithValue("code", "120802");
     }
+
+    // LUT-499: 재구독으로 새 토큰을 받아도 옛 토큰(linkedPurchaseToken) 소유자가 다른 계정이면 차단 —
+    // 다른 앱 계정으로 재구독해 권한을 옮기는 우회 방지
+    @Test
+    @DisplayName("LUT-499: 새 토큰 미매칭 시 linkedPurchaseToken 소유자가 다른 계정이면 120802")
+    void crossUserReuseBlockedViaLinkedToken() {
+        UserSubscription otherUsers = existingRow(NOW.plusDays(20));
+        otherUsers.setUserId("other-user");
+        when(userSubscriptionRepository.findByPurchaseToken("token-002"))
+            .thenReturn(Optional.empty());
+        when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+            .thenReturn(Optional.of(otherUsers));
+
+        SubscriptionVerificationResult androidResult = new SubscriptionVerificationResult(
+            "membership", "1y", null, "token-002", null, NOW.plusYears(1), true, false,
+            "GPA.1111", null, null, "token-001");
+
+        assertThatThrownBy(() -> grantTxService.upsert(
+                USER_ID, SubscriptionPlan.ANNUAL, "android",
+                androidResult, NOW.plusYears(1), NOW))
+            .isInstanceOf(CustomException.class)
+            .hasFieldOrPropertyWithValue("code", "120802");
+    }
+
+    @Test
+    @DisplayName("LUT-499: linkedPurchaseToken 소유자가 본인이면 정상 갱신되고 새 토큰으로 교체된다")
+    void linkedTokenSameUserRenews() {
+        UserSubscription mine = existingRow(NOW.plusDays(20));
+        mine.setPlatform("android");
+        mine.setPurchaseToken("token-001");
+        when(userSubscriptionRepository.findByPurchaseToken("token-002"))
+            .thenReturn(Optional.empty());
+        when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+            .thenReturn(Optional.of(mine));
+        when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.of(mine));
+
+        SubscriptionVerificationResult androidResult = new SubscriptionVerificationResult(
+            "membership", "1y", null, "token-002", null, NOW.plusYears(1), true, false,
+            "GPA.1111", null, null, "token-001");
+
+        UserSubscription updated = grantTxService.upsert(
+            USER_ID, SubscriptionPlan.ANNUAL, "android", androidResult, NOW.plusYears(1), NOW);
+
+        assertThat(updated.getPurchaseToken()).isEqualTo("token-002");
+        assertThat(updated.getPlan()).isEqualTo(SubscriptionPlan.ANNUAL);
+    }
 }
