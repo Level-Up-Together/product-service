@@ -402,6 +402,8 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   iOS는 `original_transaction_id`가 갱신·플랜 변경에도 유지된다. 원장 거래 ID: iOS=transactionId, Android=`latestOrderId`(가격은 Google이 안 줌).
 - **플랜 변경**: RN `subscribeMembership`이 활성 구매의 `currentPlanId`와 다르면 `purchaseToken`(옛 토큰) + `subscriptionProductReplacementParams`
   (업그레이드 `with-time-proration`, 다운그레이드 `deferred`)를 전달. 같은 플랜 재구매는 교체 아님.
+- **verify 응답 `trial`** (LUT-500): 이번 결제 건이 무료 체험으로 시작됐는지(원장 `subscription_payment_history.trial`과 동일). `trial_used`는
+  **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
 - 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.
 
 ## 길드 활동 포인트 (LUT-483)

@@ -58,7 +58,9 @@ public class SubscriptionGrantService {
                 plan,
                 subscription.getExpiresAt(),
                 subscription.getTrialUsed());
-        return SubscriptionEntitlementResponse.of(subscription, now);
+        // LUT-500: 이번 결제 건의 무료 체험 여부(원장 trial 과 동일) — 웹 성공 문구 판정용.
+        // subscription.trialUsed 는 평생 이력이라 체험 소진 후 정가 재구독에도 true 다.
+        return SubscriptionEntitlementResponse.of(subscription, now, result.trial());
     }
 
     /** 검증 비활성(dev) 모드 기본 만료 — 플랜 기간만큼 부여 */

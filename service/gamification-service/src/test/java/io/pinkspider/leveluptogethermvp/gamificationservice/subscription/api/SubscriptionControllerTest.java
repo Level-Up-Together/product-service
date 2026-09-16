@@ -111,7 +111,11 @@ class SubscriptionControllerTest {
                             fieldWithPath("value.auto_renew").type(JsonFieldType.BOOLEAN)
                                 .description("자동갱신 여부"),
                             fieldWithPath("value.trial_used").type(JsonFieldType.BOOLEAN)
-                                .description("무료 체험 사용 여부")
+                                .description("무료 체험 사용 여부 — 유저 평생 이력(체험을 쓴 적 있음). "
+                                    + "이번 결제 건 판정에는 쓰지 말 것 (LUT-500)"),
+                            fieldWithPath("value.trial").type(JsonFieldType.BOOLEAN).optional()
+                                .description("LUT-500: 결제 건별 무료 체험 여부 — 조회 응답에서는 항상 null "
+                                    + "(/verify 응답에만 값이 실린다)")
                         )
                         .build()
                 )
@@ -134,7 +138,7 @@ class SubscriptionControllerTest {
         when(subscriptionGrantService.verifyAndGrant(anyString(), org.mockito.ArgumentMatchers.any()))
             .thenReturn(new SubscriptionEntitlementResponse(
                 SubscriptionStatus.ACTIVE, true, SubscriptionPlan.MONTHLY,
-                expiresAt, null, true, true));
+                expiresAt, null, true, true, true));
 
         SubscriptionVerifyRequest request = SubscriptionVerifyRequest.builder()
             .platform("ios")
@@ -187,7 +191,11 @@ class SubscriptionControllerTest {
                             fieldWithPath("value.auto_renew").type(JsonFieldType.BOOLEAN)
                                 .description("자동갱신 여부"),
                             fieldWithPath("value.trial_used").type(JsonFieldType.BOOLEAN)
-                                .description("무료 체험 사용 여부")
+                                .description("무료 체험 사용 여부 — 유저 평생 이력(체험을 쓴 적 있음). "
+                                    + "체험 소진 후 정가 재구독에도 true 이므로 이번 결제 판정에 쓰지 말 것 (LUT-500)"),
+                            fieldWithPath("value.trial").type(JsonFieldType.BOOLEAN).optional()
+                                .description("LUT-500: 이번 검증 결제 건이 무료 체험으로 시작됐는지 "
+                                    + "(결제 원장 subscription_payment_history.trial 과 동일) — 성공 문구 판정용")
                         )
                         .build()
                 )
@@ -199,7 +207,8 @@ class SubscriptionControllerTest {
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.status").value("ACTIVE"))
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.is_entitled").value(true))
             .andExpect(MockMvcResultMatchers.jsonPath("$.value.plan").value("MONTHLY"))
-            .andExpect(MockMvcResultMatchers.jsonPath("$.value.trial_used").value(true));
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.trial_used").value(true))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.trial").value(true));
     }
 
     @Test
