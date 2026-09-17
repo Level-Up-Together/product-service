@@ -389,14 +389,14 @@ erDiagram
 # 빌드
 ./gradlew clean build
 
-# 전체 테스트 실행 (3,600+ tests)
+# 전체 테스트 실행 (4,100+ tests)
 ./gradlew test
 
 # 모듈별 테스트 실행
-./gradlew :level-up-together-platform:kernel:test   # 43 tests
+./gradlew :level-up-together-platform:kernel:test   # 48 tests
 ./gradlew :level-up-together-platform:infra:test    # 2 tests (나머지는 service 모듈로 이동)
 ./gradlew :level-up-together-platform:saga:test     # 29 tests
-./gradlew :service:test                             # 3,585 tests
+./gradlew :service:test                             # 4,018 tests
 ./gradlew :app:test                                 # 15 tests
 
 # 단일 테스트 클래스 실행 (모듈 지정)
@@ -495,6 +495,19 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
   섹션 단위는 **탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC=나머지) × 희귀도**
 - **동시 구매 방어** — 다이아 낙관적 락(`@Version`) + `uk_user_item` 유니크 제약 (중복 구매는 실패 처리해 이중 차감 방지)
 - **어드민 연동** — `/api/internal/shop-items`(아이템 관리), `/api/internal/shop-purchases`(구매이력, LUT-328)
+
+### 인앱결제 · 구독 (IAP — Gamification Service)
+
+핑크다이아 묶음(소모품)과 멤버십 구독은 앱(RN)이 스토어 결제를 마친 뒤 서버가 영수증을 검증하고 지급합니다.
+
+- **다이아 묶음** `POST /api/v1/diamond-bundles/{id}/purchase` — iOS는 `transaction_id`(App Store Server API 검증, 영수증 없어도 됨),
+  Android는 `purchase_token`(Play Developer API). `store_transaction_id` 유니크로 **멱등 지급** — 같은 트랜잭션 재전달은 기존 기록으로 응답
+- **지급 신뢰성** (LUT-504) — 앱 기동 시 미완료 트랜잭션 여러 건이 동시에 재전달되면 `UserDiamond` 낙관적 락이 충돌하므로
+  최대 3회 재시도. 클라이언트는 서버 지급 성공 후에만 `finishTransaction` → 실패분은 다음 기동/전역 리스너가 직렬로 재처리
+- **구독** `POST /api/v1/subscriptions/verify`(최초 구매·복원 공용, 멱등) · `GET /api/v1/subscriptions/me`(만료+자동갱신이면 스토어 재조회로 자가 치유) ·
+  스토어 서버 알림 웹훅 `POST /api/v1/webhooks/subscriptions/{apple|google}` — 상태의 진실은 항상 스토어 재조회
+- **환경 분리** — 검증 자격증명(`iap.*`)은 config-repository의 dev/prod yml에 앱별(번들 ID·app-id·패키지)로 등록.
+  iOS 상품 ID는 Apple 팀 유일 제약으로 dev 앱이 `dev_` 접두사(`dev_diamond_box_*`, `dev_membership_*`)를 쓴다
 
 ### 미션 (Mission Service)
 

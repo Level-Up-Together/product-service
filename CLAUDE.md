@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 ./gradlew clean build
 
-# Run ALL tests (3,600+ tests across 5 modules)
+# Run ALL tests (4,100+ tests across 5 modules)
 ./gradlew test
 
 # Run tests by module
@@ -145,10 +145,10 @@ All REST endpoints return `ApiResult<T>`:
 
 | Module            | Tests  | Content                                                       |
 |-------------------|--------|---------------------------------------------------------------|
-| `platform:kernel` | 43     | util tests + `NotificationTypeTest`                            |
+| `platform:kernel` | 48     | util tests + `NotificationTypeTest`                            |
 | `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
 | `platform:saga`   | 29     | saga framework tests                                          |
-| `service`         | 3,585  | all service unit + controller tests                           |
+| `service`         | 4,018  | all service unit + controller tests                           |
 | `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
@@ -407,6 +407,14 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   iOS는 `original_transaction_id`가 갱신·플랜 변경에도 유지된다. 원장 거래 ID: iOS=transactionId, Android=`latestOrderId`(가격은 Google이 안 줌).
 - **플랜 변경**: RN `subscribeMembership`이 활성 구매의 `currentPlanId`와 다르면 `purchaseToken`(옛 토큰) + `subscriptionProductReplacementParams`
   (업그레이드 `with-time-proration`, 다운그레이드 `deferred`)를 전달. 같은 플랜 재구매는 교체 아님.
+- **소유권 정책** (LUT-507): 스토어 구독은 **한 번에 한 앱 계정**만 쓰고 주인은 **마지막으로 결제한 계정**. RN이 결제 직전
+  `GET /api/v1/subscriptions/app-account-token`(= 유저 UUID, `SubscriptionAccountToken`)을 받아 iOS `appAccountToken` /
+  Android `obfuscatedAccountIdAndroid`로 싣고, 서버는 거래의 토큰(iOS JWS `appAccountToken` / Google
+  `externalAccountIdentifiers.obfuscatedExternalAccountId`)을 요청 유저와 대조한다. `SubscriptionGrantTxService.resolveOwnership`:
+  ① 토큰 불일치 → 120802 ② 다른 계정 보유 + 그 계정이 활성·유예 → 120802(구매·복원 모두) ③ 다른 계정 보유 + 만료 + 더 늦은 만료의
+  새 결제 → 옛 행에서 스토어 키를 떼고(유니크 제약, flush 선행) 결제 계정으로 **이전**. 웹훅(ASSN SUBSCRIBED/DID_RENEW/OFFER_REDEEMED,
+  RTDN)도 거래 토큰이 현재 주인이 아니면 같은 upsert로 이전을 시도하고 거절(120802)되면 기존 행에 적용한다. 토큰 없는 예전 거래는
+  스토어 키 소유자 기준. 웹 안내 문구: 스토어 해지가 아니라 "기존 이용 기간 종료 후 재구독".
 - **verify 응답 `trial`** (LUT-500): 이번 결제 건이 무료 체험으로 시작됐는지(원장 `subscription_payment_history.trial`과 동일). `trial_used`는
   **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
 - 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.
