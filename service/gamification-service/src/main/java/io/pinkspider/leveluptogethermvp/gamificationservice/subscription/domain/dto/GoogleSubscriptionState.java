@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
  * @param linkedPurchaseToken LUT-499: 이 구매가 대체한 이전 purchaseToken(재구독·플랜 변경 시 존재). 구독 연속성
  *     키 — 새 토큰으로 온 알림을 옛 토큰으로 기록된 행에 이어 붙이는 데 쓴다. 없으면 null
  * @param latestOrderId LUT-499: 최신 결제 주문 ID(GPA.xxxx) — 결제 이력의 거래 ID. 없으면 null
+ * @param obfuscatedExternalAccountId LUT-507: 결제 시 앱이 실은 obfuscatedAccountId(= 앱 계정 토큰) — 실제 결제
+ *     계정 판정용. 없으면 null
  */
 public record GoogleSubscriptionState(
         String productId,
@@ -28,7 +30,32 @@ public record GoogleSubscriptionState(
         boolean trial,
         String subscriptionState,
         String linkedPurchaseToken,
-        String latestOrderId) {
+        String latestOrderId,
+        String obfuscatedExternalAccountId) {
+
+    /** LUT-507 이전 시그니처 유지 — 앱 계정 토큰 미확보 경로용 */
+    public GoogleSubscriptionState(
+            String productId,
+            String basePlanId,
+            LocalDateTime startedAt,
+            LocalDateTime expiresAt,
+            boolean autoRenew,
+            boolean trial,
+            String subscriptionState,
+            String linkedPurchaseToken,
+            String latestOrderId) {
+        this(
+                productId,
+                basePlanId,
+                startedAt,
+                expiresAt,
+                autoRenew,
+                trial,
+                subscriptionState,
+                linkedPurchaseToken,
+                latestOrderId,
+                null);
+    }
 
     /** LUT-499 이전 시그니처 유지 — 연속성 키·주문 ID 미확보 경로용 */
     public GoogleSubscriptionState(
@@ -39,7 +66,7 @@ public record GoogleSubscriptionState(
             boolean autoRenew,
             boolean trial,
             String subscriptionState) {
-        this(productId, basePlanId, startedAt, expiresAt, autoRenew, trial, subscriptionState, null, null);
+        this(productId, basePlanId, startedAt, expiresAt, autoRenew, trial, subscriptionState, null, null, null);
     }
 
     public static final String STATE_PENDING = "SUBSCRIPTION_STATE_PENDING";

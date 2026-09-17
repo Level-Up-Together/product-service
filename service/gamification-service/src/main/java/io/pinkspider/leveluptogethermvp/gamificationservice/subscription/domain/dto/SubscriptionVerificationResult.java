@@ -20,6 +20,8 @@ import java.time.LocalDateTime;
  * @param priceCurrency 결제 통화 (ISO 4217) — priceAmount 와 짝
  * @param linkedPurchaseToken LUT-499: Android 재구독·플랜 변경으로 대체된 이전 purchaseToken — 교차 계정 가드가 옛 토큰
  *     소유자까지 확인하는 데 쓴다. iOS/미확보는 null
+ * @param appAccountToken LUT-507: 결제 시 앱이 실어 보낸 앱 계정 식별자(iOS appAccountToken / Android
+ *     obfuscatedExternalAccountId) — 거래의 실제 결제 계정 판정용. 토큰 없이 결제된 예전 거래는 null
  */
 public record SubscriptionVerificationResult(
         String storeProductId,
@@ -33,7 +35,38 @@ public record SubscriptionVerificationResult(
         String transactionId,
         BigDecimal priceAmount,
         String priceCurrency,
-        String linkedPurchaseToken) {
+        String linkedPurchaseToken,
+        String appAccountToken) {
+
+    /** LUT-507 이전 시그니처 유지 — 앱 계정 토큰 미확보 경로용 */
+    public SubscriptionVerificationResult(
+            String storeProductId,
+            String basePlanId,
+            String originalTransactionId,
+            String purchaseToken,
+            LocalDateTime startedAt,
+            LocalDateTime expiresAt,
+            boolean autoRenew,
+            boolean trial,
+            String transactionId,
+            BigDecimal priceAmount,
+            String priceCurrency,
+            String linkedPurchaseToken) {
+        this(
+                storeProductId,
+                basePlanId,
+                originalTransactionId,
+                purchaseToken,
+                startedAt,
+                expiresAt,
+                autoRenew,
+                trial,
+                transactionId,
+                priceAmount,
+                priceCurrency,
+                linkedPurchaseToken,
+                null);
+    }
 
     /** LUT-499 이전 시그니처 유지 — 연속성 키 미확보 경로(iOS·검증 비활성)용 */
     public SubscriptionVerificationResult(
@@ -60,6 +93,7 @@ public record SubscriptionVerificationResult(
                 transactionId,
                 priceAmount,
                 priceCurrency,
+                null,
                 null);
     }
 
@@ -82,6 +116,7 @@ public record SubscriptionVerificationResult(
                 expiresAt,
                 autoRenew,
                 trial,
+                null,
                 null,
                 null,
                 null,

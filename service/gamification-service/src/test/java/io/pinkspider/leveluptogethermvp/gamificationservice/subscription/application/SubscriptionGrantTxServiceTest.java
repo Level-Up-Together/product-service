@@ -197,6 +197,84 @@ class SubscriptionGrantTxServiceTest {
             .hasFieldOrPropertyWithValue("code", "120802");
     }
 
+    // LUT-507: 소유권 = 마지막으로 결제한 계정. 옛 주인이 만료됐고 더 늦은 만료의 새 결제면 결제한 계정으로 이전한다
+    @Test
+    @DisplayName("LUT-507: 옛 주인이 만료됐고 새 결제가 더 늦은 만료면 스토어 키를 떼어 요청 유저에게 이전한다")
+    void expiredOwnerTransfersToNewPayer() {
+        UserSubscription expiredOther = existingRow(NOW.minusDays(3));
+        expiredOther.setUserId("other-user");
+        when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+            .thenReturn(Optional.of(expiredOther));
+        when(userSubscriptionRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+        when(userSubscriptionRepository.saveAndFlush(any(UserSubscription.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        UserSubscription created = grantTxService.upsert(
+            USER_ID, SubscriptionPlan.MONTHLY, "ios",
+            iosResult(NOW.plusMonths(1), false), NOW.plusMonths(1), NOW);
+
+        // 옛 주인: 스토어 키 제거 + 자동갱신 끔 (유니크 제약 때문에 먼저 flush)
+        assertThat(expiredOther.getOriginalTransactionId()).isNull();
+        assertThat(expiredOther.getAutoRenew()).isFalse();
+        verify(userSubscriptionRepository).saveAndFlush(expiredOther);
+        // 새 주인: 같은 originalTransactionId 로 행 생성 + PURCHASE 이력
+        assertThat(created.getUserId()).isEqualTo(USER_ID);
+        assertThat(created.getOriginalTransactionId()).isEqualTo("orig-tx-001");
+        verify(paymentHistoryRecorder).record(
+            eq(created), eq(SubscriptionPaymentEventType.PURCHASE), eq(false),
+            any(), any(), any(), eq(NOW.plusMonths(1)), eq(NOW));
+    }
+
+    @Test
+    @DisplayName("LUT-507: 옛 주인이 만료됐어도 더 늦은 만료의 새 결제가 아니면(복원 재전달) 120802")
+    void expiredOwnerRestoreWithoutNewPaymentBlocked() {
+        UserSubscription expiredOther = existingRow(NOW.minusDays(3));
+        expiredOther.setUserId("other-user");
+        when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+            .thenReturn(Optional.of(expiredOther));
+
+        assertThatThrownBy(() -> grantTxService.upsert(
+                USER_ID, SubscriptionPlan.MONTHLY, "ios",
+                iosResult(NOW.minusDays(3), false), NOW.minusDays(3), NOW))
+            .isInstanceOf(CustomException.class)
+            .hasFieldOrPropertyWithValue("code", "120802");
+        verify(userSubscriptionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("LUT-507: 거래의 앱 계정 토큰이 요청 유저의 것이 아니면 보유 행이 없어도 120802 (다른 계정 결제 거래)")
+    void appAccountTokenMismatchBlocked() {
+        SubscriptionVerificationResult tokenOfOther = new SubscriptionVerificationResult(
+            "membership_1m", null, "orig-tx-001", null, NOW.minusMonths(1), NOW.plusMonths(1),
+            true, false, "tx-001", null, null, null, "11111111-2222-3333-4444-555555555555");
+
+        assertThatThrownBy(() -> grantTxService.upsert(
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", SubscriptionPlan.MONTHLY, "ios",
+                tokenOfOther, NOW.plusMonths(1), NOW))
+            .isInstanceOf(CustomException.class)
+            .hasFieldOrPropertyWithValue("code", "120802");
+        verify(userSubscriptionRepository, never()).findByOriginalTransactionId(any());
+    }
+
+    @Test
+    @DisplayName("LUT-507: 앱 계정 토큰이 요청 유저의 것이면 정상 진행한다 (대소문자 무관)")
+    void appAccountTokenMatchProceeds() {
+        String userId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        SubscriptionVerificationResult mine = new SubscriptionVerificationResult(
+            "membership_1m", null, "orig-tx-001", null, NOW.minusMonths(1), NOW.plusMonths(1),
+            true, false, "tx-001", null, null, null, "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
+        when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+            .thenReturn(Optional.empty());
+        when(userSubscriptionRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userSubscriptionRepository.saveAndFlush(any(UserSubscription.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        UserSubscription created = grantTxService.upsert(
+            userId, SubscriptionPlan.MONTHLY, "ios", mine, NOW.plusMonths(1), NOW);
+
+        assertThat(created.getUserId()).isEqualTo(userId);
+    }
+
     @Test
     @DisplayName("LUT-499: linkedPurchaseToken 소유자가 본인이면 정상 갱신되고 새 토큰으로 교체된다")
     void linkedTokenSameUserRenews() {

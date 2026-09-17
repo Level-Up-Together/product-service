@@ -4,6 +4,7 @@ import io.pinkspider.global.annotation.CurrentUser;
 import io.pinkspider.global.api.ApiResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionGrantService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application.SubscriptionService;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionAccountTokenResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionEntitlementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerifyRequest;
 import jakarta.validation.Valid;
@@ -31,6 +32,19 @@ public class SubscriptionController {
         return ResponseEntity.ok(
                 ApiResult.<SubscriptionEntitlementResponse>builder()
                         .value(subscriptionService.getMyEntitlement(userId))
+                        .build());
+    }
+
+    /**
+     * LUT-507: 스토어 결제에 실을 앱 계정 토큰 — 결제 직전 조회해 iOS appAccountToken / Android
+     * obfuscatedAccountIdAndroid 로 전달한다. 검증·웹훅이 거래의 실제 결제 계정을 판정하는 키.
+     */
+    @GetMapping("/app-account-token")
+    public ResponseEntity<ApiResult<SubscriptionAccountTokenResponse>> getAppAccountToken(
+            @CurrentUser String userId) {
+        return ResponseEntity.ok(
+                ApiResult.<SubscriptionAccountTokenResponse>builder()
+                        .value(subscriptionService.getAppAccountToken(userId))
                         .build());
     }
 

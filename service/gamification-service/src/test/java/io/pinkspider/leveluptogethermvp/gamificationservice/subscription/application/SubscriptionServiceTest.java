@@ -205,4 +205,16 @@ class SubscriptionServiceTest {
         assertThat(response.plan()).isEqualTo(SubscriptionPlan.ANNUAL);
         assertThat(response.autoRenew()).isFalse();
     }
+
+    @Test
+    @DisplayName("LUT-507: 앱 계정 토큰은 유저별 고정 UUID (UUID 유저 ID 는 그대로)")
+    void getAppAccountToken_isStablePerUser() {
+        String uuidUser = "4f43937f-3c7d-492a-ad0f-49e7b63a9c5c";
+
+        assertThat(subscriptionService.getAppAccountToken(uuidUser).appAccountToken())
+            .isEqualTo(uuidUser);
+        assertThat(subscriptionService.getAppAccountToken(USER_ID).appAccountToken())
+            .isEqualTo(subscriptionService.getAppAccountToken(USER_ID).appAccountToken())
+            .matches("[0-9a-f-]{36}");
+    }
 }

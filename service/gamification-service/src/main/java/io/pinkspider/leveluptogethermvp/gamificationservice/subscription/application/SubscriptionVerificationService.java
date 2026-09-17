@@ -170,6 +170,7 @@ public class SubscriptionVerificationService {
         boolean trial =
                 payload.getRawOfferType() != null
                         && payload.getRawOfferType() == APPLE_OFFER_TYPE_INTRODUCTORY;
+        // LUT-507: 결제 시 앱이 실은 appAccountToken — 스토어 계정 공유 시 실제 결제 계정 판정 키
         return new SubscriptionVerificationResult(
                 payload.getProductId(),
                 null,
@@ -181,7 +182,9 @@ public class SubscriptionVerificationService {
                 trial,
                 payload.getTransactionId(),
                 applePriceToDecimal(payload.getPrice()),
-                payload.getCurrency());
+                payload.getCurrency(),
+                null,
+                payload.getAppAccountToken() != null ? payload.getAppAccountToken().toString() : null);
     }
 
     /**
@@ -387,7 +390,8 @@ public class SubscriptionVerificationService {
                 state.latestOrderId(),
                 null,
                 null,
-                state.linkedPurchaseToken());
+                state.linkedPurchaseToken(),
+                state.obfuscatedExternalAccountId());
     }
 
     /**
@@ -443,6 +447,11 @@ public class SubscriptionVerificationService {
             // LUT-499: 연속성 키(재구독·플랜 변경으로 대체된 옛 토큰)와 최신 주문 ID(결제 이력 거래 ID)
             String linkedPurchaseToken = json.path("linkedPurchaseToken").asText(null);
             String latestOrderId = json.path("latestOrderId").asText(null);
+            // LUT-507: 결제 시 앱이 실은 obfuscatedAccountId(앱 계정 토큰)
+            String obfuscatedExternalAccountId =
+                    json.path("externalAccountIdentifiers")
+                            .path("obfuscatedExternalAccountId")
+                            .asText(null);
 
             return new GoogleSubscriptionState(
                     latest.path("productId").asText(),
@@ -453,7 +462,8 @@ public class SubscriptionVerificationService {
                     trial,
                     state,
                     linkedPurchaseToken,
-                    latestOrderId);
+                    latestOrderId,
+                    obfuscatedExternalAccountId);
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

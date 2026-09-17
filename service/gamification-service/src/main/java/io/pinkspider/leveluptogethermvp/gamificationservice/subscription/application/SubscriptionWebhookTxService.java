@@ -2,14 +2,19 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.applic
 
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
+import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionAccountToken;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionPlanMapping;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionNotification;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.AppleSubscriptionSnapshot;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.GoogleSubscriptionState;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPlan;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import java.time.LocalDateTime;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>모든 적용은 <b>상태 수렴형</b>(같은 이벤트를 몇 번 적용해도 같은 결과)이라 at-least-once 재전송에
  * 멱등하다. 행이 없으면(유저가 아직 /verify 전) 로그만 남기고 넘어간다 — 이후 /verify·Restore 가
  * 최신 상태로 등록한다.
+ *
+ * <p>LUT-507: 결제 알림(구매·갱신)의 거래에 앱 계정 토큰이 있고 그 계정이 현재 주인이 아니면, 검증과 같은
+ * 소유권 규칙({@link SubscriptionGrantTxService})으로 결제한 계정에게 이전을 시도한다 — 만료 후 다른 계정이
+ * 재구독한 경우. 옛 주인이 아직 권한이 있으면(120802) 이전하지 않고 기존 행에 그대로 적용한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +38,11 @@ public class SubscriptionWebhookTxService {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
+    private final SubscriptionGrantTxService grantTxService;
+
+    /** 주인 교체를 검토하는 결제성 알림 — 새 거래(구매·갱신·오퍼)가 동반되는 타입만 */
+    private static final Set<String> APPLE_PAYMENT_TYPES =
+            Set.of("SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED");
 
     // ========== Apple (ASSN V2) ==========
 
@@ -54,6 +68,10 @@ public class SubscriptionWebhookTxService {
 
         String type = notification.notificationType();
         JWSRenewalInfoDecodedPayload renewalInfo = notification.renewalInfo();
+        if (APPLE_PAYMENT_TYPES.contains(type)
+                && transferToPayerIfNeeded(subscription, transaction, renewalInfo)) {
+            return;
+        }
         switch (type) {
             // 구매·갱신·플랜 변경 반영·오퍼 적용 — 트랜잭션 기준으로 동기화
             case "SUBSCRIBED", "DID_RENEW", "OFFER_REDEEMED", "DID_CHANGE_RENEWAL_PREF" ->
@@ -199,6 +217,82 @@ public class SubscriptionWebhookTxService {
                 subscription.getExpiresAt());
     }
 
+    /**
+     * LUT-507: 거래의 appAccountToken 이 현재 주인이 아닌 다른 앱 계정을 가리키면 그 계정으로 이전을 시도한다.
+     * 검증 경로와 같은 upsert 를 타므로 옛 주인이 아직 권한이 있으면 120802 로 거절되고(false) 기존 행에 그대로
+     * 적용된다. 이전에 성공하면 새 주인 행에 만료·플랜·이력이 이미 기록됐으므로 true.
+     */
+    private boolean transferToPayerIfNeeded(
+            UserSubscription subscription,
+            JWSTransactionDecodedPayload transaction,
+            JWSRenewalInfoDecodedPayload renewalInfo) {
+        String token =
+                transaction.getAppAccountToken() != null
+                        ? transaction.getAppAccountToken().toString()
+                        : null;
+        String payerUserId = SubscriptionAccountToken.resolveUserId(token);
+        if (payerUserId == null
+                || payerUserId.equals(subscription.getUserId())
+                || transaction.getExpiresDate() == null
+                || transaction.getProductId() == null) {
+            return false;
+        }
+        boolean trial = transaction.getRawOfferType() != null && transaction.getRawOfferType() == 1;
+        boolean autoRenew =
+                renewalInfo == null
+                        || renewalInfo.getRawAutoRenewStatus() == null
+                        || renewalInfo.getRawAutoRenewStatus() == 1;
+        LocalDateTime expiresAt =
+                SubscriptionVerificationService.toLocalDateTime(transaction.getExpiresDate());
+        SubscriptionVerificationResult result =
+                new SubscriptionVerificationResult(
+                        transaction.getProductId(),
+                        null,
+                        transaction.getOriginalTransactionId(),
+                        null,
+                        transaction.getOriginalPurchaseDate() != null
+                                ? SubscriptionVerificationService.toLocalDateTime(
+                                        transaction.getOriginalPurchaseDate())
+                                : null,
+                        expiresAt,
+                        autoRenew,
+                        trial,
+                        transaction.getTransactionId(),
+                        SubscriptionVerificationService.applePriceToDecimal(transaction.getPrice()),
+                        transaction.getCurrency(),
+                        null,
+                        token);
+        return transferToPayer(subscription, payerUserId, "ios", result, expiresAt);
+    }
+
+    private boolean transferToPayer(
+            UserSubscription subscription,
+            String payerUserId,
+            String platform,
+            SubscriptionVerificationResult result,
+            LocalDateTime expiresAt) {
+        SubscriptionPlan plan =
+                SubscriptionPlanMapping.resolve(platform, result.storeProductId(), result.basePlanId());
+        try {
+            grantTxService.upsert(payerUserId, plan, platform, result, expiresAt, LocalDateTime.now());
+            log.info(
+                    "웹훅 구독 소유권 이전: 옛 userId={} → 결제 userId={}, platform={}, expiresAt={}",
+                    subscription.getUserId(),
+                    payerUserId,
+                    platform,
+                    expiresAt);
+            return true;
+        } catch (CustomException e) {
+            // 옛 주인이 아직 권한 보유(120802) 등 — 이전하지 않고 기존 행에 적용
+            log.info(
+                    "웹훅 구독 소유권 이전 보류: 옛 userId={}, 결제 userId={}, code={}",
+                    subscription.getUserId(),
+                    payerUserId,
+                    e.getCode());
+            return false;
+        }
+    }
+
     /** renewalInfo 의 autoRenewStatus(1=켬, 0=끔) 반영 — 없으면 유지 */
     private void applyAutoRenewStatus(
             UserSubscription subscription, JWSRenewalInfoDecodedPayload renewalInfo) {
@@ -214,6 +308,7 @@ public class SubscriptionWebhookTxService {
     public void applyGoogleState(String purchaseToken, GoogleSubscriptionState state) {
         UserSubscription subscription =
                 userSubscriptionRepository.findByPurchaseToken(purchaseToken).orElse(null);
+        boolean linkedByContinuityKey = false;
         if (subscription == null && state.linkedPurchaseToken() != null) {
             // LUT-499: 재구독·플랜 변경은 새 purchaseToken 을 발급하고 옛 토큰을 linkedPurchaseToken 으로 가리킨다.
             // 옛 토큰으로 기록된 행에 이어 붙여 하나의 구독으로 유지한다(이력이 갈라지지 않게).
@@ -221,12 +316,7 @@ public class SubscriptionWebhookTxService {
                     userSubscriptionRepository
                             .findByPurchaseToken(state.linkedPurchaseToken())
                             .orElse(null);
-            if (subscription != null) {
-                log.info(
-                        "RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰",
-                        subscription.getUserId());
-                subscription.setPurchaseToken(purchaseToken);
-            }
+            linkedByContinuityKey = subscription != null;
         }
         if (subscription == null) {
             log.warn("RTDN 매칭 구독 행 없음 — 스킵: state={}", state.subscriptionState());
@@ -235,6 +325,38 @@ public class SubscriptionWebhookTxService {
         if (state.isPending()) {
             log.info("RTDN 결제 대기 상태 — 스킵: userId={}", subscription.getUserId());
             return;
+        }
+        // LUT-507: 새 결제의 앱 계정 토큰이 다른 계정이면(만료 후 다른 계정 재구독) 결제한 계정으로 이전 —
+        // 연속성 키로 옛 주인 행에 새 토큰을 이어 붙이기 전에 판정해야 권한이 옛 주인에게 되살아나지 않는다
+        String payerUserId = SubscriptionAccountToken.resolveUserId(state.obfuscatedExternalAccountId());
+        if (payerUserId != null
+                && !payerUserId.equals(subscription.getUserId())
+                && state.expiresAt() != null
+                && state.productId() != null) {
+            SubscriptionVerificationResult result =
+                    new SubscriptionVerificationResult(
+                            state.productId(),
+                            state.basePlanId(),
+                            null,
+                            purchaseToken,
+                            state.startedAt(),
+                            state.expiresAt(),
+                            state.autoRenew(),
+                            state.trial(),
+                            state.latestOrderId(),
+                            null,
+                            null,
+                            state.linkedPurchaseToken(),
+                            state.obfuscatedExternalAccountId());
+            if (transferToPayer(subscription, payerUserId, "android", result, state.expiresAt())) {
+                return;
+            }
+        }
+        if (linkedByContinuityKey) {
+            log.info(
+                    "RTDN 연속성 키로 구독 행 연결: userId={}, 옛토큰→새토큰",
+                    subscription.getUserId());
+            subscription.setPurchaseToken(purchaseToken);
         }
 
         LocalDateTime previousExpiresAt = subscription.getExpiresAt();

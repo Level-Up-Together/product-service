@@ -1,6 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
 
 import io.pinkspider.global.exception.CustomException;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionAccountToken;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionVerificationResult;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.enums.SubscriptionPaymentEventType;
@@ -19,6 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>멱등 규칙: 같은 검증 결과의 재전송(만료가 기존보다 늦지 않음)은 행을 바꾸지 않는다. 스토어에서
  * 갓 갱신된(더 늦은 만료) 결과만 반영해, 오래된 트랜잭션의 Restore 재전송이 상태를 되감지 못하게 한다.
  * (trial_used 는 예외 — 한 번 true 면 유지·승격만 한다)
+ *
+ * <p>LUT-507 소유권 정책: 스토어 구독(originalTransactionId·purchaseToken)은 <b>한 번에 한 앱 계정만</b> 쓰고,
+ * 주인은 <b>마지막으로 결제한 계정</b>이다. 거래에 앱 계정 토큰이 있으면 요청 유저와 대조하고, 다른 계정이 보유 중인
+ * 구독은 그 계정이 아직 권한이 있으면 차단(120802), 만료됐고 더 늦은 만료의 새 결제면 결제한 계정으로 이전한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -36,7 +41,7 @@ public class SubscriptionGrantTxService {
             SubscriptionVerificationResult result,
             LocalDateTime expiresAt,
             LocalDateTime now) {
-        guardCrossUserReuse(userId, result);
+        resolveOwnership(userId, result, expiresAt, now);
 
         UserSubscription subscription =
                 userSubscriptionRepository.findByUserId(userId).orElse(null);
@@ -109,29 +114,72 @@ public class SubscriptionGrantTxService {
     }
 
     /**
-     * 같은 스토어 트랜잭션(원구독)을 다른 계정이 재사용하는 것을 차단한다 — 계정 간 권한 공유 방지.
-     * 계정 재가입 후 Restore 도 막히므로, 정당한 이전이 필요하면 CS 로 처리한다(추후 이전 정책 검토).
+     * LUT-507: 소유권 판정. 순서 — ① 거래의 앱 계정 토큰이 요청 유저의 것이 아니면 차단(다른 계정이 결제한 거래의
+     * 복원·재전달) ② 같은 스토어 구독을 다른 계정이 보유 중이면: 그 계정이 아직 권한이 있거나(활성·유예) 이 결과가 더 늦은
+     * 만료의 새 결제가 아니면 차단, 그 외(만료 후 재구독)는 옛 주인에게서 스토어 키를 떼어 요청 유저에게 이전한다.
+     *
+     * <p>토큰 없는 예전 거래는 ①을 건너뛰고 ②(스토어 키 소유자)로만 판단한다.
      */
-    private void guardCrossUserReuse(String userId, SubscriptionVerificationResult result) {
-        Optional<UserSubscription> existing = Optional.empty();
-        if (result.originalTransactionId() != null) {
-            existing =
-                    userSubscriptionRepository.findByOriginalTransactionId(
-                            result.originalTransactionId());
-        } else if (result.purchaseToken() != null) {
-            existing = userSubscriptionRepository.findByPurchaseToken(result.purchaseToken());
-            if (existing.isEmpty() && result.linkedPurchaseToken() != null) {
-                // LUT-499: 재구독으로 새 토큰을 받아도 옛 토큰(linkedPurchaseToken) 소유자를 본다 —
-                // 다른 앱 계정으로 재구독해 권한을 옮기는 우회를 막는다
-                existing = userSubscriptionRepository.findByPurchaseToken(result.linkedPurchaseToken());
-            }
-        }
-        if (existing.isPresent() && !existing.get().getUserId().equals(userId)) {
+    private void resolveOwnership(
+            String userId,
+            SubscriptionVerificationResult result,
+            LocalDateTime expiresAt,
+            LocalDateTime now) {
+        if (result.appAccountToken() != null
+                && !SubscriptionAccountToken.matches(result.appAccountToken(), userId)) {
             log.warn(
-                    "구독 트랜잭션 교차 계정 재사용 차단: 요청 userId={}, 보유 userId={}",
+                    "구독 거래 앱 계정 토큰 불일치 — 다른 계정이 결제한 거래: 요청 userId={}, token={}",
                     userId,
-                    existing.get().getUserId());
+                    result.appAccountToken());
             throw new CustomException("120802", "error.subscription.transaction_already_used");
         }
+
+        Optional<UserSubscription> existing = findByStoreKeys(result);
+        if (existing.isEmpty() || existing.get().getUserId().equals(userId)) {
+            return;
+        }
+
+        UserSubscription previousOwner = existing.get();
+        boolean previousOwnerEntitled = previousOwner.isEntitled(now);
+        boolean newerPayment = expiresAt.isAfter(previousOwner.getExpiresAt());
+        if (previousOwnerEntitled || !newerPayment) {
+            log.warn(
+                    "구독 트랜잭션 교차 계정 재사용 차단: 요청 userId={}, 보유 userId={}, 보유권한={}, 새결제={}",
+                    userId,
+                    previousOwner.getUserId(),
+                    previousOwnerEntitled,
+                    newerPayment);
+            throw new CustomException("120802", "error.subscription.transaction_already_used");
+        }
+
+        // 만료된 옛 주인 → 결제한 계정으로 이전. 스토어 키 유니크 제약 때문에 옛 행에서 먼저 떼고 flush 한다.
+        log.info(
+                "구독 소유권 이전: 옛 userId={} (만료 {}) → 새 userId={}, 새 만료={}",
+                previousOwner.getUserId(),
+                previousOwner.getExpiresAt(),
+                userId,
+                expiresAt);
+        previousOwner.setOriginalTransactionId(null);
+        previousOwner.setPurchaseToken(null);
+        previousOwner.setAutoRenew(false);
+        userSubscriptionRepository.saveAndFlush(previousOwner);
+    }
+
+    /** 스토어 키(iOS originalTransactionId / Android purchaseToken·linkedPurchaseToken)로 보유 행 조회 */
+    private Optional<UserSubscription> findByStoreKeys(SubscriptionVerificationResult result) {
+        if (result.originalTransactionId() != null) {
+            return userSubscriptionRepository.findByOriginalTransactionId(
+                    result.originalTransactionId());
+        }
+        if (result.purchaseToken() != null) {
+            Optional<UserSubscription> existing =
+                    userSubscriptionRepository.findByPurchaseToken(result.purchaseToken());
+            if (existing.isEmpty() && result.linkedPurchaseToken() != null) {
+                // LUT-499: 재구독으로 새 토큰을 받아도 옛 토큰(linkedPurchaseToken) 소유자를 본다
+                return userSubscriptionRepository.findByPurchaseToken(result.linkedPurchaseToken());
+            }
+            return existing;
+        }
+        return Optional.empty();
     }
 }

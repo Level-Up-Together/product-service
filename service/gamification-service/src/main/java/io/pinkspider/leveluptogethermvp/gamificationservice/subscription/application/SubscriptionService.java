@@ -1,5 +1,7 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.subscription.application;
 
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.SubscriptionAccountToken;
+import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionAccountTokenResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto.SubscriptionEntitlementResponse;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.infrastructure.UserSubscriptionRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.entity.UserSubscription;
@@ -43,6 +45,14 @@ public class SubscriptionService {
             subscription = userSubscriptionRepository.findByUserId(userId).orElse(subscription);
         }
         return SubscriptionEntitlementResponse.of(subscription, now);
+    }
+
+    /**
+     * LUT-507: 스토어 결제에 실을 앱 계정 토큰 — RN 이 결제 직전 조회해 iOS appAccountToken / Android
+     * obfuscatedAccountId 로 전달한다. 유저별 고정값(저장 없음).
+     */
+    public SubscriptionAccountTokenResponse getAppAccountToken(String userId) {
+        return new SubscriptionAccountTokenResponse(SubscriptionAccountToken.forUser(userId));
     }
 
     /** LUT-454: 구독 권한 보유 여부 — 활성/유예기간이면 true. 파사드(통계 게이팅)에서 사용. */

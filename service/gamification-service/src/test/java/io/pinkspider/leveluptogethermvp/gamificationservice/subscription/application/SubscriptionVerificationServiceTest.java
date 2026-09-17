@@ -137,6 +137,19 @@ class SubscriptionVerificationServiceTest {
         }
 
         @Test
+        @DisplayName("LUT-507: 결제 시 실린 appAccountToken 을 결과로 넘긴다 (없으면 null)")
+        void apple_appAccountToken_passedThrough() {
+            SubscriptionVerificationService svc = spy(service(true));
+            doReturn(payload().appAccountToken(
+                    java.util.UUID.fromString("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c")))
+                .when(svc).fetchAppleTransaction("tx-001");
+
+            SubscriptionVerificationResult result = svc.verify(iosRequest());
+
+            assertThat(result.appAccountToken()).isEqualTo("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c");
+        }
+
+        @Test
         @DisplayName("introductory offer 구매는 무료 체험 사용으로 식별한다")
         void apple_introductoryOffer_marksTrial() {
             SubscriptionVerificationService svc = spy(service(true));

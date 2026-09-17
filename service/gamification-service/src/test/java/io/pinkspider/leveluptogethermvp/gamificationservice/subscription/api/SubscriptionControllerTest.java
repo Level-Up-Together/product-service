@@ -132,6 +132,44 @@ class SubscriptionControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/subscriptions/app-account-token : 스토어 결제용 앱 계정 토큰 (LUT-507)")
+    void getAppAccountTokenTest() throws Exception {
+        when(subscriptionService.getAppAccountToken(anyString()))
+            .thenReturn(new io.pinkspider.leveluptogethermvp.gamificationservice.subscription.domain.dto
+                .SubscriptionAccountTokenResponse("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c"));
+
+        ResultActions resultActions = mockMvc.perform(
+            RestDocumentationRequestBuilders.get("/api/v1/subscriptions/app-account-token")
+                .with(user(MOCK_USER_ID))
+        ).andDo(
+            MockMvcRestDocumentationWrapper.document("구독-03. 스토어 결제용 앱 계정 토큰 조회",
+                preprocessRequest(prettyPrint()),
+                preprocessResponse(prettyPrint()),
+                resource(
+                    ResourceSnippetParameters.builder()
+                        .tag("Subscription")
+                        .description("LUT-507: 스토어 결제 직전 조회해 iOS appAccountToken / Android "
+                            + "obfuscatedAccountIdAndroid 로 그대로 전달한다 (JWT 토큰 인증 필요). "
+                            + "유저별 고정 UUID — 검증·웹훅이 거래의 실제 결제 계정을 판정하는 키")
+                        .responseFields(
+                            fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                            fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                            fieldWithPath("value").type(JsonFieldType.OBJECT).description("토큰 정보"),
+                            fieldWithPath("value.app_account_token").type(JsonFieldType.STRING)
+                                .description("스토어 결제에 실을 앱 계정 토큰 (UUID)")
+                        )
+                        .build()
+                )
+            )
+        );
+
+        resultActions
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.value.app_account_token")
+                .value("4f43937f-3c7d-492a-ad0f-49e7b63a9c5c"));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/subscriptions/verify : 구독 영수증 검증 + 권한 부여 (LUT-451)")
     void verifySubscriptionTest() throws Exception {
         LocalDateTime expiresAt = LocalDateTime.of(2026, 10, 4, 0, 0, 0);

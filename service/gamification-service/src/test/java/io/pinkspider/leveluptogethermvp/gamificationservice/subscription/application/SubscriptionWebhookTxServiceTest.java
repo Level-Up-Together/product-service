@@ -39,6 +39,9 @@ class SubscriptionWebhookTxServiceTest {
     @Mock
     private SubscriptionPaymentHistoryRecorder paymentHistoryRecorder;
 
+    @Mock
+    private SubscriptionGrantTxService grantTxService;
+
     @InjectMocks
     private SubscriptionWebhookTxService webhookTxService;
 
@@ -82,7 +85,7 @@ class SubscriptionWebhookTxServiceTest {
             when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
                 .thenReturn(Optional.of(sub));
 
-            LocalDateTime newExpiry = NOW.plusMonths(1).withNano(0);
+            LocalDateTime newExpiry = NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
             webhookTxService.applyAppleNotification(new AppleSubscriptionNotification(
                 "DID_RENEW", "BILLING_RECOVERY",
                 transaction("membership_1y", newExpiry),
@@ -186,6 +189,68 @@ class SubscriptionWebhookTxServiceTest {
             assertThat(sub.getAutoRenew()).isTrue();
         }
 
+        // LUT-507: 결제 알림의 appAccountToken 이 다른 앱 계정이면 결제한 계정으로 이전을 시도한다
+        @Test
+        @DisplayName("LUT-507: SUBSCRIBED 거래의 appAccountToken 이 다른 계정이면 그 계정으로 이전(upsert)한다")
+        void subscribedWithOtherPayerTokenTransfers() {
+            UserSubscription expired = row(NOW.minusDays(2));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(expired));
+            java.util.UUID payer = java.util.UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+            JWSTransactionDecodedPayload tx =
+                transaction("membership_1m", NOW.plusMonths(1)).appAccountToken(payer)
+                    .transactionId("tx-900");
+            when(grantTxService.upsert(eq(payer.toString()), eq(SubscriptionPlan.MONTHLY), eq("ios"),
+                    any(), eq(NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS)), any()))
+                .thenReturn(row(NOW.plusMonths(1)));
+
+            webhookTxService.applyAppleNotification(
+                new AppleSubscriptionNotification("SUBSCRIBED", "RESUBSCRIBE", tx, null));
+
+            verify(grantTxService).upsert(eq(payer.toString()), eq(SubscriptionPlan.MONTHLY), eq("ios"),
+                any(), eq(NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS)), any());
+            // 옛 주인 행은 건드리지 않는다 (이전은 upsert 가 처리)
+            assertThat(expired.getExpiresAt()).isEqualTo(NOW.minusDays(2));
+        }
+
+        @Test
+        @DisplayName("LUT-507: 이전이 거절되면(옛 주인 권한 보유, 120802) 기존 행에 그대로 동기화한다")
+        void transferRejectedFallsBackToOwnerRow() {
+            UserSubscription active = row(NOW.plusDays(10));
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(active));
+            java.util.UUID payer = java.util.UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+            JWSTransactionDecodedPayload tx =
+                transaction("membership_1m", NOW.plusMonths(1)).appAccountToken(payer);
+            when(grantTxService.upsert(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new io.pinkspider.global.exception.CustomException(
+                    "120802", "error.subscription.transaction_already_used"));
+
+            assertThatCode(() -> webhookTxService.applyAppleNotification(
+                    new AppleSubscriptionNotification("DID_RENEW", null, tx, null)))
+                .doesNotThrowAnyException();
+
+            assertThat(active.getExpiresAt()).isEqualTo(NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+        }
+
+        @Test
+        @DisplayName("LUT-507: appAccountToken 이 현재 주인이면 이전 없이 동기화한다")
+        void ownerTokenNoTransfer() {
+            UserSubscription mine = row(NOW.plusDays(10));
+            mine.setUserId("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+            when(userSubscriptionRepository.findByOriginalTransactionId("orig-tx-001"))
+                .thenReturn(Optional.of(mine));
+            JWSTransactionDecodedPayload tx =
+                transaction("membership_1m", NOW.plusMonths(1))
+                    .appAccountToken(java.util.UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"));
+
+            webhookTxService.applyAppleNotification(
+                new AppleSubscriptionNotification("DID_RENEW", null, tx, null));
+
+            verify(grantTxService, never()).upsert(any(), any(), any(), any(), any(), any());
+            assertThat(mine.getExpiresAt()).isEqualTo(NOW.plusMonths(1).truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+        }
+
         @Test
         @DisplayName("매칭 행이 없으면 예외 없이 스킵한다 (verify 이전 구매)")
         void missingRowIsNoop() {
@@ -286,6 +351,32 @@ class SubscriptionWebhookTxServiceTest {
 
         // LUT-499: 재구독·플랜 변경은 새 purchaseToken 을 발급하고 옛 토큰을 linkedPurchaseToken 으로 가리킨다.
         // 새 토큰으로 온 알림을 옛 토큰 행에 이어 붙여야 이력이 갈라지지 않는다.
+        // LUT-507: 만료된 옛 주인의 옛 토큰(linkedPurchaseToken)으로 매칭됐지만 새 결제의 obfuscatedExternalAccountId 가
+        // 다른 앱 계정이면 옛 행에 이어 붙이지 않고 결제한 계정으로 이전한다 (옛 주인 권한이 되살아나면 안 된다)
+        @Test
+        @DisplayName("LUT-507: 새 결제의 앱 계정 토큰이 다른 계정이면 연속성 키로 잇지 않고 그 계정으로 이전한다")
+        void googleResubscribeByOtherAccountTransfers() {
+            UserSubscription expiredOld = androidRow(NOW.minusDays(5));
+            when(userSubscriptionRepository.findByPurchaseToken("token-002"))
+                .thenReturn(Optional.empty());
+            when(userSubscriptionRepository.findByPurchaseToken("token-001"))
+                .thenReturn(Optional.of(expiredOld));
+            String payer = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+            when(grantTxService.upsert(eq(payer), eq(SubscriptionPlan.ANNUAL), eq("android"),
+                    any(), eq(NOW.plusYears(1)), any()))
+                .thenReturn(androidRow(NOW.plusYears(1)));
+
+            webhookTxService.applyGoogleState("token-002", new GoogleSubscriptionState(
+                "membership", "1y", null, NOW.plusYears(1), true, false,
+                "SUBSCRIPTION_STATE_ACTIVE", "token-001", "GPA.2222", payer));
+
+            verify(grantTxService).upsert(eq(payer), eq(SubscriptionPlan.ANNUAL), eq("android"),
+                any(), eq(NOW.plusYears(1)), any());
+            // 옛 주인 행은 토큰 교체·만료 연장 없이 그대로
+            assertThat(expiredOld.getPurchaseToken()).isEqualTo("token-001");
+            assertThat(expiredOld.getExpiresAt()).isEqualTo(NOW.minusDays(5));
+        }
+
         @Test
         @DisplayName("LUT-499: 새 토큰이 매칭 안 되면 linkedPurchaseToken 행에 이어 붙이고 토큰을 교체한다")
         void linkedPurchaseTokenContinuity() {
