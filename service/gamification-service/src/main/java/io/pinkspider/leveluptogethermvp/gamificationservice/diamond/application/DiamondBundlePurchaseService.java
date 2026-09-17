@@ -12,6 +12,7 @@ import io.pinkspider.leveluptogethermvp.gamificationservice.diamond.infrastructu
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,6 +21,10 @@ import org.springframework.stereotype.Service;
  * <p>외부 영수증 검증(HTTP)은 트랜잭션 밖에서 수행하고, 구매 기록 + 지급만
  * {@link DiamondBundlePurchaseTxService} 한 트랜잭션으로 묶는다.
  * 멱등성은 store_transaction_id 유니크 제약이 보장 — 재요청은 기존 기록을 돌려준다.
+ *
+ * <p>LUT-504: 같은 유저의 지급이 동시에 들어오면(앱 기동 시 고아 트랜잭션 여러 건 재전달)
+ * {@code UserDiamond} 낙관적 락(@Version)이 충돌한다. 트랜잭션 전체가 롤백돼 구매 기록도 남지 않으므로
+ * 짧게 재시도하면 두 건 모두 지급된다 — 500 으로 끝내면 클라이언트가 finish 를 못 해 큐에 남는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +36,9 @@ public class DiamondBundlePurchaseService {
     private final IapVerificationService iapVerificationService;
     private final DiamondBundlePurchaseTxService purchaseTxService;
     private final DiamondService diamondService;
+
+    /** 낙관적 락 충돌 재시도 횟수 — 동시 재전달은 보통 2~3건이라 이 안에서 해소된다 */
+    static final int OPTIMISTIC_LOCK_MAX_ATTEMPTS = 3;
 
     public DiamondBundlePurchaseResponse purchase(
             String userId, Long bundleId, DiamondBundlePurchaseRequest request) {
@@ -55,7 +63,7 @@ public class DiamondBundlePurchaseService {
         }
 
         try {
-            int balanceAfter = purchaseTxService.recordAndGrant(userId, bundle, request, verification);
+            int balanceAfter = recordAndGrantWithRetry(userId, bundle, request, verification);
             UserDiamondBalanceResponse balances = diamondService.getBalances(userId);
             log.info("핑크다이아 묶음 구매 완료: userId={}, bundleId={}, count={}, tx={}",
                 userId, bundleId, bundle.getDiamondCount(), transactionId);
@@ -68,6 +76,37 @@ public class DiamondBundlePurchaseService {
                 .findByStoreTransactionId(transactionId)
                 .orElseThrow(() -> new CustomException("120702", "error.iap.verification_failed"));
             return alreadyProcessed(userId, processed);
+        }
+    }
+
+    /**
+     * LUT-504: 낙관적 락 충돌은 재시도한다. 유니크 위반(멱등)은 그대로 던져 호출부가 기존 기록으로 응답하게 둔다.
+     * 마지막 시도까지 충돌하면 예외를 그대로 올린다 — 클라이언트는 pending 을 유지해 다음 기회에 재전달한다.
+     */
+    private int recordAndGrantWithRetry(
+            String userId, DiamondBundle bundle,
+            DiamondBundlePurchaseRequest request, IapVerificationResult verification) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return purchaseTxService.recordAndGrant(userId, bundle, request, verification);
+            } catch (ObjectOptimisticLockingFailureException e) {
+                if (attempt >= OPTIMISTIC_LOCK_MAX_ATTEMPTS) {
+                    log.warn("핑크다이아 지급 낙관적 락 충돌 — 재시도 소진: userId={}, tx={}, attempts={}",
+                        userId, verification.transactionId(), attempt);
+                    throw e;
+                }
+                log.info("핑크다이아 지급 낙관적 락 충돌 — 재시도: userId={}, tx={}, attempt={}",
+                    userId, verification.transactionId(), attempt);
+                backoff(attempt);
+            }
+        }
+    }
+
+    private static void backoff(int attempt) {
+        try {
+            Thread.sleep(50L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +28,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DiamondBundlePurchaseService 테스트 (LUT-354)")
@@ -133,6 +135,42 @@ class DiamondBundlePurchaseServiceTest {
             purchaseService.purchase(USER_ID, 1L, request("pink_100"));
 
         assertThat(response.alreadyProcessed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("LUT-504: 낙관적 락 충돌(동시 고아 재전달)은 재시도해 지급을 완료한다")
+    void purchase_optimisticLockConflict_retriesAndSucceeds() {
+        when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
+        when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
+            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
+            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L))
+            .thenReturn(110);
+        when(diamondService.getBalances(USER_ID))
+            .thenReturn(UserDiamondBalanceResponse.of(10, 100));
+
+        DiamondBundlePurchaseResponse response =
+            purchaseService.purchase(USER_ID, 1L, request("pink_100"));
+
+        assertThat(response.alreadyProcessed()).isFalse();
+        assertThat(response.balance()).isEqualTo(110);
+        verify(purchaseTxService, times(3)).recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
+    }
+
+    @Test
+    @DisplayName("LUT-504: 낙관적 락 충돌이 재시도 횟수를 넘기면 예외를 그대로 올린다 (클라이언트 pending 유지)")
+    void purchase_optimisticLockConflict_exhausted_throws() {
+        when(diamondBundleRepository.findById(1L)).thenReturn(Optional.of(bundle(1L, "pink_100")));
+        when(iapVerificationService.verify(any())).thenReturn(VERIFICATION);
+        when(purchaseRepository.findByStoreTransactionId(TX_ID)).thenReturn(Optional.empty());
+        when(purchaseTxService.recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION)))
+            .thenThrow(new ObjectOptimisticLockingFailureException("UserDiamond", 11L));
+
+        assertThatThrownBy(() -> purchaseService.purchase(USER_ID, 1L, request("pink_100")))
+            .isInstanceOf(ObjectOptimisticLockingFailureException.class);
+        verify(purchaseTxService, times(DiamondBundlePurchaseService.OPTIMISTIC_LOCK_MAX_ATTEMPTS))
+            .recordAndGrant(eq(USER_ID), any(), any(), eq(VERIFICATION));
     }
 
     @Test

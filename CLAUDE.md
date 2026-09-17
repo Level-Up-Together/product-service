@@ -340,6 +340,11 @@ public void run() { ...}
   prod→sandbox 폴백)로 상품 일치·미환불(`revocationDate`)을 검증한다 — 구독 검증과 같은 경로. `receipt`가 있으면 기존
   `verifyReceipt` 경로 유지. 예전엔 receipt 필수(120701)라 iOS 다이아 결제가 dev에서 항상 실패했다.
   RN 스토어 결제 대기에는 4분 타임아웃(`STORE_PURCHASE_TIMEOUT_MS`, 웹 브릿지 5분보다 짧게)이 있어 무응답 시 `store_timeout`으로 회신한다.
+- **동시 지급 낙관락 충돌** (LUT-504): 앱 기동 시 StoreKit이 미완료 트랜잭션 여러 건을 한꺼번에 재전달하면 같은 유저의
+  `UserDiamond`(@Version) 갱신이 충돌해 500이 났고, 클라이언트가 finish를 못 해 큐에 남았다. `DiamondBundlePurchaseService`가
+  `ObjectOptimisticLockingFailureException`을 최대 3회 재시도하고(트랜잭션 전체 롤백이라 구매 기록 중복 없음), RN은 고아 재전달을
+  직렬 큐로 하나씩 보낸다. iOS 구독은 결제 전 활성 구독을 서버 검증해 다른 계정 소유(120802)면 스토어에 가지 않고 즉시 회신한다 —
+  StoreKit은 이미 구독 중이면 이벤트 없이 시스템 알럿만 띄워 60초 행이 걸렸다. 웹은 `timeout`/`store_timeout`을 "결과 미확인"으로 안내한다.
 
 | 엔드포인트                                                             | 인증            | 용도                                    |
 |-------------------------------------------------------------------|---------------|---------------------------------------|
