@@ -13,6 +13,15 @@ Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ### ----------------------------------------------------------
+### 스토어 결제용 앱 계정 토큰 (LUT-507) — 결제 직전 조회
+### iOS appAccountToken / Android obfuscatedAccountIdAndroid 로 그대로 전달
+### 응답: app_account_token (유저별 고정 UUID = 유저 ID)
+### ----------------------------------------------------------
+GET {{baseUrl}}/api/v1/subscriptions/app-account-token
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### ----------------------------------------------------------
 ### 구독 영수증 검증 + 권한 부여 (LUT-451) — 최초 구매/복원 공용, 멱등
 ### ios: transaction_id / android: purchase_token (+dev 스킵 모드는 base_plan_id 힌트)
 ### ----------------------------------------------------------

@@ -7,17 +7,22 @@
 | 카테고리                 | 기술                                             |
 |----------------------|------------------------------------------------|
 | **Framework**        | Spring Boot 3.4.5, Spring Cloud 2024.0.0       |
-| **Language**         | Java 21 (JDK 25 빌드 호환)                         |
+| **Language**         | Java 21                                        |
 | **Build**            | Gradle 8.14.3                                  |
 | **Database**         | PostgreSQL (Production), H2 (Test)             |
 | **Cache**            | Redis (Lettuce)                                |
 | **Messaging**        | Redis Streams + Pub/Sub (푸시 발행 / 실시간 릴레이)  |
 | **API**              | REST + GraphQL (Netflix DGS)                   |
 | **Documentation**    | Spring REST Docs + OpenAPI 3.0                 |
-| **Query**            | QueryDSL (타입 안전 쿼리)                            |
+| **Query**            | QueryDSL 5.0.0 (jakarta, 타입 안전 쿼리)             |
 | **Resilience**       | Resilience4j (Circuit Breaker)                 |
 | **Image Moderation** | ONNX Runtime 1.17.3 (OpenNSFW2 모델)             |
 | **Image Storage**    | AWS S3 + CloudFront CDN (prod), Local FS (dev) |
+| **Scheduling**       | ShedLock 5.16.0 (Redis SETNX 분산 락)              |
+| **Push**             | Firebase Admin 9.2.0 (FCM)                     |
+| **IAP 검증**          | Apple App Store Server Library 5.2.0, Google Play Developer API |
+| **Formatting**       | Spotless 6.25.0 + google-java-format (AOSP)     |
+| **API Spec**         | restdocs-api-spec 0.17.1 (REST Docs → OpenAPI)  |
 
 ## 아키텍처
 
@@ -32,7 +37,8 @@ product-service/
 │   ├── src/main/java/         ← Global infra (datasource, security, moderation 등)
 │   ├── user-service/src/main/java/
 │   ├── guild-service/src/main/java/
-│   └── ... (11 directories)
+│   ├── ... (11 service directories)
+│   └── shared-test/src/test/java/   ← 컨트롤러 테스트 공용 설정 (ControllerTestConfig, MockUtil 등)
 └── app/           ← Bootstrap, 설정 파일, DGS codegen, JaCoCo
 
 level-up-together-platform/    ← includeBuild (별도 레포, CI에서는 GitHub Packages)
@@ -149,6 +155,12 @@ graph TB
     class REDIS,MONGO external
     class APP,WEB,ADMIN client
 ```
+
+### 아키텍처 결정 기록 (ADR)
+
+`docs/adr/` — ADR-001 Multi-Service Monolith · ADR-002 Event-Driven 통신 · ADR-003 Saga · ADR-004 BFF · ADR-005 Gradle Multi-Module 전환 ·
+ADR-006 MSA/Admin Service 전략. 기술 검토 문서는 `docs/TD/`(피드 콘텐츠 규칙, 글로벌 서비스 로드맵, 미션 타입 계층 등),
+상점 어드민 설계는 `docs/SHOP_ITEM_ADMIN_DESIGN.md`.
 
 ### 서비스 간 의존성
 
@@ -281,34 +293,36 @@ graph LR
 erDiagram
     user_db {
         users PK
-        user_term_agreement FK
-        term
-        term_version
-        quest
-        quest_progress
-        friend
-        friend_request
-        user_token
+        friendship "친구·차단(BLOCKED)"
+        terms
+        term_versions
+        user_term_agreements FK
+        user_ui_preference "UI 환경설정(LUT-437)"
+        user_blacklist
+        daily_mvp_exclusion
     }
 
     mission_db {
         mission PK
-        mission_category
+        mission_template
         mission_participant FK
         mission_execution FK
+        mission_execution_image
         mission_state_history
+        mission_comment
         daily_mission_instance FK
+        daily_mission_instance_image
     }
 
     guild_db {
         guild PK
         guild_member FK
+        guild_member_daily_point "활동 포인트(LUT-483)"
         guild_invitation FK
+        guild_join_request
         guild_post
         guild_post_comment
-        guild_join_request
         guild_experience_history
-        guild_level_config
         guild_headquarters_config
     }
 
@@ -322,22 +336,26 @@ erDiagram
 
     feed_db {
         activity_feed PK
+        activity_feed_image
         feed_comment FK
+        feed_comment_like
         feed_like FK
     }
 
     notification_db {
         notification PK
         notification_preference FK
+        device_token
     }
 
     meta_db {
         common_code PK
-        calendar_holiday
+        mission_category
         user_level_config
+        guild_level_config "누적 포인트 기준(LUT-483)"
+        attendance_reward_config
         content_translation
         profanity_word
-        attendance_reward_config
     }
 
     gamification_db {
@@ -349,15 +367,25 @@ erDiagram
         user_achievement FK
         user_stats
         user_experience
+        user_category_experience
         experience_history
         attendance_record
         event
         season
         season_rank_reward
+        season_reward_history
+        daily_mvp_history
+        daily_mvp_category_stats
         shop_item
         user_item FK
+        item_grant "어드민 수동 지급(LUT-472)"
         user_diamond
         diamond_history
+        diamond_bundle "핑크다이아 묶음(IAP)"
+        diamond_bundle_purchase
+        user_subscription "구독(LUT-450)"
+        subscription_payment_history
+        subscription_stipend
     }
 
     saga_db {
@@ -396,7 +424,7 @@ erDiagram
 ./gradlew :level-up-together-platform:kernel:test   # 48 tests
 ./gradlew :level-up-together-platform:infra:test    # 2 tests (나머지는 service 모듈로 이동)
 ./gradlew :level-up-together-platform:saga:test     # 29 tests
-./gradlew :service:test                             # 4,018 tests
+./gradlew :service:test                             # 4,032 tests
 ./gradlew :app:test                                 # 15 tests
 
 # 단일 테스트 클래스 실행 (모듈 지정)
@@ -438,13 +466,13 @@ AOSP 스타일(4-space, 100col, alphabet import sort). IntelliJ는 `google-java-
 
 ### 테스트 커버리지
 
-JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
+JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`·`app` 모듈 `jacocoTestCoverageVerification`이 `check`/CI에서 강제).
 
 ```bash
 # 테스트 실행 후 커버리지 리포트 생성
 ./gradlew test jacocoTestReport
 
-# 리포트 위치: app/build/reports/jacoco/html/index.html
+# 리포트 위치: service/build/reports/jacoco/html/index.html (서비스 코드), app/build/reports/jacoco/html/index.html
 ```
 
 ## 주요 기능
@@ -455,10 +483,13 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - **Signup Token 기반 가입 흐름** (QA-108) — OAuth 콜백 시 임시 토큰(Redis 30분 TTL) 발급, 닉네임/약관 동의 완료 시점에 비로소 INSERT
 - JWT 기반 토큰 인증 (멀티 디바이스 지원)
 - **회원탈퇴 cool-down** (QA-115) — 탈퇴 후 `app.user.withdrawal.cool-down-days`(기본 7일)이 지나야 동일 이메일+provider 재가입 허용
-- 약관 동의 관리
+- **약관 관리** (LUT-364) — `terms` → `term_versions`(DRAFT→PUBLISHED 단방향) → `user_term_agreements`. 게시가 재동의 트리거,
+  최신 버전 판정은 `published_at DESC`. 어드민은 `/api/internal/terms`
 - 친구 관리 (친구 요청/수락/거절, 전체 유저 닉네임 검색)
-- 퀘스트 (일일/주간)
+- **유저 차단** (LUT-367) — `friendship.status = BLOCKED`, `POST/DELETE /api/v1/friends/block/{targetId}`, `GET /api/v1/friends/blocked`.
+  피드·댓글 쿼리 제외, DM·친구요청·상호작용 알림 차단, 피차단자에겐 비노출
 - 마이페이지 (프로필, 통계, 선호 피드 공개범위 설정, 선호 언어 설정)
+- **UI 환경설정** (LUT-437) — `GET/PUT /api/v1/users/me/preferences`, 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정과 분리
 - **공개 프로필** — 친구 수 노출(LUT-340), 주간 캘린더(LUT-320)·피드 탭(LUT-334) 비로그인 열람 허용
 - **디바이스 세션** (LUT-336) — 세션 키는 `deviceId` 기준. `deviceType`(`web`/`ios`/`ipad`/`android`)은 `DeviceTypeResolver`가
   단일 규칙으로 정규화 (클라이언트 값 우선 → User-Agent 추정 → `web` 폴백)
@@ -473,8 +504,12 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 출석 체크 (연속 출석 보너스)
 - 이벤트 관리 (기간별 이벤트)
 - 시즌 관리 (시즌별 랭킹, 보상)
-- **랭킹**: 시즌 전체 랭킹 + 주간/월간 내 랭킹 조회(LUT-316)
-- **다이아**: 획득/사용 원장(`DiamondType` — `LEVEL_UP` / `MISSION_BOOK` / `SHOP`), 잔액 조회
+- **랭킹** `/api/v1/rankings` (전체·미션·스트릭·업적·실시간·레벨·주간/월간·카테고리·내 순위): 시즌 전체 + 주간/월간(LUT-316).
+  전체/미션/스트릭/업적/실시간/레벨 계열은 **비로그인 열람 허용**(LUT-297), `/my*`·`/nearby`는 로그인 필요
+- **기록 통계** (LUT-454) — `GET /api/v1/statistics/summary`(누적 달성·최장 스트릭·등급 도달 이력) +
+  `GET /api/v1/missions/statistics/monthly`(월간 리포트). 무료 유저는 최근 30일 범위의 월만, 과거 월은 구독 필요(`050301`) — 유일한 구독 게이팅 읽기 API
+- **구독 파생** — 피드/댓글 작성자 `is_subscriber` 뱃지 주입(LUT-455, 조회 실패 시 false), 스티펜드 지급 푸시 `SUBSCRIPTION_STIPEND`(LUT-489)
+- **다이아**: 획득/사용 원장(`DiamondType` — `LEVEL_UP` / `MISSION_BOOK` / `SHOP` / `PINK_PURCHASE` / `SUBSCRIPTION`), 잔액 조회(블루/핑크 분리, `balance`는 합계)
 
 ### 상점 / 인벤토리 (Shop — Gamification Service)
 
@@ -494,7 +529,9 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - **상위 등급 부분 해금** (LUT-349) — 내 등급 이하는 전부 해금, 내 등급 위는 **각 섹션에서 가격이 가장 낮은 3개**만 해금.
   섹션 단위는 **탭(`ShopTabGroup`: WINGS=BASIC·FULL / ETC=나머지) × 희귀도**
 - **동시 구매 방어** — 다이아 낙관적 락(`@Version`) + `uk_user_item` 유니크 제약 (중복 구매는 실패 처리해 이중 차감 방지)
-- **어드민 연동** — `/api/internal/shop-items`(아이템 관리), `/api/internal/shop-purchases`(구매이력, LUT-328)
+- **어드민 연동** — `/api/internal/shop-items`(아이템 관리), `/api/internal/shop-purchases`(구매이력, LUT-328),
+  `/api/internal/item-grants`(수동 지급·회수, 멱등, LUT-472), `/api/internal/diamond-bundles`(묶음상품), `/api/internal/diamond-payments`(결제이력)
+- **번들 삭제 금지** (LUT-404) — 결제 기록이 있는 다이아 번들은 삭제 불가, 활성 토글만 (CS·재무 증적)
 
 ### 인앱결제 · 구독 (IAP — Gamification Service)
 
@@ -559,11 +596,13 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 - 이벤트 기반 알림 생성 — Spring Event → `NotificationEventListener` → DB 저장·실시간·푸시 일괄 처리 (Kafka 미사용)
 - 푸시 알림 (FCM) — Redis Stream(`stream:app-push`) 비동기 발송, 유저 preferredLocale 기반 다국어 (발송 시점 현지화)
 - 실시간 알림 — Redis Pub/Sub → WebSocket `/user/queue/notifications` (멀티 인스턴스 릴레이, 웹 미읽음 뱃지 즉시 갱신)
-- 알림 설정 — 전체 푸시 on/off, 카테고리별(친구/길드/소셜/시스템) on/off, 방해금지 시간(유저 타임존 기준, 푸시만 억제)
+- 알림 설정 — 전체 푸시 on/off, 카테고리별(친구/길드/소셜/시스템) on/off, 방해금지 시간(유저 타임존 기준, 푸시만 억제). MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM 카테고리는 토글 없이 항상 발송
 - 미션 리마인더 푸시 — 미션별 요일·시각(30분 단위) 설정, 유저 타임존 기준 발송 (LUT-282/295)
 - DM 열람 중 푸시 억제 — presence(Redis TTL 60초) 기반, 보고 있는 대화방의 알림 미생성 (LUT-263)
 - 앱 아이콘 뱃지 동기화 — 읽음 처리 시 badge-only silent push + 웹→앱 badgeSync 브릿지 (LUT-291)
-- 디바이스 토큰 관리 (1유저 1활성 디바이스), 알림 조회/읽음/삭제
+- 디바이스 토큰 관리 (1유저 1활성 디바이스) — `/api/v1/device-tokens` (POST 등록 / DELETE 현재 기기 / DELETE `/all` / GET / POST `/badge/reset` / POST `/test-push` 테스트 발송), 알림 조회/읽음/삭제
+- 알림 타입은 platform kernel `NotificationType`(32종 — 아이템 `ITEM_PURCHASED`·`SEASON_REWARD_ITEM`·`ITEM_GRANTED`, `SUBSCRIPTION_STIPEND`,
+  `MISSION_AUTO_END_WARNING_FIRST/FINAL`, `GUILD_CREATION_ELIGIBLE` 포함)에 정의
 
 ### 고객 지원 / 신고 (Support Service)
 
@@ -574,6 +613,7 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
   - 어드민 처리 결과(`WARNING` / `USER_SUSPENDED` / `GUILD_BANNED`)는 Internal API로 MVP에 적용
     - 누적 경고 임계치 도달 시 자동 30일 정지, 누적 3회 영구강퇴
     - 처리 결과는 사용자에게 알림 발송
+- **1:1 문의 API** — `POST /api/v1/support/inquiries`(등록), `GET`(내 문의 목록), `GET /{id}`(상세), `GET /types`(문의 유형)
 
 ### 국제화 (Internationalization)
 
@@ -615,10 +655,11 @@ JaCoCo를 사용하며 최소 **70%** 커버리지를 요구합니다.
 |-------------------------------------|------------------------------------|------------------------------------------|
 | `DailyMissionInstanceScheduler`     | `0 0 0 * * *` (KST)                | 고정 미션 일일 인스턴스 자동 생성 + 자정 자동완료              |
 | `MissionAutoCompleteScheduler`      | 5분 간격 (fixedRate)                  | 만료(4시간 초과) 미션 자동 종료 + 종료 전 경고 알림(180·230분) 발송 |
-| `MissionReminderScheduler`          | 매시 0,30분 (UTC)                     | 미션 리마인더 푸시 — 설정 요일·시각(30분 단위), 유저 타임존 매칭      |
+| `MissionReminderScheduler`          | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각(30분 단위), 유저 타임존 매칭      |
 | `TokenMaintenanceScheduler`         | `0 0 2 * * *` (KST), `0 30 2` (KST) | 만료된 OAuth 세션 정리 + 고아 user_sessions 참조 정리   |
-| `DailyMvpHistoryScheduler`          | `0 0 0 * * *` (KST/AST/UTC)         | 타임존별 일간 MVP 히스토리 기록                       |
+| `DailyMvpHistoryScheduler`          | `0 0 0 * * *` (Asia/Seoul · Asia/Riyadh · UTC) | 타임존별 일간 MVP 히스토리 기록                       |
 | `SeasonRewardScheduler`             | `0 0 3 * * *` (KST)                | 종료된 시즌의 순위 보상 자동 부여                       |
+| `SubscriptionStipendScheduler`      | `0 10 0 * * *` (UTC)               | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) + 푸시(LUT-489) |
 
 ## 캐싱 전략
 
@@ -635,7 +676,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | `reportUnderReview`                                   | 1분  | 신고 진행 상태                    |
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
 
-그 외 meta/gamification 설정 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적 등)는 각 `*CacheService`의 `@Cacheable`을 사용합니다 (기본 TTL).
+그 외 설정·조회 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable`을 사용하며 **기본 설정에는 TTL이 없어(무기한) 이벤트 evict에 의존**합니다.
 
 ## API 응답 형식
 
@@ -658,7 +699,7 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 `http/` 폴더에 IntelliJ HTTP Client 형식의 API 테스트 파일이 도메인별로 분리되어 있습니다:
 `oauth-jwt`, `test-login`, `user-terms`, `mypage`, `friend`, `mission`, `guild`, `guild-chat`, `guild-dm`,
 `activity-feed`, `achievement`, `attendance`, `event`, `user-experience`, `notification`, `device-token`,
-`bff`, `home`, `meta`.
+`bff`, `home`, `meta`, `statistics`, `subscription`.
 
 환경 설정: `http/http-client.env.json` (`dev` / `local` / `test`).
 
@@ -670,6 +711,8 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 | `local` | Config Server 연동                   |
 | `dev`   | 개발 서버 환경                           |
 | `prod`  | 운영 서버 환경                           |
+| `unit-test` / `push-test` | 단위 테스트 / 푸시 연동 테스트 전용     |
+| `security-guard` | 테스트 전용 — 실제 `SecurityConfig`만 올려 공개 엔드포인트를 검증(`SecurityConfigPublicEndpointTest`) |
 
 ## 모니터링
 
@@ -679,18 +722,23 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 
 ## CI/CD
 
-- `main` 브랜치 → Production 롤링 배포 (Build → S3 Upload → ALB Deregister → SSM Deploy → Register → Health Check)
-- `develop` 브랜치 → Dev 배포 (테스트 스킵)
+- `main` push 또는 `workflow_dispatch`(수동, `skip_deploy` 옵션) → Production 롤링 배포 (`gradle-prod.yml`: Build → S3 Upload → ALB Deregister → SSM Deploy → Register → Health Check)
+- `develop`·`epic/**` push → Dev 배포 (`gradle-dev.yml`: `spotlessCheck` → `clean build`(전체 테스트 + 커버리지 검증) → scp 배포 → Swagger(REST Docs JSON) 갱신 → Slack 알림)
 - EC2 2대 무중단 배포 (ALB Target Group 순차 등록/해제)
 - 멀티 인스턴스 스케줄러는 **ShedLock**(Redis SETNX 기반)으로 단일 인스턴스에서만 실행
-- Swagger 문서 자동 업데이트
-- Slack 알림 연동
 
 ## Internal API (Admin Backend ↔ MVP)
 
 `/api/internal/**` 경로는 Admin Backend가 MVP의 도메인 데이터를 조회/조작하기 위해 사용합니다. `SecurityConfig`에서는 `permitAll`이지만
 **VPC 내부 접근 + 공유 시크릿 헤더 인증**(LUT-244)으로 보호됩니다 — `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 상세: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+
+베이스 경로 35개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
+`mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),
+`guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
+`titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
+`profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`.
+(`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
 
 | 도메인           | 베이스 경로                                                         |
 |---------------|---------------------------------------------------------------|

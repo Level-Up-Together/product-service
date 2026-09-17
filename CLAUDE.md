@@ -55,16 +55,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Service               | Database        | 주요 책임                                      |
 |-----------------------|-----------------|--------------------------------------------|
-| `userservice`         | user_db         | OAuth2, JWT, 프로필, 친구, quest                |
+| `userservice`         | user_db         | OAuth2, JWT, 프로필, 친구·차단, 약관, UI 환경설정       |
 | `missionservice`      | mission_db      | 미션 정의/진행/Saga, 미션북, daily instance(pinned) |
 | `guildservice`        | guild_db        | 길드, 멤버, 경험치, 게시판, 초대                       |
 | `chatservice`         | chat_db         | 길드 채팅, DM, 읽음 상태                           |
-| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상 설정 (Redis 캐시)         |
+| `metaservice`         | meta_db         | 공통 코드, 캘린더, 레벨/출석 보상·길드 레벨 설정 (Redis 캐시). 금칙어·콘텐츠 번역 캐시 저장소도 meta_db |
 | `feedservice`         | feed_db         | 피드 (CQRS Read Model), 좋아요, 댓글              |
 | `notificationservice` | notification_db | 알림 생성/조회, FCM 푸시, 실시간(WS), 디바이스 토큰      |
 | `gamificationservice` | gamification_db | 칭호, 업적, 통계, 경험치, 출석, 이벤트, 시즌, **상점/인벤토리/다이아** |
 | `bffservice`          | -               | BFF API 통합, 통합 검색                          |
-| `noticeservice`       | -               | 공지/안내                                      |
+| `noticeservice`       | -               | 공지/안내 (Admin Feign)                          |
 | `supportservice`      | -               | 1:1 문의 + 신고 처리 (Admin Feign)               |
 
 ### Transaction Manager (Critical)
@@ -106,7 +106,7 @@ private final UserTitleRepository userTitleRepository; // 다른 서비스 DB �
 private final GamificationQueryFacade gamificationQueryFacade;
 ```
 
-Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (22개). Entity/Enum
+Facade 인터페이스는 `lut-platform-kernel`에 정의, 각 서비스에서 구현. Facade DTO는 `io.pinkspider.global.facade.dto` (26개). Entity/Enum
 import는 현행 유지 (MSA 전환 시 교체).
 
 ### API Response Format
@@ -148,7 +148,7 @@ All REST endpoints return `ApiResult<T>`:
 | `platform:kernel` | 48     | util tests + `NotificationTypeTest`                            |
 | `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
 | `platform:saga`   | 29     | saga framework tests                                          |
-| `service`         | 4,018  | all service unit + controller tests                           |
+| `service`         | 4,032  | all service unit + controller tests                           |
 | `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
@@ -257,7 +257,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 - `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
 - 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
-- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL은 항상 발송
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 32종, LUT-410 아이템·LUT-489 스티펜드 포함)
 - GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
 - Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
 - 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
@@ -278,7 +278,7 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 | `reportUnderReview`                                   | 1분  | 신고 진행 상태                  |
 | `missionCategories`, `activeMissionCategories`        | 1시간 | 마스터 데이터 (Admin evict+reload) |
 
-그 외 meta/gamification 설정 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적 등)는 각 `*CacheService`의 `@Cacheable` 사용 (기본 TTL).
+그 외 설정·조회 캐시(`userLevelConfigs`, 길드 레벨, 출석 보상, 업적, `profanityWords`, `userDetailedTitleInfo` 등)는 각 `*CacheService`의 `@Cacheable` 사용 — **기본 설정은 TTL 없음(무기한)**이라 evict 이벤트에 전적으로 의존한다.
 
 ## Scheduler & Distributed Lock (ShedLock)
 
@@ -296,10 +296,10 @@ public void run() { ...}
 |-------------------------------------------------------------|-----------------------------|----------------------------|
 | `DailyMissionInstanceScheduler.generateDailyInstances`      | `0 0 0 * * *` KST           | 고정 미션 일일 인스턴스 생성 + 자정 자동완료 |
 | `MissionAutoCompleteScheduler.autoCompleteExpiredMissions`  | 5분 fixedRate                | 만료(4시간) 미션 자동 종료(baseExp 120) + 경고 알림  |
-| `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (서버 기본존)       | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
+| `MissionReminderScheduler.sendReminders`                    | 매시 0,30분 (zone 미지정 → JVM 기본 UTC) | 미션 리마인더 푸시 — 설정 요일·시각, 유저 preferred_timezone 기준 (LUT-282) |
 | `TokenMaintenanceScheduler.cleanupExpiredSessions`          | `0 0 2 * * *` KST           | 만료된 OAuth 세션 정리            |
 | `TokenMaintenanceScheduler.cleanupOrphanedUserSessions`     | `0 30 2 * * *` KST          | 고아 user_sessions 참조 정리     |
-| `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (KST/AST/UTC) | 타임존별 일간 MVP 기록             |
+| `DailyMvpHistoryScheduler.saveDailyMvpHistory{Kst,Ast,Utc}` | `0 0 0 * * *` (Asia/Seoul·Asia/Riyadh·UTC) | 타임존별 일간 MVP 기록             |
 | `SeasonRewardScheduler.processEndedSeasonRewards`           | `0 0 3 * * *` KST           | 종료된 시즌 보상 자동 부여            |
 | `SubscriptionStipendScheduler.grantDailyStipends`           | `0 10 0 * * *` UTC          | 구독자 일일 블루다이아 1개 지급 (LUT-453, 멱등=구독ID+지급일) |
 
@@ -311,7 +311,7 @@ public void run() { ...}
 
 ## 상점 · 다이아 경제 (gamificationservice/shop, LUT-327/348/349/350/354/356/401)
 
-다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP` / `PINK_PURCHASE`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
+다이아(`DiamondType`: `LEVEL_UP` / `MISSION_BOOK` / `SHOP` / `PINK_PURCHASE` / `SUBSCRIPTION`)로 프로필 꾸미기 아이템을 사고 장착하는 구조.
 **핑크다이아** (LUT-356): 결제 구매 재화 — `user_diamond.pink_balance`로 블루(기존 `balance`)와 분리 관리.
 `/diamonds/me` 응답의 `balance`는 블루+핑크 합계(하위호환), `blue_balance`/`pink_balance`로 세부 제공.
 묶음상품(`diamond_bundle`)은 어드민이 등록(이름·설명 다국어/개수/이미지/스토어 상품ID).
@@ -419,6 +419,16 @@ list_price      = COMMON 유저 기준가 = 최대 할증가                    
   **유저 평생 이력**이라 체험 소진 후 정가 재구독에도 true — 성공 문구 판정은 반드시 `trial`로. `/me` 응답의 `trial`은 null.
 - 테스트 환경 갱신 주기: Play 테스터 체험 3분·월 5분·연 30분(정상 갱신 6회 후 자동 취소) / iOS 샌드박스 1개월=5분 / TestFlight는 24시간 고정.
 
+## 기록 통계 · 랭킹 · UI 환경설정
+
+- **기록 통계** (LUT-454): `GET /api/v1/statistics/summary`(gamification, 누적 달성·최장 스트릭·등급 도달 이력) +
+  `GET /api/v1/missions/statistics/monthly`(mission, 월간 리포트). 무료 유저는 **최근 30일 범위의 월만**, 과거 월은 구독 필요 → `050301`.
+  파사드 `isSubscriptionEntitled`로 판정하는 유일한 구독 게이팅 읽기 API.
+- **랭킹** `/api/v1/rankings` 14개: 전체·`/missions`·`/streaks`·`/achievements`·`/realtime`·`/level`·`/level/**`는 **비로그인 허용**(LUT-297,
+  `SecurityConfig` permitAll + `SecurityConfigPublicEndpointTest`), `/my*`·`/nearby`는 인증 필요.
+- **UI 환경설정** (LUT-437): `GET/PUT /api/v1/users/me/preferences` — 기기 간 동기화되는 화면 토글(완료 미션 접기 등). 알림 설정
+  (`/api/v1/notifications/preferences`)과 별개 테이블(`user_ui_preference`).
+
 ## 길드 활동 포인트 (LUT-483)
 
 길드 **랭킹·레벨의 기준은 누적 EXP 가 아니라 활동 포인트**다 (EXP 는 표기용 잔존).
@@ -465,6 +475,7 @@ uk 멱등) — 쪼개서 수행해도 몰아서 한 것과 같은 점수. "하�
 ## Configuration Profiles
 
 설정 파일은 `app/src/main/resources/config/` (root가 아님). `application-{test,unit-test,push-test,local,dev,prod}.yml`.
+`security-guard`는 파일 없는 테스트 전용 프로필(`SecurityConfigPublicEndpointTest`가 실제 `SecurityConfig`만 올리기 위해 사용).
 
 ## 관련 프로젝트
 
@@ -521,3 +532,8 @@ UA로 덮어쓰지 않는 이유는 RN의 `Platform.OS`가 iPad에서도 `ios`�
 `/api/internal/**` — VPC 내부 접근 + 공유 시크릿 헤더 인증(LUT-244). `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 도메인별 베이스 경로, 신고 처리 워크플로우(WARNING/SUSPEND/BAN) 매핑: [
 `docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
+
+베이스 경로는 코드 기준 35개(README "Internal API" 절에 전체 목록). `docs/INTERNAL_API.md`에 빠진 것: `shop-items`, `shop-purchases`, `item-grants`,
+`diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`, `title-grants`, `titles`, `achievements`, `achievement-categories`,
+`check-logic-types`, `experience-history`, `events`, `mvp-history`, `guild-level-configs`, `user-level-configs`, `mission-images`(변형 백필),
+`guilds/exp`(EXP 백필), `guilds/{guildId}`(게시글·댓글 관리), `seasons/{seasonId}/rank-rewards`.
