@@ -67,3 +67,43 @@ Accept: application/json
   "friendNotification": true,
   "achievementNotification": true
 }
+
+### ==========================================================
+### [Internal] 어드민 푸시 캠페인 (LUT-508) — admin-service 패스스루 대상
+### 로컬은 internal api key 미설정(fail-open)이라 X-Internal-Api-Key 헤더 불필요
+### ==========================================================
+
+### 푸시 발송 요청 — 전체 활성 유저
+POST {{baseUrl}}/api/internal/push-campaigns
+X-Admin-Id: 1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "점검 안내",
+  "body": "9/22 02:00~03:00 서버 점검이 있습니다.",
+  "action_url": null,
+  "target_type": "ALL"
+}
+
+### 푸시 발송 요청 — 일부 유저
+POST {{baseUrl}}/api/internal/push-campaigns
+X-Admin-Id: 1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "이벤트 안내",
+  "body": "오늘만 다이아 2배!",
+  "action_url": "/shop",
+  "target_type": "USERS",
+  "user_ids": ["test-user-id", "test-user-id-2"]
+}
+
+### 발송 이력 목록 (최신순)
+GET {{baseUrl}}/api/internal/push-campaigns?page=0&size=20
+Accept: application/json
+
+### 발송 이력 상세 (USERS 캠페인은 target_user_ids 포함)
+GET {{baseUrl}}/api/internal/push-campaigns/1
+Accept: application/json

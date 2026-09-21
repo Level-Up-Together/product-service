@@ -145,10 +145,10 @@ All REST endpoints return `ApiResult<T>`:
 
 | Module            | Tests  | Content                                                       |
 |-------------------|--------|---------------------------------------------------------------|
-| `platform:kernel` | 48     | util tests + `NotificationTypeTest`                            |
+| `platform:kernel` | 49     | util tests + `NotificationTypeTest`                            |
 | `platform:infra`  | 2      | `RestExceptionHandlerTest` (resolver/profanity/crypto 테스트는 `service`로 이동) |
 | `platform:saga`   | 29     | saga framework tests                                          |
-| `service`         | 4,032  | all service unit + controller tests                           |
+| `service`         | 4,048  | all service unit + controller tests                           |
 | `app`             | 15     | `@SpringBootTest` (full context) + 벤치마크/통합                  |
 
 **Shared utilities**: `service/shared-test/src/test/java/` (`ControllerTestConfig`, `BaseTestController`, `MockUtil`,
@@ -257,11 +257,18 @@ Redis Stream `stream:app-push` → `AppPushMessageConsumer` → `FcmPushService`
 
 - `NotificationType`은 platform kernel에 정의 (category, messageTemplate, actionUrlPattern, dedup 여부)
 - 방해금지(quiet hours)는 유저 `preferred_timezone` 기준 판정, **푸시만 억제** (DB 저장은 유지)
-- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 32종, LUT-410 아이템·LUT-489 스티펜드 포함)
+- 카테고리 토글은 FRIEND/GUILD/SOCIAL/SYSTEM만 — MISSION/ACHIEVEMENT/INQUIRY/LEVEL/ITEM은 항상 발송 (`NotificationType` 33종, LUT-410 아이템·LUT-489 스티펜드·LUT-508 `ADMIN_PUSH` 포함)
 - GUILD_DM은 수신자가 DM방 열람 중이면 이벤트 자체 미발행 (`DmPresenceService`, Redis TTL 60초, LUT-263)
 - Consumer 재현지화는 외부 발행 타입(INQUIRY_REPLIED, admin-service 발행)만 — 내부 발행분을 재현지화하면 `{1}` 리터럴 노출 (LUT-262)
 - 뱃지 동기화 3경로: 푸시 발송 시 +1 / 읽음 처리 시 badge-only silent push(iOS, content-available 없음) / 웹→앱 `badgeSync` 브릿지(Android 유일 해제 경로) (LUT-291)
 - `Notification.is_pushed/pushed_at`은 푸시 스트림 적재 성공 시점에 마킹 — FCM 실제 전달 여부가 아니라 "푸시가 나갔어야 하는 알림" 판별용 (LUT-301)
+- **어드민 푸시 캠페인** (LUT-508, `notificationservice/application/AdminPushCampaign*`): 어드민이 제목·본문·이동 링크를 직접 써서
+  전체(ACTIVE 유저 전원, `UserQueryFacade.findAllActiveUserIds`) 또는 일부 유저에게 보낸다. `POST /api/internal/push-campaigns`가
+  `admin_push_campaign` 이력 행(PENDING)을 커밋하면 `AdminPushCampaignDispatcher`(AFTER_COMMIT + `@Async`)가 유저별로
+  `createNotification(ADMIN_PUSH)`를 호출 — **표준 파이프라인을 그대로 타므로** SYSTEM 카테고리 토글·방해금지·현지화 규칙이 적용된다
+  (`ADMIN_PUSH` 템플릿은 `{0}` 하나로 어드민 원문을 그대로 노출, 언어별 번역 없음). 결과는 sent/skipped(토글 off)/failed 건수와
+  COMPLETED/FAILED 상태로 이력에 남고, ALL 대상은 **발송 시점에 재산출**되어 요청 시 `target_count`와 미세하게 다를 수 있다.
+  중복 트리거는 PENDING 검사로 무시(재발송 없음). 에러 코드 140101(대상 없음)/140102(활성 유저 없음)/140103(캠페인 없음).
 
 ## Redis Caching
 

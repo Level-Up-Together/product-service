@@ -25,6 +25,7 @@
 | meta         | `/api/internal/{user,guild}-level-configs`, `/api/internal/attendance-reward-configs`, `/api/internal/mission-categories`, `/api/internal/profanity-words` | 메타 설정                                          |
 | gamification | `/api/internal/{achievements,achievement-categories,titles,title-grants,item-grants,events,seasons,check-logic-types,experience-history,mvp-history}`      | 게임화 어드민                                        |
 | gamification | `/api/internal/seasons/{id}/rank-rewards`                                                                                                                  | 시즌 순위 보상 어드민                                   |
+| notification | `/api/internal/push-campaigns`                                                                                                                             | 어드민 푸시 발송(전체/일부 유저) + 발송 이력 (LUT-508, `X-Admin-Id` 헤더) |
 
 ## 신고 처리 워크플로우 (Admin → MVP)
 

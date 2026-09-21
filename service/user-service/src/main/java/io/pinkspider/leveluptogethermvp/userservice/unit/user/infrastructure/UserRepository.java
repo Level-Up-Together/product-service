@@ -87,6 +87,10 @@ public interface UserRepository extends JpaRepository<Users, String> {
     @Query("SELECT u.id FROM Users u WHERE u.id IN :userIds AND u.status = 'ACTIVE'")
     List<String> findActiveUserIds(@Param("userIds") List<String> userIds);
 
+    /** LUT-508: 활성(ACTIVE) 유저 ID 전체 — 관리자 푸시 전체 발송 대상 */
+    @Query("SELECT u.id FROM Users u WHERE u.status = 'ACTIVE' ORDER BY u.createdAt ASC, u.id ASC")
+    List<String> findAllActiveUserIds();
+
     // ========== Admin Internal API 전용 ==========
 
     @Query("SELECT u FROM Users u WHERE " +

@@ -65,6 +65,11 @@ public class UserQueryFacadeService implements UserQueryFacade {
         return userRepository.findActiveUserIds(userIds);
     }
 
+    @Override
+    public List<String> findAllActiveUserIds() {
+        return userRepository.findAllActiveUserIds();
+    }
+
     // ========== 존재 확인 ==========
 
     public boolean userExistsById(String userId) {

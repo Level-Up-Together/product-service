@@ -421,10 +421,10 @@ erDiagram
 ./gradlew test
 
 # 모듈별 테스트 실행
-./gradlew :level-up-together-platform:kernel:test   # 48 tests
+./gradlew :level-up-together-platform:kernel:test   # 49 tests
 ./gradlew :level-up-together-platform:infra:test    # 2 tests (나머지는 service 모듈로 이동)
 ./gradlew :level-up-together-platform:saga:test     # 29 tests
-./gradlew :service:test                             # 4,032 tests
+./gradlew :service:test                             # 4,048 tests
 ./gradlew :app:test                                 # 15 tests
 
 # 단일 테스트 클래스 실행 (모듈 지정)
@@ -601,8 +601,11 @@ JaCoCo를 사용하며 최소 **75%** 커버리지를 요구합니다 (`service`
 - DM 열람 중 푸시 억제 — presence(Redis TTL 60초) 기반, 보고 있는 대화방의 알림 미생성 (LUT-263)
 - 앱 아이콘 뱃지 동기화 — 읽음 처리 시 badge-only silent push + 웹→앱 badgeSync 브릿지 (LUT-291)
 - 디바이스 토큰 관리 (1유저 1활성 디바이스) — `/api/v1/device-tokens` (POST 등록 / DELETE 현재 기기 / DELETE `/all` / GET / POST `/badge/reset` / POST `/test-push` 테스트 발송), 알림 조회/읽음/삭제
-- 알림 타입은 platform kernel `NotificationType`(32종 — 아이템 `ITEM_PURCHASED`·`SEASON_REWARD_ITEM`·`ITEM_GRANTED`, `SUBSCRIPTION_STIPEND`,
-  `MISSION_AUTO_END_WARNING_FIRST/FINAL`, `GUILD_CREATION_ELIGIBLE` 포함)에 정의
+- 알림 타입은 platform kernel `NotificationType`(33종 — 아이템 `ITEM_PURCHASED`·`SEASON_REWARD_ITEM`·`ITEM_GRANTED`, `SUBSCRIPTION_STIPEND`,
+  `MISSION_AUTO_END_WARNING_FIRST/FINAL`, `GUILD_CREATION_ELIGIBLE`, 어드민 자유 문구 `ADMIN_PUSH` 포함)에 정의
+- **어드민 푸시 발송** (LUT-508) — 어드민이 제목·본문·이동 링크를 직접 써서 전체 활성 유저 또는 일부 유저에게 발송.
+  `POST /api/internal/push-campaigns`가 `admin_push_campaign` 이력(PENDING)을 커밋하면 `AdminPushCampaignDispatcher`가 비동기로 유저별
+  `createNotification(ADMIN_PUSH)` 호출 — 표준 파이프라인을 타므로 SYSTEM 카테고리 토글·방해금지가 적용되고 결과는 성공/스킵/실패 건수로 이력에 남는다
 
 ### 고객 지원 / 신고 (Support Service)
 
@@ -733,11 +736,12 @@ Redis를 활용한 캐싱으로 서비스 간 호출을 최소화하고 성능�
 **VPC 내부 접근 + 공유 시크릿 헤더 인증**(LUT-244)으로 보호됩니다 — `InternalApiKeyFilter`가 `X-Internal-Api-Key` 헤더를
 `app.security.internal-api.key`와 상수시간 비교 (키 미설정 시 fail-open). 상세: [`docs/INTERNAL_API.md`](docs/INTERNAL_API.md)
 
-베이스 경로 35개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
+베이스 경로 36개 — `users`, `terms`, `feeds`, `feed-comments`, `missions`, `mission-templates`, `mission-participants`, `mission-comments`,
 `mission-categories`, `mission-images`(변형 백필, LUT-409), `guilds`, `guilds/{guildId}`(게시글·댓글 관리), `guilds/exp`(EXP 백필),
 `guild-level-configs`, `user-level-configs`, `attendance-reward-configs`, `achievements`, `achievement-categories`, `check-logic-types`,
 `titles`, `title-grants`, `experience-history`, `events`, `seasons`, `seasons/{seasonId}/rank-rewards`, `mvp-history`, `daily-mvp-exclusions`,
-`profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`.
+`profanity-words`, `shop-items`, `shop-purchases`, `item-grants`, `diamonds`(마이그레이션), `diamond-bundles`, `diamond-payments`, `subscription-payments`,
+`push-campaigns`(어드민 푸시 발송·이력, LUT-508).
 (`docs/INTERNAL_API.md`에는 이 중 일부만 정리돼 있어 보강 필요)
 
 | 도메인           | 베이스 경로                                                         |
