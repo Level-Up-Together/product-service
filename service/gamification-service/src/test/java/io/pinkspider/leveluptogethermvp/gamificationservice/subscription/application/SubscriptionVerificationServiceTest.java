@@ -234,7 +234,7 @@ class SubscriptionVerificationServiceTest {
         }
 
         @Test
-        @DisplayName("offerId가 있으면 무료 체험/오퍼 구매로 식별하고, 해지 상태면 자동갱신 false")
+        @DisplayName("최초 주문 + offerId 면 무료 체험으로 식별하고, 해지 상태면 자동갱신 false")
         void google_offerAndCanceled_mapped() throws Exception {
             RestTemplate rest = mock(RestTemplate.class);
             SubscriptionVerificationService svc = serviceWithGoogle(rest);
@@ -243,6 +243,7 @@ class SubscriptionVerificationServiceTest {
                     eq(HttpMethod.GET), any(), eq(String.class)))
                 .thenReturn(ResponseEntity.ok("{"
                     + "\"subscriptionState\":\"SUBSCRIPTION_STATE_CANCELED\","
+                    + "\"latestOrderId\":\"GPA.3385-4794-1007-42420\","
                     + "\"lineItems\":[{"
                     + "  \"productId\":\"membership\","
                     + "  \"expiryTime\":\"2026-10-04T00:00:00Z\","
@@ -254,6 +255,31 @@ class SubscriptionVerificationServiceTest {
 
             assertThat(result.autoRenew()).isFalse();
             assertThat(result.trial()).isTrue();
+        }
+
+        @Test
+        @DisplayName("LUT-514: 오퍼가 유지돼도 갱신 주문(GPA.xxx..N)이면 무료 체험이 아니다")
+        void google_renewalWithPersistedOffer_notTrial() throws Exception {
+            RestTemplate rest = mock(RestTemplate.class);
+            SubscriptionVerificationService svc = serviceWithGoogle(rest);
+            // 갱신 건: offerDetails.offerId 는 최초 구매 오퍼라 그대로 남지만 latestOrderId 에 ..N 접미사가 붙는다
+            when(rest.exchange(
+                    contains("/purchases/subscriptionsv2/tokens/token-001"),
+                    eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{"
+                    + "\"subscriptionState\":\"SUBSCRIPTION_STATE_ACTIVE\","
+                    + "\"latestOrderId\":\"GPA.3385-4794-1007-42420..0\","
+                    + "\"lineItems\":[{"
+                    + "  \"productId\":\"membership\","
+                    + "  \"expiryTime\":\"2026-10-04T00:00:00Z\","
+                    + "  \"autoRenewingPlan\":{\"autoRenewEnabled\":true},"
+                    + "  \"offerDetails\":{\"basePlanId\":\"1y\",\"offerId\":\"freetrial-7d\"}"
+                    + "}]}"));
+
+            SubscriptionVerificationResult result = svc.verify(androidRequest());
+
+            assertThat(result.transactionId()).isEqualTo("GPA.3385-4794-1007-42420..0");
+            assertThat(result.trial()).isFalse();
         }
 
         @Test
