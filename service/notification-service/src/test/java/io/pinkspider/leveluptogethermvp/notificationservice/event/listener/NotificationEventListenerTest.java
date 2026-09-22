@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pinkspider.global.event.AchievementCompletedEvent;
+import io.pinkspider.global.event.MissionAutoEndedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
 import io.pinkspider.global.event.FriendRequestAcceptedEvent;
@@ -102,6 +103,34 @@ class NotificationEventListenerTest {
                     anyString(), eq(NotificationType.MISSION_REMINDER),
                     anyLong(), isNull(), anyString());
             eventListener.handleMissionReminder(event);
+        }
+    }
+
+    // ==================== 미션 자동 종료 (LUT-510) ====================
+
+    @Nested
+    @DisplayName("미션 자동 종료 이벤트 처리")
+    class HandleMissionAutoEndedTest {
+
+        @Test
+        @DisplayName("자동 종료 이벤트 발생 시 MISSION_AUTO_ENDED 알림 서비스 호출")
+        void shouldCallNotificationServiceOnMissionAutoEnded() {
+            MissionAutoEndedEvent event = new MissionAutoEndedEvent("user-123", 10L, "아침 운동");
+            eventListener.handleMissionAutoEnded(event);
+            verify(notificationService).sendNotification(
+                eq("user-123"), eq(NotificationType.MISSION_AUTO_ENDED),
+                eq(10L), isNull(), eq("아침 운동"));
+        }
+
+        @Test
+        @DisplayName("알림 서비스 실패해도 예외를 던지지 않음")
+        void shouldNotThrowExceptionOnMissionAutoEndedFailure() {
+            MissionAutoEndedEvent event = new MissionAutoEndedEvent("user-123", 10L, "아침 운동");
+            doThrow(new RuntimeException("알림 전송 실패"))
+                .when(notificationService).sendNotification(
+                    anyString(), eq(NotificationType.MISSION_AUTO_ENDED),
+                    anyLong(), isNull(), anyString());
+            eventListener.handleMissionAutoEnded(event);
         }
     }
 

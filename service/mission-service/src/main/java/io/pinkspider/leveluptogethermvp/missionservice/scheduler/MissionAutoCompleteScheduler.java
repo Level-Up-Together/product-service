@@ -4,6 +4,7 @@ import io.pinkspider.global.enums.ExpSourceType;
 import io.pinkspider.global.enums.GuildExpSourceType;
 import io.pinkspider.global.event.MissionAutoEndMilestone;
 import io.pinkspider.global.event.MissionAutoEndWarningEvent;
+import io.pinkspider.global.event.MissionAutoEndedEvent;
 import io.pinkspider.global.facade.GamificationQueryFacade;
 import io.pinkspider.global.facade.GuildQueryFacade;
 import io.pinkspider.leveluptogethermvp.missionservice.application.DailyMissionInstanceService;
@@ -105,6 +106,11 @@ public class MissionAutoCompleteScheduler {
                     count++;
                     log.info("목표시간 도달 자동 종료 (고정): instanceId={}, target={}분",
                         instance.getId(), instance.getTargetDurationMinutes());
+                    // LUT-510: 목표시간 초과 자동 종료 알림 (유저 직접 완료/중단은 이 경로가 아님)
+                    eventPublisher.publishEvent(new MissionAutoEndedEvent(
+                        userId,
+                        instance.getParticipant().getMission().getId(),
+                        instance.getMissionTitle()));
                 } catch (Exception e) {
                     log.warn("목표시간 자동 종료 실패 (고정): instanceId={}, error={}",
                         instance.getId(), e.getMessage());
@@ -132,6 +138,11 @@ public class MissionAutoCompleteScheduler {
                     count++;
                     log.info("목표시간 도달 자동 종료 (일반): executionId={}, target={}분",
                         execution.getId(), targetMinutes);
+                    // LUT-510: 목표시간 초과 자동 종료 알림 (유저 직접 완료/중단은 이 경로가 아님)
+                    eventPublisher.publishEvent(new MissionAutoEndedEvent(
+                        userId,
+                        execution.getParticipant().getMission().getId(),
+                        execution.getParticipant().getMission().getTitle()));
                 } catch (Exception e) {
                     log.warn("목표시간 자동 종료 실패 (일반): executionId={}, error={}",
                         execution.getId(), e.getMessage());

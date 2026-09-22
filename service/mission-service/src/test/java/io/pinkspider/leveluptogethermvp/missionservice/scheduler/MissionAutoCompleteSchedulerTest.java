@@ -3,7 +3,10 @@ package io.pinkspider.leveluptogethermvp.missionservice.scheduler;
 import static io.pinkspider.global.test.TestReflectionUtils.setId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import io.pinkspider.global.event.MissionAutoEndedEvent;
+import org.mockito.ArgumentCaptor;
 
 import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionInterval;
 
@@ -306,6 +309,51 @@ class MissionAutoCompleteSchedulerTest {
             assertThat(instance.getExpEarned()).isEqualTo(10); // 기본 경험치
             assertThat(instance.getCompletionCount()).isEqualTo(1);
             assertThat(instance.getTotalExpEarned()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("LUT-510: 목표시간 도달 자동 종료 시 MissionAutoEndedEvent 를 발행한다")
+        void publishesAutoEndedEventOnTargetReached() {
+            // given: 목표시간(30분) 을 넘긴 진행중 인스턴스
+            DailyMissionInstance instance = DailyMissionInstance.builder()
+                .participant(participant)
+                .instanceDate(LocalDate.now())
+                .sequenceNumber(1)
+                .missionTitle(mission.getTitle())
+                .missionDescription(mission.getDescription())
+                .categoryName("운동")
+                .categoryId(1L)
+                .expPerCompletion(mission.getExpPerCompletion())
+                .status(ExecutionStatus.IN_PROGRESS)
+                .targetDurationMinutes(30)
+                .startedAt(LocalDateTime.now(ZoneId.of("UTC")).minusHours(1)) // 목표 30분 초과 (UTC 기준)
+                .build();
+            setId(instance, 1L);
+
+            when(executionRepository.findInProgressWarningExecutions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWarningInstances(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of(instance));
+            when(executionRepository.findInProgressWithTargetDuration())
+                .thenReturn(List.of());
+            when(executionRepository.findExpiredInProgressExecutions(any(LocalDateTime.class)))
+                .thenReturn(List.of());
+            when(instanceRepository.findExpiredInProgressInstances(any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+            // when
+            scheduler.autoCompleteExpiredMissions();
+
+            // then: 자동 종료 + 알림 이벤트 발행 (유저/미션/제목 확인)
+            verify(dailyMissionInstanceService).completeInstance(1L, USER_ID, null, false);
+            ArgumentCaptor<MissionAutoEndedEvent> captor =
+                ArgumentCaptor.forClass(MissionAutoEndedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().userId()).isEqualTo(USER_ID);
+            assertThat(captor.getValue().missionId()).isEqualTo(1L);
+            assertThat(captor.getValue().missionTitle()).isEqualTo("매일 30분 운동");
         }
 
         @Test
