@@ -439,14 +439,19 @@ public class SubscriptionVerificationService {
             String basePlanId = latest.path("offerDetails").path("basePlanId").asText(null);
             boolean autoRenew =
                     latest.path("autoRenewingPlan").path("autoRenewEnabled").asBoolean(false);
-            // offerId 존재 = 무료 체험 등 오퍼 적용 구매
-            boolean trial = latest.path("offerDetails").hasNonNull("offerId");
             LocalDateTime startedAt =
                     json.hasNonNull("startTime") ? parseRfc3339(json.path("startTime").asText()) : null;
 
             // LUT-499: 연속성 키(재구독·플랜 변경으로 대체된 옛 토큰)와 최신 주문 ID(결제 이력 거래 ID)
             String linkedPurchaseToken = json.path("linkedPurchaseToken").asText(null);
             String latestOrderId = json.path("latestOrderId").asText(null);
+            // LUT-514: 무료 체험은 최초 결제 기간에만 해당한다. offerDetails.offerId 는 "구매 시" 적용된
+            // 오퍼라 유료 갱신 건에도 그대로 유지되므로, 존재만으로 판정하면 모든 갱신이 체험으로 오기록된다.
+            // Google latestOrderId 는 최초 결제가 "GPA.xxxx", 갱신은 "GPA.xxxx..N" 접미사를 붙이므로,
+            // "오퍼 적용 + 최초 주문(접미사 없음)" 일 때만 체험으로 본다 (갱신은 항상 유료 = false).
+            boolean trial =
+                    latest.path("offerDetails").hasNonNull("offerId")
+                            && (latestOrderId == null || !latestOrderId.contains(".."));
             // LUT-507: 결제 시 앱이 실은 obfuscatedAccountId(앱 계정 토큰)
             String obfuscatedExternalAccountId =
                     json.path("externalAccountIdentifiers")
