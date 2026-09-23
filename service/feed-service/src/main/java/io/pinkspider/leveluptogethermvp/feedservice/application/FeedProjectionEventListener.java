@@ -102,6 +102,11 @@ public class FeedProjectionEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleGuildCreated(GuildCreatedEvent event) {
+        // LUT-517: 비공개 길드는 홈 활동 피드(GUILD_CREATED)를 만들지 않는다 — 길드명 노출 방지
+        if (!event.isPublic()) {
+            log.debug("비공개 길드 창설 — 활동 피드 스킵: guildId={}", event.guildId());
+            return;
+        }
         try {
             UserProfileInfo profile = userQueryFacadeService.getUserProfile(event.userId());
             feedCommandService.createActivityFeed(

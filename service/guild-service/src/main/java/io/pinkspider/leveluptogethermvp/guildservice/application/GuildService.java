@@ -122,7 +122,10 @@ public class GuildService {
         publishGuildAchievementEvents(userId, savedGuild, true, true);
 
         // 길드 창설 피드 프로젝션 이벤트 발행
-        eventPublisher.publishEvent(new GuildCreatedEvent(userId, savedGuild.getId(), savedGuild.getName()));
+        // LUT-517: 비공개 길드는 홈 활동 피드(GUILD_CREATED) 생성 제외 — isPublic 전달
+        eventPublisher.publishEvent(
+            new GuildCreatedEvent(
+                userId, savedGuild.getId(), savedGuild.getName(), savedGuild.isPublic()));
 
         log.info("길드 생성 완료: id={}, name={}, master={}", savedGuild.getId(), savedGuild.getName(), userId);
 

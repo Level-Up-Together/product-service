@@ -204,7 +204,7 @@ class FeedProjectionEventListenerTest {
         @DisplayName("길드 창설 이벤트를 수신하면 피드를 생성한다")
         void handleGuildCreated_success() {
             // given
-            GuildCreatedEvent event = new GuildCreatedEvent(TEST_USER_ID, 7L, "새로운 길드");
+            GuildCreatedEvent event = new GuildCreatedEvent(TEST_USER_ID, 7L, "새로운 길드", true);
             when(userQueryFacadeService.getUserProfile(TEST_USER_ID)).thenReturn(testProfile);
 
             // when
@@ -219,6 +219,16 @@ class FeedProjectionEventListenerTest {
                 eq("GUILD"), eq(7L), eq("새로운 길드"),
                 eq(FeedVisibility.PUBLIC), eq(7L), isNull(), isNull()
             );
+        }
+
+        @Test
+        @DisplayName("비공개 길드 창설 이벤트는 활동 피드를 생성하지 않는다 (LUT-517)")
+        void handleGuildCreated_private_skips() {
+            GuildCreatedEvent event = new GuildCreatedEvent(TEST_USER_ID, 7L, "비밀 길드", false);
+
+            feedProjectionEventListener.handleGuildCreated(event);
+
+            org.mockito.Mockito.verifyNoInteractions(feedCommandService);
         }
     }
 
