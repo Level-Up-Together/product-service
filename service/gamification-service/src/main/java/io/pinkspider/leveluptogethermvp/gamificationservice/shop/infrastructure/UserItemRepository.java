@@ -39,4 +39,9 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
         + "WHERE ui.userId = :userId AND ui.isEquipped = true AND si.itemType IN :itemTypes")
     List<UserItem> findEquippedByUserIdAndItemTypeIn(
         @Param("userId") String userId, @Param("itemTypes") Collection<ShopItemType> itemTypes);
+
+    /** LUT-516: 특정 아이템을 현재 장착 중인 유저 ID 목록 (개별 푸시 대상) */
+    @Query("SELECT DISTINCT ui.userId FROM UserItem ui "
+        + "WHERE ui.isEquipped = true AND ui.shopItem.id = :shopItemId")
+    List<String> findUserIdsByEquippedShopItemId(@Param("shopItemId") Long shopItemId);
 }

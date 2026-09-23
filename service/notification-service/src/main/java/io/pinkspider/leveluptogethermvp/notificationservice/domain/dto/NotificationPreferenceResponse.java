@@ -19,6 +19,7 @@ public class NotificationPreferenceResponse {
     private Boolean guildNotifications;
     private Boolean socialNotifications;
     private Boolean systemNotifications;
+    private Boolean itemPushNotifications;
     private Boolean quietHoursEnabled;
     private String quietHoursStart;
     private String quietHoursEnd;
@@ -30,6 +31,7 @@ public class NotificationPreferenceResponse {
             .guildNotifications(pref.getGuildNotifications())
             .socialNotifications(pref.getSocialNotifications())
             .systemNotifications(pref.getSystemNotifications())
+            .itemPushNotifications(pref.getItemPushNotifications())
             .quietHoursEnabled(pref.getQuietHoursEnabled())
             .quietHoursStart(pref.getQuietHoursStart())
             .quietHoursEnd(pref.getQuietHoursEnd())

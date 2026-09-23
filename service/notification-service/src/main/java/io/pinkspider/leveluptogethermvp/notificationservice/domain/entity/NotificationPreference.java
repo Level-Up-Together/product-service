@@ -65,6 +65,11 @@ public class NotificationPreference extends LocalDateTimeBaseEntity {
     @Builder.Default
     private Boolean systemNotifications = true;
 
+    @Column(name = "item_push_notifications")
+    @Comment("장착 아이템 푸시 알림 (LUT-516)")
+    @Builder.Default
+    private Boolean itemPushNotifications = true;
+
     @Column(name = "quiet_hours_enabled")
     @Comment("방해금지 시간 활성화")
     @Builder.Default
@@ -90,6 +95,7 @@ public class NotificationPreference extends LocalDateTimeBaseEntity {
             case "GUILD" -> guildNotifications;
             case "SOCIAL" -> socialNotifications;
             case "SYSTEM" -> systemNotifications;
+            case "ITEM_PUSH" -> itemPushNotifications;
             default -> true;
         };
     }

@@ -134,6 +134,34 @@ class NotificationEventListenerTest {
         }
     }
 
+    @Nested
+    @DisplayName("장착 아이템 푸시 이벤트 처리 (LUT-516)")
+    class HandleEquippedItemPushDueTest {
+
+        private io.pinkspider.global.event.EquippedItemPushDueEvent event() {
+            return new io.pinkspider.global.event.EquippedItemPushDueEvent(
+                "user-123", 100L, 1L, "시련의 장미", "Rose", "وردة", "バラ",
+                "부르고 있어요", "en", "ar", "ja", "/mypage/inventory");
+        }
+
+        @Test
+        @DisplayName("이벤트 발생 시 sendEquippedItemPush 를 호출한다")
+        void shouldCallNotificationService() {
+            io.pinkspider.global.event.EquippedItemPushDueEvent e = event();
+            eventListener.handleEquippedItemPushDue(e);
+            verify(notificationService).sendEquippedItemPush(e);
+        }
+
+        @Test
+        @DisplayName("알림 서비스 실패해도 예외를 던지지 않는다")
+        void shouldNotThrowOnFailure() {
+            doThrow(new RuntimeException("실패"))
+                .when(notificationService)
+                .sendEquippedItemPush(org.mockito.ArgumentMatchers.any());
+            eventListener.handleEquippedItemPushDue(event());
+        }
+    }
+
     // ==================== 칭호/업적 ====================
 
     @Nested

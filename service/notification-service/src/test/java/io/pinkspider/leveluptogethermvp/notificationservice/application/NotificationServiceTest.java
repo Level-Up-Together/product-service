@@ -1289,4 +1289,57 @@ class NotificationServiceTest {
             assertThat(captor.getValue().getActionUrl()).isEqualTo("/mypage/inventory");
         }
     }
+
+    @Nested
+    @DisplayName("sendEquippedItemPush 테스트 (LUT-516)")
+    class SendEquippedItemPushTest {
+
+        private io.pinkspider.global.event.EquippedItemPushDueEvent event(
+            String message, String messageEn, String messageAr, String messageJa) {
+            return new io.pinkspider.global.event.EquippedItemPushDueEvent(
+                TEST_USER_ID, 100L, 1L,
+                "시련의 장미", "Rose", "وردة", "バラ",
+                message, messageEn, messageAr, messageJa,
+                "/mypage/inventory");
+        }
+
+        @Test
+        @DisplayName("ITEM_PUSH 카테고리를 끈 유저에게는 발송하지 않는다")
+        void skipsWhenCategoryOff() {
+            NotificationPreference preference = NotificationPreference.builder()
+                .userId(TEST_USER_ID)
+                .itemPushNotifications(false)
+                .build();
+            setId(preference, 1L);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+
+            notificationService.sendEquippedItemPush(event("안녕", null, null, null));
+
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("수신자 locale 로 제목·본문을 만들고 {nickname} 을 치환해 저장한다")
+        void localizesAndSubstitutesNickname() {
+            NotificationPreference preference = createTestPreference(1L, TEST_USER_ID);
+            when(preferenceRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(preference));
+            io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users user =
+                io.pinkspider.leveluptogethermvp.userservice.unit.user.domain.entity.Users.builder()
+                    .nickname("루미")
+                    .preferredLocale("ko")
+                    .build();
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(user));
+            when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            notificationService.sendEquippedItemPush(
+                event("{nickname}님, 시련의 장미가 부르고 있어요.", "en", "ar", "ja"));
+
+            org.mockito.ArgumentCaptor<Notification> captor =
+                org.mockito.ArgumentCaptor.forClass(Notification.class);
+            verify(notificationRepository).save(captor.capture());
+            assertThat(captor.getValue().getTitle()).isEqualTo("시련의 장미");
+            assertThat(captor.getValue().getMessage()).isEqualTo("루미님, 시련의 장미가 부르고 있어요.");
+            assertThat(captor.getValue().getActionUrl()).isEqualTo("/mypage/inventory");
+        }
+    }
 }

@@ -9,6 +9,8 @@ import io.pinkspider.leveluptogethermvp.notificationservice.domain.dto.Notificat
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.Notification;
 import io.pinkspider.leveluptogethermvp.notificationservice.domain.entity.NotificationPreference;
 import io.pinkspider.global.enums.NotificationType;
+import io.pinkspider.global.event.EquippedItemPushDueEvent;
+import io.pinkspider.global.translation.LocaleUtils;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationPreferenceRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.infrastructure.NotificationRepository;
 import io.pinkspider.leveluptogethermvp.notificationservice.realtime.NotificationRealtimePublisher;
@@ -243,6 +245,7 @@ public class NotificationService {
         if (request.getGuildNotifications() != null) pref.setGuildNotifications(request.getGuildNotifications());
         if (request.getSocialNotifications() != null) pref.setSocialNotifications(request.getSocialNotifications());
         if (request.getSystemNotifications() != null) pref.setSystemNotifications(request.getSystemNotifications());
+        if (request.getItemPushNotifications() != null) pref.setItemPushNotifications(request.getItemPushNotifications());
         if (request.getQuietHoursEnabled() != null) pref.setQuietHoursEnabled(request.getQuietHoursEnabled());
         if (request.getQuietHoursStart() != null) pref.setQuietHoursStart(request.getQuietHoursStart());
         if (request.getQuietHoursEnd() != null) pref.setQuietHoursEnd(request.getQuietHoursEnd());
@@ -438,6 +441,36 @@ public class NotificationService {
         } catch (Exception e) {
             return Locale.ENGLISH;
         }
+    }
+
+    private String resolveUserNickname(String userId) {
+        try {
+            return userRepository.findById(userId).map(Users::getNickname).orElse("");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * LUT-516: 장착 아이템 개별 푸시 발송. 제목=아이템명, 본문=어드민 메시지(수신자 locale 선택, {nickname} 치환).
+     * 본문은 메시지 키가 아닌 DB 원문이라 createNotification 에 명시 전달한다 — 기존 파이프라인(ITEM_PUSH 카테고리
+     * 토글·방해금지·현지화 저장·FCM)을 그대로 탄다. 카테고리 off 면 createNotification 이 null 을 반환한다.
+     */
+    @Transactional(transactionManager = "notificationTransactionManager")
+    public void sendEquippedItemPush(EquippedItemPushDueEvent event) {
+        String tag = resolveUserLocale(event.userId()).toLanguageTag();
+        String title = LocaleUtils.getLocalizedText(
+            event.itemName(), event.itemNameEn(), event.itemNameAr(), event.itemNameJa(), tag);
+        String body = LocaleUtils.getLocalizedText(
+            event.message(), event.messageEn(), event.messageAr(), event.messageJa(), tag);
+        if (body != null && body.contains("{nickname}")) {
+            body = body.replace("{nickname}", resolveUserNickname(event.userId()));
+        }
+        if (body != null && body.length() > 500) {
+            body = body.substring(0, 500);
+        }
+        createNotification(event.userId(), NotificationType.EQUIPPED_ITEM_PUSH,
+            title, body, "ITEM", event.shopItemId(), event.actionUrl());
     }
 
     private String resolveNotificationMessage(String key, Locale locale, Object... args) {

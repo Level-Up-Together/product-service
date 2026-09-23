@@ -5,6 +5,7 @@ import static io.pinkspider.global.config.AsyncConfig.EVENT_EXECUTOR;
 import io.pinkspider.global.event.AchievementCompletedEvent;
 import io.pinkspider.global.event.ContentReportedEvent;
 import io.pinkspider.global.event.FeedCommentEvent;
+import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.global.event.ItemGrantedByAdminEvent;
 import io.pinkspider.global.event.FeedCommentLikedEvent;
 import io.pinkspider.global.event.FeedCommentReplyEvent;
@@ -154,6 +155,13 @@ public class NotificationEventListener {
                 localizedItemName(event.itemName(), event.itemNameEn(),
                     event.itemNameAr(), event.itemNameJa(), locale)
             }));
+    }
+
+    /** LUT-516: 장착 아이템 개별 푸시 — 스케줄러가 유저별 발행, 제목=아이템명/본문=어드민 메시지({nickname} 치환) */
+    @Async(EVENT_EXECUTOR)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleEquippedItemPushDue(EquippedItemPushDueEvent event) {
+        safeHandle("장착 아이템 푸시", () -> notificationService.sendEquippedItemPush(event));
     }
 
     /** 수신자 locale 에 맞는 아이템명 선택 — 미등록 언어는 기본값(ko) 폴백 */

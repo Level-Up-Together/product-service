@@ -18,6 +18,7 @@ public class NotificationPreferenceRequest {
     private Boolean guildNotifications;
     private Boolean socialNotifications;
     private Boolean systemNotifications;
+    private Boolean itemPushNotifications;
     private Boolean quietHoursEnabled;
     private String quietHoursStart;
     private String quietHoursEnd;

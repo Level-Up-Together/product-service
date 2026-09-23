@@ -327,6 +327,7 @@ class NotificationControllerTest {
             .guildNotifications(true)
             .socialNotifications(true)
             .systemNotifications(true)
+            .itemPushNotifications(true)
             .quietHoursEnabled(true)
             .quietHoursStart("22:00")
             .quietHoursEnd("08:00")
@@ -356,6 +357,7 @@ class NotificationControllerTest {
                             fieldWithPath("value.guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림"),
                             fieldWithPath("value.social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림"),
                             fieldWithPath("value.system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림"),
+                            fieldWithPath("value.item_push_notifications").type(JsonFieldType.BOOLEAN).description("장착 아이템 푸시 알림"),
                             fieldWithPath("value.quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화"),
                             fieldWithPath("value.quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),
                             fieldWithPath("value.quiet_hours_end").type(JsonFieldType.STRING).description("방해 금지 종료 시간").optional()
@@ -418,6 +420,7 @@ class NotificationControllerTest {
                             fieldWithPath("guild_notifications").type(JsonFieldType.BOOLEAN).description("길드 알림").optional(),
                             fieldWithPath("social_notifications").type(JsonFieldType.BOOLEAN).description("소셜 알림").optional(),
                             fieldWithPath("system_notifications").type(JsonFieldType.BOOLEAN).description("시스템 알림").optional(),
+                            fieldWithPath("item_push_notifications").type(JsonFieldType.BOOLEAN).description("장착 아이템 푸시 알림").optional(),
                             fieldWithPath("quiet_hours_enabled").type(JsonFieldType.BOOLEAN).description("방해 금지 시간 활성화").optional(),
                             fieldWithPath("quiet_hours_start").type(JsonFieldType.STRING).description("방해 금지 시작 시간").optional(),
                             fieldWithPath("quiet_hours_end").type(JsonFieldType.STRING).description("방해 금지 종료 시간").optional()
