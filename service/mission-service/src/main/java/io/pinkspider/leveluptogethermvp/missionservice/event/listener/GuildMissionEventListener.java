@@ -44,15 +44,16 @@ public class GuildMissionEventListener {
         String userId = event.userId();
         Long guildId = event.guildId();
 
-        log.info("길드 가입 이벤트 수신 - 길드 미션 자동 참여 처리: userId={}, guildId={}", userId, guildId);
+        log.info("길드 가입 이벤트 수신 - 길드 고정 미션 자동 참여 처리: userId={}, guildId={}", userId, guildId);
 
-        List<Mission> guildMissions = missionRepository.findGuildMissions(
+        // LUT-518: 가입 시에는 진행중인 고정 미션만 자동 생성 (일반 길드 미션은 제외)
+        List<Mission> guildMissions = missionRepository.findActivePinnedGuildMissions(
             String.valueOf(guildId),
             List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS)
         );
 
         if (guildMissions.isEmpty()) {
-            log.debug("활성 길드 미션 없음: guildId={}", guildId);
+            log.debug("활성 고정 길드 미션 없음: guildId={}", guildId);
             return;
         }
 

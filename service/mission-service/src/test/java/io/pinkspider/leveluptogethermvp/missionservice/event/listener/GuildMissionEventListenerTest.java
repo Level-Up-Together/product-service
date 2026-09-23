@@ -91,11 +91,11 @@ class GuildMissionEventListenerTest {
     class HandleGuildMemberJoinedTest {
 
         @Test
-        @DisplayName("길드 가입 시 활성 길드 미션에 자동 참여한다")
+        @DisplayName("길드 가입 시 진행중 고정 길드 미션에 자동 참여한다 (LUT-518)")
         void enrollsInActiveGuildMissions() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
-            when(missionRepository.findGuildMissions(
+            when(missionRepository.findActivePinnedGuildMissions(
                 eq(String.valueOf(GUILD_ID)),
                 eq(List.of(MissionStatus.OPEN, MissionStatus.IN_PROGRESS))
             )).thenReturn(List.of(guildMission1, guildMission2));
@@ -113,7 +113,7 @@ class GuildMissionEventListenerTest {
         void doesNothingWhenNoActiveMissions() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
-            when(missionRepository.findGuildMissions(any(), any())).thenReturn(List.of());
+            when(missionRepository.findActivePinnedGuildMissions(any(), any())).thenReturn(List.of());
 
             // when
             listener.handleGuildMemberJoined(event);
@@ -127,7 +127,7 @@ class GuildMissionEventListenerTest {
         void continuesOnPartialFailure() {
             // given
             GuildJoinedEvent event = new GuildJoinedEvent(USER_ID, GUILD_ID, GUILD_NAME);
-            when(missionRepository.findGuildMissions(any(), any()))
+            when(missionRepository.findActivePinnedGuildMissions(any(), any()))
                 .thenReturn(List.of(guildMission1, guildMission2));
             // 첫 번째 미션은 실패
             org.mockito.Mockito.doThrow(new RuntimeException("DB error"))

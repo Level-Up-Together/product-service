@@ -68,6 +68,16 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
         @Param("guildId") String guildId,
         @Param("statuses") List<MissionStatus> statuses);
 
+    /**
+     * LUT-518: 가입 시 자동 등록 대상 — 진행중인 고정(is_pinned) 길드 미션만. 일반(비고정) 길드
+     * 미션은 가입 시 생성하지 않는다(기존 동작 유지).
+     */
+    @Query("SELECT m FROM Mission m WHERE m.guildId = :guildId AND m.isPinned = true "
+        + "AND m.status IN :statuses AND m.isDeleted = false")
+    List<Mission> findActivePinnedGuildMissions(
+        @Param("guildId") String guildId,
+        @Param("statuses") List<MissionStatus> statuses);
+
     @Query("SELECT m FROM Mission m WHERE m.visibility = 'PUBLIC' AND m.status = 'OPEN' AND m.isDeleted = false ORDER BY m.createdAt DESC")
     Page<Mission> findOpenPublicMissions(Pageable pageable);
 

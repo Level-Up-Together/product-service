@@ -649,6 +649,47 @@ class MissionParticipantServiceTest {
             verify(participantRepository).save(any(MissionParticipant.class));
             verify(missionExecutionService).generateExecutionsForParticipant(any(MissionParticipant.class));
         }
+
+        @Test
+        @DisplayName("이미 활성 참여 중이면 추가하지 않는다")
+        void addGuildMemberAsParticipant_skipsWhenActive() {
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+            when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(true);
+
+            missionParticipantService.addGuildMemberAsParticipant(mission, TEST_USER_ID);
+
+            verify(participantRepository, never()).save(any());
+            verify(missionExecutionService, never()).generateExecutionsForParticipant(any());
+        }
+
+        @Test
+        @DisplayName("LUT-518: 이전 탈퇴(WITHDRAWN) 참여가 있으면 재활성화한다(중복 생성 없음)")
+        void addGuildMemberAsParticipant_reactivatesWithdrawn() {
+            Long missionId = 1L;
+            Mission mission = createOpenPublicMission(missionId);
+            MissionParticipant withdrawn = MissionParticipant.builder()
+                .mission(mission)
+                .userId(TEST_USER_ID)
+                .status(ParticipantStatus.WITHDRAWN)
+                .progress(50)
+                .joinedAt(LocalDateTime.now().minusDays(3))
+                .build();
+            setId(withdrawn, 9L);
+            when(participantRepository.existsActiveParticipation(missionId, TEST_USER_ID)).thenReturn(false);
+            when(participantRepository.findByMissionIdAndUserId(missionId, TEST_USER_ID))
+                .thenReturn(Optional.of(withdrawn));
+            when(participantRepository.save(any(MissionParticipant.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+            missionParticipantService.addGuildMemberAsParticipant(mission, TEST_USER_ID);
+
+            ArgumentCaptor<MissionParticipant> captor = ArgumentCaptor.forClass(MissionParticipant.class);
+            verify(participantRepository).save(captor.capture());
+            assertThat(captor.getValue().getId()).isEqualTo(9L); // 기존 행 재사용 — 중복 생성 없음
+            assertThat(captor.getValue().getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+            assertThat(captor.getValue().getProgress()).isZero();
+        }
     }
 
     @Nested

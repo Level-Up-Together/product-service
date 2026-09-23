@@ -103,13 +103,21 @@ public class MissionParticipantService {
             return;
         }
 
-        MissionParticipant participant = MissionParticipant.builder()
-            .mission(mission)
-            .userId(userId)
-            .status(ParticipantStatus.ACCEPTED)
-            .progress(0)
-            .joinedAt(LocalDateTime.now())
-            .build();
+        // LUT-518: 이전에 탈퇴(WITHDRAWN)/실패한 참여가 남아 있으면 재활성화한다.
+        // uk_mission_participant (mission_id, user_id) 유니크라 새 행 insert 는 불가 — 재가입 케이스.
+        MissionParticipant participant = participantRepository
+            .findByMissionIdAndUserId(mission.getId(), userId)
+            .map(existing -> {
+                existing.rejoin(ParticipantStatus.ACCEPTED);
+                return existing;
+            })
+            .orElseGet(() -> MissionParticipant.builder()
+                .mission(mission)
+                .userId(userId)
+                .status(ParticipantStatus.ACCEPTED)
+                .progress(0)
+                .joinedAt(LocalDateTime.now())
+                .build());
 
         MissionParticipant saved = participantRepository.save(participant);
         log.info("길드원 미션 참여 등록: missionId={}, userId={}", mission.getId(), userId);
