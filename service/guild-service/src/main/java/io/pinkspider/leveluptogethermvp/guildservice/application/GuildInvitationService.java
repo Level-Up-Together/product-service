@@ -13,8 +13,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberSta
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildInvitationRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.time.LocalDateTime;
@@ -43,7 +41,6 @@ public class GuildInvitationService {
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
     private final UserQueryFacade userQueryFacadeService;
-    private final MissionCategoryService missionCategoryService;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -77,14 +74,6 @@ public class GuildInvitationService {
         // 이미 해당 길드 멤버인지 확인
         if (isMember(guildId, inviteeId)) {
             throw new IllegalStateException("이미 길드 멤버입니다.");
-        }
-
-        // 같은 카테고리의 다른 길드에 가입되어 있는지 확인
-        if (guildMemberRepository.hasActiveGuildMembershipInCategory(inviteeId, guild.getCategoryId())) {
-            MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
-            String categoryName = category != null ? category.getName() : "해당";
-            throw new IllegalStateException(
-                "초대 대상자가 이미 '" + categoryName + "' 카테고리의 다른 길드에 가입되어 있습니다.");
         }
 
         // 이미 대기 중인 초대가 있는지 확인
@@ -154,14 +143,6 @@ public class GuildInvitationService {
         // 길드가 활성 상태인지 확인
         if (!Boolean.TRUE.equals(guild.getIsActive())) {
             throw new IllegalStateException("길드가 비활성화되었습니다.");
-        }
-
-        // 같은 카테고리 다른 길드에 이미 가입되어 있는지 다시 확인
-        if (guildMemberRepository.hasActiveGuildMembershipInCategory(userId, guild.getCategoryId())) {
-            MissionCategoryResponse category = missionCategoryService.getCategory(guild.getCategoryId());
-            String categoryName = category != null ? category.getName() : "해당";
-            throw new IllegalStateException(
-                "이미 '" + categoryName + "' 카테고리의 다른 길드에 가입되어 있습니다.");
         }
 
         // 이미 멤버인지 확인

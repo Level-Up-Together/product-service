@@ -25,8 +25,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildVisibilit
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildInvitationRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberRepository;
 import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildRepository;
-import io.pinkspider.leveluptogethermvp.metaservice.application.MissionCategoryService;
-import io.pinkspider.leveluptogethermvp.metaservice.domain.dto.MissionCategoryResponse;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.global.facade.dto.UserProfileInfo;
 import java.lang.reflect.Field;
@@ -61,9 +59,6 @@ class GuildInvitationServiceTest {
     private UserQueryFacade userQueryFacadeService;
 
     @Mock
-    private MissionCategoryService missionCategoryService;
-
-    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
@@ -77,7 +72,6 @@ class GuildInvitationServiceTest {
     private GuildMember testMasterMember;
     private GuildMember testSubMasterMember;
     private Long testCategoryId;
-    private MissionCategoryResponse testCategory;
 
     @BeforeEach
     void setUp() {
@@ -85,13 +79,6 @@ class GuildInvitationServiceTest {
         testInviterId = "test-inviter-id";
         testInviteeId = "test-invitee-id";
         testCategoryId = 1L;
-
-        testCategory = MissionCategoryResponse.builder()
-            .id(testCategoryId)
-            .name("테스트 카테고리")
-            .icon("📚")
-            .isActive(true)
-            .build();
 
         testPrivateGuild = Guild.builder()
             .name("비공개 길드")
@@ -151,8 +138,6 @@ class GuildInvitationServiceTest {
             when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(invitationRepository.existsByGuildIdAndInviteeIdAndStatus(1L, testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
@@ -191,8 +176,6 @@ class GuildInvitationServiceTest {
             when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(invitationRepository.existsByGuildIdAndInviteeIdAndStatus(1L, testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
@@ -289,26 +272,6 @@ class GuildInvitationServiceTest {
         }
 
         @Test
-        @DisplayName("같은 카테고리의 다른 길드에 가입된 유저는 초대할 수 없다")
-        void sendInvitation_alreadyInOtherGuild_throwsException() {
-            // given
-            when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
-                .thenReturn(Optional.of(testMasterMember));
-            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
-            when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
-                .thenReturn(Optional.empty());
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(true);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-
-            // when & then
-            assertThatThrownBy(() -> invitationService.sendInvitation(1L, testMasterId, testInviteeId, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("카테고리");
-        }
-
-        @Test
         @DisplayName("이미 대기 중인 초대가 있으면 초대할 수 없다")
         void sendInvitation_alreadyPendingInvitation_throwsException() {
             // given
@@ -318,8 +281,6 @@ class GuildInvitationServiceTest {
             when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(invitationRepository.existsByGuildIdAndInviteeIdAndStatus(1L, testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(true);
 
@@ -339,8 +300,6 @@ class GuildInvitationServiceTest {
             when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(invitationRepository.existsByGuildIdAndInviteeIdAndStatus(1L, testInviteeId, GuildInvitationStatus.PENDING))
                 .thenReturn(false);
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L); // maxMembers = 50
@@ -385,8 +344,6 @@ class GuildInvitationServiceTest {
             setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
@@ -423,8 +380,6 @@ class GuildInvitationServiceTest {
                 .build();
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.of(leftMember));
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
@@ -522,24 +477,6 @@ class GuildInvitationServiceTest {
         }
 
         @Test
-        @DisplayName("같은 카테고리의 다른 길드에 이미 가입된 경우 초대를 수락할 수 없다")
-        void acceptInvitation_alreadyInOtherGuild_throwsException() {
-            // given
-            GuildInvitation invitation = GuildInvitation.create(testPrivateGuild, testMasterId, testInviteeId, null);
-            setId(invitation, 1L);
-
-            when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(true);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-
-            // when & then
-            assertThatThrownBy(() -> invitationService.acceptInvitation(1L, testInviteeId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("카테고리");
-        }
-
-        @Test
         @DisplayName("길드 정원이 가득 찬 경우 초대를 수락할 수 없다")
         void acceptInvitation_guildFull_throwsException() {
             // given
@@ -547,8 +484,6 @@ class GuildInvitationServiceTest {
             setId(invitation, 1L);
 
             when(invitationRepository.findByIdWithGuild(1L)).thenReturn(Optional.of(invitation));
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testInviteeId, testCategoryId))
-                .thenReturn(false);
             when(guildMemberRepository.findByGuildIdAndUserId(1L, testInviteeId))
                 .thenReturn(Optional.empty());
             when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L); // maxMembers = 50

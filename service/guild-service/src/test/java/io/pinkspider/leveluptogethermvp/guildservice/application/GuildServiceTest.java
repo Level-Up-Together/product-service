@@ -142,7 +142,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             when(guildLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(
                 GuildLevelConfig.builder().level(1).maxMembers(20).build());
@@ -169,30 +168,6 @@ class GuildServiceTest {
         }
 
         @Test
-        @DisplayName("카테고리별 1인 1길드 정책: 동일 카테고리의 다른 길드에 가입된 사용자는 길드를 생성할 수 없다")
-        void createGuild_failWhenAlreadyInGuildOfSameCategory() {
-            // given
-            GuildCreateRequest request = GuildCreateRequest.builder()
-                .name("새 길드")
-                .description("새 길드 설명")
-                .visibility(GuildVisibility.PUBLIC)
-                .categoryId(testCategoryId)
-                .build();
-
-            UserExperienceDto userExperience = new UserExperienceDto(null, testUserId, 20, 0, 0, null, null, null);
-            when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
-            when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(true);
-
-            // when & then
-            assertThatThrownBy(() -> guildService.createGuild(testUserId, request))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("카테고리");
-
-            verify(guildRepository, never()).save(any(Guild.class));
-        }
-
-        @Test
         @DisplayName("중복된 길드명으로 생성 시 예외 발생")
         void createGuild_failWhenDuplicateName() {
             // given
@@ -207,7 +182,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("중복 길드")).thenReturn(true);
 
             // when & then
@@ -352,7 +326,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             when(guildLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(null); // null → 기본값 10
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
@@ -389,7 +362,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             when(guildLevelConfigCacheService.getLevelConfigByLevel(1))
                 .thenReturn(GuildLevelConfig.builder().level(1).maxMembers(25).build());
@@ -428,7 +400,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             when(guildLevelConfigCacheService.getLevelConfigByLevel(1))
                 .thenReturn(GuildLevelConfig.builder().level(1).maxMembers(20).build());
@@ -806,7 +777,6 @@ class GuildServiceTest {
             when(gamificationQueryFacadeService.getOrCreateUserExperience(testUserId)).thenReturn(userExperience);
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
-            when(guildMemberRepository.hasActiveGuildMembershipInCategory(testUserId, testCategoryId)).thenReturn(false);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
             doThrow(new IllegalStateException("다른 길드와의 거리가 너무 가깝습니다."))
                 .when(guildHeadquartersService).validateAndThrowIfInvalid(null, 37.5665, 126.9780);

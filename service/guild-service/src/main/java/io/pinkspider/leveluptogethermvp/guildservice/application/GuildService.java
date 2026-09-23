@@ -72,12 +72,6 @@ public class GuildService {
             throw new IllegalArgumentException("유효하지 않은 카테고리입니다.");
         }
 
-        // 카테고리당 1개 길드 정책: 해당 카테고리에서 이미 다른 길드에 가입되어 있는지 확인
-        if (guildMemberRepository.hasActiveGuildMembershipInCategory(userId, request.getCategoryId())) {
-            throw new IllegalStateException(
-                "이미 해당 카테고리('" + category.getName() + "')의 다른 길드에 가입되어 있습니다. 탈퇴 후 다시 시도해주세요.");
-        }
-
         if (guildRepository.existsByNameAndIsActiveTrue(request.getName())) {
             throw new IllegalArgumentException("이미 존재하는 길드명입니다: " + request.getName());
         }
