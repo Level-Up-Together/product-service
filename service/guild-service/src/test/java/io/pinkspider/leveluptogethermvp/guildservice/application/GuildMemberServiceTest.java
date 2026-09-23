@@ -31,6 +31,8 @@ import io.pinkspider.leveluptogethermvp.guildservice.infrastructure.GuildMemberR
 import io.pinkspider.global.event.GuildJoinApprovedEvent;
 import io.pinkspider.global.event.GuildJoinRejectedEvent;
 import io.pinkspider.global.event.GuildJoinRequestedEvent;
+import io.pinkspider.global.event.GuildJoinedEvent;
+import io.pinkspider.global.event.GuildMemberJoinedChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberLeftChatNotifyEvent;
 import io.pinkspider.global.event.GuildMemberRemovedEvent;
 import io.pinkspider.global.facade.UserQueryFacade;
@@ -1588,6 +1590,74 @@ class GuildMemberServiceTest {
             // then
             verify(eventPublisher, never()).publishEvent(any());
             verify(userQueryFacadeService, never()).getUserNickname(anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("addActiveMember(초대 링크 합류 공통 경로) 테스트")
+    class AddActiveMemberTest {
+
+        @Test
+        @DisplayName("신규 유저를 활성 멤버로 추가하고 가입 이벤트를 발행한다")
+        void addsNewMember() {
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.empty());
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("유저");
+
+            guildMemberService.addActiveMember(testGuild, testUserId);
+
+            verify(guildMemberRepository).save(any(GuildMember.class));
+            verify(eventPublisher).publishEvent(any(GuildJoinedEvent.class));
+            verify(eventPublisher).publishEvent(any(GuildMemberJoinedChatNotifyEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미 활성 멤버면 멱등하게 아무것도 하지 않는다")
+        void alreadyMemberIsNoop() {
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(true);
+
+            guildMemberService.addActiveMember(testGuild, testUserId);
+
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("정원이 가득 차면 예외를 던진다")
+        void fullGuildThrows() {
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(50L);
+
+            assertThatThrownBy(() -> guildMemberService.addActiveMember(testGuild, testUserId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("가득");
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("탈퇴 이력이 있으면 재가입 처리한다")
+        void rejoinsLeftMember() {
+            GuildMember leftMember =
+                GuildMember.builder()
+                    .guild(testGuild)
+                    .userId(testUserId)
+                    .role(GuildMemberRole.MEMBER)
+                    .status(GuildMemberStatus.LEFT)
+                    .build();
+            when(guildMemberRepository.isActiveMember(1L, testUserId)).thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(1L)).thenReturn(10L);
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testUserId))
+                .thenReturn(Optional.of(leftMember));
+            when(userQueryFacadeService.getUserNickname(testUserId)).thenReturn("유저");
+
+            guildMemberService.addActiveMember(testGuild, testUserId);
+
+            assertThat(leftMember.getStatus()).isEqualTo(GuildMemberStatus.ACTIVE);
+            verify(guildMemberRepository, never()).save(any(GuildMember.class));
+            verify(eventPublisher).publishEvent(any(GuildJoinedEvent.class));
         }
     }
 }

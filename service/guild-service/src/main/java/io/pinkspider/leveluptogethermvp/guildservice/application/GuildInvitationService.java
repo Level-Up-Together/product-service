@@ -58,10 +58,7 @@ public class GuildInvitationService {
             .filter(g -> Boolean.TRUE.equals(g.getIsActive()))
             .orElseThrow(() -> new IllegalArgumentException("길드를 찾을 수 없습니다."));
 
-        // 비공개 길드인지 확인
-        if (!guild.isPrivate()) {
-            throw new IllegalStateException("공개 길드에서는 초대 기능을 사용할 수 없습니다.");
-        }
+        // LUT-519: 공개/비공개 길드 모두 초대 가능 (기존 비공개-only 제한 폐지)
 
         // 초대자가 마스터/부마스터인지 확인
         validateMasterOrSubMaster(guildId, inviterId);
@@ -69,6 +66,11 @@ public class GuildInvitationService {
         // 초대 대상자가 존재하는지 확인
         if (!userQueryFacadeService.userExistsById(inviteeId)) {
             throw new IllegalArgumentException("초대 대상자를 찾을 수 없습니다.");
+        }
+
+        // LUT-519: 차단 관계(양방향)면 초대 불가
+        if (userQueryFacadeService.isBlockedBetween(inviterId, inviteeId)) {
+            throw new IllegalStateException("차단 관계인 사용자는 초대할 수 없습니다.");
         }
 
         // 이미 해당 길드 멤버인지 확인
@@ -270,7 +272,11 @@ public class GuildInvitationService {
             .map(inv -> {
                 UserProfileInfo inviterProfile = inviterProfileMap.get(inv.getInviterId());
                 String inviterNickname = inviterProfile != null ? inviterProfile.nickname() : "알 수 없는 사용자";
-                return GuildInvitationResponse.from(inv, inviterNickname, inviteeNickname);
+                Guild guild = inv.getGuild();
+                int memberCount = (int) guildMemberRepository.countActiveMembers(guild.getId());
+                int currentLevel = guild.getCurrentLevel() != null ? guild.getCurrentLevel() : 1;
+                return GuildInvitationResponse.fromReceived(
+                    inv, inviterNickname, inviteeNickname, memberCount, currentLevel);
             })
             .toList();
     }

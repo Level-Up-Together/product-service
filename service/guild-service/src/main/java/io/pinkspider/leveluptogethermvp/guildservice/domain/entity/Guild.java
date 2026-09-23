@@ -143,6 +143,10 @@ public class Guild extends LocalDateTimeBaseEntity {
     @Comment("거점 경도")
     private Double baseLongitude;
 
+    @Column(name = "invite_code", unique = true, length = 20)
+    @Comment("초대 링크 코드 (추측 불가 랜덤, 길드당 1개·불변, LUT-519)")
+    private String inviteCode;
+
     @Builder.Default
     @OneToMany(mappedBy = "guild")
     private List<GuildMember> members = new ArrayList<>();

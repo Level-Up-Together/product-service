@@ -93,6 +93,7 @@ class SecurityConfigPublicEndpointTest {
                 "/api/v1/guilds/1",
                 "/api/v1/guilds/1/posts",
                 "/api/v1/guilds/1/members",
+                "/api/v1/guild-invite-links/ABC123", // LUT-519: 비로그인 초대 링크 미리보기
                 "/api/v1/mission-categories",
                 "/api/v1/mypage/profile/user-1",
                 "/api/v1/missions/executions/weekly/user-1",
@@ -123,6 +124,7 @@ class SecurityConfigPublicEndpointTest {
     @ValueSource(
             strings = {
                 "/api/v1/guilds/my",
+                "/api/v1/guilds/1/invite-link", // LUT-519: 초대 링크 조회는 길드원(인증) 전용
                 "/api/v1/rankings/my",
                 "/api/v1/rankings/nearby",
                 "/api/v1/mypage/profile",
@@ -140,6 +142,7 @@ class SecurityConfigPublicEndpointTest {
     @ValueSource(
             strings = {
                 "/api/v1/shop-items/1/purchase",
+                "/api/v1/guild-invite-links/ABC123/join", // LUT-519: 초대 링크 합류는 로그인 필수
                 "/api/v1/subscriptions/verify" // LUT-451: 영수증 검증은 로그인 필수 — 웹훅 permitAll 이 새지 않는지
             })
     void 익명_POST_는_401_이어야_한다(String path) throws Exception {

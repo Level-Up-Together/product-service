@@ -561,6 +561,46 @@ public class GuildMemberService {
     }
 
     /**
+     * LUT-519: 초대 링크 합류 등에서 재사용하는 공통 멤버 추가.
+     *
+     * <p>승인/공개 여부를 따지지 않고(초대=승인) 활성 멤버로 추가한다. 이미 활성 멤버면 멱등하게 무시하고,
+     * 탈퇴/강퇴 이력이 있으면 재가입 처리한다. {@code GuildJoinedEvent} 를 발행해 업적·길드 고정 미션 자동
+     * 참여(LUT-518)가 이어지게 한다.
+     */
+    @Transactional(transactionManager = "guildTransactionManager")
+    public void addActiveMember(Guild guild, String userId) {
+        if (isMember(guild.getId(), userId)) {
+            return; // 이미 활성 멤버 — 멱등
+        }
+
+        int currentMembers = (int) guildMemberRepository.countActiveMembers(guild.getId());
+        if (currentMembers >= guild.getMaxMembers()) {
+            throw new IllegalStateException("길드 인원이 가득 찼습니다.");
+        }
+
+        Optional<GuildMember> existingMember =
+            guildMemberRepository.findByGuildIdAndUserId(guild.getId(), userId);
+        if (existingMember.isPresent() && existingMember.get().hasLeft()) {
+            existingMember.get().rejoin();
+        } else {
+            GuildMember newMember =
+                GuildMember.builder()
+                    .guild(guild)
+                    .userId(userId)
+                    .role(GuildMemberRole.MEMBER)
+                    .status(GuildMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+            guildMemberRepository.save(newMember);
+        }
+
+        // 업적/고정 미션(LUT-518) 이벤트 + 채팅방 가입 알림
+        publishGuildAchievementEvents(userId, guild, true, false);
+        String memberNickname = userQueryFacadeService.getUserNickname(userId);
+        eventPublisher.publishEvent(new GuildMemberJoinedChatNotifyEvent(guild.getId(), memberNickname));
+    }
+
+    /**
      * 길드 업적 관련 이벤트 발행
      * - 길드 가입 시: GuildJoinedEvent 발행
      * - 길드 마스터 할당 시: GuildMasterAssignedEvent 발행

@@ -49,6 +49,11 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
 
     boolean existsByNameAndIsActiveTrue(String name);
 
+    // LUT-519: 초대 링크 코드로 길드 조회 (코드는 길드당 1개·불변)
+    Optional<Guild> findByInviteCode(String inviteCode);
+
+    boolean existsByInviteCode(String inviteCode);
+
     @Query("SELECT g FROM Guild g WHERE g.isActive = true AND " +
            "(LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(g.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +

@@ -197,15 +197,52 @@ class GuildInvitationServiceTest {
         }
 
         @Test
-        @DisplayName("공개 길드에서는 초대 기능을 사용할 수 없다")
-        void sendInvitation_publicGuild_throwsException() {
+        @DisplayName("LUT-519: 공개 길드에도 초대할 수 있다")
+        void sendInvitation_publicGuild_success() {
             // given
             when(guildRepository.findById(2L)).thenReturn(Optional.of(testPublicGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testMasterId))
+                .thenReturn(Optional.of(testMasterMember));
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
+            when(guildMemberRepository.findByGuildIdAndUserId(2L, testInviteeId))
+                .thenReturn(Optional.empty());
+            when(invitationRepository.existsByGuildIdAndInviteeIdAndStatus(
+                    2L, testInviteeId, GuildInvitationStatus.PENDING))
+                .thenReturn(false);
+            when(guildMemberRepository.countActiveMembers(2L)).thenReturn(10L);
+            when(invitationRepository.save(any(GuildInvitation.class))).thenAnswer(invocation -> {
+                GuildInvitation invitation = invocation.getArgument(0);
+                setId(invitation, 1L);
+                return invitation;
+            });
+            when(userQueryFacadeService.getUserNickname(testMasterId)).thenReturn("마스터");
+            when(userQueryFacadeService.getUserNickname(testInviteeId)).thenReturn("초대받는사람");
+
+            // when
+            GuildInvitationResponse response =
+                invitationService.sendInvitation(2L, testMasterId, testInviteeId, null);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.guildId()).isEqualTo(2L);
+            verify(invitationRepository).save(any(GuildInvitation.class));
+        }
+
+        @Test
+        @DisplayName("LUT-519: 차단 관계인 사용자는 초대할 수 없다")
+        void sendInvitation_blockedUser_throwsException() {
+            // given
+            when(guildRepository.findById(1L)).thenReturn(Optional.of(testPrivateGuild));
+            when(guildMemberRepository.findByGuildIdAndUserId(1L, testMasterId))
+                .thenReturn(Optional.of(testMasterMember));
+            when(userQueryFacadeService.userExistsById(testInviteeId)).thenReturn(true);
+            when(userQueryFacadeService.isBlockedBetween(testMasterId, testInviteeId)).thenReturn(true);
 
             // when & then
-            assertThatThrownBy(() -> invitationService.sendInvitation(2L, testMasterId, testInviteeId, null))
+            assertThatThrownBy(
+                    () -> invitationService.sendInvitation(1L, testMasterId, testInviteeId, null))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("공개 길드에서는 초대 기능을 사용할 수 없습니다");
+                .hasMessageContaining("차단");
 
             verify(invitationRepository, never()).save(any(GuildInvitation.class));
         }

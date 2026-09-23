@@ -238,7 +238,7 @@ class GuildInvitationControllerTest {
     void getMyPendingInvitationsTest() throws Exception {
         // given
         List<GuildInvitationResponse> responseList = MockUtil.readJsonFileToClassList(
-            FIXTURE_BASE + "mockGuildInvitationResponseList.json",
+            FIXTURE_BASE + "mockReceivedInvitationResponseList.json",
             new TypeReference<List<GuildInvitationResponse>>() {});
         when(guildInvitationService.getMyPendingInvitations(anyString()))
             .thenReturn(responseList);
@@ -271,7 +271,15 @@ class GuildInvitationControllerTest {
                             INVITATION_LIST_VALUE_FIELDS[9],
                             INVITATION_LIST_VALUE_FIELDS[10],
                             INVITATION_LIST_VALUE_FIELDS[11],
-                            INVITATION_LIST_VALUE_FIELDS[12]
+                            INVITATION_LIST_VALUE_FIELDS[12],
+                            fieldWithPath("value[].guild_current_member_count")
+                                .type(JsonFieldType.NUMBER)
+                                .description("길드 현재 인원 (받은 초대 카드용, LUT-519)")
+                                .optional(),
+                            fieldWithPath("value[].guild_current_level")
+                                .type(JsonFieldType.NUMBER)
+                                .description("길드 현재 레벨 (받은 초대 카드용, LUT-519)")
+                                .optional()
                         )
                         .build()
                 )

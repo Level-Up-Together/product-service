@@ -201,6 +201,9 @@ public class SecurityConfig {
                                                 HttpMethod.GET, "/api/v1/guilds/{guildId}/posts/**")
                                         .permitAll() // QA-179: 비로그인/비멤버 공개 길드 게시판 read
                                         .requestMatchers(
+                                                HttpMethod.GET, "/api/v1/guild-invite-links/{code}")
+                                        .permitAll() // LUT-519: 비로그인 초대 링크 미리보기
+                                        .requestMatchers(
                                                 HttpMethod.GET, "/api/v1/mission-categories")
                                         .permitAll() // QA-172: 비로그인 길드 카테고리 셀렉터
                                         .requestMatchers(
