@@ -143,8 +143,6 @@ class GuildServiceTest {
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(
-                GuildLevelConfig.builder().level(1).maxMembers(20).build());
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
                 setId(guild, 1L);
@@ -163,8 +161,17 @@ class GuildServiceTest {
             assertThat(response.getName()).isEqualTo("새 길드");
             assertThat(response.getMasterId()).isEqualTo(testUserId);
             assertThat(response.getCategoryId()).isEqualTo(testCategoryId);
+            assertThat(response.getMaxMembers()).isEqualTo(10); // LUT-526: 레벨 1 정원 = 10 + (1-1)
             verify(guildRepository).save(any(Guild.class));
             verify(guildMemberRepository).save(any(GuildMember.class));
+        }
+
+        @Test
+        @DisplayName("LUT-526: 최대 정원 공식 = 기본 인원(10) + (길드 레벨 - 1) (레벨1=10, 레벨3=12)")
+        void maxMembersForLevel_formula() {
+            assertThat(Guild.maxMembersForLevel(1)).isEqualTo(10);
+            assertThat(Guild.maxMembersForLevel(3)).isEqualTo(12);
+            assertThat(Guild.maxMembersForLevel(5)).isEqualTo(14);
         }
 
         @Test
@@ -327,7 +334,6 @@ class GuildServiceTest {
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(1)).thenReturn(null); // null → 기본값 10
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
                 setId(guild, 1L);
@@ -347,15 +353,15 @@ class GuildServiceTest {
         }
 
         @Test
-        @DisplayName("maxMembers가 null이면 level1Config의 maxMembers를 사용한다")
-        void createGuild_nullMaxMembers_usesLevel1Config() {
-            // given
+        @DisplayName("LUT-526: 요청 maxMembers 와 무관하게 최대 정원은 공식(레벨 1 = 10)으로 결정된다")
+        void createGuild_ignoresRequestMaxMembers_usesFormula() {
+            // given — 요청에 maxMembers 를 담아도 무시하고 공식(10 + 레벨)으로 정한다
             GuildCreateRequest request = GuildCreateRequest.builder()
                 .name("새 길드")
                 .description("설명")
                 .visibility(GuildVisibility.PUBLIC)
                 .categoryId(testCategoryId)
-                .maxMembers(null) // null → level1 config 사용
+                .maxMembers(25) // 무시됨
                 .build();
 
             UserExperienceDto userExperience = new UserExperienceDto(null, testUserId, 20, 0, 0, null, null, null);
@@ -363,8 +369,6 @@ class GuildServiceTest {
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(1))
-                .thenReturn(GuildLevelConfig.builder().level(1).maxMembers(25).build());
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
                 setId(guild, 1L);
@@ -380,7 +384,7 @@ class GuildServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            assertThat(response.getMaxMembers()).isEqualTo(25);
+            assertThat(response.getMaxMembers()).isEqualTo(10); // 10 + (레벨1 - 1)
         }
 
         @Test
@@ -401,8 +405,6 @@ class GuildServiceTest {
             when(guildMemberRepository.isGuildMaster(testUserId)).thenReturn(false);
             when(missionCategoryService.getCategory(testCategoryId)).thenReturn(testCategory);
             when(guildRepository.existsByNameAndIsActiveTrue("새 길드")).thenReturn(false);
-            when(guildLevelConfigCacheService.getLevelConfigByLevel(1))
-                .thenReturn(GuildLevelConfig.builder().level(1).maxMembers(20).build());
             when(guildRepository.save(any(Guild.class))).thenAnswer(invocation -> {
                 Guild guild = invocation.getArgument(0);
                 setId(guild, 1L);
@@ -576,9 +578,9 @@ class GuildServiceTest {
         }
 
         @Test
-        @DisplayName("visibility, joinType, maxMembers, imageUrl, baseAddress를 모두 수정한다")
+        @DisplayName("visibility, joinType, imageUrl, baseAddress를 모두 수정한다 (LUT-526: 정원은 수정 불가)")
         void updateGuild_allFields_success() {
-            // given
+            // given — maxMembers 는 요청에 담아도 무시된다(정원 = 10 + 레벨)
             GuildUpdateRequest request = GuildUpdateRequest.builder()
                 .visibility(GuildVisibility.PRIVATE)
                 .joinType(GuildJoinType.APPROVAL_REQUIRED)
@@ -600,7 +602,7 @@ class GuildServiceTest {
             assertThat(response).isNotNull();
             assertThat(testGuild.getVisibility()).isEqualTo(GuildVisibility.PRIVATE);
             assertThat(testGuild.getJoinType()).isEqualTo(GuildJoinType.APPROVAL_REQUIRED);
-            assertThat(testGuild.getMaxMembers()).isEqualTo(100);
+            assertThat(testGuild.getMaxMembers()).isEqualTo(50); // LUT-526: 수정 요청(100) 무시, 기존값 유지
             assertThat(testGuild.getImageUrl()).isEqualTo("https://new-image.com/img.png");
             assertThat(testGuild.getBaseAddress()).isEqualTo("서울시 강남구");
         }

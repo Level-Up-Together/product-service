@@ -5,8 +5,6 @@ import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildCreateReque
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildResponse;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.dto.GuildUpdateRequest;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.Guild;
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.application.GuildLevelConfigCacheService;
-import io.pinkspider.leveluptogethermvp.metaservice.guildlevelconfig.domain.entity.GuildLevelConfig;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.entity.GuildMember;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildJoinType;
 import io.pinkspider.leveluptogethermvp.guildservice.domain.enums.GuildMemberRole;
@@ -42,7 +40,6 @@ public class GuildService {
 
     private final GuildRepository guildRepository;
     private final GuildMemberRepository guildMemberRepository;
-    private final GuildLevelConfigCacheService guildLevelConfigCacheService;
     private final MissionCategoryService missionCategoryService;
     private final ApplicationEventPublisher eventPublisher;
     private final GuildHeadquartersService guildHeadquartersService;
@@ -82,10 +79,8 @@ public class GuildService {
                     null, request.getBaseLatitude(), request.getBaseLongitude());
         }
 
-        // 레벨 1 설정에서 maxMembers 가져오기 (Admin에서 설정한 값 사용)
-        GuildLevelConfig level1Config = guildLevelConfigCacheService.getLevelConfigByLevel(1);
-        int defaultMaxMembers = level1Config != null ? level1Config.getMaxMembers() : 10; // 설정이 없으면 기본값 10
-
+        // LUT-526: 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 신생 길드는 레벨 1 → 10.
+        // 요청/관리자 값으로 임의 지정하지 않고 공식으로 결정한다.
         Guild guild = Guild.builder()
             .name(request.getName())
             .description(request.getDescription())
@@ -93,7 +88,7 @@ public class GuildService {
             .joinType(request.getJoinType() != null ? request.getJoinType() : GuildJoinType.OPEN)
             .masterId(userId)
             .categoryId(request.getCategoryId())
-            .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : defaultMaxMembers)
+            .maxMembers(Guild.maxMembersForLevel(1))
             .imageUrl(request.getImageUrl())
             .baseAddress(request.getBaseAddress())
             .baseLatitude(request.getBaseLatitude())
@@ -146,9 +141,7 @@ public class GuildService {
         if (request.getJoinType() != null) {
             guild.setJoinType(request.getJoinType());
         }
-        if (request.getMaxMembers() != null) {
-            guild.setMaxMembers(request.getMaxMembers());
-        }
+        // LUT-526: 최대 정원은 길드 레벨로 결정(10 + 레벨)되므로 수동 지정하지 않는다.
         if (request.getImageUrl() != null) {
             guild.setImageUrl(request.getImageUrl());
         }

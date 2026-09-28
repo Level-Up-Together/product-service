@@ -201,21 +201,8 @@ public class GuildExperienceService {
         guild.setCurrentLevel(Math.max(1, newLevel));
         guild.setCurrentPoint(Math.max(0, totalPoint - cumulativeForLevel));
 
-        // 현재 레벨의 최대 인원수 갱신 (설정 없으면 기본 공식)
-        GuildLevelConfig levelConfig =
-                guildLevelConfigCacheService.getLevelConfigByLevel(guild.getCurrentLevel());
-        int maxMembers =
-                levelConfig != null && levelConfig.getMaxMembers() != null
-                        ? levelConfig.getMaxMembers()
-                        : calculateDefaultMaxMembers(guild.getCurrentLevel());
-        guild.updateMaxMembersByLevel(maxMembers);
-    }
-
-    /**
-     * 기본 최대 인원 공식 (guild_level_config 설정이 없을 경우)
-     */
-    private int calculateDefaultMaxMembers(int level) {
-        return 10 + (level - 1) * 5;
+        // LUT-526: 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 레벨당 +1, 관리자 per-level 설정보다 공식 우선.
+        guild.updateMaxMembersByLevel(Guild.maxMembersForLevel(guild.getCurrentLevel()));
     }
 
     private GuildExperienceResponse getGuildExperienceInfo(Guild guild) {

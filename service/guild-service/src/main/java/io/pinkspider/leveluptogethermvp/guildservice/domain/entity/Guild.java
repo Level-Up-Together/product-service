@@ -208,4 +208,14 @@ public class Guild extends LocalDateTimeBaseEntity {
     public void updateMaxMembersByLevel(int newMaxMembers) {
         this.maxMembers = newMaxMembers;
     }
+
+    /** LUT-526: 길드 최대 정원 기본 인원(레벨 1 정원) 상수. 최대 정원 = BASE_MAX_MEMBERS + (길드 레벨 - 1). */
+    public static final int BASE_MAX_MEMBERS = 10;
+
+    /**
+     * LUT-526: 레벨별 최대 정원 = 기본 인원(10) + (길드 레벨 - 1). 레벨이 1 오를 때마다 +1. 예) 레벨 1 → 10, 레벨 3 → 12.
+     */
+    public static int maxMembersForLevel(int level) {
+        return BASE_MAX_MEMBERS + (level - 1);
+    }
 }

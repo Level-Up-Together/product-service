@@ -183,7 +183,7 @@ class GuildExperienceServiceTest {
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(2);
             assertThat(testGuild.getCurrentPoint()).isEqualTo(0); // 30 - 30 (레벨 내 포인트)
-            assertThat(testGuild.getMaxMembers()).isEqualTo(30); // L2 config maxMembers
+            assertThat(testGuild.getMaxMembers()).isEqualTo(11); // LUT-526: 레벨 2 정원 = 10 + (2-1)
         }
 
         @Test
@@ -200,7 +200,7 @@ class GuildExperienceServiceTest {
                     1L, 999999, GuildExpSourceType.GUILD_MISSION_EXECUTION, 1L, testUserId, "미션 완료 보상");
 
             assertThat(testGuild.getCurrentLevel()).isEqualTo(1);
-            assertThat(testGuild.getMaxMembers()).isEqualTo(20); // L1 config maxMembers
+            assertThat(testGuild.getMaxMembers()).isEqualTo(10); // LUT-526: 레벨 1 정원 = 10
         }
 
         @Test
