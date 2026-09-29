@@ -13,6 +13,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<Users, String> {
 
+    /** LUT-529: 아이템 푸시 스케줄러 배치 TZ 조회 — (userId, preferredTimezone) 쌍. */
+    @Query("SELECT u.id, u.preferredTimezone FROM Users u WHERE u.id IN :ids")
+    List<Object[]> findPreferredTimezonesByIdIn(@Param("ids") java.util.Collection<String> ids);
+
     /**
      * @deprecated JPA @Convert가 쿼리 파라미터에 적용되지 않아 암호화된 이메일 조회 실패.
      * {@link #findByEncryptedEmailAndProvider(String, String)} 사용 권장.

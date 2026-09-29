@@ -17,6 +17,18 @@ public interface MissionExecutionRepository extends JpaRepository<MissionExecuti
 
     Optional<MissionExecution> findByParticipantIdAndExecutionDate(Long participantId, LocalDate executionDate);
 
+    /**
+     * LUT-529: 여러 유저의 완료(status=COMPLETED) 일반 미션 완료 시각 배치 조회. 아이템 푸시 상태 판정·백오프용. (userId,
+     * completedAt) 쌍을 돌려주며 호출부에서 유저 타임존 로컬 날짜로 버킷팅한다.
+     */
+    @Query("SELECT mp.userId, me.completedAt FROM MissionExecution me JOIN me.participant mp "
+        + "WHERE mp.userId IN :userIds AND me.status = 'COMPLETED' "
+        + "AND me.completedAt >= :startUtc AND me.completedAt < :endUtc")
+    List<Object[]> findCompletedUserAndTimeByUserIdIn(
+        @Param("userIds") java.util.Collection<String> userIds,
+        @Param("startUtc") LocalDateTime startUtc,
+        @Param("endUtc") LocalDateTime endUtc);
+
     List<MissionExecution> findByParticipantId(Long participantId);
 
     List<MissionExecution> findByParticipantIdAndStatus(Long participantId, ExecutionStatus status);

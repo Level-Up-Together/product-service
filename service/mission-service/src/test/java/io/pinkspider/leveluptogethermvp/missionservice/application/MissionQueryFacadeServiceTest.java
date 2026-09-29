@@ -17,8 +17,10 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.enums.MissionVisib
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -409,6 +411,65 @@ class MissionQueryFacadeServiceTest {
             when(dailyMissionInstanceRepository.findAllInProgress()).thenReturn(List.of());
 
             assertThat(facadeService.findAllInProgressMissions()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("LUT-529: 미션 완료 로컬 날짜 배치 조회")
+    class FindMissionCompletedLocalDates {
+
+        private static final String USER_A = "user-a";
+        private static final String USER_B = "user-b";
+        // 조회 창은 실제 쿼리 파라미터일 뿐 mock 이라 값 자체는 무관
+        private final LocalDateTime START = LocalDateTime.of(2026, 7, 12, 0, 0);
+        private final LocalDateTime END = LocalDateTime.of(2026, 7, 28, 0, 0);
+
+        @Test
+        @DisplayName("completedAt(UTC)을 유저 타임존 로컬 날짜로 버킷팅하고 두 테이블을 합집합한다")
+        void bucketsByTimezoneAndUnions() {
+            // 일반 미션: userA 07-27 00:30 UTC(+9 → 07-27 09:30), userB 07-25 16:00 UTC(+9 → 07-26 01:00)
+            when(missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(
+                            List.of(USER_A, USER_B), START, END))
+                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)},
+                                    new Object[] {USER_B, LocalDateTime.of(2026, 7, 25, 16, 0)}));
+            // 고정 미션: userA 07-27 15:00 UTC(+9 → 07-28 00:00) → userA 는 07-27·07-28 두 날짜
+            when(dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(
+                            List.of(USER_A, USER_B), START, END))
+                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 15, 0)}));
+
+            Map<String, Set<LocalDate>> result =
+                    facadeService.findMissionCompletedLocalDates(
+                            List.of(USER_A, USER_B), START, END, "Asia/Seoul");
+
+            assertThat(result.get(USER_A))
+                    .containsExactlyInAnyOrder(
+                            LocalDate.of(2026, 7, 27), LocalDate.of(2026, 7, 28));
+            assertThat(result.get(USER_B)).containsExactly(LocalDate.of(2026, 7, 26));
+        }
+
+        @Test
+        @DisplayName("잘못된 타임존이면 Asia/Seoul 로 폴백한다")
+        void fallsBackToSeoulOnInvalidTimezone() {
+            when(missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(
+                            List.of(USER_A), START, END))
+                    .thenReturn(List.<Object[]>of(new Object[] {USER_A, LocalDateTime.of(2026, 7, 27, 0, 30)}));
+            when(dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(
+                            List.of(USER_A), START, END))
+                    .thenReturn(List.of());
+
+            Map<String, Set<LocalDate>> result =
+                    facadeService.findMissionCompletedLocalDates(
+                            List.of(USER_A), START, END, "Not/AZone");
+
+            // +9 폴백 → 07-27
+            assertThat(result.get(USER_A)).containsExactly(LocalDate.of(2026, 7, 27));
+        }
+
+        @Test
+        @DisplayName("대상 유저가 비면 조회 없이 빈 맵을 반환한다")
+        void emptyUserIds() {
+            assertThat(facadeService.findMissionCompletedLocalDates(List.of(), START, END, "Asia/Seoul"))
+                    .isEmpty();
         }
     }
 }

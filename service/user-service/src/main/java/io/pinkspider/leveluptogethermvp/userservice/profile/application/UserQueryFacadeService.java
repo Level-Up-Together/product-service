@@ -132,6 +132,23 @@ public class UserQueryFacadeService implements UserQueryFacade {
             .orElse("Asia/Seoul");
     }
 
+    @Override
+    public Map<String, String> getPreferredTimezones(java.util.Collection<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        Map<String, String> byId = new java.util.HashMap<>();
+        for (Object[] row : userRepository.findPreferredTimezonesByIdIn(userIds)) {
+            String tz = (String) row[1];
+            byId.put((String) row[0], tz != null ? tz : "Asia/Seoul");
+        }
+        // 조회되지 않은(탈퇴/삭제 등) 유저도 기본값으로 채워 항상 요청 ID 전체를 담아 돌려준다.
+        for (String userId : userIds) {
+            byId.putIfAbsent(userId, "Asia/Seoul");
+        }
+        return byId;
+    }
+
     // ========== 친구 관계 ==========
 
     public List<String> getFriendIds(String userId) {

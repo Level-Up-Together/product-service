@@ -25,6 +25,18 @@ public interface DailyMissionInstanceRepository extends JpaRepository<DailyMissi
     List<DailyMissionInstance> findByParticipantId(Long participantId);
 
     /**
+     * LUT-529: 여러 유저의 완료(status=COMPLETED) 고정 미션 완료 시각 배치 조회. 아이템 푸시 상태 판정·백오프용. (userId,
+     * completedAt) 쌍을 돌려주며 호출부에서 유저 타임존 로컬 날짜로 버킷팅한다.
+     */
+    @Query("SELECT mp.userId, dmi.completedAt FROM DailyMissionInstance dmi JOIN dmi.participant mp "
+        + "WHERE mp.userId IN :userIds AND dmi.status = 'COMPLETED' "
+        + "AND dmi.completedAt >= :startUtc AND dmi.completedAt < :endUtc")
+    List<Object[]> findCompletedUserAndTimeByUserIdIn(
+        @Param("userIds") java.util.Collection<String> userIds,
+        @Param("startUtc") LocalDateTime startUtc,
+        @Param("endUtc") LocalDateTime endUtc);
+
+    /**
      * 참여자의 특정 상태 인스턴스 조회
      */
     List<DailyMissionInstance> findByParticipantIdAndStatus(Long participantId, ExecutionStatus status);

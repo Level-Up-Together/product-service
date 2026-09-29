@@ -9,6 +9,7 @@ import io.pinkspider.leveluptogethermvp.missionservice.domain.entity.MissionTemp
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.DailyMissionInstanceRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionExecutionRepository;
 import io.pinkspider.leveluptogethermvp.missionservice.infrastructure.MissionTemplateRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Map;
@@ -144,5 +145,47 @@ public class MissionQueryFacadeService implements MissionQueryFacade {
         }
         return missionTemplateRepository.findAllById(templateIds).stream()
             .collect(Collectors.toMap(MissionTemplate::getId, MissionTemplate::getTitle));
+    }
+
+    @Override
+    public Map<String, Set<LocalDate>> findMissionCompletedLocalDates(
+        java.util.Collection<String> userIds,
+        LocalDateTime startUtc,
+        LocalDateTime endUtc,
+        String timezone) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        java.time.ZoneId zone;
+        try {
+            zone = java.time.ZoneId.of(timezone);
+        } catch (Exception e) {
+            zone = java.time.ZoneId.of("Asia/Seoul");
+        }
+
+        Map<String, Set<LocalDate>> result = new java.util.HashMap<>();
+        // 일반 미션 + 고정 미션 완료 기록 합집합 — completedAt(UTC) 을 유저 타임존 로컬 날짜로 버킷팅
+        accumulateCompletedDates(
+            result, missionExecutionRepository.findCompletedUserAndTimeByUserIdIn(userIds, startUtc, endUtc), zone);
+        accumulateCompletedDates(
+            result,
+            dailyMissionInstanceRepository.findCompletedUserAndTimeByUserIdIn(userIds, startUtc, endUtc),
+            zone);
+        return result;
+    }
+
+    /** (userId, completedAt) 행들을 유저별 로컬 날짜 집합으로 누적한다. completedAt(UTC) 을 zone 로컬 날짜로 변환. */
+    private void accumulateCompletedDates(
+        Map<String, Set<LocalDate>> acc, java.util.List<Object[]> rows, java.time.ZoneId zone) {
+        for (Object[] row : rows) {
+            String userId = (String) row[0];
+            LocalDateTime completedAtUtc = (LocalDateTime) row[1];
+            if (completedAtUtc == null) {
+                continue;
+            }
+            LocalDate localDate =
+                completedAtUtc.atZone(java.time.ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate();
+            acc.computeIfAbsent(userId, k -> new HashSet<>()).add(localDate);
+        }
     }
 }
