@@ -42,7 +42,7 @@ public class ItemPushMessageAdminService {
                                 request.getMessageEn(),
                                 request.getMessageAr(),
                                 request.getMessageJa(),
-                                request.getSendTime(),
+                                request.getTriggerType(),
                                 request.getEnabled(),
                                 adminId));
         return ItemPushMessageResponse.from(saved);
@@ -55,7 +55,7 @@ public class ItemPushMessageAdminService {
                 request.getMessageEn(),
                 request.getMessageAr(),
                 request.getMessageJa(),
-                request.getSendTime());
+                request.getTriggerType());
         if (request.getEnabled() != null) {
             message.changeEnabled(request.getEnabled());
         }

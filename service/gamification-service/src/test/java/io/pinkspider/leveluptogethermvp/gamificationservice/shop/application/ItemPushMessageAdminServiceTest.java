@@ -12,6 +12,7 @@ import io.pinkspider.global.exception.CustomException;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto.ItemPushMessageRequest;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushMessageRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ShopItemRepository;
@@ -53,7 +54,7 @@ class ItemPushMessageAdminServiceTest {
     private ItemPushMessageRequest request() {
         return ItemPushMessageRequest.builder()
                 .message("시련의 장미가 부르고 있어요.")
-                .sendTime("09:00")
+                .triggerType(ItemPushTriggerType.AFTER_COMPLETE)
                 .enabled(true)
                 .build();
     }
@@ -96,7 +97,8 @@ class ItemPushMessageAdminServiceTest {
     @DisplayName("토글은 활성 상태를 반전한다")
     void toggleFlipsEnabled() {
         ItemPushMessage msg =
-                ItemPushMessage.create(headItem, "x", null, null, null, "09:00", true, 1L);
+                ItemPushMessage.create(
+                        headItem, "x", null, null, null, ItemPushTriggerType.ANY, true, 1L);
         setId(msg, 5L);
         when(shopItemRepository.findById(HEAD_ID)).thenReturn(Optional.of(headItem));
         when(itemPushMessageRepository.findById(5L)).thenReturn(Optional.of(msg));
@@ -110,7 +112,8 @@ class ItemPushMessageAdminServiceTest {
     @DisplayName("다른 아이템 소속 메시지를 수정하려 하면 404 (not_found)")
     void rejectsMessageFromAnotherItem() {
         ItemPushMessage msg =
-                ItemPushMessage.create(headItem, "x", null, null, null, "09:00", true, 1L);
+                ItemPushMessage.create(
+                        headItem, "x", null, null, null, ItemPushTriggerType.ANY, true, 1L);
         setId(msg, 5L); // shopItem = headItem(100)
         when(shopItemRepository.findById(999L))
                 .thenReturn(

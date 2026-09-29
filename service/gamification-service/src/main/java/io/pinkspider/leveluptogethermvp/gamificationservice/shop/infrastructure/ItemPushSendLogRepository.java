@@ -9,7 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ItemPushSendLogRepository extends JpaRepository<ItemPushSendLog, Long> {
 
-    /** 슬롯 단위 발송 여부 (fast-path 중복 체크). 최종 방어는 uk_item_push_send_slot 유니크 제약. */
-    boolean existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-            String userId, Long shopItemId, LocalDate sendDate, String sendTime);
+    /** 유저·로컬일자 발송 여부 (fast-path 중복 체크). 최종 방어는 uk_item_push_send_user_date 유니크 제약. (LUT-528) */
+    boolean existsByUserIdAndSendDate(String userId, LocalDate sendDate);
 }

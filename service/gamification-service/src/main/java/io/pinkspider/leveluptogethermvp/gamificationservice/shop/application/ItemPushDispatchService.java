@@ -16,8 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * LUT-516: 장착 아이템 푸시 유저 단위 발송 처리. 스케줄러와 분리한 별도 빈이라 {@code @Transactional} 이 실제 적용되고(자가호출 아님), 유저별 짧은
- * 트랜잭션이 커밋되는 순간 AFTER_COMMIT 리스너(notification-service)가 발동한다. 슬롯 UNIQUE 로 다중 인스턴스/재실행에도 정확히 1회.
+ * LUT-516/528: 장착 아이템 푸시 유저 단위 발송 처리. 스케줄러와 분리한 별도 빈이라 {@code @Transactional} 이 실제 적용되고(자가호출 아님),
+ * 유저별 짧은 트랜잭션이 커밋되는 순간 AFTER_COMMIT 리스너(notification-service)가 발동한다. (user_id, send_date) UNIQUE 로 다중
+ * 인스턴스/재실행에도 유저·로컬날짜당 정확히 1회.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class ItemPushDispatchService {
     private final ItemPushSendLogRepository sendLogRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    // 같은 시각 복수 메시지 중 랜덤 1개 선택 (테스트에서 고정 주입용, package-private setter)
+    // 대사 풀에서 랜덤 1개 선택 (테스트에서 고정 주입용, package-private setter)
     private Random random = new Random();
 
     void setRandom(Random random) {
@@ -35,7 +36,8 @@ public class ItemPushDispatchService {
     }
 
     /**
-     * 한 유저의 한 슬롯 발송 시도. 이미 발송했으면(슬롯 중복) 아무것도 하지 않는다. 같은 슬롯에 여러 메시지면 랜덤 1개만 고른다.
+     * 한 유저의 하루 발송 시도. 이미 오늘 발송했으면 아무것도 하지 않는다. 아이템의 대사 풀에서 랜덤 1개를 고른다. (LUT-528: 상태별 대사 선택은 발송 로직
+     * 티켓에서 도입 — 현재는 랜덤 1개.)
      */
     @Transactional(transactionManager = "gamificationTransactionManager")
     public void trySendForUser(
@@ -43,17 +45,16 @@ public class ItemPushDispatchService {
             ShopItem item,
             LocalDate localDate,
             String slot,
-            List<ItemPushMessage> dueForSlot) {
-        // 1) 빠른 중복 체크
-        if (sendLogRepository.existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-                userId, item.getId(), localDate, slot)) {
+            List<ItemPushMessage> messages) {
+        // 1) 빠른 중복 체크 — 유저·로컬날짜당 1건
+        if (sendLogRepository.existsByUserIdAndSendDate(userId, localDate)) {
             return;
         }
 
-        // 2) 같은 시각 메시지 중 랜덤 1개
-        ItemPushMessage picked = dueForSlot.get(random.nextInt(dueForSlot.size()));
+        // 2) 대사 풀에서 랜덤 1개
+        ItemPushMessage picked = messages.get(random.nextInt(messages.size()));
 
-        // 3) 슬롯 선점 — 유니크 위반이면 다른 인스턴스가 이미 처리한 것이므로 조용히 종료
+        // 3) 발송 선점 — 유니크 위반이면 다른 인스턴스가 이미 처리한 것이므로 조용히 종료
         try {
             sendLogRepository.saveAndFlush(
                     ItemPushSendLog.record(picked.getId(), item.getId(), userId, localDate, slot));

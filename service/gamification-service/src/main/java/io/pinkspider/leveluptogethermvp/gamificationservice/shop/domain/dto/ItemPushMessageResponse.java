@@ -3,6 +3,7 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,7 +24,7 @@ public class ItemPushMessageResponse {
     private String messageEn;
     private String messageAr;
     private String messageJa;
-    private String sendTime;
+    private ItemPushTriggerType triggerType;
     private Boolean enabled;
     private Long createdBy;
     private LocalDateTime createdAt;
@@ -37,7 +38,7 @@ public class ItemPushMessageResponse {
                 .messageEn(entity.getMessageEn())
                 .messageAr(entity.getMessageAr())
                 .messageJa(entity.getMessageJa())
-                .sendTime(entity.getSendTime())
+                .triggerType(entity.getTriggerType())
                 .enabled(entity.getEnabled())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())

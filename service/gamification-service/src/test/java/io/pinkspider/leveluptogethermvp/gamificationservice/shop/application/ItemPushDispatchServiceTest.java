@@ -12,6 +12,7 @@ import io.pinkspider.global.event.EquippedItemPushDueEvent;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSendLog;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSendLogRepository;
 import java.time.LocalDate;
@@ -54,7 +55,8 @@ class ItemPushDispatchServiceTest {
 
     private ItemPushMessage message(long id, String text) {
         ItemPushMessage m =
-                ItemPushMessage.create(headItem, text, null, null, null, SLOT, true, 1L);
+                ItemPushMessage.create(
+                        headItem, text, null, null, null, ItemPushTriggerType.ANY, true, 1L);
         setId(m, id);
         return m;
     }
@@ -62,8 +64,7 @@ class ItemPushDispatchServiceTest {
     @Test
     @DisplayName("단일 메시지면 로그 기록 후 그 메시지로 이벤트를 발행한다")
     void publishesSingleMessage() {
-        when(sendLogRepository.existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-                        USER_ID, ITEM_ID, DATE, SLOT))
+        when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE))
                 .thenReturn(false);
         when(random.nextInt(1)).thenReturn(0);
         ItemPushMessage only = message(1L, "안녕 {nickname}");
@@ -82,8 +83,7 @@ class ItemPushDispatchServiceTest {
     @Test
     @DisplayName("같은 슬롯에 여러 메시지면 랜덤으로 고른 1개만 발행한다")
     void picksOneRandomlyAmongSameSlot() {
-        when(sendLogRepository.existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-                        USER_ID, ITEM_ID, DATE, SLOT))
+        when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE))
                 .thenReturn(false);
         List<ItemPushMessage> due =
                 List.of(message(10L, "A"), message(11L, "B"), message(12L, "C"));
@@ -100,8 +100,7 @@ class ItemPushDispatchServiceTest {
     @Test
     @DisplayName("이미 발송한 슬롯이면 기록·발행하지 않는다")
     void skipsWhenAlreadySent() {
-        when(sendLogRepository.existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-                        USER_ID, ITEM_ID, DATE, SLOT))
+        when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE))
                 .thenReturn(true);
 
         dispatchService.trySendForUser(USER_ID, headItem, DATE, SLOT, List.of(message(1L, "x")));
@@ -113,8 +112,7 @@ class ItemPushDispatchServiceTest {
     @Test
     @DisplayName("슬롯 선점 경합(유니크 위반) 시 이벤트를 발행하지 않는다")
     void skipsPublishOnUniqueViolation() {
-        when(sendLogRepository.existsByUserIdAndShopItemIdAndSendDateAndSendTime(
-                        USER_ID, ITEM_ID, DATE, SLOT))
+        when(sendLogRepository.existsByUserIdAndSendDate(USER_ID, DATE))
                 .thenReturn(false);
         when(random.nextInt(anyInt())).thenReturn(0);
         when(sendLogRepository.saveAndFlush(any(ItemPushSendLog.class)))

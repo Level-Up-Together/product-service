@@ -12,9 +12,12 @@ import static org.mockito.Mockito.when;
 import io.pinkspider.global.facade.UserQueryFacade;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.application.ItemPushDispatchService;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushMessage;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ItemPushSetting;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity.ShopItem;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ShopItemType;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushMessageRepository;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.ItemPushSettingRepository;
 import io.pinkspider.leveluptogethermvp.gamificationservice.shop.infrastructure.UserItemRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -37,6 +40,7 @@ import org.mockito.quality.Strictness;
 class ItemPushSchedulerTest {
 
     @Mock private ItemPushMessageRepository itemPushMessageRepository;
+    @Mock private ItemPushSettingRepository itemPushSettingRepository;
     @Mock private UserItemRepository userItemRepository;
     @Mock private UserQueryFacade userQueryFacade;
     @Mock private ItemPushDispatchService itemPushDispatchService;
@@ -60,11 +64,21 @@ class ItemPushSchedulerTest {
         setId(headItem, ITEM_ID);
         nineAmMessage =
                 ItemPushMessage.create(
-                        headItem, "시련의 장미가 {nickname}님을 부르고 있어요.", null, null, null, "09:00", true, 1L);
+                        headItem,
+                        "시련의 장미가 {nickname}님을 부르고 있어요.",
+                        null,
+                        null,
+                        null,
+                        ItemPushTriggerType.ANY,
+                        true,
+                        1L);
         setId(nineAmMessage, 1L);
 
         when(itemPushMessageRepository.findEnabledWithItemByType(ShopItemType.HEAD))
                 .thenReturn(List.of(nineAmMessage));
+        // LUT-528: 발송 시각은 아이템 단위 설정(item_push_setting)에서 온다
+        when(itemPushSettingRepository.findByShopItemIdIn(any()))
+                .thenReturn(List.of(ItemPushSetting.of(ITEM_ID, "09:00", 1L)));
         when(userItemRepository.findUserIdsByEquippedShopItemId(ITEM_ID))
                 .thenReturn(List.of(USER_ID));
         when(userQueryFacade.getPreferredTimezone(USER_ID)).thenReturn("Asia/Seoul");

@@ -1,8 +1,11 @@
 package io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.entity;
 
 import io.pinkspider.global.domain.auditentity.LocalDateTimeBaseEntity;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -67,9 +70,11 @@ public class ItemPushMessage extends LocalDateTimeBaseEntity {
     private String messageJa;
 
     @NotNull
-    @Column(name = "send_time", nullable = false, length = 5)
-    @Comment("발송 시각 HH:mm (유저 로컬 기준)")
-    private String sendTime;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trigger_type", nullable = false, length = 30)
+    @Comment("대사 상태 태그 (ANY/BEFORE_ACTIVITY/AFTER_COMPLETE/INACTIVE, LUT-528)")
+    @Builder.Default
+    private ItemPushTriggerType triggerType = ItemPushTriggerType.ANY;
 
     @NotNull
     @Column(name = "enabled", nullable = false)
@@ -87,7 +92,7 @@ public class ItemPushMessage extends LocalDateTimeBaseEntity {
             String messageEn,
             String messageAr,
             String messageJa,
-            String sendTime,
+            ItemPushTriggerType triggerType,
             Boolean enabled,
             Long createdBy) {
         return ItemPushMessage.builder()
@@ -96,19 +101,23 @@ public class ItemPushMessage extends LocalDateTimeBaseEntity {
                 .messageEn(messageEn)
                 .messageAr(messageAr)
                 .messageJa(messageJa)
-                .sendTime(sendTime)
+                .triggerType(triggerType == null ? ItemPushTriggerType.ANY : triggerType)
                 .enabled(enabled == null || enabled)
                 .createdBy(createdBy)
                 .build();
     }
 
     public void update(
-            String message, String messageEn, String messageAr, String messageJa, String sendTime) {
+            String message,
+            String messageEn,
+            String messageAr,
+            String messageJa,
+            ItemPushTriggerType triggerType) {
         this.message = message;
         this.messageEn = messageEn;
         this.messageAr = messageAr;
         this.messageJa = messageJa;
-        this.sendTime = sendTime;
+        this.triggerType = triggerType == null ? ItemPushTriggerType.ANY : triggerType;
     }
 
     public void changeEnabled(boolean enabled) {

@@ -19,8 +19,9 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Comment;
 
 /**
- * LUT-516: 장착 아이템 푸시 발송 중복방지 원장. (user_id, shop_item_id, send_date, send_time) 유니크로 유저·아이템·로컬날짜·슬롯당
- * 정확히 1회 발송을 보장한다 — 같은 슬롯에 여러 메시지가 있어 랜덤 1개를 골라도 슬롯 단위로 잠기므로 이중 발송이 없다. 다중 인스턴스/재실행 방어.
+ * LUT-516/528: 장착 아이템 푸시 발송 중복방지 원장. (user_id, send_date) 유니크로 유저·로컬날짜당 정확히 1회 발송을 보장한다 —
+ * 아이템 단위 슬롯이 1개(item_push_setting)이고 대사 풀에서 랜덤 1개를 골라도 유저·일자 단위로 잠기므로 이중 발송이 없다. 다중 인스턴스/재실행 방어.
+ * shop_item_id·send_time·item_push_message_id 는 감사/로테이션용으로 유지한다.
  */
 @Entity
 @Getter
@@ -31,8 +32,8 @@ import org.hibernate.annotations.Comment;
         name = "item_push_send_log",
         uniqueConstraints =
                 @UniqueConstraint(
-                        name = "uk_item_push_send_slot",
-                        columnNames = {"user_id", "shop_item_id", "send_date", "send_time"}),
+                        name = "uk_item_push_send_user_date",
+                        columnNames = {"user_id", "send_date"}),
         indexes = @Index(name = "idx_item_push_send_log_send_date", columnList = "send_date"))
 @Comment("장착 아이템 푸시 발송 중복방지 원장")
 public class ItemPushSendLog extends LocalDateTimeBaseEntity {

@@ -2,8 +2,8 @@ package io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import io.pinkspider.leveluptogethermvp.gamificationservice.shop.domain.enums.ItemPushTriggerType;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,9 +31,8 @@ public class ItemPushMessageRequest {
     @Size(max = 500, message = "일본어 메시지는 500자 이내여야 합니다.")
     private String messageJa;
 
-    @NotBlank(message = "발송 시각은 필수입니다.")
-    @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "발송 시각은 HH:mm 형식이어야 합니다.")
-    private String sendTime;
+    /** 대사 상태 태그 (미지정 시 ANY로 처리). enum 이외 값이면 역직렬화 단계에서 400. */
+    private ItemPushTriggerType triggerType;
 
     /** 미지정 시 활성(true)으로 생성 */
     private Boolean enabled;
